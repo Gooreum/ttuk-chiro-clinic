@@ -26,6 +26,18 @@
 
 GLB 재질 이름(끝부분): `.body`(피부), `.high-poly`(눈알), `.cornea`(각막), `.short02`(머리카락), `.eyebrow001`, `.eyelashes01`, `.teeth_base`, `.tongue01`. `realAssets.js`가 이 이름으로 재질을 고른다.
 
+## 환자 몸
+
+`blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 팔을 내린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후
+
+```
+$G resize body_raw.glb a.glb --width 1024 --height 1024
+$G webp a.glb b.glb --quality 85
+$G meshopt b.glb ../../public/models/patient01/body.glb
+```
+
+로그의 `TOP`이 머리 스크립트의 `TOP`(1.6254)과 같아야 목 이음매가 맞는다. 재질 이름 끝은 `.skin`, `.shirt`, `.pants`.
+
 ## 치료사 손
 
 `blender -b --python mpfb_export_hands.py -- hands_raw.glb 1024 16` (중년 남성, `game_engine` 리그, 손과 팔뚝 손목 쪽 58%만 남김, 피부×AO를 1024 맵에 굽기) 후
