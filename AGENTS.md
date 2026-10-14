@@ -41,9 +41,10 @@
 | `scene/textures.js` | 캔버스 텍스처(나무 바닥, 러그, 경추 포스터, 자격증). 폰트 로드 후 `redraw()` |
 | `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
 | `scene/room.js` | 진료실, 교정 테이블 |
-| `scene/patientModel.js` | 환자 몸, `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 경추 X-ray(`vert`), 링/충격파/파편 |
+| `scene/patientModel.js` | 환자 몸, `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 링/충격파/파편. 교정 중 흐려지는 손·가운 재질 `crackFadeMats` |
+| `scene/xray.js` | 교정 X-ray: 경추 7마디·추간판·척수·신경근(단순화한 형태, 해부학 모델 아님), 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`)가 교정 순간 튕겨 들어가며 산호색에서 민트색으로 바뀐다 |
 | `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
-| `scene/realAssets.js` | 사실적 glTF 에셋(첫 환자 `look.real`만): 환자 머리(MakeHuman, 표정 블렌드셰이프 12개)와 치료사 손(WebXR). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다 |
+| `scene/realAssets.js` | 사실적 glTF 에셋(첫 환자 `look.real`만): 환자 머리(MakeHuman, 표정 블렌드셰이프 12개, 각막 반사 셸 `.cornea`, 입 벌림을 따라가는 치아·혀, AO가 구워진 피부)와 치료사 손(WebXR). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다 |
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
 | `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
@@ -53,7 +54,7 @@
 | `ui/hud.js` | 토스트, 말풍선, 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |
 | `ui/ring.js` | `#hud` 2D 캔버스에 머리 둘레 조준 링(3-6) |
 | `ui/tuneSheet.js` | 튜닝 패널 |
-| `game/loop.js` | `frame`: 슬로모션(`S.slow`), 줌(`S.zoom`), X-ray(`S.xray`/`S.align`), 표정, 카메라 |
+| `game/loop.js` | `frame`: 슬로모션(`S.slow`), 줌(`S.zoom`), X-ray(`S.xray`/`S.xpre`/`S.hurtX`/`S.crackT` → `updateXray`), 표정, 카메라 |
 | `style.css` | 전체 스타일 (원본 `<style>` 그대로) |
 
 ### 좌표계 (중요)
