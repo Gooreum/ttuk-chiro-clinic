@@ -8,7 +8,7 @@ import { setFace } from "./flow.js";
 import { renderer, scene, camera, camBase, camLook } from "../scene/renderer.js";
 import { mats } from "../scene/materials.js";
 import {
-  torso, collar, pivot, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
+  torso, collar, pivot, head, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
 import { updateXray, XRAY_LEVEL, XRAY_PRE } from "../scene/xray.js";
@@ -18,10 +18,11 @@ import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody } from "../scene/realAssets.js";
 import { updateBreathFx } from "../scene/breathFx.js";
+import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble");
+const elHud = $("#hud"), elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble");
 let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
@@ -32,7 +33,9 @@ function fadeMats(list, opacity, depthWrite){
     m.opacity = on ? opacity : 1; m.depthWrite = on ? depthWrite : true;
   });
 }
-const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new THREE.Vector3();
+const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new THREE.Vector3(), faceW = new THREE.Vector3();
+let fz = 0;
+const NOD = 1.4*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 export function frame(now){
   const target = S.target, cur = S.cur, input = S.input, face = () => S.face;
@@ -57,10 +60,11 @@ export function frame(now){
   const tu = 1 - S.thrust, snap = S.thrust > 0 ? (tu < 0.25 ? Math.sin(tu/0.25*Math.PI/2) : Math.pow(1 - (tu - 0.25)/0.75, 2)) : 0;
   const thrustDeg = snap * 12 * Math.sign(cur.rot || 1);
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
-  pivot.rotation.set(0, cur.bend*DEG, (cur.rot + thrustDeg + jit)*DEG);
-
-  // breathing: the chest rises and falls (primitive torso, or the realistic body's breath shape), a faint mist on the out-breath
+  // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
+  // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
+  pivot.rotation.set(-NOD*ease(br.fill), cur.bend*DEG, (cur.rot + thrustDeg + jit)*DEG);
+
   torso.scale.z = 0.7 + 0.05*br.fill;
   collar.position.y = 1.05 + 0.012*br.fill;
   updateRealBody(ease(br.fill));
@@ -80,19 +84,21 @@ export function frame(now){
     S.nextPulse = now + lerp(560, 110, c);
   }
   if(playing && target && !S.saidIdle && now - S.patientStart > 16000){ S.saidIdle = true; say(target.lines.idle, 1800); }
-  if(playing && target && target.trait === "nervous" && face() !== "ouch") setFace(now - S.patientStart > 9000 ? "tense" : "worried");
+  if(playing && target && target.trait === "nervous" && isBaseFace(face())) setFace(now - S.patientStart > 9000 ? "tense" : "worried");
   ringMat.opacity = zone ? 0.55 + Math.sin(now*0.012)*0.25 : c*0.2;
   mats.headSkin.emissiveIntensity = zone ? 0.14 : c*0.05;
   elAdj.classList.toggle("ready", zone);
 
   // face
-  const f = face();
-  const eyesOpenNow = f === "worried" || f === "tense" || f === "startle";
+  const f = face(), pf = primitiveFace(f);
+  const eyesOpenNow = faceEyesOpen(f);
   if(now > blinkAt){ blinkAt = now + 2500 + Math.random()*2500; }
   const blinking = eyesOpenNow && blinkAt - now > 2350 && blinkAt - now < 2500;
   // faces ease on real time (the slow-motion would turn the startle into a slow yawn)
-  if(realHeadActive()) updateRealFace(f, blinking, 1 - Math.exp(-rdt*(f === "startle" ? 22 : 9)), mats.headSkin.emissiveIntensity);
+  const jolt = f === "startle" || f === "gasp" || f === "wince";
+  if(realHeadActive()) updateRealFace(f, blinking, 1 - Math.exp(-rdt*(jolt ? 22 : 7)), mats.headSkin.emissiveIntensity, now/1000, br.fill);
   else{
+  const f = pf;
   lids.forEach(l => { l.visible = !eyesOpenNow || blinking; const sq = f === "ouch" ? 1.7 : 1; l.scale.x += (sq - l.scale.x)*k; });
   eyesOpen.forEach(e => { e.visible = eyesOpenNow && !blinking; });
   const browAng = f === "worried" || f === "tense" || f === "startle" ? -0.38 : f === "ouch" ? 0.42 : f === "relief" ? -0.12 : 0;
@@ -183,6 +189,14 @@ export function frame(now){
   const orbitX = (target ? -target.side : 1)*0.2;
   camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
+  // after the x-ray: lean in on the face while the patient reacts (the reaction is the payoff, it should read)
+  fz += ((now > S.reactFrom && now < S.reactUntil ? 1 : 0) - fz)*(1 - Math.exp(-rdt*2.5));
+  if(fz > 0.001){
+    head.localToWorld(faceW.set(0, 0.08, 0.04));
+    camPos.lerp(tmpA.copy(faceW).add(tmpB.set(0, 0.3, -0.13)), 0.6*fz);
+    camTgt.lerp(faceW, 0.7*fz);
+  }
+  elHud.style.opacity = (1 - 0.85*fz).toFixed(3);       // the aim ring steps back off the face meanwhile
   camera.position.copy(camPos);
   if(!reduce && S.shake > 0){
     camera.position.x += (Math.random()-0.5)*0.03*S.shake;

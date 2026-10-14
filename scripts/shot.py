@@ -1,10 +1,11 @@
 """Headless check for 뚝 카이로 클리닉.
 
-Takes three landscape-phone screenshots into ./shots/<label>:
+Takes five landscape-phone screenshots into ./shots/<label>:
   1-title.png  intro screen
   2-play.png   first patient, after a short drag
   3-crack.png  the success moment (x-ray, zoom, speech bubble)
-  4-switch.png  4.6 s later: the same patient's opposite side (banner, mirrored target)
+  4-react.png   5.3 s after the crack: the patient's second reaction face, camera leaning in on it
+  5-switch.png  7.6 s after the crack: the same patient's opposite side (banner, mirrored target)
 
 Two targets:
   python -I scripts/shot.py dist-shot                 Vite build made with `npm run build:shot`
@@ -106,8 +107,11 @@ async def shoot(url, out):
         await run(420)
         await page.screenshot(path=str(out / "3-crack.png"))
 
-        await run(4600, 500)
-        await page.screenshot(path=str(out / "4-switch.png"))
+        # the patient's reaction: second face held, camera leaning in on it
+        await run(4900, 500)
+        await page.screenshot(path=str(out / "4-react.png"))
+        await run(2300, 500)
+        await page.screenshot(path=str(out / "5-switch.png"))
         await browser.close()
     return errors
 

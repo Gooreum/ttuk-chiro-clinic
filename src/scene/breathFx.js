@@ -37,7 +37,7 @@ export function updateBreathFx(dt, br, on){
     if(p.life <= 0){ p.s.visible = false; return; }
     const a = 1 - p.life;
     p.s.position.addScaledVector(p.v, dt);
-    p.s.scale.setScalar(0.03 + 0.08*a);
-    p.s.material.opacity = 0.7*Math.sin(Math.PI*Math.min(1, a*1.2));
+    p.s.scale.setScalar(0.035 + 0.11*a);
+    p.s.material.opacity = 0.85*Math.sin(Math.PI*Math.min(1, a*1.2));
   });
 }
