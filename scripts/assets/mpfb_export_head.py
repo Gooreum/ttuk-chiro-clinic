@@ -1,5 +1,5 @@
 """Build patient01 head GLB from the MPFB character in park.blend (mpfb_build_character.py, with teeth + tongue).
-   - bake the phenotype into the basis, add 12 expression-unit shape keys (Asian set)
+   - bake the phenotype into the basis, add 26 expression-unit shape keys (Asian set)
    - refit eyebrows/eyelashes/teeth/tongue per expression and store as their own shape keys
      (teeth/tongue keep only the units that actually move them; only the lower teeth row follows the jaw and the
       tongue rides on it; every proxy key is left at weight 0 so the GLB's default morph weights are 0)
@@ -23,7 +23,12 @@ OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 2048
 AO_MIX=0.7         # how much of the baked occlusion darkens the skin (0 = none)
 UNITS=["eye-left-closure","eye-right-closure","eye-left-slit","eye-right-slit",
        "eyebrows-left-inner-up","eyebrows-right-inner-up","eyebrows-left-down","eyebrows-right-down",
-       "mouth-corner-puller","mouth-open","mouth-compression","mouth-pursing"]
+       "mouth-corner-puller","mouth-open","mouth-compression","mouth-pursing",
+       # reactions after the crack (core/faceRig.js): wide eyes, raised outer brows, grin, grimace, sneer, pout
+       "eye-left-opened-up","eye-right-opened-up","eyebrows-left-extern-up","eyebrows-right-extern-up",
+       "mouth-retraction","mouth-upward-retraction","mouth-elevation","mouth-depression",
+       "nose-left-elevation","nose-right-elevation","mouth-protusion","mouth-eversion",
+       "nose-left-dilatation","nose-right-dilatation"]      # nostrils flare on the in-breath
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from patients import PATIENTS
 body=[o for o in bpy.data.objects if o.name.endswith(".body")][0]

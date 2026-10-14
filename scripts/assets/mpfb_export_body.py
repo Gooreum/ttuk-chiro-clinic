@@ -7,7 +7,8 @@
    - skin: remaining UV islands repacked into one map, Cycles bake of the original diffuse x ambient occlusion
    - a two-bone skin (body, neck): the neck bone carries the seam ring (weight 1) and fades out over NECK_FADE, so the
      game turns the upper neck with the head pivot and the seam never opens
-   - shape key "breath": chest and belly rise (front only, back stays on the table), on skin and shirt alike
+   - shape key "breath": chest and belly rise (front only, back stays on the table) and the shoulders lift toward the
+     head, on skin and shirt alike (kept clear of the neck seam)
    usage: blender -b --python mpfb_export_body.py -- out.glb [bake_size=1024] [cycles_samples=16] [patient01]"""
 import bpy, bmesh, importlib, sys, os, math
 import numpy as np
@@ -22,7 +23,8 @@ OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
 AO_MIX=0.7
 NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0
-BREATH=0.04          # chest/belly rise at full inhale (metres)
+BREATH=0.055         # chest/belly rise at full inhale (metres)
+SHRUG=0.02           # shoulders lift toward the head at full inhale (metres): the move that reads from the head end
 
 for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
 info=human_info(PID, rig="game_engine", clothes=True, face=False)
@@ -190,6 +192,8 @@ me.uv_layers.remove(me.uv_layers["UVOrig"])
 def bump(z):
     t=(z-(Z_PELVIS+0.04))/((Z_CLAV-0.03)-(Z_PELVIS+0.04))
     return math.sin(math.pi*max(0.0,min(1.0,t)))**0.7
+def smooth(a, b, x):
+    t=max(0.0, min(1.0, (x-a)/(b-a))); return t*t*(3-2*t)
 def breath_key(o, yc):
     o.shape_key_add(name="Basis", from_mix=False)
     k=o.shape_key_add(name="breath", from_mix=False)
@@ -198,7 +202,9 @@ def breath_key(o, yc):
         front=max(0.0, min(1.0, (yc - p.y)/0.09))           # 0 at the torso's mid-depth, 1 toward the front
         side=max(0.0, 1.0 - abs(p.x)/0.26)
         w=bump(p.z)*front*side
-        d.co=p+Vector((0.45*BREATH*w*(1 if p.x>0 else -1), -BREATH*w, 0))     # rises and widens
+        # shoulders and the top of the arms ride up, well clear of the neck seam (|x| <= 0.072)
+        sh=smooth(0.11, 0.18, abs(p.x))*smooth(Z_CLAV-0.32, Z_CLAV-0.12, p.z)
+        d.co=p+Vector((0.45*BREATH*w*(1 if p.x>0 else -1), -BREATH*w, SHRUG*sh))     # rises, widens, shrugs
     k.value=0.0
 ys=[v.co.y for v in cloth.data.vertices if abs(v.co.z-Z_CHEST)<0.05 and abs(v.co.x)<0.12]
 yc=(min(ys)+max(ys))/2 if ys else 0.0
