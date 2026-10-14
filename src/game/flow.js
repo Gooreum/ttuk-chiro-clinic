@@ -4,7 +4,7 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath } from "./feel.js";
 import { TRAITS, REVIEWS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
-import { scoreSuccess, rankTitle } from "../core/scoring.js";
+import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, tone, chime, vib } from "../audio/audio.js";
@@ -12,21 +12,36 @@ import { toast, say, headScreen, floater, renderPain, renderDots, renderSpine, c
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion } from "../input/motion.js";
 
-/* Flow: loadPatient -> adjust -> success / hurt -> finish (day log, best score in localStorage "chiroBest"). */
+/* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
+   (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite. */
 let bannerTimer = 0;
 export function setFace(f){ S.face = f; }
+// S.target = patient merged with the side being adjusted, so distAt / ring / x-ray read rot, bend, side as before.
+function aimAt(i){
+  const p = S.patients[S.idx];
+  S.sideIdx = i;
+  S.target = {...p, ...p.sides[i]};
+  return S.target;
+}
+const sideLabel = t => `C${t.seg}–C${t.seg+1} · ${t.side > 0 ? "오른쪽" : "왼쪽"} 회전 ${S.sideIdx+1}/2`;
+function showBanner(no, name, trait){
+  $("#bnNo").textContent = no; $("#bnName").textContent = name; $("#bnTrait").textContent = trait;
+  $("#banner").classList.add("show");
+  clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>$("#banner").classList.remove("show"), 2300);
+}
 function loadPatient(){
   S.busy = true;
   $("#fade").classList.add("on");
   setTimeout(() => {
-    const target = S.target = S.patients[S.idx];
+    S.sidePts = []; S.sideStars = [];
+    const target = aimAt(0);
     applyLook(target);
     $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
     $("#clock").textContent = clockTxt(S.idx);
     $("#pname").textContent = target.name;
     $("#page").textContent = `${target.age}세`;
     $("#pcc").textContent = target.cc;
-    $("#pseg").textContent = `C${target.seg}–C${target.seg+1} · ${target.side > 0 ? "오른쪽" : "왼쪽"} 회전`;
+    $("#pseg").textContent = sideLabel(target);
     const tr = target.trait ? TRAITS[target.trait] : null;
     $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
     renderSpine(target.seg); renderDots();
@@ -35,14 +50,24 @@ function loadPatient(){
     S.align = 0; S.xray = 0; S.xrayHold = 0;
     setFace(target.trait === "nervous" ? "worried" : "rest");
     $("#fade").classList.remove("on");
-    $("#bnNo").textContent = `${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`;
-    $("#bnName").textContent = `${target.name} 님 (${target.age})`;
-    $("#bnTrait").textContent = tr ? `${tr.label} · ${tr.desc}` : (S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : "");
-    $("#banner").classList.add("show");
-    clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>$("#banner").classList.remove("show"), 2300);
+    showBanner(`${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`, `${target.name} 님 (${target.age})`,
+      tr ? `${tr.label} · ${tr.desc}` : (S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : ""));
     setTimeout(() => say(S.target.lines.start, 2000), 500);
     setTimeout(() => { S.busy = false; S.patientStart = S.breathT0 = performance.now(); }, 450);
   }, 280);
+}
+
+/* First side done: same patient, opposite side. Only the aim target is reset, so the head eases back to centre. */
+function switchSide(){
+  const target = aimAt(1);
+  S.input.rot = S.input.bend = 0;
+  S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
+  S.align = 0; S.xray = 0; S.xrayHold = 0;
+  setFace(target.trait === "nervous" ? "worried" : "rest");
+  $("#pseg").textContent = sideLabel(target);
+  showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
+  say("반대쪽도 부탁해요", 1600);
+  S.busy = false; S.patientStart = S.breathT0 = performance.now();
 }
 
 export function adjust(src){
@@ -63,7 +88,8 @@ function success(d, exhale){
   const {perfect, base, comboBonus, pts} = r;
   S.streak = r.streak;
   S.score += pts;
-  S.results.push({name:target.name, age:target.age, pts, stars:r.stars, label: perfect ? "PERFECT" : "GOOD"});
+  S.sidePts.push(pts); S.sideStars.push(r.stars);
+  if(S.sideIdx === 1) S.results.push({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD"});
   $("#score").textContent = S.score; renderCombo();
 
   crackSound(perfect ? 3 : 2);
@@ -84,7 +110,7 @@ function success(d, exhale){
   if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
   setTimeout(() => say(target.lines.done, 1600), 650);
-  setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, 2300);
+  setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, 2300);
 }
 
 function hurt(msg){
@@ -98,7 +124,7 @@ function hurt(msg){
   say(target.lines.ouch, 1100);
   toast(msg, 1100);
   setTimeout(()=>{
-    if(S.pain >= 3){ S.results.push({name:target.name, age:target.age, pts:0, stars:0, label:"통증으로 중단"}); finish(); return; }
+    if(S.pain >= 3){ S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단"}); finish(); return; }
     setFace(target.trait === "nervous" ? "worried" : "rest"); S.busy = false;
   }, 1100);
 }
@@ -109,7 +135,7 @@ function finish(){
   const best = store.get("chiroBest", 0);
   const isBest = score > best && S.pain < 3;
   if(isBest) store.set("chiroBest", score);
-  const avg = score / S.patients.length;
+  const avg = crackAvg(score, S.patients.length);
   $("#rtitle").textContent = S.pain >= 3 ? "환자들이 도망갔어요" : "오늘 진료 끝";
   $("#rank").textContent = rankTitle(avg, S.pain);
   $("#rtotal").textContent = score;
