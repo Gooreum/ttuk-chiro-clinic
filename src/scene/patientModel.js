@@ -62,10 +62,12 @@ const glasses = new THREE.Group(); head.add(glasses);
 mesh(box(0.02,0.003,0.003), mats.frames, glasses, [0,0.124,-0.02], null, null, true);
 
 // therapist hands (palm + thumb along the jaw) and coat sleeves
+// handParts: every primitive hand mesh, so a realistic hand model can hide them (hands[] stay as forearm anchors).
+const handParts = [];
 const hands = [-1,1].map(s => {
   const h = mesh(cap(0.042,0.12), mats.doc, head, [0.135*s,-0.015,-0.025], [Math.PI/2,0,0.25*s], [1,1,0.75]);
-  mesh(cap(0.014,0.05), mats.doc, head, [0.112*s,0.03,0.03], [Math.PI/2,0,-0.5*s]);
-  [-0.03,0,0.03].forEach(dz => mesh(cap(0.012,0.04), mats.doc, head, [0.1*s,-0.07,0.0+dz], [0,0,0.9*s]));
+  handParts.push(h, mesh(cap(0.014,0.05), mats.doc, head, [0.112*s,0.03,0.03], [Math.PI/2,0,-0.5*s]));
+  [-0.03,0,0.03].forEach(dz => handParts.push(mesh(cap(0.012,0.04), mats.doc, head, [0.1*s,-0.07,0.0+dz], [0,0,0.9*s])));
   return h;
 });
 const forearms = [-1,1].map(s => {
@@ -109,6 +111,6 @@ const sparks = Array.from({length:14}, () => {
 
 export {
   torso, collar, pivot, head, hairShort, hairBald, hairLong, hairSpikes,
-  lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, glasses, hands, forearms,
+  lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, glasses, hands, handParts, forearms,
   UP, tmpA, tmpB, tmpC, boneMat, hitMat, discMat, vert, xrayMats, ringMat, waveMat, waveRing, sparks
 };

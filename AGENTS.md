@@ -14,6 +14,7 @@
 | `index.html` | 마크업만. `src/main.js`를 module로 불러온다 |
 | `src/` | 게임 코드 (아래 2절) |
 | `test/*.test.js` | vitest 단위 테스트 (`src/core` 순수 함수) |
+| `public/models/` | glTF 에셋(빌드 시 그대로 복사). 출처·라이선스는 `CREDITS.md` |
 | `legacy/index.html` | 모듈 분리 전 단일 파일 원본. 회귀 비교 기준이며 수정하지 않는다 |
 | `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간 스크린샷 3장 |
 | `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
@@ -41,7 +42,8 @@
 | `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
 | `scene/room.js` | 진료실, 교정 테이블 |
 | `scene/patientModel.js` | 환자 몸, `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 경추 X-ray(`vert`), 링/충격파/파편 |
-| `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형 |
+| `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
+| `scene/realAssets.js` | 사실적 glTF 에셋(지금은 치료사 손, 첫 환자만). 백그라운드 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관 |
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
 | `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |

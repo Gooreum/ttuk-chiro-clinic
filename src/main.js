@@ -7,6 +7,7 @@ import "./scene/textures.js";
 import "./scene/room.js";
 import "./scene/patientModel.js";
 import { applyLook } from "./scene/look.js";
+import { loadRealAssets } from "./scene/realAssets.js";
 import { layout } from "./input/orientation.js";
 import "./input/pointer.js";
 import "./ui/tuneSheet.js";
@@ -15,6 +16,7 @@ import { readColors } from "./ui/ring.js";
 import { frame } from "./game/loop.js";
 
 readColors();
+loadRealAssets();
 applyLook(ROSTER[0]);
 setFace("rest");
 layout();
