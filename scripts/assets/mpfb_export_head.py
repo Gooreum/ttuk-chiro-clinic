@@ -10,6 +10,7 @@
    - hair: short02 normal map attached
    - export GLB (meters, +Y up) with morph targets
    usage: blender -b park.blend --python mpfb_export_head.py -- out.glb [bake_size=2048] [cycles_samples=48]
+   The patient id (patients.py) is stored in the .blend by mpfb_build_character.py; baked images are named after it.
    (2048 / 48 takes ~6 min on an M-series CPU; the baked PNGs are written next to out.glb)"""
 import bpy, bmesh, importlib, sys, os, math, mathutils, mathutils.kdtree
 import numpy as np
@@ -23,9 +24,14 @@ AO_MIX=0.7         # how much of the baked occlusion darkens the skin (0 = none)
 UNITS=["eye-left-closure","eye-right-closure","eye-left-slit","eye-right-slit",
        "eyebrows-left-inner-up","eyebrows-right-inner-up","eyebrows-left-down","eyebrows-right-down",
        "mouth-corner-puller","mouth-open","mouth-compression","mouth-pursing"]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from patients import PATIENTS
 body=[o for o in bpy.data.objects if o.name.endswith(".body")][0]
-NAMES=["eyebrow001","eyelashes01","high-poly","short02","teeth_base","tongue01"]
+PID=body.get("patient_id", "patient01"); PRE=PATIENTS[PID]
+BROW, LASH, HAIR = PRE["eyebrows"], PRE["eyelashes"], PRE["hair"]
+NAMES=[BROW,LASH,"high-poly","teeth_base","tongue01"]+([HAIR] if HAIR else [])
 proxies={k:[o for o in bpy.data.objects if o.name.endswith(k)][0] for k in NAMES}
+print("PATIENT", PID, NAMES)
 TS.bake_targets(body)
 udir=os.path.join(LS.get_mpfb_data(),"targets","expression","units","asian")
 for u in UNITS:
@@ -37,7 +43,7 @@ def set_all(val_for):
     for k in keys:
         if k.name!=keys[0].name: k.value=val_for.get(k.name,0.0)
 # neutral fit + one fit per unit for the proxies that must follow the skin
-follow=["eyebrow001","eyelashes01","teeth_base","tongue01"]
+follow=[BROW,LASH,"teeth_base","tongue01"]
 sparse={"teeth_base","tongue01"}      # only store units that move these
 fits={f:{} for f in follow}
 set_all({})
@@ -196,7 +202,7 @@ def bake(obj, mats_for_faces, size, name, hide=()):
     img.filepath_raw=os.path.join(os.path.dirname(OUT), name+".png"); img.file_format="PNG"; img.save()
     return img
 # alpha cards (brows, lashes, hair) stay out of the occlusion: hair cards would paint a dark band over the forehead
-cards=[proxies[k] for k in ["eyebrow001","eyelashes01","short02"]]
+cards=[proxies[k] for k in [BROW,LASH]+([HAIR] if HAIR else [])]
 
 # skin: diffuse x AO into the repacked map; mouth interior (behind the lips, not facing forward) fades to dark
 skin=me.materials[0]; src_img=tex_node(skin).image
@@ -230,10 +236,10 @@ print("UV ISLANDS", len(isl), "mouth islands faces", len(mouth))
 idx=[1 if (p.index in mouth or inside(p)) else 0 for p in me.polygons]
 body["_bake_idx"]=idx
 print("MOUTH interior faces", sum(idx))
-img=bpy.data.images.new("patient01_skin", BAKE, BAKE, alpha=False)
+img=bpy.data.images.new(PID+"_skin", BAKE, BAKE, alpha=False)
 mA=emit_mat("bk_skin", src_img, "UVOrig", img, AO_MIX, 1.0)
 mB=emit_mat("bk_mouth", src_img, "UVOrig", img, AO_MIX, 1.0, depth=(LIP_Y+0.004, LIP_Y+0.03, 0.75, 0.10))
-bake(body, [mA,mB], BAKE, "patient01_skin", hide=cards)
+bake(body, [mA,mB], BAKE, PID+"_skin", hide=cards)
 nt=skin.node_tree; b=bsdf(skin)
 for n in list(nt.nodes):
     if n.type=="TEX_IMAGE": nt.nodes.remove(n)
@@ -246,9 +252,9 @@ for key, scale, span, aom in [("teeth_base", 0.85, 0.045, 0.2), ("tongue01", 0.6
     ys=[(o.matrix_world@v.co).y for v in o.data.vertices]; y0=min(ys)
     o["_bake_idx"]=[0]*len(o.data.polygons)
     size=512 if key=="teeth_base" else 256
-    ti=bpy.data.images.new("patient01_"+key, size, size, alpha=False)
+    ti=bpy.data.images.new(PID+"_"+key, size, size, alpha=False)
     mt=emit_mat("bk_"+key, tn.image, o.data.uv_layers[0].name, ti, aom, scale, depth=(y0+0.004, y0+span, 1.0, 0.3))
-    bake(o, [mt], size, "patient01_"+key, hide=cards)
+    bake(o, [mt], size, PID+"_"+key, hide=cards)
     tn.image=ti
 
 # ---- eyes: dark brown iris, cornea split ----
@@ -266,7 +272,7 @@ for cx,cy in [(296/1024,1-726/1024),(724/1024,1-304/1024)]:
 iris&=disc
 dark=np.stack([lum*0.62,lum*0.40,lum*0.26],-1)*1.05     # dark brown, keeps the fibre detail
 px[...,:3]=np.where(iris[...,None],dark,px[...,:3])
-brown.pixels[:]=px.ravel(); brown.name="patient01_eye"; brown.filepath_raw=os.path.join(os.path.dirname(OUT),"patient01_eye.png"); brown.file_format="PNG"; brown.save()
+brown.pixels[:]=px.ravel(); brown.name=PID+"_eye"; brown.filepath_raw=os.path.join(os.path.dirname(OUT),PID+"_eye.png"); brown.file_format="PNG"; brown.save()
 et.image=brown
 print("IRIS px", int(iris.sum()))
 # cornea = faces mapped into the transparent corner of the eye texture (u>0.87, v<0.13)
@@ -286,13 +292,29 @@ cb.inputs["Base Color"].default_value=(0.02,0.02,0.02,1); cb.inputs["Roughness"]
 cornea.data.materials.clear(); cornea.data.materials.append(cm)
 print("EYE faces left", len(eye.data.polygons), "cornea", len(cornea.data.polygons))
 
-# ---- hair normal map ----
-hm=proxies["short02"].data.materials[0]; hnt=hm.node_tree
-nimg=bpy.data.images.load(os.path.join(LS.get_mpfb_data() if os.path.exists(os.path.join(LS.get_mpfb_data(),"hair","short02")) else LS.get_user_data(),"hair","short02","short02_normal.png"))
-nimg.colorspace_settings.name="Non-Color"
-nn=hnt.nodes.new("ShaderNodeTexImage"); nn.image=nimg
-nm=hnt.nodes.new("ShaderNodeNormalMap"); hnt.links.new(nn.outputs["Color"], nm.inputs["Color"])
-hnt.links.new(nm.outputs["Normal"], bsdf(hm).inputs["Normal"])
+# ---- hair: normal map when the asset has one; grey recolour for older patients ----
+def gray_image(img, name, lift):
+    """luminance only, lifted toward light grey; alpha kept (hair cards, brows)"""
+    g=img.copy(); W,H=g.size; px=np.array(g.pixels[:]).reshape(H,W,g.channels)
+    lum=0.3*px[...,0]+0.59*px[...,1]+0.11*px[...,2]
+    v=np.clip(lift+lum*(1.0-lift)*1.15, 0, 1)
+    for c in range(3): px[...,c]=v*(0.97 if c==2 else 1.0)       # a touch warm
+    g.pixels[:]=px.ravel(); g.name=name; g.filepath_raw=os.path.join(os.path.dirname(OUT),name+".png"); g.file_format="PNG"; g.save()
+    return g
+if HAIR:
+    hm=proxies[HAIR].data.materials[0]; hnt=hm.node_tree
+    for root in (LS.get_mpfb_data(), LS.get_user_data()):
+        npath=os.path.join(root,"hair",HAIR,HAIR+"_normal.png")
+        if os.path.exists(npath):
+            nimg=bpy.data.images.load(npath); nimg.colorspace_settings.name="Non-Color"
+            nn=hnt.nodes.new("ShaderNodeTexImage"); nn.image=nimg
+            nm=hnt.nodes.new("ShaderNodeNormalMap"); hnt.links.new(nn.outputs["Color"], nm.inputs["Color"])
+            hnt.links.new(nm.outputs["Normal"], bsdf(hm).inputs["Normal"])
+            break
+    if PRE["gray"]:
+        tn=tex_node(hm); tn.image=gray_image(tn.image, PID+"_hair", 0.42)
+if PRE["gray"]:
+    bm_=proxies[BROW].data.materials[0]; tn=tex_node(bm_); tn.image=gray_image(tn.image, PID+"_brow", 0.3)
 
 exp=[body,cornea]+list(proxies.values())
 for o in bpy.data.objects:
