@@ -23,14 +23,14 @@ export function projectHead(){
   tmpC.copy(tmpA).addScaledVector(camera.up, 0.13).project(camera);
   headScreen.r = Math.abs((1-tmpC.y)/2*ch - headScreen.y);
 }
-export function floater(text, dx, dy, cls){
+export function floater(text, dx, dy, cls, ms = 1000){
   const el = document.createElement("div");
   el.className = "float" + (cls ? " " + cls : "");
   el.textContent = text;
   el.style.left = (headScreen.x + dx) + "px";
   el.style.top = Math.min(headScreen.y + dy, (canvas.clientHeight || innerHeight) - 56) + "px";   // head sits low: keep it on screen
   $("#app").appendChild(el);
-  setTimeout(()=>el.remove(), 1000);
+  setTimeout(()=>el.remove(), ms);
 }
 export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i)=>el.classList.toggle("on", i < S.pain)); }
 export function renderDots(){

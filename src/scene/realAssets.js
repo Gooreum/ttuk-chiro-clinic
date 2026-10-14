@@ -201,7 +201,8 @@ function placeBody(gltf, env, g){
 }
 const current = () => wantModel && real.models[wantModel];
 // the breath shape is real-sized (5.5 cm chest rise, 2 cm shrug); from the head end it needs a stage-sized breath
-const BREATH_GAIN = 1.4;
+// (2026-10-15: the user asked twice for a bigger body breath)
+const BREATH_GAIN = 2.2;
 /* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
 export function updateRealBody(fill){
   const cur = current();
