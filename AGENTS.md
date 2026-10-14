@@ -67,7 +67,7 @@
 ### 3-1. 기울기는 중력 벡터로 계산한다 — `rotationRate`의 축 이름을 쓰지 말 것
 - iOS Safari는 `DeviceMotionEvent.rotationRate`의 alpha/beta/gamma를 표준과 다른 축에 붙여 준다. 이걸로 조준하면 위아래가 거의 안 움직였다.
 - 그래서 `accelerationIncludingGravity`(x/y/z 이름이 모든 브라우저에서 동일)로 폰 자세를 구한다: `tiltAngles(x,y,z,θ)` → `lr`(좌우, 핸들 돌리기 포함), `pt`(앞뒤 젖힘).
-- 일부 iOS는 중력 값 부호가 뒤집혀 나온다 → 첫 샘플의 `z` 부호로 `gSign`을 자동 결정(플레이어는 화면을 위/자기 쪽으로 들고 있으므로 z>0이 정상).
+- iOS는 중력 값 부호가 스펙과 반대로 나온다 → `gSign`으로 보정. `deviceorientation`의 `beta/gamma`(모든 플랫폼에서 스펙과 같음)로 "지금 자세면 z가 +여야 하나"를 계산해 실제 z와 비교하고(`orientationSign`), 5표 이상 모이면 그 부호로 정한다. 자세와 상관없이 맞고 계속 다시 확인한다. `deviceorientation`이 없을 때만 예전처럼 첫 샘플 z 부호. (2026-10-14: 첫 샘플 방식은 누워서·폰을 집어 드는 중에 시작하면 좌우·위아래가 함께 뒤집혀 고정되는 문제가 실기기에서 반복돼 바꿈.) 튜닝 패널 센서 줄에 판정된 방향과 근거가 나온다.
 - `rotationRate`는 **크기(magnitude)만** 스냅 감지에 쓴다. 축 이름은 안 씀.
 - 조준은 절대값이 아니라 **프레임 간 변화량**을 `applyDelta`로 누적한다(무거움 적용 때문).
 - 조준 방향: 좌우는 `-dlr`(폰을 왼쪽으로 기울이면 lr이 +, 고개는 왼쪽), 위아래는 `-dpt`. `core/motion.js`의 `aimDelta`. 2026-10-14 iPhone 튜닝 패널 값으로 확인. 방향이 둘 다 반대로 느껴지면 부호를 바꾸지 말고 `gSign`(첫 샘플 z 부호)을 먼저 의심할 것. 이 부호를 뒤집었다가 실기기에서 틀린 것으로 확인돼 되돌린 적이 있다.
@@ -89,7 +89,7 @@
 - 안드로이드는 시작 시 전체화면 + `orientation.lock("landscape-…")`도 시도한다(실패해도 무시).
 
 ### 3-5. iOS 권한은 탭 핸들러 안에서 동기적으로 요청
-- `DeviceMotionEvent.requestPermission()`과 `requestFullscreen()`을 **await 없이 먼저 호출**해 promise를 받아 두고, 그다음에 await. 순서를 바꾸면 사용자 제스처가 끊겨 권한 팝업이 안 뜬다.
+- `DeviceMotionEvent.requestPermission()`, `DeviceOrientationEvent.requestPermission()`, `requestFullscreen()`을 **await 없이 먼저 호출**해 promise를 받아 두고, 그다음에 await. 순서를 바꾸면 사용자 제스처가 끊겨 권한 팝업이 안 뜬다.
 - 센서는 HTTPS에서만 동작. 로컬 파일로 열면 드래그 모드가 된다.
 
 ### 3-6. 조준 UI는 환자 머리 둘레에

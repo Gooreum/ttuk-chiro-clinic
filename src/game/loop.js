@@ -157,7 +157,7 @@ export function frame(now){
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);
     elJpeak.textContent = S.jerkPeak.toFixed(1);
-    elSensor.textContent = S.sensorSeen ? "켜짐" : "없음 (드래그 모드)";
+    elSensor.textContent = S.sensorSeen ? `켜짐 · 방향 ${live.sign > 0 ? "+" : live.sign < 0 ? "−" : "?"} (${live.signSrc || "대기"})` : "없음 (드래그 모드)";
     $("#tlr").textContent = Math.round(live.lr);
     $("#tpt").textContent = Math.round(live.pt);
   }

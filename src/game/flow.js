@@ -10,7 +10,7 @@ import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, tone, chime, vib } from "../audio/audio.js";
 import { toast, say, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
-import { onMotion } from "../input/motion.js";
+import { onMotion, onOrientation } from "../input/motion.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite. */
@@ -160,11 +160,13 @@ let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
    un-awaited, so the user gesture is still alive. Await them only afterwards. Do not reorder. */
 async function start(){
-  let perm = null, fs = null;
+  let perm = null, operm = null, fs = null;
   try{ if(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") perm = DeviceMotionEvent.requestPermission(); }catch(e){}
+  try{ if(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") operm = DeviceOrientationEvent.requestPermission(); }catch(e){}
   try{ if(isTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) fs = document.documentElement.requestFullscreen(); }catch(e){}
   ensureAudio();
   try{ if(perm) await perm; }catch(e){}
+  try{ if(operm) await operm; }catch(e){}
   try{
     if(fs){
       await fs;
@@ -175,7 +177,7 @@ async function start(){
     }
   }catch(e){}
   layout();
-  if(!listening){ addEventListener("devicemotion", onMotion); listening = true; }
+  if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.patients = makePatients();
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = [];
   $("#score").textContent = "0"; renderPain(); renderCombo();
