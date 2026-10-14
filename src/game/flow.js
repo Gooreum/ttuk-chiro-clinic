@@ -47,7 +47,7 @@ function loadPatient(){
     renderSpine(target.seg); renderDots();
     S.input.rot = S.input.bend = S.cur.rot = S.cur.bend = 0;
     S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
-    S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.hurtX = 0;
+    S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0;
     setFace(target.trait === "nervous" ? "worried" : "rest");
     $("#fade").classList.remove("on");
     showBanner(`${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`, `${target.name} 님 (${target.age})`,
@@ -62,7 +62,7 @@ function switchSide(){
   const target = aimAt(1);
   S.input.rot = S.input.bend = 0;
   S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
-  S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.hurtX = 0;
+  S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0;
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
@@ -81,6 +81,7 @@ export function adjust(src){
   hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요");
 }
 
+const XRAY_DELAY = 0.35;   // s of real time between the crack and the x-ray
 function success(d, exhale){
   const target = S.target;
   S.busy = true;
@@ -94,7 +95,8 @@ function success(d, exhale){
 
   crackSound(perfect ? 3 : 2);
   vib(perfect ? [18,40,18,40,18] : [18,50,18]);
-  S.thrust = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xray = 0.001; S.xrayHold = 1.5; S.wave = 1; S.crackT = 0;
+  // the neck turn and the face read first; the x-ray (the vertebra snapping home) opens XRAY_DELAY later
+  S.thrust = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY;
   sparks.forEach(s => {
     pivot.localToWorld(tmpA.set(0,0,-0.04)); s.m.position.copy(tmpA);
     s.v.set(Math.random()-0.5, Math.random()*0.8+0.2, Math.random()-0.5).normalize().multiplyScalar(0.35 + Math.random()*0.4);
@@ -120,7 +122,8 @@ function hurt(msg){
   renderPain(); renderCombo();
   tone(170, 85, 0.3, "square", 0.07);
   vib([120]);
-  S.jitter = 1; S.hurtX = 1; setFace("ouch");
+  S.jitter = 1; setFace("ouch");
+  setTimeout(() => { S.hurtX = 1; }, XRAY_DELAY*1000);
   say(target.lines.ouch, 1100);
   toast(msg, 1100);
   setTimeout(()=>{

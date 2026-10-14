@@ -38,7 +38,7 @@ const load = url => getLoader().then(loader => new Promise((res, rej) => loader.
 // palm on the side of the head tilted slightly downward (back of the hand toward the camera),
 // fingers running along the side of the head toward the jaw and neck, wrist toward the sleeve.
 const HAND_FINGERS = new THREE.Vector3(0, -0.35, 1);
-const HAND_PALM_TILT = 0.3;   // how far the palm normal points down (0 = flat against the side)
+const HAND_PALM_TILT = 0.55;   // how far the palm normal points down (0 = flat against the side)
 function handBasis(s){
   const fModel = new THREE.Vector3(0, -1, 0), nModel = new THREE.Vector3(s > 0 ? 1 : -1, 0, 0);
   const nTarget = new THREE.Vector3(-s, -HAND_PALM_TILT, 0).normalize();          // palm faces the head
@@ -50,7 +50,7 @@ function handBasis(s){
 // palm centre in model space (between wrist and finger roots, palm side)
 const PALM_MODEL = {"-1": new THREE.Vector3(0.025, 0.0, 0.012), "1": new THREE.Vector3(-0.025, 0.0, 0.012)};
 // palm on the side of the realistic head (half width ~0.09 at ear height after fitting); wrist ends inside the sleeve
-const HAND_AT = s => new THREE.Vector3(0.094*s, -0.012, -0.012);
+const HAND_AT = s => new THREE.Vector3(0.1*s, 0.015, 0.03);
 
 /* Cupped pose. The generic-hand joints are siblings (no bone hierarchy), so curling a finger means rotating every
    later joint of that finger around the knuckle by hand. Model axes: +z runs index -> pinky, palm faces -x (right)

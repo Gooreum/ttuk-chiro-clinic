@@ -21,7 +21,7 @@ import { realHeadActive, updateRealFace } from "../scene/realAssets.js";
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble");
-let last = performance.now(), blinkAt = 0;
+let last = performance.now(), blinkAt = 0, zs = 0;
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
 function fadeMats(list, opacity, depthWrite){
@@ -97,14 +97,16 @@ export function frame(now){
   mouthO.visible = f === "ouch";
   }
 
-  // x-ray: shows faintly near the target (the stuck pair, squashed disc, pinched nerve), fully on the crack
-  // (snap back, flash, pulse down the cord), and as a coral throb after a wrong crack. See scene/xray.js.
+  // x-ray: hidden while aiming so the face and neck stay readable. It opens a beat after the crack
+  // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
+  if(S.xrayIn > 0){
+    S.xrayIn -= rdt;
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 1.5; S.crackT = 0; S.wave = 1; }
+  }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
   S.hurtX = Math.max(0, S.hurtX - rdt*1.4);
-  const pre = playing ? clamp((c - 0.5)/0.5, 0, 1)*(zone ? 0.42 + 0.08*Math.sin(now*0.012) : 0.3) : 0;
-  S.xpre += (pre - S.xpre)*k;
-  const xray = Math.max(S.xray, S.xpre, S.hurtX*0.55);
+  const xray = Math.max(S.xray, S.hurtX*0.55);
   updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target);
   fadeMats(xrayMats, xray > 0.001 ? 1 - 0.78*xray : 1, xray < 0.5);
   fadeMats(crackFadeMats, S.xray > 0.001 ? 1 - 0.8*S.xray : 1, S.xray < 0.5);
@@ -141,13 +143,17 @@ export function frame(now){
 
   // camera: gentle sway, dolly in on the crack
   S.zoom = Math.max(0, S.zoom - rdt*0.6);         // ~0.5 s fully in (the x-ray story), then eases out
-  const z = ease(clamp(S.zoom*1.4, 0, 1));
+  // eased toward, not snapped: the dolly takes ~0.3 s, so the turn of the head is seen on the way in
+  // only a slight push while the head turns (face and neck stay in frame), the full dolly once the x-ray opens
+  const zt = S.xrayIn > 0 ? 0.12 : ease(clamp(S.zoom*1.4, 0, 1));
+  zs += (zt - zs)*(1 - Math.exp(-rdt*7));
+  const z = zs;
   pivot.localToWorld(neckW.set(0, 0, -0.03));
   camPos.copy(camBase);
   if(!reduce){ camPos.x += Math.sin(now*0.0004)*0.012; camPos.y += Math.sin(now*0.00053)*0.008; }
   // orbit a little to the stuck side so the x-ray reads in depth (bodies, arches, cord between them)
   const orbitX = (target ? -target.side : 1)*0.07;
-  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.24, -0.11)), z*0.9);
+  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.26, -0.12)), z*0.9);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
   camera.position.copy(camPos);
   if(!reduce && S.shake > 0){
