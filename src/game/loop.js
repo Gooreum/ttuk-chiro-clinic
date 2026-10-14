@@ -121,7 +121,7 @@ export function frame(now){
     S.wave = Math.max(0, S.wave - dt*1.6);
     const s = 1 + (1 - S.wave)*3.2;
     waveRing.scale.set(s, s, s); waveMat.opacity = S.wave*0.8;
-    waveRing.position.set(0, -0.014, XRAY_LEVEL(target ? target.seg - 1 : 3) + 0.0335/2);
+    waveRing.position.set(0, -0.014, XRAY_LEVEL(target ? target.seg - 1 : 3));
   }else waveMat.opacity = 0;
   sparks.forEach(s => {
     if(s.life <= 0){ s.m.material.opacity = 0; return; }
@@ -154,15 +154,17 @@ export function frame(now){
   S.zoom = Math.max(0, S.zoom - rdt*0.6);         // ~0.5 s fully in (the x-ray story), then eases out
   // eased toward, not snapped: the dolly takes ~0.3 s, so the turn of the head is seen on the way in
   // only a slight push while the head turns (face and neck stay in frame), the full dolly once the x-ray opens
-  const zt = S.xrayIn > 0 ? 0.12 : ease(clamp(S.zoom*1.4, 0, 1));
+  // and held at the side of the neck while the x-ray is up, easing back as it fades
+  const zt = S.xrayIn > 0 ? 0.12 : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   pivot.localToWorld(neckW.set(0, 0, -0.03));
   camPos.copy(camBase);
   if(!reduce){ camPos.x += Math.sin(now*0.0004)*0.012; camPos.y += Math.sin(now*0.00053)*0.008; }
-  // orbit a little to the stuck side so the x-ray reads in depth (bodies, arches, cord between them)
-  const orbitX = (target ? -target.side : 1)*0.07;
-  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.26, -0.12)), z*0.9);
+  // swing round to the side of the neck: the spine lies across the landscape screen, the canal (and the cord in it)
+  // shows between the bodies and the arches
+  const orbitX = (target ? -target.side : 1)*0.2;
+  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.14, 0.0)), z*0.92);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
   camera.position.copy(camPos);
   if(!reduce && S.shake > 0){
