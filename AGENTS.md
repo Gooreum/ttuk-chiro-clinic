@@ -1,7 +1,7 @@
 # 뚝 카이로 클리닉 — 에이전트 작업 가이드
 
 폰을 가로로 두 손에 쥐고, 누워 있는 환자의 머리맡(치료사 시점)에서 목 각도를 맞춘 뒤 손목을 툭 꺾어 "뚝!" 교정하는 3D 모바일 웹 게임.
-최종 목표는 **앱인토스(토스 미니앱) 출시**. 현재는 단일 `index.html` 프로토타입이며 Netlify Drop으로 실기기 테스트 중.
+최종 목표는 **앱인토스(토스 미니앱) 출시**. 현재는 Vite + ES 모듈 구조이며, GitHub Pages(https://gooreum.github.io/ttuk-chiro-clinic/)로 실기기 테스트 중.
 
 이 문서의 "지켜야 할 결정" 섹션은 실기기(iPhone)에서 여러 번 실패한 끝에 정한 것들이다. 이유를 이해하지 못한 채 되돌리지 말 것.
 
@@ -11,33 +11,48 @@
 
 | 경로 | 내용 |
 |---|---|
-| `index.html` | 게임 전체 (HTML + CSS + JS 한 파일, three.js r149 CDN) |
-| `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간 스크린샷 3장을 찍는 검증 스크립트 |
-| `AGENTS.md` | 이 문서 (Codex용) |
-| `CLAUDE.md` | 이 문서를 import (Claude Code용) |
+| `index.html` | 마크업만. `src/main.js`를 module로 불러온다 |
+| `src/` | 게임 코드 (아래 2절) |
+| `test/*.test.js` | vitest 단위 테스트 (`src/core` 순수 함수) |
+| `legacy/index.html` | 모듈 분리 전 단일 파일 원본. 회귀 비교 기준이며 수정하지 않는다 |
+| `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간 스크린샷 3장 |
+| `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
+| `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
+| `.github/workflows/pages.yml` | main에 push하면 테스트 → 빌드 → GitHub Pages 배포 |
+| `AGENTS.md` / `CLAUDE.md` | 이 문서 (Codex용) / 이 문서를 import (Claude Code용) |
 
-외부 의존성: `https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js` (전역 `THREE`), Google Fonts(Black Han Sans, IBM Plex Sans KR). 빌드 도구 없음.
+의존성: `three@0.149.0`(npm, 정확히 고정), 개발용 `vite`, `vitest`. Google Fonts(Black Han Sans, IBM Plex Sans KR)는 외부 링크.
 
-> three r149를 쓰는 이유: `CapsuleGeometry`(r139+)가 있고, `build/three.min.js` UMD 빌드가 아직 존재하는 마지막 계열. 버전을 올리면 ES module로 바꿔야 한다.
+> three를 r149로 고정하는 이유: 모듈 분리 때 화면을 한 픽셀도 바꾸지 않기 위해서. r152부터 색 관리 기본값이 바뀌고(`outputEncoding` → `outputColorSpace`), r155부터 물리 기반 조명 단위가 기본이라 `lamp`/`rim` 밝기가 크게 달라지며, r163부터 WebGL1이 빠진다. 올릴 때는 별도 단계로, shot.py 전후 비교를 보며 조명 값을 다시 맞춘다.
 
 ---
 
-## 2. 코드 구조 (`index.html` 안 `<script>` 순서)
+## 2. 코드 구조 (`src/`)
 
-1. **tuning** — `DEFAULTS`, `T`(localStorage `chiroTune`에 저장). 튜닝 패널 슬라이더/체크박스와 1:1.
-2. **patients** — `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·대사 `lines`), `makePatients()`가 매 판 목표 각도와 위험 한계 `limR/limB`를 랜덤 생성.
-3. **renderer / scene / lights** — ACES 톤매핑, 그림자는 `sun` 하나만.
-4. **canvas textures** — 나무 바닥, 러그, 경추 포스터, 자격증. 폰트 로드 후 `redraw()`.
-5. **meshes** — 진료실, 교정 테이블, 환자 몸, `pivot`(목 회전 중심) → `head` 그룹(얼굴·헤어 변형·안경·치료사 손), 경추 X-ray(`vert`), 링/충격파/파편.
-6. **applyLook(p)** — 환자별 헤어·피부·가운·안경·체형 적용.
-7. **camera + self-rotating landscape** — `resize()`, `layout()`.
-8. **audio** — WebAudio 합성(뚝 소리 3겹, 차임, 틱, 배경음). 샘플 파일 없음.
-9. **feel** — `tolMul`(긴장형), `distAt`, `closeness`, `applyDelta`(무거움·근육 뭉침), `breathState`.
-10. **motion input** — `tiltAngles`, `onMotion`, `snap`, 드래그/키보드 폴백.
-11. **tuning sheet / UI helpers** — 토스트, 말풍선, 배너, 차트 카드, 미니 경추.
-12. **flow** — `loadPatient` → `adjust` → `success` / `hurt` → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`).
-13. **aim ring** — `#hud` 2D 캔버스에 환자 머리 둘레 조준 링을 매 프레임 그림.
-14. **frame loop** — 슬로모션(`slow`), 줌(`zoom`), X-ray(`xray`/`align`), 표정, 카메라.
+`src/main.js`가 import 순서대로 모듈을 평가한다. 씬은 모듈 부수 효과로 만들어지므로 순서가 곧 씬 그래프 순서다(진료실 → 환자). 가변 게임 상태는 모두 `src/game/state.js`의 `S` 객체에 있다(`S.phase`, `S.busy`, `S.target`, `S.input`, `S.cur`, `S.viewRot` 등). 튜닝값 `T`는 같은 객체를 계속 쓰므로 재대입하지 말고 `resetT()`/`Object.assign`을 쓴다.
+
+| 모듈 | 내용 |
+|---|---|
+| `tuning.js` | `DEFAULTS`, `T`(localStorage `chiroTune`), `saveT`, `resetT`. 튜닝 패널과 1:1 |
+| `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·대사 `lines`), `REVIEWS`, `makePatients()`(매 판 목표 각도와 위험 한계 `limR/limB` 랜덤) |
+| `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`) |
+| `scene/renderer.js` | 렌더러·씬·카메라·조명. ACES 톤매핑, 그림자는 `sun` 하나만 |
+| `scene/textures.js` | 캔버스 텍스처(나무 바닥, 러그, 경추 포스터, 자격증). 폰트 로드 후 `redraw()` |
+| `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
+| `scene/room.js` | 진료실, 교정 테이블 |
+| `scene/patientModel.js` | 환자 몸, `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 경추 X-ray(`vert`), 링/충격파/파편 |
+| `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형 |
+| `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
+| `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
+| `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
+| `audio/audio.js` | WebAudio 합성(뚝 소리 3겹, 차임, 틱, 배경음), `vib` |
+| `game/feel.js` | `core/feel.js`를 현재 환자·튜닝으로 감싼 래퍼: `distAtNow`, `distNorm`(촬영용 `__FORCE_HIT__` 훅), `closeness`, `applyDelta`, `breath` |
+| `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`) |
+| `ui/hud.js` | 토스트, 말풍선, 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |
+| `ui/ring.js` | `#hud` 2D 캔버스에 머리 둘레 조준 링(3-6) |
+| `ui/tuneSheet.js` | 튜닝 패널 |
+| `game/loop.js` | `frame`: 슬로모션(`S.slow`), 줌(`S.zoom`), X-ray(`S.xray`/`S.align`), 표정, 카메라 |
+| `style.css` | 전체 스타일 (원본 `<style>` 그대로) |
 
 ### 좌표계 (중요)
 - 환자는 +y가 얼굴 방향(천장), 머리는 -z(카메라 쪽), 발은 +z.
@@ -96,22 +111,28 @@
 
 ## 5. 검증 방법
 
-1. **헤드리스 스크린샷** (필수, 시각 변경 후마다):
+1. **단위 테스트** (필수, 로직 변경 후마다): `npm test`. 센서·판정·점수는 `src/core`의 순수 함수로 두고 가상 자세 값으로 테스트한다(예: 45° 들고 시계 방향 20° → `lr ≈ −14`, 위쪽을 뒤로 10° 젖힘 → `pt` 10 감소. `test/tilt.test.js`).
+2. **헤드리스 스크린샷** (필수, 시각 변경 후마다):
    ```bash
-   pip install playwright && python -m playwright install chromium
-   python scripts/shot.py            # shots/1-title.png, 2-play.png, 3-crack.png
+   python3 -m venv .venv && .venv/bin/pip install playwright pillow && .venv/bin/python -m playwright install chromium
+   npm run build:shot                                         # dist-shot/ (판정 강제 성공 빌드)
+   .venv/bin/python -I scripts/shot.py dist-shot --label new  # shots/new/1-title.png, 2-play.png, 3-crack.png
+   .venv/bin/python -I scripts/shot.py --legacy legacy/index.html --label legacy
+   .venv/bin/python -I scripts/compare.py shots/legacy shots/new --out shots/compare
    ```
-   `3-crack.png`는 임시 사본에서 판정을 강제로 성공시켜 교정 순간(X-ray, 줌, 말풍선)을 찍는다. 원본 파일은 건드리지 않는다. 콘솔/페이지 에러가 있으면 스크립트가 출력한다.
-2. **실기기**: Netlify Drop(app.netlify.com/drop)에 폴더를 끌어다 놓아 HTTPS로 배포 → 폰에서 열기. 아이폰은 세로 화면 고정 켜기.
-3. 튜닝 패널의 "지금 폰 자세 · 좌우/앞뒤" 숫자와 "최근 최고 꺾는 속도/툭 세기"가 센서 디버깅용이다.
+   - `3-crack.png`는 판정 강제 성공 상태의 교정 순간(X-ray, 줌, 말풍선)이다. `npm run build:shot`에서만 `__FORCE_HIT__`가 켜지고, 일반 빌드(`dist/`)에서는 코드째 빠진다. legacy 모드는 임시 사본에서 문자열을 바꿔 찍으며 원본은 건드리지 않는다.
+   - `Math.random` 시드와 페이지 시계를 고정하므로 같은 빌드는 같은 프레임이 나온다. CSS 애니메이션(교정 버튼 펄스, 떠오르는 글씨)만 실제 시간으로 돌아서 조금 차이 날 수 있다.
+   - 시각 변경 전후 비교는 변경 전 빌드를 `--label before`로 찍어 두고 `compare.py`로 나란히 본다. 콘솔/페이지 에러가 있으면 shot.py가 출력하고 exit 1.
+3. **실기기**: main에 push하면 GitHub Actions가 테스트 → 빌드 → Pages 배포를 한다. 폰에서 https://gooreum.github.io/ttuk-chiro-clinic/ 열기(HTTPS라 센서 동작). 아이폰은 세로 화면 고정 켜기. `dist/`는 정적 파일만이라 Netlify Drop에 끌어다 놓아도 된다. module 스크립트라 `dist/index.html`을 file://로 직접 열면 안 되고, 로컬 확인은 `npm run dev` 또는 `npm run preview`.
+4. 튜닝 패널의 "지금 폰 자세 · 좌우/앞뒤" 숫자와 "최근 최고 꺾는 속도/툭 세기"가 센서 디버깅용이다.
 
-헤드리스 환경에서는 센서가 없으므로 드래그 모드로 동작한다. 센서 로직을 바꿨다면 `tiltAngles`처럼 순수 함수로 분리해 가상 자세 값으로 단위 테스트할 것(예: 45° 들고 시계 방향 20° → `lr ≈ −14`, 위쪽을 뒤로 10° 젖힘 → `pt` 10 감소).
+헤드리스 환경에는 센서가 없어 드래그 모드로 동작한다. 센서·손맛 변경은 헤드리스 결과만으로 완료 처리하지 말고 실기기 확인 체크리스트를 함께 남긴다.
 
 ---
 
 ## 6. 로드맵 (우선순위 순)
 
-1. **모듈 분리 + Vite 빌드**: 동작을 바꾸지 않고 `src/`로 쪼개기(input, scene, patient, audio, ui, game). three는 npm 패키지로. 앱인토스 웹뷰 배포 준비.
+1. ~~**모듈 분리 + Vite 빌드**~~ (완료): `src/` 모듈, three npm 고정, vitest, GitHub Pages 배포.
 2. **성능**: 저사양 폰 대비 그림자 품질 자동 하향, `devicePixelRatio` 상한 조정, 지오메트리 병합.
 3. **손맛**: 환자별 목표 마디에 따라 다른 "걸림" 진동 패턴, 교정 소리 샘플 다양화.
 4. **콘텐츠**: 환자 풀 확대(랜덤 일일 명단), 흉추/요추 교정 스테이지, 진료실 업그레이드(점수로 구매).
