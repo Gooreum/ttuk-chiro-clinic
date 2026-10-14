@@ -37,18 +37,19 @@ const FACES = {
   gasp:    {w: {...wide(1), ...browUp(1), ...browOut(1), "mouth-open": 0.45, "mouth-pursing": 0.6, ...flare(0.6)}, prim: "startle"},
   wince:   {w: {...closure(1), ...slit(1), ...browDown(0.8), ...sneer(0.8), "mouth-retraction": 0.9, "mouth-elevation": 0.35}, prim: "ouch"},
   // after the x-ray
-  relief:  {w: {...closure(1), ...browUp(0.2), "mouth-corner-puller": 0.85, "mouth-open": 0.15}, prim: "relief"},
+  relief:  {w: {...closure(1), ...browUp(0.2), "mouth-corner-puller": 0.7, "mouth-compression": 0.3}, prim: "relief"},
   bliss:   {w: {...closure(1), ...browUp(0.55), "mouth-open": 0.35, "mouth-corner-puller": 0.5, ...flare(0.3)}, prim: "relief",
             live: (t, w) => { const s = Math.sin(t*1.6); w["mouth-open"] += 0.12*s; w["eyebrows-left-inner-up"] += 0.1*s; w["eyebrows-right-inner-up"] += 0.1*s; }},
   dazed:   {w: {...closure(0.45), ...browUp(0.35), ...browOut(0.35), "mouth-open": 0.22}, prim: "worried",
             live: (t, w) => { const s = Math.max(0, Math.sin(t*1.1)); Object.assign(w, closure(0.45 + 0.4*s*s*s)); }},
   wow:     {w: {...wide(0.6), ...browUp(0.8), ...browOut(0.8), "mouth-protusion": 0.55, "mouth-pursing": 0.55, "mouth-open": 0.2}, prim: "startle"},
-  grin:    {w: {...wide(0.35), ...browUp(0.3), ...browOut(0.6), "mouth-upward-retraction": 0.8, "mouth-corner-puller": 0.8, "mouth-open": 0.1}, prim: "relief"},
-  beam:    {w: {...closure(0.75), ...slit(0.6), ...sneer(0.25), "mouth-corner-puller": 1, "mouth-upward-retraction": 0.6, "mouth-open": 0.25}, prim: "relief",
-            live: (t, w) => { w["mouth-open"] += 0.1*Math.abs(Math.sin(t*7))*(0.5 + 0.5*Math.sin(t*1.3)); }},
-  laugh:   {w: {...closure(0.9), ...slit(0.7), ...browUp(0.3), ...sneer(0.3), "mouth-corner-puller": 1, "mouth-upward-retraction": 0.7, "mouth-open": 0.42}, prim: "relief",
-            live: (t, w) => { w["mouth-open"] += 0.25*Math.abs(Math.sin(t*8))*Math.max(0, Math.sin(t*1.7)); }},
-  wink:    {w: {"eye-left-closure": 1, "eye-left-slit": 0.6, "eyebrows-right-extern-up": 0.7, "mouth-corner-puller": 0.9, "mouth-upward-retraction": 0.45}, prim: "relief"},
+  // smiles: corners up, upper lip only lifts a little, so just the front upper teeth show (a wide pull bares
+  // every tooth to the molars and reads as a snarl)
+  grin:    {w: {...wide(0.25), ...browUp(0.3), ...browOut(0.4), "mouth-corner-puller": 0.6, "mouth-upward-retraction": 0.1, "mouth-compression": 0.25}, prim: "relief"},
+  beam:    {w: {...closure(0.75), ...slit(0.5), ...sneer(0.15), "mouth-corner-puller": 0.7, "mouth-upward-retraction": 0.15, "mouth-compression": 0.15}, prim: "relief",
+            live: (t, w) => { w["mouth-open"] += 0.05*Math.max(0, Math.sin(t*1.3)); }},
+  laugh:   {w: {...closure(0.9), ...slit(0.6), ...browUp(0.3), ...sneer(0.15), "mouth-corner-puller": 0.75, "mouth-upward-retraction": 0.2, "mouth-open": 0.14}, prim: "relief",
+            live: (t, w) => { w["mouth-open"] += 0.08*Math.abs(Math.sin(t*8))*Math.max(0, Math.sin(t*1.7)); }},
   teary:   {w: {...closure(0.85), ...browUp(1), "mouth-corner-puller": 0.6, "mouth-eversion": 0.3, "mouth-open": 0.1, ...flare(0.45)}, prim: "relief",
             live: (t, w) => { const s = Math.sin(t*2.6); w["mouth-eversion"] += 0.1*s; w["nose-left-dilatation"] += 0.15*s; w["nose-right-dilatation"] += 0.15*s; }}
 };

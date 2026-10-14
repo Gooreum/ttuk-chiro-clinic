@@ -146,7 +146,11 @@ function placeHead(gltf, env, g, model){
       // hair cards: alpha-to-coverage gives soft MSAA edges instead of a jagged cutout
       m.alphaTest = 0.35; m.alphaToCoverage = true; m.side = THREE.DoubleSide; m.roughness = 0.5; m.envMapIntensity = 0.25; model.hair = m;
     }
-    else if(/teeth|tongue/.test(name)){ m.roughness = name.includes("teeth") ? 0.35 : 0.5; }
+    else if(name.includes("teeth")){
+      // ivory, not paper white, and dimmer than the lips: inside the mouth they sit in shade
+      m.color = new THREE.Color(0xb8ad99); m.roughness = 0.5; m.envMapIntensity = 0.35;
+    }
+    else if(name.includes("tongue")){ m.roughness = 0.5; m.color = new THREE.Color(0xb0a0a0); }
     else { m.transparent = true; m.depthWrite = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }   // soft brows/lashes
     o.material = m;
     const face = name.endsWith(".high-poly") || name.endsWith(".cornea") || /eyebrow|eyelash/.test(name) || /teeth|tongue/.test(name);
@@ -200,9 +204,10 @@ function placeBody(gltf, env, g){
   return frame;
 }
 const current = () => wantModel && real.models[wantModel];
-// the breath shape is real-sized (5.5 cm chest rise, 2 cm shrug); from the head end it needs a stage-sized breath
-// (2026-10-15: the user asked twice for a bigger body breath)
-const BREATH_GAIN = 2.2;
+// the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
+// (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
+// grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
+const BREATH_GAIN = 1;
 /* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
 export function updateRealBody(fill){
   const cur = current();
