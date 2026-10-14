@@ -16,7 +16,7 @@
 | `test/*.test.js` | vitest 단위 테스트 (`src/core` 순수 함수) |
 | `public/models/` | glTF 에셋(빌드 시 그대로 복사). 출처·라이선스는 `CREDITS.md`, 머리 재생성은 `scripts/assets/README.md` |
 | `legacy/index.html` | 모듈 분리 전 단일 파일 원본. 회귀 비교 기준이며 수정하지 않는다 |
-| `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간 스크린샷 3장 |
+| `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간·교정 후 반응·반대쪽 전환 스크린샷 5장 |
 | `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
 | `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
 | `.github/workflows/pages.yml` | main에 push하면 테스트 → 빌드 → GitHub Pages 배포 |
@@ -45,7 +45,7 @@
 | `scene/xray.js` | 교정 X-ray: 실제 경추 모델(BodyParts3D C1–C7·추간판, `public/models/spine/cervical.glb`, `loadSpine()`으로 지연 로드)과 척추관을 따라 만든 척수·신경근 관, 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`) 아래 디스크가 빨갛게 납작 눌려 있고(0.55초 압박 `XRAY_PRE`, 위 척추가 내려앉아 떨림, 카메라가 다가감), 해방 순간 디스크가 제 높이를 넘어 부풀었다 출렁이며 위 척추를 들어 올리고 이웃 디스크로 파도가 번지며 약 1.4초에 걸쳐 파랗게 바뀐다. 척수도 그 높이에서 좁아졌다가 다시 열린다. 증상별 차이는 환자 `xr`(flat 일자목, disc 압박, rot 회전, facet 관절 잠김, muscle 근육 긴장 표시)가 정한다. X-ray 동안 카메라는 목 옆으로 돈다 |
 | `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
 | `scene/breathFx.js` | 날숨 김: 날숨 동안 코끝에서 민트색 김이 피어올라 흩어진다(조준 중에만) |
-| `scene/realAssets.js` | 사실적 glTF 에셋(환자 5명 모두, `look.model`이 `public/models/<id>`를 가리킨다. 첫 환자부터 하나씩 백그라운드 로드): 환자 머리(MakeHuman, 표정 블렌드셰이프 12개, 각막 반사 셸 `.cornea`, 입 벌림을 따라가는 치아·혀, AO가 구워진 피부)와 몸(같은 캐릭터의 목 중간 아래. 티셔츠·청바지는 AO 맵만 남겨 가운·바지 팔레트 색으로 칠한다. 목 뼈가 pivot 회전을 그대로 따라 머리와의 이음매가 벌어지지 않고, 가슴·배에 호흡 모양 키 `breath`가 있다), 치료사 손(MakeHuman 손·팔뚝, 손가락 뼈 리그, 구운 피부. 손목이 팔꿈치 쪽으로 꺾여 소매선과 이어지고, 소매는 팔뚝 중간까지 걷혀 있다). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다 |
+| `scene/realAssets.js` | 사실적 glTF 에셋(환자 5명 모두, `look.model`이 `public/models/<id>`를 가리킨다. 첫 환자부터 하나씩 백그라운드 로드): 환자 머리(MakeHuman, 표정 블렌드셰이프 26개(눈 크게 뜨기·바깥 눈썹·이 드러낸 웃음·찡그림·콧볼 등), 각막 반사 셸 `.cornea`, 입 벌림을 따라가는 치아·혀, AO가 구워진 피부)와 몸(같은 캐릭터의 목 중간 아래. 티셔츠·청바지는 AO 맵만 남겨 가운·바지 팔레트 색으로 칠한다. 목 뼈가 pivot 회전을 그대로 따라 머리와의 이음매가 벌어지지 않고, 가슴·배가 오르고 어깨가 머리 쪽으로 들리는 호흡 모양 키 `breath`가 있다. 게임에서는 1.4배로 키워 쓴다), 치료사 손(MakeHuman 손·팔뚝, 손가락 뼈 리그, 구운 피부. 손목이 팔꿈치 쪽으로 꺾여 소매선과 이어지고, 소매는 팔뚝 중간까지 걷혀 있다). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다(얼굴마다 작은 움직임 `live`, 들숨에 콧볼이 벌어짐) |
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
 | `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
@@ -98,8 +98,8 @@
 
 ### 3-6. 조준 UI는 환자 머리 둘레에
 - 예전에는 왼쪽 아래 패드였는데 "환자를 보고 있는 느낌이 안 든다"는 피드백으로 머리 둘레 링(`drawRing`)으로 옮겼다. 카메라도 머리가 화면 중앙 약간 아래에 오도록 잡혀 있다.
-- 시점은 침대 머리맡에 앉은 거리(눈높이 약 1.5m, 정수리에서 30cm 남짓)다. 예전의 높고 먼 시점은 머리가 80px 정도로 작아 표정과 목 꺾임이 안 보였고, 팔이 비현실적으로 길어 보였다. 손은 평소 턱 양옆을 받친다. 목표에 가까워지면 역할이 갈린다. 머리가 도는 반대쪽 손은 목 옆으로 내려가 감싸고(교정 순간 안쪽으로 짧게 밀며 쥔다), 도는 쪽 손은 귀 뒤와 뒤통수를 받친다. 손가락은 손마다 위상이 다르게 늘 조금씩 움직인다(`updateRealHands`). 팔꿈치는 침대 높이 바깥쪽이라 머리를 돌려도 소매가 얼굴을 덮지 않는다. 팔꿈치는 머리 회전의 85%를 따라 목 축을 중심으로 함께 돈다. 예전에는 팔꿈치가 고정이라 머리를 돌리면 손목이 말도 안 되게 꺾였다(`loop.js` `ELBOW_FOLLOW`).
-- 교정 반응: 순간 `startle`(눈이 커지고 입이 벌어짐, `lines.jolt`) → X-ray(0.35초에 열려 2.4초 유지: 0.55초 압박 `XRAY_PRE` → 디스크 해방 → 여운)가 걷히는 2.9초에 `relief`(첫 쪽 `lines.ahh`, 둘째 쪽 `lines.done`) → 4.4초에 다음 쪽/환자. 해방 순간 `updateXray`가 true를 돌려주면 루프가 소리·진동·카메라 반동·민트 파동을 낸다. 목 꺾임은 0.08초에 12도까지 튀었다가 X-ray 전에 돌아온다.
+- 시점은 침대 머리맡에 앉은 거리(눈높이 약 1.5m, 정수리에서 30cm 남짓)다. 예전의 높고 먼 시점은 머리가 80px 정도로 작아 표정과 목 꺾임이 안 보였고, 팔이 비현실적으로 길어 보였다. 손은 평소 턱 양옆을 받친다. 목표에 가까워지면 역할이 갈린다. 머리가 도는 반대쪽 손은 목 옆으로 내려가 감싸고(교정 순간 안쪽으로 짧게 밀며 쥔다), 도는 쪽 손은 귀 뒤와 뒤통수를 받친다. 손가락은 손마다 위상이 다르게 늘 조금씩 움직인다(`updateRealHands`). 팔꿈치는 침대 높이 바깥쪽이라 머리를 돌려도 소매가 얼굴을 덮지 않는다. 팔꿈치는 머리 회전의 85%를 따라 목 축을 중심으로 함께 돈다(`loop.js` `ELBOW_FOLLOW`). 실사 손은 여기서 더 나아가 팔꿈치를 손 자세에서 정한다(`realAssets.js` `naturalElbow`): 팔뚝은 손에서 곧게 뻗은 방향에서 출발해 그 팔꿈치 쪽으로 기울되, 실제 손목 가동 범위 안에서만 기운다(손등 쪽 젖힘 1.0rad, 손바닥 쪽 굽힘 0.45rad, 옆 꺾임 0.3rad). 손바닥이 머리 옆에 있으니 젖힘이 팔을 바깥으로 빼 준다. 예전처럼 고정된 팔꿈치를 겨누면 머리를 돌릴 때 손목이 말도 안 되게 꺾였다(2026-10-15 사용자 피드백 두 번).
+- 교정 반응(사용자가 "핵심"이라고 한 부분): 환자마다 `react` 풀(`roster.js`)에서 `pickReaction`이 고른다. 순간 jolt(`startle`/`gasp`/`wince`, `lines.jolt`) → X-ray(0.35초에 열려 2.4초 유지: 0.55초 압박 `XRAY_PRE` → 디스크 해방 → 여운) → 2.7초에 손이 머리를 가운데로 돌려놓고 → 2.9초 첫 반응(`dazed`/`bliss`/`wow`/`grin`/`teary`, 첫 쪽 `lines.ahh`, 둘째 쪽 `lines.done`) → 4.7초 두 번째 반응(`relief`/`beam`/`wink`/`laugh`…, PERFECT면 `big` 풀) → 6.9초에 다음 쪽/환자. 반응 동안 카메라가 얼굴 쪽으로 다가가고(`S.reactFrom/reactUntil`) 조준 링은 흐려진다. 같은 환자의 두 쪽은 다른 반응이 나오게 다시 뽑는다. 잘못 꺾으면 `ouch` → 1.1초 뒤 뿌루퉁한 `sulk`가 3.2초까지 남는다(그동안 조준은 가능). 표정 순서는 `flow.js` `faceRun`이 걸고, 다른 `setFace`가 나오면 남은 순서는 취소된다. 해방 순간 `updateXray`가 true를 돌려주면 루프가 소리·진동·카메라 반동·민트 파동을 낸다. 목 꺾임은 0.08초에 12도까지 튀었다가 X-ray 전에 돌아온다.
 - 호흡 게이지는 링 위쪽 호. 머리맡 시점에서는 링 아래가 화면 밖으로 나간다.
 - X-ray는 조준 중에는 보이지 않는다(미리보기가 얼굴과 목을 덮었다). 교정하면 목이 꺾이고 표정이 바뀌는 장면을 0.35초 먼저 보여 준 뒤(`XRAY_DELAY`, 카메라는 살짝만 다가감) X-ray가 열리고 줌인되며 마디가 맞춰진다. 잘못 꺾었을 때의 산호색 욱신거림도 같은 만큼 늦게 나온다.
 - 링: 가운데 조준점(가로 = 회전 ±70°, 세로 = 측굴 ±30°), 붉은 선 = 위험 한계, 초록 점선 타원 = 목표(처음 2명만), 바깥 호 = 긴장도(closeness), 아래 작은 호 = 호흡.
@@ -127,7 +127,7 @@
    ```bash
    python3 -m venv .venv && .venv/bin/pip install playwright pillow && .venv/bin/python -m playwright install chromium
    npm run build:shot                                         # dist-shot/ (판정 강제 성공 빌드)
-   .venv/bin/python -I scripts/shot.py dist-shot --label new  # shots/new/1-title, 2-play, 3-crack, 4-switch(반대쪽 전환)
+   .venv/bin/python -I scripts/shot.py dist-shot --label new  # shots/new/1-title, 2-play, 3-crack, 4-react(교정 후 반응), 5-switch(반대쪽 전환)
    .venv/bin/python -I scripts/shot.py --legacy legacy/index.html --label legacy
    .venv/bin/python -I scripts/compare.py shots/legacy shots/new --out shots/compare
    ```

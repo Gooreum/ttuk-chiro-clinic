@@ -2,7 +2,7 @@
 
     python -I scripts/compare.py shots/legacy shots/new [--out shots/compare] [--max 0.5]
 
-For each of 1-title / 2-play / 3-crack / 4-switch prints the share of pixels whose largest channel difference is
+For each of 1-title / 2-play / 3-crack / 4-react / 5-switch prints the share of pixels whose largest channel difference is
 above 24 (out of 255), and writes <out>/<name>.png as [A | B | diff heatmap]. With --max, exits 1 when
 any scene differs by more than that many percent.
 """
@@ -10,7 +10,7 @@ import argparse, pathlib, sys
 
 from PIL import Image, ImageChops
 
-NAMES = ["1-title", "2-play", "3-crack", "4-switch"]
+NAMES = ["1-title", "2-play", "3-crack", "4-react", "5-switch"]
 THRESH = 24
 
 
@@ -34,6 +34,9 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     worst = 0.0
     for n in NAMES:
+        if not (a_dir / f"{n}.png").is_file() or not (b_dir / f"{n}.png").is_file():
+            print(f"{n}: missing in one folder, skipped")   # older shot sets have fewer scenes
+            continue
         a, b = Image.open(a_dir / f"{n}.png"), Image.open(b_dir / f"{n}.png")
         if a.size != b.size:
             sys.exit(f"{n}: size differs {a.size} vs {b.size}")
