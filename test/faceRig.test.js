@@ -3,7 +3,7 @@ import { expressionWeights, EXPRESSION_UNITS } from "../src/core/faceRig.js";
 
 describe("expressionWeights", () => {
   it("always returns every unit", () => {
-    ["rest", "worried", "tense", "ouch", "relief", "unknown"].forEach(f => {
+    ["rest", "worried", "tense", "ouch", "startle", "relief", "unknown"].forEach(f => {
       expect(Object.keys(expressionWeights(f)).sort()).toEqual([...EXPRESSION_UNITS].sort());
     });
   });
@@ -20,6 +20,12 @@ describe("expressionWeights", () => {
     expect(o["eye-left-slit"]).toBe(1);
     expect(o["mouth-open"]).toBeGreaterThan(0);
     expect(expressionWeights("relief")["mouth-corner-puller"]).toBeGreaterThan(0.5);
+  });
+  it("startle opens the eyes wide and drops the jaw", () => {
+    const s = expressionWeights("startle");
+    expect(s["eye-left-closure"]).toBe(0);
+    expect(s["eyebrows-left-inner-up"]).toBe(1);
+    expect(s["mouth-open"]).toBeGreaterThan(0.5);
   });
   it("unknown faces fall back to rest", () => {
     expect(expressionWeights("whatever")).toEqual(expressionWeights("rest"));

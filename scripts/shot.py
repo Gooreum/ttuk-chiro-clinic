@@ -4,7 +4,7 @@ Takes three landscape-phone screenshots into ./shots/<label>:
   1-title.png  intro screen
   2-play.png   first patient, after a short drag
   3-crack.png  the success moment (x-ray, zoom, speech bubble)
-  4-switch.png  2.6 s later: the same patient's opposite side (banner, mirrored target)
+  4-switch.png  3.4 s later: the same patient's opposite side (banner, mirrored target)
 
 Two targets:
   python -I scripts/shot.py dist-shot                 Vite build made with `npm run build:shot`
@@ -106,7 +106,7 @@ async def shoot(url, out):
         await run(420)
         await page.screenshot(path=str(out / "3-crack.png"))
 
-        await run(2600, 500)
+        await run(3400, 500)
         await page.screenshot(path=str(out / "4-switch.png"))
         await browser.close()
     return errors

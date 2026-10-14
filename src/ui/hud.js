@@ -28,7 +28,7 @@ export function floater(text, dx, dy, cls){
   el.className = "float" + (cls ? " " + cls : "");
   el.textContent = text;
   el.style.left = (headScreen.x + dx) + "px";
-  el.style.top = (headScreen.y + dy) + "px";
+  el.style.top = Math.min(headScreen.y + dy, (canvas.clientHeight || innerHeight) - 56) + "px";   // head sits low: keep it on screen
   $("#app").appendChild(el);
   setTimeout(()=>el.remove(), 1000);
 }
