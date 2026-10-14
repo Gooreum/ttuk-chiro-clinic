@@ -34,30 +34,38 @@ const load = url => getLoader().then(loader => new Promise((res, rej) => loader.
 
 // head-local frame: +y = face (ceiling), -z = top of head (camera side), +z = toward the feet, x = sides
 // s = +1 on world +x (screen left, therapist's left hand), s = -1 on world -x (screen right, right hand)
-// The camera looks from behind and above the crown, so the hands cradle the head from above:
-// palm on the side of the head tilted slightly downward (back of the hand toward the camera),
-// fingers running along the side of the head toward the jaw and neck, wrist toward the sleeve.
-const HAND_FINGERS = new THREE.Vector3(0, -0.35, 1);
-const HAND_PALM_TILT = 0.55;   // how far the palm normal points down (0 = flat against the side)
-function handBasis(s){
+// Three poses per hand, blended every frame (updateRealHands):
+//   rest    both palms on the sides of the jaw, fingers toward the neck, back of the hand toward the camera
+//   contact the hand opposite the turn slides down to the side of the neck at the stuck level, palm flat on it,
+//           fingers wrapping behind the neck; on the crack it gives a short inward push and a squeeze
+//   cradle  the hand on the turning side cups behind the ear and under the skull and carries the head's weight
+const POSES = {
+  rest:    {at: [0.1, 0.015, 0.03],   fingers: [0, -0.35, 1],  tilt: 0.55},
+  contact: {at: [0.084, -0.004, 0.1], fingers: [0, -0.75, 0.65], tilt: 0.2},
+  cradle:  {at: [0.092, -0.035, -0.01], fingers: [0, -0.9, 0.45], tilt: 0.85}
+};
+function handBasis(s, pose){
   const fModel = new THREE.Vector3(0, -1, 0), nModel = new THREE.Vector3(s > 0 ? 1 : -1, 0, 0);
-  const nTarget = new THREE.Vector3(-s, -HAND_PALM_TILT, 0).normalize();          // palm faces the head
-  const fTarget = HAND_FINGERS.clone().addScaledVector(nTarget, -HAND_FINGERS.dot(nTarget)).normalize();
+  const fingers = new THREE.Vector3(...pose.fingers);
+  const nTarget = new THREE.Vector3(-s, -pose.tilt, 0).normalize();          // palm faces the head
+  const fTarget = fingers.addScaledVector(nTarget, -fingers.dot(nTarget)).normalize();
   const m = new THREE.Matrix4().makeBasis(fModel, nModel, fModel.clone().cross(nModel));
   const t = new THREE.Matrix4().makeBasis(fTarget, nTarget, fTarget.clone().cross(nTarget));
   return new THREE.Quaternion().setFromRotationMatrix(t.multiply(m.transpose()));
 }
+const poseOf = (s, name) => ({pos: new THREE.Vector3(POSES[name].at[0]*s, POSES[name].at[1], POSES[name].at[2]), quat: handBasis(s, POSES[name])});
 // palm centre in model space (between wrist and finger roots, palm side)
 const PALM_MODEL = {"-1": new THREE.Vector3(0.025, 0.0, 0.012), "1": new THREE.Vector3(-0.025, 0.0, 0.012)};
-// palm on the side of the realistic head (half width ~0.09 at ear height after fitting); wrist ends inside the sleeve
-const HAND_AT = s => new THREE.Vector3(0.1*s, 0.015, 0.03);
 
-/* Cupped pose. The generic-hand joints are siblings (no bone hierarchy), so curling a finger means rotating every
-   later joint of that finger around the knuckle by hand. Model axes: +z runs index -> pinky, palm faces -x (right)
-   or +x (left), so a curl is a rotation about z, and moving the thumb in toward the palm is a rotation about y. */
+/* Finger pose, rebuilt from the rest skeleton every frame. The generic-hand joints are siblings (no bone hierarchy),
+   so curling a finger means rotating every later joint of that finger around the knuckle by hand. Model axes:
+   +z runs index -> pinky, palm faces -x (right) or +x (left): a curl is a rotation about z, a spread is a rotation
+   about x (the palm normal), and moving the thumb in toward the palm is a rotation about y. */
 const FINGERS = ["index-finger", "middle-finger", "ring-finger", "pinky-finger"];
-const CURL = [0.42, 0.32, 0.16];     // proximal, intermediate, distal (radians)
-const THUMB_IN = 0.45;
+const JOINTS = ["phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"];
+const CURL = [0.42, 0.32, 0.16];     // proximal, intermediate, distal (radians) at grip 0
+const SPREAD = [-0.07, -0.02, 0.03, 0.09];
+const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
 const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
 function bend(bones, pivotName, names, axis, angle){
   const pivot = bones[pivotName].position.clone();
@@ -68,15 +76,20 @@ function bend(bones, pivotName, names, axis, angle){
     b.quaternion.premultiply(_q);
   });
 }
-function cupHand(model, s){
-  const bones = {};
-  model.traverse(o => { if(o.isBone) bones[o.name] = o; });
-  const zAxis = new THREE.Vector3(0, 0, 1), yAxis = new THREE.Vector3(0, 1, 0);
-  FINGERS.forEach(f => {
-    const j = ["phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"].map(x => `${f}-${x}`);
-    j.slice(0, 3).forEach((pivot, i) => bend(bones, pivot, j.slice(i + 1), zAxis, s * CURL[i]));
+// grip: 0 loose cradle .. 1 firm hold. t: seconds, drives small independent drifts so fingers never freeze.
+// phase: per-hand offset so the two hands don't move in step.
+function poseFingers(h, grip, spread, t){
+  const {bones, rest, s, phase} = h.userData;
+  rest.forEach(([b, p, q]) => { b.position.copy(p); b.quaternion.copy(q); });
+  FINGERS.forEach((f, fi) => {
+    const j = JOINTS.map(x => `${f}-${x}`);
+    const drift = 0.05*Math.sin(t*1.1 + phase + fi*1.7) + 0.025*Math.sin(t*2.9 + phase*2 + fi*0.9);
+    bend(bones, j[0], j.slice(1), X_AXIS, s * SPREAD[fi] * spread);
+    j.slice(0, 3).forEach((pivot, i) => bend(bones, pivot, j.slice(i + 1), Z_AXIS, s * (CURL[i]*(1 + 0.55*grip) + drift*(1 - i*0.3))));
   });
-  bend(bones, "thumb-metacarpal", ["thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip"], yAxis, -s * THUMB_IN);
+  const thumbDrift = 0.04*Math.sin(t*1.4 + phase*1.3);
+  bend(bones, "thumb-metacarpal", ["thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip"], Y_AXIS, -s * (0.45 + 0.2*grip + thumbDrift));
+  bend(bones, "thumb-phalanx-proximal", ["thumb-phalanx-distal", "thumb-tip"], Z_AXIS, s * (0.15 + 0.25*grip));
 }
 
 const real = {hands: null, head: null, morphs: [], skin: null, hair: null};
@@ -143,11 +156,15 @@ function placeHand(gltf, s){
   model.traverse(o => {
     if(o.isMesh){ o.material = mats.doc; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; }
   });
-  cupHand(model, s);
-  root.quaternion.copy(handBasis(s));
+  const bones = {}, rest = [];
+  model.traverse(o => { if(o.isBone){ bones[o.name] = o; rest.push([o, o.position.clone(), o.quaternion.clone()]); } });
+  const poses = {rest: poseOf(s, "rest"), contact: poseOf(s, "contact"), cradle: poseOf(s, "cradle")};
+  root.userData = {s, bones, rest, poses, phase: s > 0 ? 0 : 2.1};
+  poseFingers(root, 0, 1, 0);
+  root.quaternion.copy(poses.rest.quat);
   model.position.copy(PALM_MODEL[s]).multiplyScalar(-1);
   root.add(model);
-  root.position.copy(HAND_AT(s));
+  root.position.copy(poses.rest.pos);
   root.visible = false;
   head.add(root);
   // where the wrist ends up in head space: the coat sleeve (forearm anchor) starts there so it covers the cut
@@ -156,6 +173,7 @@ function placeHand(gltf, s){
   model.traverse(o => { if(o.isBone && o.name === "wrist") wrist = o; });
   const p = new THREE.Vector3();
   wrist.getWorldPosition(p);
+  root.userData.wrist = wrist;
   root.userData.wristLocal = head.worldToLocal(p).clone();
   return root;
 }
@@ -188,6 +206,34 @@ export function setRealHands(on){
   handParts.forEach(m => { m.visible = !use; });
   // hands[] (invisible while realistic) are the forearm anchors: move them to the realistic wrists, or back home
   hands.forEach((h, i) => { h.position.copy(use ? real.hands[i].userData.wristLocal : anchorHome[i]); });
+}
+
+/* Per frame from the loop while the realistic hands are shown.
+   turn: sign of the target rotation (+1 = face turns to world -x). The hand on the opposite side (s === turn) is the
+   contact hand, the other one cradles. setup 0..1: how far the hands have moved from rest into their roles (grows as
+   the aim closes in). push 0..1: the crack impulse. t: seconds. */
+const _p = new THREE.Vector3(), _qa = new THREE.Quaternion(), _w = new THREE.Vector3();
+export function updateRealHands(turn, setup, push, t){
+  if(!real.hands || !real.hands[0].visible) return;
+  real.hands.forEach((h, i) => {
+    const {s, poses, phase} = h.userData;
+    const role = turn === 0 ? null : s === turn ? "contact" : "cradle";
+    const k = role ? setup : 0;
+    const to = role ? poses[role] : poses.rest;
+    _p.copy(poses.rest.pos).lerp(to.pos, k);
+    _qa.copy(poses.rest.quat).slerp(to.quat, k);
+    // breathing-slow sway of the whole hand, and the crack: the contact hand drives in, the cradle hand lifts a touch
+    _p.x += 0.0015*Math.sin(t*0.9 + phase); _p.z += 0.0012*Math.sin(t*0.7 + phase*1.7);
+    if(role === "contact") _p.x -= s*0.014*push;
+    if(role === "cradle") _p.y -= 0.006*push;
+    h.position.copy(_p); h.quaternion.copy(_qa);
+    const grip = role === "contact" ? 0.35*k + 0.65*push : role === "cradle" ? 0.25*k + 0.3*push : 0;
+    poseFingers(h, grip, 1 - 0.6*grip, t);
+    // keep the sleeve (forearm anchor) on the wrist
+    h.updateMatrixWorld(true);
+    h.userData.wrist.getWorldPosition(_w);
+    hands[i].position.copy(head.worldToLocal(_w));
+  });
 }
 
 /* Primitive head parts = everything under `head` except the therapist hands and the realistic models. */

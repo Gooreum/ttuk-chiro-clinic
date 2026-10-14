@@ -82,6 +82,8 @@ export function adjust(src){
 }
 
 const XRAY_DELAY = 0.35;   // s of real time between the crack and the x-ray
+const RELIEF_AT = 1650;    // ms: the x-ray (opens 0.35 s, holds 1.2 s) is fading, the relieved face shows
+const NEXT_AT = 3200;      // ms: next side / patient
 function success(d, exhale){
   const target = S.target;
   S.busy = true;
@@ -102,7 +104,10 @@ function success(d, exhale){
     s.v.set(Math.random()-0.5, Math.random()*0.8+0.2, Math.random()-0.5).normalize().multiplyScalar(0.35 + Math.random()*0.4);
     s.life = 1;
   });
-  setFace("relief");
+  // reaction: a jolt at the crack, then (once the x-ray has cleared) the relief sigh
+  setFace("startle");
+  setTimeout(() => say(target.lines.jolt, 1000), 90);
+  setTimeout(() => setFace("relief"), RELIEF_AT);
   floater("뚝!", -54, -headScreen.r - 10);
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
@@ -111,8 +116,8 @@ function success(d, exhale){
   if(exhale) setTimeout(()=>floater("날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
-  setTimeout(() => say(target.lines.done, 1600), 650);
-  setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, 2300);
+  setTimeout(() => say(S.sideIdx === 0 ? target.lines.ahh : target.lines.done, 1500), RELIEF_AT + 100);
+  setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
 }
 
 function hurt(msg){

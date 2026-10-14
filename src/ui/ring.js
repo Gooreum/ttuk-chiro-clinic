@@ -9,7 +9,7 @@ import { aimHist } from "../input/motion.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
-   outer arc = tension (closeness), small bottom arc = breathing. */
+   outer arc = tension (closeness), small top arc = breathing. */
 const hud = $("#hud"), hctx = hud.getContext("2d");
 let hudDpr = 1;
 export function sizeHud(w, h){
@@ -78,12 +78,12 @@ export function drawRing(now, c, zone, br){
     ctx.strokeStyle = grd;
     ctx.beginPath(); ctx.arc(cx, cy, R + 9, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
-  // breath arc (bottom)
+  // breath arc (top: the head sits low in the head-side view, so the bottom of the ring runs off screen)
   ctx.lineWidth = 4;
   ctx.strokeStyle = "rgba(241,234,220,.12)";
-  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*0.3, Math.PI*0.7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.7); ctx.stroke();
   ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
-  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*0.7 - br.fill*Math.PI*0.4, Math.PI*0.7); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
   ctx.lineCap = "butt";
 
   // aim dot with short trail
@@ -101,10 +101,11 @@ export function drawRing(now, c, zone, br){
   ctx.textAlign = "center";
   ctx.font = "15px 'Black Han Sans', sans-serif";
   ctx.fillStyle = zone ? C_CORAL : C_BONE;
-  ctx.fillText(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "", cx, cy + R + 44);
+  const H = hud.height/hudDpr;
+  ctx.fillText(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "", cx, Math.min(cy + R + 44, H - 52));
   ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif";
   ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.6)";
   ctx.textAlign = "right";
-  ctx.fillText(br.exhale ? "날숨" : "들숨", cx + Math.cos(Math.PI*0.7)*(R+22) - 6, cy + Math.sin(Math.PI*0.7)*(R+22) + 4);
+  ctx.fillText(br.exhale ? "날숨" : "들숨", cx + Math.cos(Math.PI*1.3)*(R+22) - 6, cy + Math.sin(Math.PI*1.3)*(R+22) + 4);
   ctx.globalAlpha = 1;
 }

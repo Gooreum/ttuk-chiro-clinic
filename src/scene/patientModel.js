@@ -73,7 +73,7 @@ const hands = [-1,1].map(s => {
 const forearms = [-1,1].map(s => {
   const m = mesh(cap(0.05,0.42), mats.coat, null);
   const cuff = mesh(cyl(0.052,0.052,0.03,16), mats.cuff, null, null, null, null, true);
-  return {m, cuff, elbow: new THREE.Vector3(0.44*s, 1.2, -0.58)};
+  return {m, cuff, elbow: new THREE.Vector3(0.5*s, 0.95, -0.24)};
 });
 const UP = new THREE.Vector3(0,1,0), tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3();
 

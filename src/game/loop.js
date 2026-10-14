@@ -16,12 +16,12 @@ import { tone, vib } from "../audio/audio.js";
 import { say, headScreen, projectHead } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace } from "../scene/realAssets.js";
+import { realHeadActive, updateRealFace, updateRealHands } from "../scene/realAssets.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble");
-let last = performance.now(), blinkAt = 0, zs = 0;
+let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
 function fadeMats(list, opacity, depthWrite){
@@ -43,7 +43,7 @@ export function frame(now){
   cur.rot += (input.rot - cur.rot)*k;
   cur.bend += (input.bend - cur.bend)*k;
 
-  S.thrust = Math.max(0, S.thrust - dt*4);
+  S.thrust = Math.max(0, S.thrust - rdt*3);         // real time: the snap is over before the x-ray opens
   S.shake = Math.max(0, S.shake - rdt*3.5);
   S.jitter = Math.max(0, S.jitter - dt*2.2);
   S.peakRate *= Math.pow(0.5, rdt/1.5);
@@ -51,7 +51,9 @@ export function frame(now){
   aimHist.push({t:now, rot:cur.rot, bend:cur.bend});
   while(aimHist.length && aimHist[0].t < now - 800) aimHist.shift();
 
-  const thrustDeg = Math.sin(S.thrust*Math.PI) * 7 * Math.sign(cur.rot || 1);
+  // crack: a fast snap past the aim (peak ~0.08 s) and a slower settle back, all inside the x-ray delay
+  const tu = 1 - S.thrust, snap = S.thrust > 0 ? (tu < 0.25 ? Math.sin(tu/0.25*Math.PI/2) : Math.pow(1 - (tu - 0.25)/0.75, 2)) : 0;
+  const thrustDeg = snap * 12 * Math.sign(cur.rot || 1);
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
   pivot.rotation.set(0, cur.bend*DEG, (cur.rot + thrustDeg + jit)*DEG);
 
@@ -81,27 +83,28 @@ export function frame(now){
 
   // face
   const f = face();
-  const eyesOpenNow = f === "worried" || f === "tense";
+  const eyesOpenNow = f === "worried" || f === "tense" || f === "startle";
   if(now > blinkAt){ blinkAt = now + 2500 + Math.random()*2500; }
   const blinking = eyesOpenNow && blinkAt - now > 2350 && blinkAt - now < 2500;
-  if(realHeadActive()) updateRealFace(f, blinking, k, mats.headSkin.emissiveIntensity);
+  // faces ease on real time (the slow-motion would turn the startle into a slow yawn)
+  if(realHeadActive()) updateRealFace(f, blinking, 1 - Math.exp(-rdt*(f === "startle" ? 22 : 9)), mats.headSkin.emissiveIntensity);
   else{
   lids.forEach(l => { l.visible = !eyesOpenNow || blinking; const sq = f === "ouch" ? 1.7 : 1; l.scale.x += (sq - l.scale.x)*k; });
   eyesOpen.forEach(e => { e.visible = eyesOpenNow && !blinking; });
-  const browAng = f === "worried" || f === "tense" ? -0.38 : f === "ouch" ? 0.42 : f === "relief" ? -0.12 : 0;
+  const browAng = f === "worried" || f === "tense" || f === "startle" ? -0.38 : f === "ouch" ? 0.42 : f === "relief" ? -0.12 : 0;
   const browZ = f === "relief" ? -0.058 : f === "ouch" ? -0.047 : -0.052;
   brows.forEach((b, i) => { const s = i ? 1 : -1; b.rotation.y += (browAng*s - b.rotation.y)*k; b.position.z += (browZ - b.position.z)*k; });
   mouthFlat.visible = f === "rest" || f === "worried" || f === "tense";
   mouthFlat.scale.y = f === "tense" ? 0.7 : 1;
   mouthSmile.visible = f === "relief";
-  mouthO.visible = f === "ouch";
+  mouthO.visible = f === "ouch" || f === "startle";
   }
 
   // x-ray: hidden while aiming so the face and neck stay readable. It opens a beat after the crack
   // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
   if(S.xrayIn > 0){
     S.xrayIn -= rdt;
-    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 1.5; S.crackT = 0; S.wave = 1; }
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 1.2; S.crackT = 0; S.wave = 1; }
   }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
@@ -127,6 +130,12 @@ export function frame(now){
     s.v.y -= dt*0.9;
     s.m.material.opacity = Math.max(0, s.life);
   });
+
+  // realistic hands: contact / cradle roles by turn direction, set up as the aim closes in, push on the crack
+  const turn = target ? Math.sign(target.rot) : 0;
+  // back to rest under the x-ray, so the roles never flip mid-pose when the other side comes up
+  handSetup += ((S.thrust > 0 ? 1 : S.busy ? 0 : c) - handSetup)*(1 - Math.exp(-rdt*4));
+  updateRealHands(turn, ease(clamp(handSetup*1.25, 0, 1)), snap, now/1000);
 
   // therapist forearms follow the hands
   forearms.forEach((f,i)=>{
