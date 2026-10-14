@@ -7,7 +7,7 @@ import { adjust } from "../game/flow.js";
 import { setModeText } from "../ui/hud.js";
 import { physAngle } from "./orientation.js";
 import { tiltAngles } from "../core/tilt.js";
-import { classifySample, aimBefore } from "../core/motion.js";
+import { classifySample, aimBefore, aimDelta } from "../core/motion.js";
 
 /* Tilt aiming + flick snap from devicemotion (AGENTS.md 3-1 ~ 3-3).
    - Pose comes from accelerationIncludingGravity, never from rotationRate axis names (iOS labels them differently).
@@ -51,5 +51,6 @@ export function onMotion(e){
   if(!playing || !prev || now < S.flickCool - 500) return;
   const dlr = t.lr - prev.lr, dpt = t.pt - prev.pt;
   if(Math.abs(dlr) > 25 || Math.abs(dpt) > 25) return;
-  applyDelta(-dlr*T.sens, -dpt*T.sens*T.bend);
+  const d = aimDelta(dlr, dpt, T.sens, T.bend);
+  applyDelta(d.dr, d.db);
 }
