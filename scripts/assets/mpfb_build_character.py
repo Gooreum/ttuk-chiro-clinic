@@ -1,23 +1,18 @@
-import bpy, importlib, sys, math, mathutils
+"""Build one patient's MPFB character (head proxies: eyes, brows, lashes, hair, teeth, tongue) and save a .blend
+   for mpfb_export_head.py. Presets live in patients.py.
+   usage: blender -b --python mpfb_build_character.py -- out.blend [patient01]"""
+import bpy, importlib, sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from patients import human_info
 P="bl_ext.user_default.mpfb"
 HS=importlib.import_module(P+".services.humanservice").HumanService
-OUT=sys.argv[sys.argv.index("--")+1]
+ARGS=sys.argv[sys.argv.index("--")+1:]
+OUT=ARGS[0]; PID=ARGS[1] if len(ARGS)>1 else "patient01"
 for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
-info = {
-  "name": "park_daeri",
-  "phenotype": {"gender":1.0,"age":0.554,"muscle":0.5,"weight":0.55,"proportions":0.5,"height":0.5,"cupsize":0.5,"firmness":0.5,
-                "race":{"asian":1.0,"caucasian":0.0,"african":0.0}},
-  "skin_mhmat": "young_asian_male/young_asian_male.mhmat",
-  "skin_material_type": "GAMEENGINE",
-  "eyes": "high-poly/high-poly.mhclo", "eyes_material_type": "MAKESKIN",
-  "eyebrows": "eyebrow001/eyebrow001.mhclo",
-  "eyelashes": "eyelashes01/eyelashes01.mhclo",
-  "hair": "short02/short02.mhclo",
-  "teeth": "teeth_base/teeth_base.mhclo", "tongue": "tongue01/tongue01.mhclo",
-  "targets": [], "clothes": [], "rig": "", "proxy": ""
-}
+info = human_info(PID)
 s = HS.get_default_deserialization_settings(); s["subdiv_levels"] = 0
 base = HS.deserialize_from_dict(info, s)
-print("BASE", base.name, len(base.data.vertices))
+base["patient_id"] = PID
+print("BASE", PID, base.name, len(base.data.vertices))
 for o in bpy.data.objects: print("OBJ", o.name, o.type, len(o.data.vertices) if o.type=="MESH" else "")
 bpy.ops.wm.save_as_mainfile(filepath=OUT)

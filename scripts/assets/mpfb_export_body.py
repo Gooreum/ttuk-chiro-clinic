@@ -1,6 +1,6 @@
-"""Patient body GLB for patient01 (the head is patient01.glb): same MPFB (MakeHuman, CC0) phenotype as
-   mpfb_build_character.py, so the neck meets the head's neck vertex for vertex.
-   - clothes: male_casualsuit06 (T-shirt + jeans, CC0), split into shirt and pants by its diffuse map; both keep only
+"""Patient body GLB (the head is <patient>.glb): same MPFB (MakeHuman, CC0) phenotype as the head (patients.py),
+   so the neck meets the head's neck vertex for vertex.
+   - clothes: the preset's T-shirt + jeans (CC0), split into shirt and pants (connected pieces, by height); both keep only
      their own ambient-occlusion map (the game tints them with the gown / pants palette colours, no logo)
    - arms posed down along the sides (game_engine rig, applied), the rig is then dropped
    - everything the head GLB keeps (above mid-neck, mpfb_export_head.py) is removed: the two meshes share one seam
@@ -8,29 +8,24 @@
    - a two-bone skin (body, neck): the neck bone carries the seam ring (weight 1) and fades out over NECK_FADE, so the
      game turns the upper neck with the head pivot and the seam never opens
    - shape key "breath": chest and belly rise (front only, back stays on the table), on skin and shirt alike
-   usage: blender -b --python mpfb_export_body.py -- out.glb [bake_size=1024] [cycles_samples=16]"""
+   usage: blender -b --python mpfb_export_body.py -- out.glb [bake_size=1024] [cycles_samples=16] [patient01]"""
 import bpy, bmesh, importlib, sys, os, math
 import numpy as np
 from mathutils import Vector, Matrix, kdtree
 P="bl_ext.user_default.mpfb"
 HS=importlib.import_module(P+".services.humanservice").HumanService
 TS=importlib.import_module(P+".services.targetservice").TargetService
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from patients import human_info
 ARGS=sys.argv[sys.argv.index("--")+1:]
 OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if len(ARGS)>2 else 16
+PID=ARGS[3] if len(ARGS)>3 else "patient01"
 AO_MIX=0.7
 NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0
 BREATH=0.04          # chest/belly rise at full inhale (metres)
 
 for o in list(bpy.data.objects): bpy.data.objects.remove(o, do_unlink=True)
-info={
-  "name":"park_daeri",
-  "phenotype":{"gender":1.0,"age":0.554,"muscle":0.5,"weight":0.55,"proportions":0.5,"height":0.5,"cupsize":0.5,"firmness":0.5,
-               "race":{"asian":1.0,"caucasian":0.0,"african":0.0}},
-  "skin_mhmat":"young_asian_male/young_asian_male.mhmat","skin_material_type":"GAMEENGINE",
-  "eyes":"","eyebrows":"","eyelashes":"","hair":"","teeth":"","tongue":"",
-  "targets":[],"clothes":["male_casualsuit06/male_casualsuit06.mhclo"],"clothes_material_type":"GAMEENGINE",
-  "rig":"game_engine","proxy":""
-}
+info=human_info(PID, rig="game_engine", clothes=True, face=False)
 st=HS.get_default_deserialization_settings(); st["subdiv_levels"]=0; st["load_clothes"]=True
 body=HS.deserialize_from_dict(info, st)
 arm=[o for o in bpy.data.objects if o.type=="ARMATURE"][0]
@@ -112,20 +107,14 @@ bmesh.update_edit_mesh(body.data); bpy.ops.object.mode_set(mode="OBJECT")
 for g in list(body.vertex_groups): body.vertex_groups.remove(g)
 print("BODY KEPT", len(body.data.vertices), "verts", sum(len(p.vertices)-2 for p in body.data.polygons), "tris")
 
-# ---- clothes: shirt / pants by the diffuse colour under each face ----
+# ---- clothes: shirt / pants, per connected piece by height (a piece centred below the hips is the jeans) ----
 cmat=cloth.data.materials[0]
 texs={n.image.name:n.image for n in cmat.node_tree.nodes if n.type=="TEX_IMAGE"}
 print("CLOTH TEX", list(texs))
 dif=[i for k,i in texs.items() if "diffuse" in k.lower()][0]
 nrm_img=[i for k,i in texs.items() if "normal" in k.lower()][0]
 ao_img=bpy.data.images.load(bpy.path.abspath(dif.filepath).replace("_diffuse.png","_ao.png"))   # not wired in the game-engine material
-W,H=dif.size; px=np.array(dif.pixels[:],dtype=np.float32).reshape(H,W,dif.channels)
-uvl=cloth.data.uv_layers.active.data
-def is_pants(poly):
-    u=sum(uvl[l].uv.x for l in poly.loop_indices)/poly.loop_total; v=sum(uvl[l].uv.y for l in poly.loop_indices)/poly.loop_total
-    r,g,b=px[min(H-1,int(v*H)), min(W-1,int(u*W))][:3]
-    return b > r + 0.08
-# per connected piece, by majority (the jeans' fly and patches are pale, the shirt hem is not)
+def is_pants(poly): return poly.center.z < Z_PELVIS
 bm=bmesh.new(); bm.from_mesh(cloth.data); bm.faces.ensure_lookup_table()
 pants_faces=set(); seen=set()
 for f0 in bm.faces:
@@ -175,7 +164,7 @@ skin=me.materials[0]
 src=[n for n in skin.node_tree.nodes if n.type=="TEX_IMAGE" and n.name.lower().startswith("diffuse")][0].image
 sc=bpy.context.scene; sc.render.engine="CYCLES"; sc.cycles.device="CPU"; sc.cycles.samples=SAMPLES
 sc.render.bake.margin=8; sc.render.bake.use_selected_to_active=False
-img=bpy.data.images.new("patient01_body_skin", BAKE, BAKE, alpha=False)
+img=bpy.data.images.new(PID+"_body_skin", BAKE, BAKE, alpha=False)
 m=bpy.data.materials.new("bk"); m.use_nodes=True; t=m.node_tree; t.nodes.clear()
 uvn=t.nodes.new("ShaderNodeUVMap"); uvn.uv_map="UVOrig"
 tx=t.nodes.new("ShaderNodeTexImage"); tx.image=src; t.links.new(uvn.outputs[0], tx.inputs[0])
@@ -189,7 +178,7 @@ out=t.nodes.new("ShaderNodeOutputMaterial"); t.links.new(em.outputs[0], out.inpu
 tg=t.nodes.new("ShaderNodeTexImage"); tg.image=img; t.nodes.active=tg; tg.select=True
 me.materials.clear(); me.materials.append(m)
 bpy.ops.object.bake(type="EMIT")
-img.filepath_raw=os.path.join(os.path.dirname(os.path.abspath(OUT)), "patient01_body_skin.png"); img.file_format="PNG"; img.save()
+img.filepath_raw=os.path.join(os.path.dirname(os.path.abspath(OUT)), PID+"_body_skin.png"); img.file_format="PNG"; img.save()
 fm=bpy.data.materials.new("patient.skin"); fm.use_nodes=True
 b=[n for n in fm.node_tree.nodes if n.type=="BSDF_PRINCIPLED"][0]
 ti=fm.node_tree.nodes.new("ShaderNodeTexImage"); ti.image=img; fm.node_tree.links.new(ti.outputs["Color"], b.inputs["Base Color"])

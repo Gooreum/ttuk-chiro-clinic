@@ -4,9 +4,10 @@ import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
 
-/* Realistic glTF models for the first patient (AGENTS.md 2, "realistic assets").
-   Patient head: MakeHuman/MPFB2 character (CC0), built by scripts/assets/*.py, optimized copy in public/models/patient01.
-   Loaded once in the background; until a model is ready (or if it fails) the primitive version stays.
+/* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
+   built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
+   The roster's look.model names the id. The first patient loads first, the rest one after another in the background;
+   until a patient's model is ready (or if it fails) the primitive version stays.
    Everything is parented under the existing `head` group, so the neck pivot, camera, aiming and judging are untouched.
 
    Therapist hands: MakeHuman/MPFB2 hands and wrist half of the forearms (CC0, game_engine rig, baked skin), built by
@@ -92,26 +93,34 @@ function poseFingers(h, grip, spread, t){
   turn(th[2].bone, th[2].curl, 0.1 + 0.2*grip);
 }
 
-const real = {hands: null, head: null, body: null, morphs: [], skin: null, hair: null};
-let wantHands = false, wantHead = false, wantBody = false, lastLook = null;
+const real = {hands: null, models: {}};     // models[id] = {head, body, morphs, skin, hair}
+let wantHands = false, wantModel = null, lastLook = null;
 
 /* ---- patient head ----
-   GLB space: metres, +Y up (crown), +Z = face. Measured on the export (scripts/assets/mpfb_export_head.py):
-   crown y 1.625, chin y 1.358, back of skull z -0.062. The primitive head (head-local) has its crown at z -0.134,
-   chin at z +0.142 and the back of the skull (resting on the pillow) at y -0.110. Fit crown/chin exactly with a
-   uniform scale, rest the back of the skull where the old one rested, keep x centred. */
-const GLB = {crown: 1.625, chin: 1.358, back: -0.062};
+   GLB space: metres, +Y up (crown), +Z = face. Measured on each export (mpfb_export_head.py, the MEASURE log line):
+   crown y, chin y, back of skull z. The primitive head (head-local) has its crown at z -0.134, chin at z +0.142 and the
+   back of the skull (resting on the pillow) at y -0.110. Fit crown/chin exactly with a uniform scale, rest the back of
+   the skull where the old one rested, keep x centred. */
+const MODELS = {
+  patient01: {crown: 1.625, chin: 1.358, back: -0.062},
+  patient02: {crown: 1.6154, chin: 1.3592, back: -0.0647},
+  patient03: {crown: 1.6278, chin: 1.3606, back: -0.0611},
+  patient04: {crown: 1.495, chin: 1.2016, back: -0.0559},
+  patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749}
+};
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
-const HEAD_SCALE = (PRIM.chin - PRIM.crown) / (GLB.crown - GLB.chin);
-function glbRoot(){
+function glbRoot(g){
+  const scale = (PRIM.chin - PRIM.crown) / (g.crown - g.chin);
   const root = new THREE.Group();
   root.rotation.x = -Math.PI/2;                          // +Y (crown) -> -z (camera side), +Z (face) -> +y (ceiling)
-  root.scale.setScalar(HEAD_SCALE);
-  root.position.set(0, PRIM.back - GLB.back*HEAD_SCALE, PRIM.crown + GLB.crown*HEAD_SCALE);
+  root.scale.setScalar(scale);
+  root.position.set(0, PRIM.back - g.back*scale, PRIM.crown + g.crown*scale);
   return root;
 }
-function placeHead(gltf, env){
-  const root = glbRoot();
+// MakeHuman hair proxies (material name ends with the asset name)
+const HAIR = /\.(short0\d|long0\d|bob0\d|ponytail0\d|braid0\d|afro0\d)$/;
+function placeHead(gltf, env, g, model){
+  const root = glbRoot(g);
   gltf.scene.traverse(o => {
     if(!o.isMesh) return;
     const src = o.material, name = src.name || "";
@@ -121,7 +130,7 @@ function placeHead(gltf, env){
       m = new THREE.MeshPhysicalMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.52, metalness: 0,
         sheen: 0.45, sheenColor: new THREE.Color(0xb04030), sheenRoughness: 0.6, specularIntensity: 0.5,
         envMap: env, envMapIntensity: 0.22});
-      m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; real.skin = m;
+      m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; model.skin = m;
     }
     else if(name.endsWith(".cornea")){
       // clear glossy shell over the eye: only reflections (catchlights), nothing diffuse
@@ -133,17 +142,17 @@ function placeHead(gltf, env){
       // A little self-light keeps the sclera readable in the sockets.
       m.roughness = 0.3; m.alphaTest = 0.5; m.emissive = new THREE.Color(0xffffff); m.emissiveMap = src.map; m.emissiveIntensity = 0.1;
     }
-    else if(name.endsWith(".short02")){
+    else if(HAIR.test(name)){
       // hair cards: alpha-to-coverage gives soft MSAA edges instead of a jagged cutout
-      m.alphaTest = 0.35; m.alphaToCoverage = true; m.side = THREE.DoubleSide; m.roughness = 0.5; m.envMapIntensity = 0.25; real.hair = m;
+      m.alphaTest = 0.35; m.alphaToCoverage = true; m.side = THREE.DoubleSide; m.roughness = 0.5; m.envMapIntensity = 0.25; model.hair = m;
     }
     else if(/teeth|tongue/.test(name)){ m.roughness = name.includes("teeth") ? 0.35 : 0.5; }
     else { m.transparent = true; m.depthWrite = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }   // soft brows/lashes
     o.material = m;
-    const face = name.endsWith(".high-poly") || name.endsWith(".cornea") || name.endsWith(".eyebrow001") || name.endsWith(".eyelashes01") || /teeth|tongue/.test(name);
+    const face = name.endsWith(".high-poly") || name.endsWith(".cornea") || /eyebrow|eyelash/.test(name) || /teeth|tongue/.test(name);
     o.castShadow = !face; o.receiveShadow = !face;          // eyeballs sit inside the skull: no self-shadow on them
     o.frustumCulled = false;
-    if(o.morphTargetDictionary) real.morphs.push(o);
+    if(o.morphTargetDictionary) model.morphs.push(o);
     // the x-ray fade toggles `transparent` on its materials every frame, which would turn the soft brows/lashes
     // into solid strips, so those two stay out of it (they are thin enough to read through anyway)
     if(!m.transparent) xrayMats.push(m);
@@ -159,10 +168,10 @@ function placeHead(gltf, env){
    there plus the head's GLB root puts the body exactly under the head. Every frame the neck bone gets the pivot's
    current turn about the pivot itself (D = pivot * pivotRest^-1), the same motion the head makes. */
 const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4();
-function placeBody(gltf, env){
+function placeBody(gltf, env, g){
   const frame = new THREE.Group();
   frame.position.copy(pivot.position).add(head.position);
-  const root = glbRoot();
+  const root = glbRoot(g);
   frame.add(root); root.add(gltf.scene);
   const morphs = [];
   gltf.scene.traverse(o => {
@@ -190,16 +199,12 @@ function placeBody(gltf, env){
   _P0.makeTranslation(pivot.position.x, pivot.position.y, pivot.position.z).invert();
   return frame;
 }
-export function setRealBody(on){
-  wantBody = on;
-  const use = on && !!real.body;
-  if(real.body) real.body.visible = use;
-  bodyParts.forEach(m => { m.visible = !use; });
-}
+const current = () => wantModel && real.models[wantModel];
 /* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
 export function updateRealBody(fill){
-  if(!real.body || !real.body.visible) return;
-  const {morphs, neck, parentInv, neckRest} = real.body.userData;
+  const cur = current();
+  if(!cur || !cur.body.visible) return;
+  const {morphs, neck, parentInv, neckRest} = cur.body.userData;
   pivot.updateMatrix();
   _D.multiplyMatrices(pivot.matrix, _P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
@@ -292,23 +297,26 @@ function aimForearm(h, elbowWorld, out){
   return head.worldToLocal(arm.localToWorld(out));
 }
 
+/* One patient's head + body. Resolves once both are placed (hidden); shows them if that patient is on the table. */
+function loadPatientModel(id){
+  const model = {head: null, body: null, morphs: [], skin: null, hair: null};
+  return Promise.all([load(BASE + `${id}/${id}.glb`), load(BASE + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
+    model.head = placeHead(gh, env, MODELS[id], model);
+    model.body = placeBody(gb, env, MODELS[id]);
+    real.models[id] = model;
+    if(wantModel === id) setRealPatient(id, lastLook);
+  });
+}
 export function loadRealAssets(){
-  Promise.all([load(BASE + "patient01/patient01.glb"), getEnv()]).then(([g, env]) => {
-    real.head = placeHead(g, env);
-    setRealHead(wantHead, lastLook);
+  const [first, ...rest] = Object.keys(MODELS);
+  loadPatientModel(first).then(() => {
     document.documentElement.dataset.head = "ready";
   }).catch(err => {
-    console.warn("realistic head not loaded, keeping primitives", err);
+    console.warn("realistic patient not loaded, keeping primitives", first, err);
     document.documentElement.dataset.head = "failed";
-  });
-  Promise.all([load(BASE + "patient01/body.glb"), getEnv()]).then(([g, env]) => {
-    real.body = placeBody(g, env);
-    setRealBody(wantBody);
-    document.documentElement.dataset.body = "ready";
-  }).catch(err => {
-    console.warn("realistic body not loaded, keeping primitives", err);
-    document.documentElement.dataset.body = "failed";
-  });
+  }).then(() => rest.reduce((p, id) => p.then(() => loadPatientModel(id).catch(err => {
+    console.warn("realistic patient not loaded, keeping primitives", id, err);
+  })), Promise.resolve()));
   Promise.all([load(BASE + "hands/hands.glb"), getEnv()]).then(([g, env]) => {
     // baked skin (diffuse x occlusion) with the same soft sheen as the patient's face
     const src = g.scene.getObjectByProperty("isMesh", true).material;
@@ -366,7 +374,9 @@ export function updateRealHands(turn, setup, push, t){
 }
 /* Primitive head parts = everything under `head` except the therapist hands and the realistic models. */
 function primitiveHeadParts(){
-  return head.children.filter(o => o !== real.head && !(real.hands || []).includes(o) && !handParts.includes(o) && !hands.includes(o));
+  // the primitive glasses go too: their toy frames float over the realistic face
+  const models = Object.values(real.models).map(m => m.head);
+  return head.children.filter(o => !models.includes(o) && !(real.hands || []).includes(o) && !handParts.includes(o) && !hands.includes(o));
 }
 let hiddenPrims = [];
 /* applyLook calls restorePrimitiveHead() first, sets the primitive look, then setRealHead() last,
@@ -375,28 +385,32 @@ export function restorePrimitiveHead(){
   hiddenPrims.forEach(o => { o.visible = o.userData.wasVisible; });
   hiddenPrims = [];
 }
-export function setRealHead(on, look){
-  wantHead = on; lastLook = look || lastLook;
-  const use = on && !!real.head;
+/* Realistic head + body of patient `id` (null: primitives). */
+export function setRealPatient(id, look){
+  wantModel = id; lastLook = look || lastLook;
+  const cur = current();
   restorePrimitiveHead();
-  if(use){
+  Object.values(real.models).forEach(m => { m.head.visible = m === cur; m.body.visible = m === cur; });
+  bodyParts.forEach(m => { m.visible = !cur; });
+  if(cur){
     hiddenPrims = primitiveHeadParts();
     hiddenPrims.forEach(o => { o.userData.wasVisible = o.visible; o.visible = false; });
-    if(look && real.hair) real.hair.color.setHex(look.hairTint || 0xffffff);
+    if(look && cur.hair) cur.hair.color.setHex(look.hairTint || 0xffffff);
   }
-  if(real.head) real.head.visible = use;
 }
-export const realHeadActive = () => !!(real.head && real.head.visible);
+export const realHeadActive = () => !!current();
 
 /* Per frame from the loop: ease blendshapes toward the face state, and mirror the in-zone glow on the skin. */
 export function updateRealFace(face, blinking, k, glow){
   const w = expressionWeights(face, blinking);
-  real.morphs.forEach(o => {
+  const cur = current();
+  if(!cur) return;
+  cur.morphs.forEach(o => {
     const dict = o.morphTargetDictionary, inf = o.morphTargetInfluences;
     for(const name in w){
       const i = dict[name];
       if(i !== undefined) inf[i] += (w[name] - inf[i]) * k;
     }
   });
-  if(real.skin) real.skin.emissiveIntensity = glow;
+  if(cur.skin) cur.skin.emissiveIntensity = glow;
 }
