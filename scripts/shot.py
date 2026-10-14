@@ -25,11 +25,15 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 HOOK_FROM = "const distNorm = () => distAt(cur.rot, cur.bend);"
 HOOK_TO = "const distNorm = () => 0.2;"
 
-# mulberry32, seed 1: same "random" patients, blinks and sparks on every run
+# mulberry32, seed 1: same "random" patients, blinks and sparks on every run.
+# Reseeded on the first tap (진료 시작): three.min.js (CDN) and the tree-shaken npm build create a different
+# number of library objects at load (each takes Math.random for its uuid), so the game's own draws are
+# aligned from the tap onwards.
 SEED_RANDOM = """
 (() => { let a = 1; Math.random = function(){
   a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
-  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })();
+  t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  addEventListener("pointerdown", () => { a = 1; }, {capture: true, once: true}); })();
 """
 
 
@@ -42,8 +46,10 @@ def parse():
 
 
 def serve(directory):
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
-    handler.log_message = lambda *a: None
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+    handler = functools.partial(Quiet, directory=str(directory))
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, f"http://127.0.0.1:{srv.server_address[1]}/"
