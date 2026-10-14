@@ -16,7 +16,8 @@ import { tone, vib } from "../audio/audio.js";
 import { say, headScreen, projectHead } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands } from "../scene/realAssets.js";
+import { realHeadActive, updateRealFace, updateRealHands, updateRealBody } from "../scene/realAssets.js";
+import { updateBreathFx } from "../scene/breathFx.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -32,6 +33,7 @@ function fadeMats(list, opacity, depthWrite){
   });
 }
 const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new THREE.Vector3();
+const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 export function frame(now){
   const target = S.target, cur = S.cur, input = S.input, face = () => S.face;
   const rdt = Math.min(0.05, (now - last)/1000); last = now;
@@ -57,10 +59,12 @@ export function frame(now){
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
   pivot.rotation.set(0, cur.bend*DEG, (cur.rot + thrustDeg + jit)*DEG);
 
-  // breathing
+  // breathing: the chest rises and falls (primitive torso, or the realistic body's breath shape), a faint mist on the out-breath
   const br = breath(now);
   torso.scale.z = 0.7 + 0.05*br.fill;
   collar.position.y = 1.05 + 0.012*br.fill;
+  updateRealBody(ease(br.fill));
+  updateBreathFx(rdt, br, S.phase === "play" && S.xray < 0.05);
 
   // feel feedback
   const playing = S.phase === "play" && !S.busy;
@@ -137,6 +141,10 @@ export function frame(now){
     s.m.material.opacity = Math.max(0, s.life);
   });
 
+  // the therapist's elbows swing round with the head (most of the turn), so the wrists never fold back on themselves
+  qElbow.identity().slerp(pivot.quaternion, ELBOW_FOLLOW);
+  forearms.forEach(f => f.elbowNow.copy(f.elbow).sub(pivot.position).applyQuaternion(qElbow).add(pivot.position));
+
   // realistic hands: contact / cradle roles by turn direction, set up as the aim closes in, push on the crack
   const turn = target ? Math.sign(target.rot) : 0;
   // back to rest under the x-ray, so the roles never flip mid-pose when the other side comes up
@@ -146,7 +154,7 @@ export function frame(now){
   // therapist forearms follow the hands
   forearms.forEach((f,i)=>{
     hands[i].getWorldPosition(tmpA);
-    tmpB.copy(f.elbow).sub(tmpA);
+    tmpB.copy(f.elbowNow).sub(tmpA);
     const len = tmpB.length();
     tmpB.normalize();
     f.m.position.copy(tmpA).addScaledVector(tmpB, len*0.5);

@@ -1,6 +1,6 @@
 import { mats } from "./materials.js";
 import { hairShort, hairBald, hairLong, hairSpikes, glasses, torso } from "./patientModel.js";
-import { setRealHands, setRealHead, restorePrimitiveHead } from "./realAssets.js";
+import { setRealHands, setRealHead, setRealBody, restorePrimitiveHead } from "./realAssets.js";
 
 /* Per-patient hair, skin, gown, glasses and build. */
 export function applyLook(p){
@@ -16,5 +16,6 @@ export function applyLook(p){
   glasses.visible = !!L.glasses;
   torso.scale.set(L.hair === "bald" ? 1.62 : 1.5, 1, 0.7);
   setRealHands(!!L.real);
+  setRealBody(!!L.real);
   setRealHead(!!L.real, L);
 }
