@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { mats } from "./materials.js";
+import { renderer } from "./renderer.js";
 import { head, hands, handParts, xrayMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
 
@@ -18,6 +19,16 @@ function getLoader(){
     import("three/examples/jsm/loaders/GLTFLoader.js"),
     import("three/examples/jsm/libs/meshopt_decoder.module.js")
   ]).then(([{GLTFLoader}, {MeshoptDecoder}]) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)));
+}
+/* Soft studio reflections for the realistic head only (eye catchlights, skin sheen). Built once, lazily. */
+let envP = null;
+function getEnv(){
+  return envP || (envP = import("three/examples/jsm/environments/RoomEnvironment.js").then(({RoomEnvironment}) => {
+    const pm = new THREE.PMREMGenerator(renderer);
+    const tex = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+    pm.dispose();
+    return tex;
+  }));
 }
 const load = url => getLoader().then(loader => new Promise((res, rej) => loader.load(url, res, undefined, rej)));
 
@@ -79,7 +90,7 @@ let wantHands = false, wantHead = false, lastLook = null;
 const GLB = {crown: 1.625, chin: 1.358, back: -0.062};
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
 const HEAD_SCALE = (PRIM.chin - PRIM.crown) / (GLB.crown - GLB.chin);
-function placeHead(gltf){
+function placeHead(gltf, env){
   const root = new THREE.Group();
   root.rotation.x = -Math.PI/2;                          // +Y (crown) -> -z (camera side), +Z (face) -> +y (ceiling)
   root.scale.setScalar(HEAD_SCALE);
@@ -87,19 +98,32 @@ function placeHead(gltf){
   gltf.scene.traverse(o => {
     if(!o.isMesh) return;
     const src = o.material, name = src.name || "";
-    // plain MeshStandardMaterial everywhere (no clearcoat), opaque skin, alpha-tested hair/brows/lashes
-    const m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.6, metalness: 0});
-    m.name = name;
-    if(name.endsWith(".body")){ m.roughness = 0.55; m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; real.skin = m; }
-    else if(name.endsWith(".high-poly")){
-      // MakeHuman eyes carry a cornea shell mapped to a fully transparent corner of the texture: discard it,
-      // otherwise it covers the eye as a dark film. A little self-light keeps the sclera readable in the sockets.
-      m.roughness = 0.25; m.alphaTest = 0.5; m.emissive = new THREE.Color(0xffffff); m.emissiveMap = src.map; m.emissiveIntensity = 0.15;
+    let m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.6, metalness: 0, envMap: env, envMapIntensity: 0.35});
+    if(name.endsWith(".body")){
+      // skin: a reddish sheen on grazing angles stands in for light scattering under the skin
+      m = new THREE.MeshPhysicalMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.52, metalness: 0,
+        sheen: 0.45, sheenColor: new THREE.Color(0xb04030), sheenRoughness: 0.6, specularIntensity: 0.5,
+        envMap: env, envMapIntensity: 0.22});
+      m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; real.skin = m;
     }
-    else if(name.endsWith(".short02")){ m.alphaTest = 0.4; m.side = THREE.DoubleSide; real.hair = m; }
+    else if(name.endsWith(".cornea")){
+      // clear glossy shell over the eye: only reflections (catchlights), nothing diffuse
+      m = new THREE.MeshPhysicalMaterial({color: 0x000000, roughness: 0.04, metalness: 0, envMap: env, envMapIntensity: 1.6,
+        transparent: true, opacity: 0.18, depthWrite: false});
+    }
+    else if(name.endsWith(".high-poly")){
+      // eyeball. Older exports carry the cornea shell in a fully transparent texture corner: discard it.
+      // A little self-light keeps the sclera readable in the sockets.
+      m.roughness = 0.3; m.alphaTest = 0.5; m.emissive = new THREE.Color(0xffffff); m.emissiveMap = src.map; m.emissiveIntensity = 0.1;
+    }
+    else if(name.endsWith(".short02")){
+      // hair cards: alpha-to-coverage gives soft MSAA edges instead of a jagged cutout
+      m.alphaTest = 0.35; m.alphaToCoverage = true; m.side = THREE.DoubleSide; m.roughness = 0.5; m.envMapIntensity = 0.25; real.hair = m;
+    }
+    else if(/teeth|tongue/.test(name)){ m.roughness = name.includes("teeth") ? 0.35 : 0.5; }
     else { m.transparent = true; m.depthWrite = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }   // soft brows/lashes
     o.material = m;
-    const face = name.endsWith(".high-poly") || name.endsWith(".eyebrow001") || name.endsWith(".eyelashes01");
+    const face = name.endsWith(".high-poly") || name.endsWith(".cornea") || name.endsWith(".eyebrow001") || name.endsWith(".eyelashes01") || /teeth|tongue/.test(name);
     o.castShadow = !face; o.receiveShadow = !face;          // eyeballs sit inside the skull: no self-shadow on them
     o.frustumCulled = false;
     if(o.morphTargetDictionary) real.morphs.push(o);
@@ -137,8 +161,8 @@ function placeHand(gltf, s){
 }
 
 export function loadRealAssets(){
-  load(BASE + "patient01/patient01.glb").then(g => {
-    real.head = placeHead(g);
+  Promise.all([load(BASE + "patient01/patient01.glb"), getEnv()]).then(([g, env]) => {
+    real.head = placeHead(g, env);
     setRealHead(wantHead, lastLook);
     document.documentElement.dataset.head = "ready";
   }).catch(err => {
