@@ -83,6 +83,11 @@ async def shoot(url, out):
 
         await page.goto(url)
         await page.evaluate("document.fonts.ready")
+        # realistic models load in the background (real network time); wait so every shot shows them
+        for _ in range(100):
+            if await page.evaluate("!!(document.documentElement.dataset.hands && document.documentElement.dataset.head)") or url.startswith("file:"):
+                break
+            await page.wait_for_timeout(100)
         await run(2500, 400)
         await page.screenshot(path=str(out / "1-title.png"))
 
