@@ -15,6 +15,7 @@ import { tone, vib } from "../audio/audio.js";
 import { say, headScreen, projectHead } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
+import { realHeadActive, updateRealFace } from "../scene/realAssets.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray/align), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -73,6 +74,8 @@ export function frame(now){
   const eyesOpenNow = f === "worried" || f === "tense";
   if(now > blinkAt){ blinkAt = now + 2500 + Math.random()*2500; }
   const blinking = eyesOpenNow && blinkAt - now > 2350 && blinkAt - now < 2500;
+  if(realHeadActive()) updateRealFace(f, blinking, k, mats.headSkin.emissiveIntensity);
+  else{
   lids.forEach(l => { l.visible = !eyesOpenNow || blinking; const sq = f === "ouch" ? 1.7 : 1; l.scale.x += (sq - l.scale.x)*k; });
   eyesOpen.forEach(e => { e.visible = eyesOpenNow && !blinking; });
   const browAng = f === "worried" || f === "tense" ? -0.38 : f === "ouch" ? 0.42 : f === "relief" ? -0.12 : 0;
@@ -82,6 +85,7 @@ export function frame(now){
   mouthFlat.scale.y = f === "tense" ? 0.7 : 1;
   mouthSmile.visible = f === "relief";
   mouthO.visible = f === "ouch";
+  }
 
   // x-ray: skin goes see-through, the stuck pair slides back into line
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);

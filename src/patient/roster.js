@@ -7,7 +7,7 @@ export const TRAITS = {
 };
 export const ROSTER = [
   {name:"박대리", age:32, cc:"모니터 앞 하루 9시간. 고개가 앞으로 쏠려 있어요.", seg:5, side:1, tolR:9, tolB:6, breath:4.4,
-   look:{hair:"short", hairCol:0x2a211c, skin:0xeabd9b, gown:0x8f86c4, glasses:false, real:true},
+   look:{hair:"short", hairCol:0x2a211c, skin:0xeabd9b, gown:0x8f86c4, glasses:false, real:true, hairTint:0x4a3a30},
    lines:{start:"목이 돌덩이예요…", near:"어, 거기 뭔가 걸려요", ouch:"아야!", done:"와… 고개가 돌아가요!", idle:"선생님…?"}},
   {name:"최교수", age:54, cc:"논문 마감 주간. 왼쪽 목이 결려서 잠을 못 잤어요.", seg:4, side:-1, tolR:8, tolB:5.5, breath:3.0, trait:"nervous",
    look:{hair:"short", hairCol:0x8d8680, skin:0xe4b493, gown:0x6fa3bd, glasses:true},
