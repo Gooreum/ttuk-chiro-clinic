@@ -9,7 +9,7 @@ export const S = {
   breathT0: 0,
   rate: 0, peakRate: 0, jerkPeak: 0, flickCool: 0, nextPulse: 0, sensorSeen: false,
   slow: 0, zoom: 0, xray: 0, xrayHold: 0, wave: 0,
-  crackT: -1, xpre: 0, hurtX: 0,                       // x-ray: seconds since the crack, near-target preview, wrong-crack throb
+  crackT: -1, xrayIn: 0, hurtX: 0,                     // x-ray: seconds since it opened, delay before it opens, wrong-crack throb
   viewRot: 0,                                          // self-rotation of #app: 0 / 90 / 270
   sideIdx: 0, sidePts: [], sideStars: []               // both-side adjustment: 0 = complaint side, 1 = opposite
 };

@@ -14,11 +14,11 @@ export function resize(){
   camera.aspect = w/h;
   if(camera.aspect >= 1.2){
     // landscape: therapist's eye line, head just below the middle of the screen
-    camBase.set(0, 2.02, -0.92); camLook.set(0, 0.98, 0.3); camera.fov = 44;
+    camBase.set(0, 1.52, -0.2); camLook.set(0, 0.98, 0.3); camera.fov = 50;
   }else if(camera.aspect >= 0.9){
-    camBase.set(0, 2.05, -0.98); camLook.set(0, 0.97, 0.34); camera.fov = 48;
+    camBase.set(0, 1.55, -0.24); camLook.set(0, 0.97, 0.32); camera.fov = 56;
   }else{
-    camBase.set(0, 2.1, -1.02); camLook.set(0, 0.96, 0.3); camera.fov = 60;
+    camBase.set(0, 1.62, -0.3); camLook.set(0, 0.96, 0.3); camera.fov = 68;
   }
   camera.updateProjectionMatrix();
   sizeHud(w, h);
