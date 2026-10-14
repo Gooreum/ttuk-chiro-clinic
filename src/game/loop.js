@@ -38,6 +38,24 @@ const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new TH
 let fz = 0;
 const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
+// visual-only head pose on top of the aim (never read by judging: distAt / S.input / S.cur stay as they are)
+const SETUP_EXT = 4*DEG;    // the therapist tips the chin up a little while setting up (slight extension)
+const ROCK = 14;            // degrees: the head is rocked side to side twice while the patient settles (S.prepUntil)
+let prepFrom = 0, prepTo = 0;
+// the therapist's trunk = the camera: leans in over the face during the set-up, drops a few cm on the thrust
+const LEAN = 0.045, LEAN_LOOK = 0.3, DIP = 0.035, DIP_T0 = 0.04, DIP_PEAK = 0.11, DIP_END = 0.26;   // m, share of the gaze, m, s since the thrust
+function headRock(now){
+  const until = S.prepUntil || 0;
+  if(until !== prepTo){ prepTo = until; prepFrom = now; }
+  if(!(now < prepTo) || prepTo <= prepFrom) return 0;
+  const u = (now - prepFrom)/(prepTo - prepFrom);
+  return ROCK*Math.sin(2*Math.PI*2*u)*Math.sin(Math.PI*u);   // two rocks, eased in and out to zero before control
+}
+function trunkDip(t){
+  if(t < DIP_T0 || t >= DIP_END) return 0;
+  if(t < DIP_PEAK) return DIP*Math.sin(Math.PI/2*(t - DIP_T0)/(DIP_PEAK - DIP_T0));
+  return DIP*(0.5 + 0.5*Math.cos(Math.PI*(t - DIP_PEAK)/(DIP_END - DIP_PEAK)));
+}
 export function frame(now){
   const target = S.target, cur = S.cur, input = S.input, face = () => S.face;
   const rdt = Math.min(0.05, (now - last)/1000); last = now;
@@ -64,7 +82,8 @@ export function frame(now){
   // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
-  pivot.rotation.set(-NOD*ease(br.fill), (cur.bend + thrustBend)*DEG, (cur.rot + thrustDeg + jit)*DEG);
+  pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), (cur.bend + thrustBend)*DEG,
+    (cur.rot + thrustDeg + jit + headRock(now))*DEG);
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
@@ -152,14 +171,16 @@ export function frame(now){
   qElbow.identity().slerp(pivot.quaternion, ELBOW_FOLLOW);
   forearms.forEach(f => f.elbowNow.copy(f.elbow).sub(pivot.position).applyQuaternion(qElbow).add(pivot.position));
 
-  // realistic hands: contact / cradle roles by turn direction, set up as the aim closes in, push on the crack
+  // realistic arms (realAssets.js): contact / support roles follow the head's turn, set up as the aim closes in,
+  // push on the crack, cup the cheeks after it, palpate while a new patient settles, pat the chest after both sides
   const turn = target ? Math.sign(target.rot) : 0;
   // back to rest under the x-ray, so the roles never flip mid-pose when the other side comes up
   handSetup += ((S.thrust > 0 ? 1 : S.busy ? 0 : c) - handSetup)*(1 - Math.exp(-rdt*4));
-  updateRealHands(turn, ease(clamp(handSetup*1.25, 0, 1)), snap, now/1000);
+  updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
+    after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results});
 
-  // therapist forearms follow the hands
-  forearms.forEach((f,i)=>{
+  // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
+  if(forearms[0].m.visible) forearms.forEach((f,i)=>{
     hands[i].getWorldPosition(tmpA);
     tmpB.copy(f.elbowNow).sub(tmpA);
     const len = tmpB.length();
@@ -191,6 +212,18 @@ export function frame(now){
   const orbitX = (target ? -target.side : 1)*0.2;
   camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
+  // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
+  // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
+  if(!reduce){
+    const lu = ease(clamp(handSetup, 0, 1))*(1 - z), dip = S.thrust > 0 ? trunkDip((1 - S.thrust)*CRACK_LEN) : 0;
+    if(lu > 0.001){
+      // toward the face, and the gaze tips down onto it, so the head rises a touch on screen (ring stays readable)
+      head.localToWorld(faceW.set(0, 0.08, 0.04));
+      camPos.addScaledVector(tmpB.copy(faceW).sub(camPos).normalize(), LEAN*lu);
+      camTgt.lerp(faceW, LEAN_LOOK*lu);
+    }
+    if(dip > 0.0001) camPos.addScaledVector(tmpB.copy(camTgt).sub(camPos).normalize(), dip);
+  }
   // after the x-ray: lean in on the face while the patient reacts (the reaction is the payoff, it should read)
   fz += ((now > S.reactFrom && now < S.reactUntil ? 1 : 0) - fz)*(1 - Math.exp(-rdt*2.5));
   if(fz > 0.001){
