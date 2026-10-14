@@ -11,3 +11,7 @@ export function scoreSuccess(d, exhale, streak, painHere){
 }
 export const rankTitle = (avg, pain) => pain >= 3 ? "면허 재시험 대상"
   : avg >= 115 ? "손끝의 명의" : avg >= 98 ? "예약 꽉 찬 원장님" : avg >= 82 ? "동네 인기 원장님" : "열정 넘치는 수련의";
+/* A patient is adjusted on both sides; the day log shows the weaker side's stars. */
+export const patientStars = sideStars => Math.min(...sideStars);
+/* Rank thresholds are per crack, and every patient takes two cracks. */
+export const crackAvg = (score, patients) => score / (patients * 2);

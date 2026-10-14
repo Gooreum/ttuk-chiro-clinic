@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreSuccess, rankTitle } from "../src/core/scoring.js";
+import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../src/core/scoring.js";
 
 describe("scoreSuccess", () => {
   it("base is 100 - 40d, PERFECT below 0.35", () => {
@@ -42,5 +42,16 @@ describe("rankTitle", () => {
   });
   it("three pains override the average", () => {
     expect(rankTitle(200, 3)).toBe("면허 재시험 대상");
+  });
+});
+
+describe("both-side helpers", () => {
+  it("patient stars are the weaker side", () => {
+    expect(patientStars([3, 2])).toBe(2);
+    expect(patientStars([3, 3])).toBe(3);
+    expect(patientStars([1, 3])).toBe(1);
+  });
+  it("rank average is per crack (two per patient)", () => {
+    expect(crackAvg(1000, 5)).toBe(100);
   });
 });
