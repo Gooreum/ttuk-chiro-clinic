@@ -7,7 +7,7 @@ import { adjust } from "../game/flow.js";
 import { setModeText } from "../ui/hud.js";
 import { physAngle } from "./orientation.js";
 import { tiltAngles } from "../core/tilt.js";
-import { classifySample, aimBefore, aimDelta } from "../core/motion.js";
+import { classifySample, aimBefore, aimDelta, orientationSign, voteSign, signFromVotes } from "../core/motion.js";
 
 /* Tilt aiming + flick snap from devicemotion (AGENTS.md 3-1 ~ 3-3).
    - Pose comes from accelerationIncludingGravity, never from rotationRate axis names (iOS labels them differently).
@@ -15,9 +15,15 @@ import { classifySample, aimBefore, aimDelta } from "../core/motion.js";
    - Shaky samples are dropped; aim accumulates frame-to-frame deltas through applyDelta (for heaviness).
    - A snap is judged at the aim from 250 ms before the flick. */
 const screenAngle = () => (physAngle() + S.viewRot) * DEG;
-let gSign = 0, prevTilt = null;
+let gSign = 0, prevTilt = null, signVotes = 0;
 const grav = {x:0, y:0, z:0, ok:false};
-export const live = {lr:0, pt:0};
+export const live = {lr:0, pt:0, sign:0, signSrc:""};
+// Latest deviceorientation pose; used only to decide gSign, never for aiming.
+let pose = null;
+export function onOrientation(e){
+  if(e.beta == null || e.gamma == null) return;
+  pose = {beta: e.beta, gamma: e.gamma, t: performance.now()};
+}
 export const aimHist = [];
 function snap(now){
   S.flickCool = now + 900;
@@ -41,7 +47,16 @@ export function onMotion(e){
   const kind = classifySample({m, lin, playing, now, flickCool: S.flickCool, flick: T.flick, jerk: T.jerk});
   if(kind === "snap"){ snap(now); return; }
   if(kind === "discard") return;
-  if(!gSign && Math.abs(a.z) > 2.5) gSign = a.z > 0 ? 1 : -1;
+  // gSign: decided by the pose angles when deviceorientation is available (works in any posture, keeps checking);
+  // otherwise the first sample's z sign (player holds the screen facing up).
+  const ps = pose && now - pose.t < 250 ? orientationSign(a.z, pose.beta, pose.gamma) : 0;
+  if(ps){
+    signVotes = voteSign(signVotes, ps);
+    const vs = signFromVotes(signVotes);
+    if(vs && vs !== gSign){ gSign = vs; grav.ok = false; prevTilt = null; live.signSrc = "자세"; }
+  }
+  if(!gSign && Math.abs(a.z) > 2.5){ gSign = a.z > 0 ? 1 : -1; live.signSrc = "첫 값"; }
+  live.sign = gSign;
   const sg = gSign || 1;
   const k = grav.ok ? 0.35 : 1;
   grav.x += (sg*a.x - grav.x)*k; grav.y += (sg*a.y - grav.y)*k; grav.z += (sg*a.z - grav.z)*k; grav.ok = true;

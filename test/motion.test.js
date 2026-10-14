@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifySample, aimBefore, aimDelta } from "../src/core/motion.js";
+import { classifySample, aimBefore, aimDelta, orientationSign, voteSign, signFromVotes } from "../src/core/motion.js";
 
 const base = {m: 0, lin: 0, playing: true, now: 5000, flickCool: 0, flick: 200, jerk: 10};
 const c = o => classifySample({...base, ...o});
@@ -49,5 +49,36 @@ describe("aimDelta", () => {
   });
   it("up/down is scaled by the bend multiplier", () => {
     expect(aimDelta(0, 10, 1.5, 2).db).toBeCloseTo(-30, 10);
+  });
+});
+
+describe("orientationSign (gSign from the pose, any posture)", () => {
+  it("spec platform: face up z>0 -> +1, face down z<0 -> +1", () => {
+    expect(orientationSign(9.8, 0, 0)).toBe(1);
+    expect(orientationSign(-9.8, 180, 0)).toBe(1);
+    expect(orientationSign(6.9, 45, 0)).toBe(1);
+  });
+  it("inverted platform (iOS): face up z<0 -> -1, face down z>0 -> -1", () => {
+    expect(orientationSign(-9.8, 0, 0)).toBe(-1);
+    expect(orientationSign(9.8, 180, 0)).toBe(-1);
+    expect(orientationSign(-6.9, 0, 45)).toBe(-1);
+  });
+  it("can't tell when the phone is near upright or z is small", () => {
+    expect(orientationSign(1.5, 85, 0)).toBe(0);
+    expect(orientationSign(2.0, 0, 0)).toBe(0);
+  });
+});
+
+describe("sign votes", () => {
+  it("needs 5 agreeing samples and clamps at ±20", () => {
+    let v = 0;
+    for(let i = 0; i < 4; i++) v = voteSign(v, -1);
+    expect(signFromVotes(v)).toBe(0);
+    v = voteSign(v, -1);
+    expect(signFromVotes(v)).toBe(-1);
+    for(let i = 0; i < 40; i++) v = voteSign(v, -1);
+    expect(v).toBe(-20);
+    for(let i = 0; i < 25; i++) v = voteSign(v, 1);
+    expect(signFromVotes(v)).toBe(1);
   });
 });
