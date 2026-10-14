@@ -77,25 +77,10 @@ const forearms = [-1,1].map(s => {
 });
 const UP = new THREE.Vector3(0,1,0), tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3();
 
-/* ---- cervical spine (x-ray) ---- */
-const boneMat = M(0xf3ead6, 0.5, {transparent:true, opacity:0, emissive:new THREE.Color(0x9ad8ff), emissiveIntensity:0.25, depthWrite:false});
-const hitMat  = M(0xff7a59, 0.4, {transparent:true, opacity:0, emissive:new THREE.Color(0xff7a59), emissiveIntensity:0.6, depthWrite:false});
-const discMat = M(0x8fd0ff, 0.5, {transparent:true, opacity:0, depthWrite:false});
-const vert = [];
-for(let i=0;i<7;i++){
-  const g = new THREE.Group();
-  g.position.set(0, -0.014, -0.118 + i*0.0335);
-  pivot.add(g);
-  const parts = [
-    mesh(cyl(0.021,0.022,0.018,14), boneMat, g, [0,0,0], [Math.PI/2,0,0], null, true),
-    mesh(box(0.008,0.026,0.012), boneMat, g, [0,-0.028,0.004], null, null, true),
-    mesh(box(0.062,0.008,0.01), boneMat, g, [0,-0.006,0], null, null, true)
-  ];
-  if(i<6) mesh(cyl(0.019,0.019,0.012,14), discMat, g, [0,0,0.0168], [Math.PI/2,0,0], null, true);
-  g.visible = false;
-  vert.push({g, parts});
-}
+/* ---- x-ray fade ---- (the spine itself lives in scene/xray.js) */
 const xrayMats = [mats.neck, mats.headSkin, mats.hair, mats.lip, mats.feature, mats.brow, mats.white, mats.frames];
+// therapist hands, sleeves and gown cover the neck from the camera: faded only during the crack itself
+const crackFadeMats = [mats.doc, mats.coat, mats.cuff, mats.gown];
 
 // glow ring + release wave + sparks
 const ringMat = new THREE.MeshBasicMaterial({color:0xff7a59, transparent:true, opacity:0, depthWrite:false});
@@ -112,5 +97,5 @@ const sparks = Array.from({length:14}, () => {
 export {
   torso, collar, pivot, head, hairShort, hairBald, hairLong, hairSpikes,
   lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, glasses, hands, handParts, forearms,
-  UP, tmpA, tmpB, tmpC, boneMat, hitMat, discMat, vert, xrayMats, ringMat, waveMat, waveRing, sparks
+  UP, tmpA, tmpB, tmpC, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 };
