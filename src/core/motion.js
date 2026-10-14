@@ -13,8 +13,8 @@ export function aimBefore(hist, t, fallback){
   return hist[0] || fallback;
 }
 /* Tilt delta (degrees of phone pose) -> aim delta (degrees of head rotation / side bend).
-   Left/right sign set from the iPhone test on 2026-10-14: tilting the phone left must turn the head left.
-   Up/down is unchanged from the prototype. */
+   Signs are the prototype's: tilting left (lr up) turns the head left (rot down).
+   Confirmed on iPhone 2026-10-14 via the tuning panel. If both axes ever feel reversed, suspect gSign, not this. */
 export function aimDelta(dlr, dpt, sens, bend){
-  return {dr: dlr*sens, db: -dpt*sens*bend};
+  return {dr: -dlr*sens, db: -dpt*sens*bend};
 }
