@@ -36,7 +36,20 @@ const FACES = {
   startle: {w: {...wide(0.8), ...browUp(1), ...browOut(0.8), "mouth-open": 0.7, "mouth-pursing": 0.25}, prim: "startle"},
   gasp:    {w: {...wide(1), ...browUp(1), ...browOut(1), "mouth-open": 0.45, "mouth-pursing": 0.6, ...flare(0.6)}, prim: "startle"},
   wince:   {w: {...closure(1), ...slit(1), ...browDown(0.8), ...sneer(0.8), "mouth-retraction": 0.9, "mouth-elevation": 0.35}, prim: "ouch"},
+  // a calm patient at the crack: eyes stay shut, no flinch, the brows barely lift
+  calm:    {w: {...closure(1), ...browUp(0.15)}, prim: "rest"},
+  // right after the jolt: a long "huu" breath out through pursed lips (mouth-open and -protusion both bare the teeth), eyes closed,
+  // brows soft, slowly letting go
+  sigh:    {w: {...closure(1), ...browUp(0.45), "mouth-pursing": 0.35, ...flare(0.35)}, prim: "startle",
+            live: (t, w) => { const s = Math.sin(t*1.3); w["mouth-pursing"] += 0.1*s; w["nose-left-dilatation"] += 0.1*s; w["nose-right-dilatation"] += 0.1*s; }},
   // after the x-ray
+  // eyes come open, both blink twice in a row now and then (never one eye: winks read as creepy), lips closed
+  // (parted lips over the teeth read as a blank stare)
+  awake:   {w: {...wide(0.3), ...browUp(0.4), ...browOut(0.3), "mouth-compression": 0.1}, prim: "worried",
+            live: (t, w) => { const ph = t % 2.6; if(ph < 0.12 || (ph > 0.24 && ph < 0.34)) Object.assign(w, closure(1)); }},
+  // the calm patient's afterglow: eyes stay closed, a small closed-lip smile
+  serene:  {w: {...closure(1), ...browUp(0.12), "mouth-corner-puller": 0.4, "mouth-compression": 0.15}, prim: "relief",
+            live: (t, w) => { w["mouth-corner-puller"] += 0.05*Math.sin(t*0.9); }},
   relief:  {w: {...closure(1), ...browUp(0.2), "mouth-corner-puller": 0.7, "mouth-compression": 0.3}, prim: "relief"},
   bliss:   {w: {...closure(1), ...browUp(0.55), "mouth-open": 0.35, "mouth-corner-puller": 0.5, ...flare(0.3)}, prim: "relief",
             live: (t, w) => { const s = Math.sin(t*1.6); w["mouth-open"] += 0.12*s; w["eyebrows-left-inner-up"] += 0.1*s; w["eyebrows-right-inner-up"] += 0.1*s; }},
@@ -71,9 +84,10 @@ export function expressionWeights(face, blinking = false, t = 0, breathIn = 0){
   if(blinking) Object.assign(w, closure(1));
   return w;
 }
-/* The faces a crack plays: jolt (at the crack), first (as the x-ray clears), then (held until the next side).
-   react: the patient's pools {jolt, first, then, big}; big replaces then on a PERFECT. prev: the other side's pick,
-   rerolled a few times so the two sides of a patient read differently. */
+/* The faces a crack plays: jolt (at the crack), ahh (the sigh right after it), first (as the x-ray clears), then
+   (held until the next side). react: the patient's pools {jolt, ahh, first, then, big}; big replaces then on a
+   PERFECT; without an ahh pool the flow uses "sigh". prev: the other side's pick, rerolled a few times so the two
+   sides of a patient read differently. */
 const DEFAULT_REACT = {jolt: ["startle"], first: ["bliss"], then: ["relief"], big: ["beam"]};
 export function pickReaction(react = DEFAULT_REACT, perfect = false, rand = Math.random, prev = null){
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
@@ -82,5 +96,6 @@ export function pickReaction(react = DEFAULT_REACT, perfect = false, rand = Math
     r = {jolt: pick(react.jolt), first: pick(react.first), then: pick(perfect ? react.big : react.then)};
     if(!prev || r.first !== prev.first || r.then !== prev.then) break;
   }
+  if(react.ahh) r.ahh = pick(react.ahh);
   return r;
 }
