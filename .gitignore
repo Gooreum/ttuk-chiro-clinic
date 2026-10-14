@@ -1,0 +1,6 @@
+shots/
+__pycache__/
+node_modules/
+dist/
+dist-shot/
+.ai-bouncer-tasks/
