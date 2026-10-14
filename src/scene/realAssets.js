@@ -200,6 +200,8 @@ function placeBody(gltf, env, g){
   return frame;
 }
 const current = () => wantModel && real.models[wantModel];
+// the breath shape is real-sized (5.5 cm chest rise, 2 cm shrug); from the head end it needs a stage-sized breath
+const BREATH_GAIN = 1.4;
 /* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
 export function updateRealBody(fill){
   const cur = current();
@@ -209,7 +211,7 @@ export function updateRealBody(fill){
   _D.multiplyMatrices(pivot.matrix, _P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
-  morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill; });
+  morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
 }
 
 /* One side of hands.glb: the armature node with its skinned mesh. The hand frame is measured on the rest skeleton:
@@ -257,7 +259,7 @@ function placeHand(arm, s, mat){
   });
   const poses = {rest: poseOf(s, "rest", frame), contact: poseOf(s, "contact", frame), cradle: poseOf(s, "cradle", frame)};
   const lower = bone("lowerarm"), hand = bone("hand");
-  root.userData = {s, joints, rest, poses, phase: s > 0 ? 0 : 2.1, arm, lower, hand, wrist, cut,
+  root.userData = {s, joints, rest, poses, phase: s > 0 ? 0 : 2.1, arm, lower, hand, wrist, cut, frame,
     lowerRest: lower.matrix.clone(), handRest: hand.matrix.clone()};
   poseFingers(root, 0, 1, 0);
   root.quaternion.copy(poses.rest.quat);
@@ -269,6 +271,29 @@ function placeHand(arm, s, mat){
   root.updateMatrixWorld(true);
   root.userData.anchorLocal = head.worldToLocal(arm.localToWorld(cut.clone())).clone();
   return root;
+}
+/* Where the elbow goes for the hand's current pose. Aiming the forearm at a fixed elbow folded the wrist past what a
+   wrist can do whenever the head (with the hands on it) turned. Now the forearm leans from straight on (the rest
+   forearm axis) toward the therapist's elbow (`toward`, the loop's elbowNow) within a real wrist's range, split the
+   anatomical way: extension / flexion (the forearm tipping toward the back of the hand / the palm) is free-ish,
+   side-to-side deviation is small. The palms rest on the sides of the head, so extension is what carries the forearm
+   out to the side, as a real therapist's does. The sleeve and the forearm follow this elbow. */
+const EXTEND = 1.0, FLEX = 0.45, DEVIATE = 0.3, ELBOW_REACH = 0.42;      // radians; metres from the wrist
+const _ax = new THREE.Vector3(), _nb = new THREE.Vector3(), _ac = new THREE.Vector3(), _wr = new THREE.Vector3(), _dv = new THREE.Vector3();
+function naturalElbow(h, toward, out){
+  const {arm, wrist, cut, frame} = h.userData;
+  h.updateMatrixWorld(true);
+  arm.localToWorld(_wr.copy(wrist));
+  arm.localToWorld(_ax.copy(cut)).sub(_wr).normalize();                                // straight on from the hand
+  _nb.fromArray(frame.normal).transformDirection(h.matrixWorld).negate();              // back of the hand
+  _nb.addScaledVector(_ax, -_nb.dot(_ax)).normalize();
+  _ac.crossVectors(_ax, _nb);
+  _dv.copy(toward).sub(_wr);
+  const along = Math.max(1e-3, _dv.dot(_ax));
+  const ext = Math.max(-FLEX, Math.min(EXTEND, Math.atan2(_dv.dot(_nb), along)));
+  const dev = Math.max(-DEVIATE, Math.min(DEVIATE, Math.atan2(_dv.dot(_ac), along)));
+  _dv.copy(_ax).addScaledVector(_nb, Math.tan(ext)).addScaledVector(_ac, Math.tan(dev)).normalize();
+  return out.copy(_wr).addScaledVector(_dv, ELBOW_REACH);
 }
 /* Bend at the wrist so the forearm runs back toward the elbow (the sleeve's line) instead of sticking out of the
    hand at a fixed angle: turn the lower-arm bone about the wrist, give the hand bone the opposite turn so the hand
@@ -368,7 +393,8 @@ export function updateRealHands(turn, setup, push, t){
     h.position.copy(_p); h.quaternion.copy(_qa);
     const grip = role === "contact" ? 0.35*k + 0.65*push : role === "cradle" ? 0.25*k + 0.3*push : 0;
     poseFingers(h, grip, 1 - 0.6*grip, t);
-    // forearm back toward the elbow, and the sleeve (forearm anchor) on its cut
+    // forearm back toward the elbow (placed for this pose, see naturalElbow), and the sleeve (forearm anchor) on its cut
+    naturalElbow(h, forearms[i].elbowNow, forearms[i].elbowNow);
     hands[i].position.copy(aimForearm(h, forearms[i].elbowNow, _w));
   });
 }
@@ -400,9 +426,10 @@ export function setRealPatient(id, look){
 }
 export const realHeadActive = () => !!current();
 
-/* Per frame from the loop: ease blendshapes toward the face state, and mirror the in-zone glow on the skin. */
-export function updateRealFace(face, blinking, k, glow){
-  const w = expressionWeights(face, blinking);
+/* Per frame from the loop: ease blendshapes toward the face state, and mirror the in-zone glow on the skin.
+   t: seconds (the face's own motion), breathIn: 0..1 breath fill (nostrils). */
+export function updateRealFace(face, blinking, k, glow, t = 0, breathIn = 0){
+  const w = expressionWeights(face, blinking, t, breathIn);
   const cur = current();
   if(!cur) return;
   cur.morphs.forEach(o => {
