@@ -18,7 +18,7 @@ export const ROSTER = [
    lines:{start:"아, 아프게 하시면 안 돼요…", near:"으음… 거기요?", ouch:"으악!", jolt:"으엇?!", ahh:"어…? 시원한데요?", done:"어? 하나도 안 아팠어요", idle:"아직이에요…? 무서워요"}},
   {name:"이라이더", xr:"disc", age:27, cc:"헬멧 쓰고 하루 12시간 배달. 목이 꽉 막혔어요.", seg:3, side:1, tolR:7, tolB:5, breath:3.6, trait:"stiff",
    look:{hair:"messy", hairCol:0x1e1a17, skin:0xd9a47e, gown:0xb08f68, glasses:false, model:"patient03"},
-   react:{jolt:["wince", "gasp"], first:["grin", "bliss"], then:["wink", "beam"], big:["wink", "laugh"]},
+   react:{jolt:["wince", "gasp"], first:["grin", "bliss"], then:["relief", "beam"], big:["beam", "laugh"]},
    lines:{start:"빨리 해주세요, 콜 밀려요", near:"오 거기 거기", ouch:"아 씨… 아파요", jolt:"어우 씨!", ahh:"와 미쳤다, 개운해", done:"오 대박, 헬멧이 가벼워질 듯", idle:"콜 들어오는데…"}},
   {name:"정작가", xr:"rot", age:31, cc:"웹툰 마감 사흘째 밤샘. 고개가 끝까지 안 돌아가요.", seg:5, side:-1, tolR:6.5, tolB:4.5, breath:4.8, trait:"flexible",
    look:{hair:"long", hairCol:0x3a2418, skin:0xf0c7a8, gown:0xc98a95, glasses:false, model:"patient04"},
