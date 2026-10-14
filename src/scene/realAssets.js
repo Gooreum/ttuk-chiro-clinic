@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { renderer } from "./renderer.js";
-import { head, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
+import { renderer, scene } from "./renderer.js";
+import { mats } from "./materials.js";
+import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
 
 /* Realistic glTF models for the first patient (AGENTS.md 2, "realistic assets").
@@ -9,7 +10,11 @@ import { expressionWeights } from "../core/faceRig.js";
    Everything is parented under the existing `head` group, so the neck pivot, camera, aiming and judging are untouched.
 
    Therapist hands: MakeHuman/MPFB2 hands and wrist half of the forearms (CC0, game_engine rig, baked skin), built by
-   scripts/assets/mpfb_export_hands.py into public/models/hands/hands.glb. Real size, one armature per side. */
+   scripts/assets/mpfb_export_hands.py into public/models/hands/hands.glb. Real size, one armature per side.
+
+   Patient body: the same character below mid-neck (scripts/assets/mpfb_export_body.py, public/models/patient01/body.glb),
+   T-shirt and jeans tinted with the gown / pants palette, arms along the sides. It shares the head's GLB space, so it
+   is placed with the head's transform at rest; its neck bone turns with the pivot, so the seam with the head stays shut. */
 const BASE = import.meta.env.BASE_URL + "models/";
 // GLTFLoader + meshopt decoder are loaded on demand (own chunk), so the main bundle stays as small as before
 let loaderP = null;
@@ -87,8 +92,8 @@ function poseFingers(h, grip, spread, t){
   turn(th[2].bone, th[2].curl, 0.1 + 0.2*grip);
 }
 
-const real = {hands: null, head: null, morphs: [], skin: null, hair: null};
-let wantHands = false, wantHead = false, lastLook = null;
+const real = {hands: null, head: null, body: null, morphs: [], skin: null, hair: null};
+let wantHands = false, wantHead = false, wantBody = false, lastLook = null;
 
 /* ---- patient head ----
    GLB space: metres, +Y up (crown), +Z = face. Measured on the export (scripts/assets/mpfb_export_head.py):
@@ -98,11 +103,15 @@ let wantHands = false, wantHead = false, lastLook = null;
 const GLB = {crown: 1.625, chin: 1.358, back: -0.062};
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
 const HEAD_SCALE = (PRIM.chin - PRIM.crown) / (GLB.crown - GLB.chin);
-function placeHead(gltf, env){
+function glbRoot(){
   const root = new THREE.Group();
   root.rotation.x = -Math.PI/2;                          // +Y (crown) -> -z (camera side), +Z (face) -> +y (ceiling)
   root.scale.setScalar(HEAD_SCALE);
   root.position.set(0, PRIM.back - GLB.back*HEAD_SCALE, PRIM.crown + GLB.crown*HEAD_SCALE);
+  return root;
+}
+function placeHead(gltf, env){
+  const root = glbRoot();
   gltf.scene.traverse(o => {
     if(!o.isMesh) return;
     const src = o.material, name = src.name || "";
@@ -143,6 +152,59 @@ function placeHead(gltf, env){
   root.visible = false;
   head.add(root);
   return root;
+}
+
+/* ---- patient body ----
+   Head space at rest = the pivot's rest position plus the head offset (the pivot has no rotation at rest), so a frame
+   there plus the head's GLB root puts the body exactly under the head. Every frame the neck bone gets the pivot's
+   current turn about the pivot itself (D = pivot * pivotRest^-1), the same motion the head makes. */
+const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4();
+function placeBody(gltf, env){
+  const frame = new THREE.Group();
+  frame.position.copy(pivot.position).add(head.position);
+  const root = glbRoot();
+  frame.add(root); root.add(gltf.scene);
+  const morphs = [];
+  gltf.scene.traverse(o => {
+    if(!o.isMesh) return;
+    const src = o.material, name = src.name || "";
+    let m;
+    if(name.endsWith(".skin")){
+      // plain standard skin: the body covers a lot of screen, the sheen of the face and hands would cost fill rate
+      m = new THREE.MeshStandardMaterial({map: src.map, roughness: 0.58, metalness: 0, envMap: env, envMapIntensity: 0.22});
+      xrayMats.push(m);                 // the neck fades under the x-ray like the head
+    }else{
+      // ambient-occlusion map as the base colour, multiplied by the palette colour: folds without the original print
+      m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap, roughness: 0.9, metalness: 0, envMap: env, envMapIntensity: 0.15});
+      m.color = (name.endsWith(".pants") ? mats.pants : mats.gown).color;     // shared: follows the patient's gown colour
+      if(name.endsWith(".shirt")) crackFadeMats.push(m);
+    }
+    o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+    if(o.morphTargetDictionary && o.morphTargetDictionary.breath !== undefined) morphs.push(o);
+  });
+  frame.visible = false;
+  scene.add(frame);
+  frame.updateMatrixWorld(true);
+  const neck = gltf.scene.getObjectByName("neck");
+  frame.userData = {morphs, neck, parentInv: neck.parent.matrixWorld.clone().invert(), neckRest: neck.matrixWorld.clone()};
+  _P0.makeTranslation(pivot.position.x, pivot.position.y, pivot.position.z).invert();
+  return frame;
+}
+export function setRealBody(on){
+  wantBody = on;
+  const use = on && !!real.body;
+  if(real.body) real.body.visible = use;
+  bodyParts.forEach(m => { m.visible = !use; });
+}
+/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
+export function updateRealBody(fill){
+  if(!real.body || !real.body.visible) return;
+  const {morphs, neck, parentInv, neckRest} = real.body.userData;
+  pivot.updateMatrix();
+  _D.multiplyMatrices(pivot.matrix, _P0);
+  _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
+  _M.decompose(neck.position, neck.quaternion, neck.scale);
+  morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill; });
 }
 
 /* One side of hands.glb: the armature node with its skinned mesh. The hand frame is measured on the rest skeleton:
@@ -239,6 +301,14 @@ export function loadRealAssets(){
     console.warn("realistic head not loaded, keeping primitives", err);
     document.documentElement.dataset.head = "failed";
   });
+  Promise.all([load(BASE + "patient01/body.glb"), getEnv()]).then(([g, env]) => {
+    real.body = placeBody(g, env);
+    setRealBody(wantBody);
+    document.documentElement.dataset.body = "ready";
+  }).catch(err => {
+    console.warn("realistic body not loaded, keeping primitives", err);
+    document.documentElement.dataset.body = "failed";
+  });
   Promise.all([load(BASE + "hands/hands.glb"), getEnv()]).then(([g, env]) => {
     // baked skin (diffuse x occlusion) with the same soft sheen as the patient's face
     const src = g.scene.getObjectByProperty("isMesh", true).material;
@@ -291,7 +361,7 @@ export function updateRealHands(turn, setup, push, t){
     const grip = role === "contact" ? 0.35*k + 0.65*push : role === "cradle" ? 0.25*k + 0.3*push : 0;
     poseFingers(h, grip, 1 - 0.6*grip, t);
     // forearm back toward the elbow, and the sleeve (forearm anchor) on its cut
-    hands[i].position.copy(aimForearm(h, forearms[i].elbow, _w));
+    hands[i].position.copy(aimForearm(h, forearms[i].elbowNow, _w));
   });
 }
 /* Primitive head parts = everything under `head` except the therapist hands and the realistic models. */
