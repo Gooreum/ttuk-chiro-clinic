@@ -77,6 +77,9 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .float{position:absolute;font-family:var(--display);color:var(--bone);font-size:38px;pointer-events:none;text-shadow:0 3px 0 var(--coral),0 6px 18px rgba(0,0,0,.5);animation:up .95s ease-out forwards;white-space:nowrap;z-index:3}
 .float.big{font-size:22px;color:var(--mint);text-shadow:0 2px 10px rgba(0,0,0,.7)}
 .float.small{font-size:15px;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.float.breath{font-family:var(--body);font-weight:700;font-size:17px;color:var(--bone);text-shadow:0 2px 8px rgba(0,0,0,.65);animation:breathe 1.7s ease-out forwards}
+.float.breath.out{color:var(--mint)}
+@keyframes breathe{0%{opacity:0;transform:translate(-50%,4px)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
 @keyframes up{from{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-14px) scale(1.15);opacity:1}to{transform:translate(-50%,-70px) scale(1);opacity:0}}
 #bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:var(--paper);color:var(--paper-ink);font-size:13px;font-weight:600;padding:7px 11px;border-radius:12px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:2}
 #bubble::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:var(--paper)}
@@ -159,4 +162,4 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   .how li{grid-template-columns:28px 1fr}
   .lead{gap:10px}
 }
-@media (prefers-reduced-motion:reduce){#adjust.ready{animation:none}.float{animation-duration:.01s}#banner{transition:none}}
+@media (prefers-reduced-motion:reduce){#adjust.ready{animation:none}.float{animation-duration:.01s}.float.breath{animation-duration:1.7s}#banner{transition:none}}
