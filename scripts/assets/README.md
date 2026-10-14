@@ -48,12 +48,12 @@ $G meshopt b.glb ../../public/models/patient01/body.glb
 
 로그의 `TOP`이 머리 스크립트의 `TOP`(1.6254)과 같아야 목 이음매가 맞는다. 재질 이름 끝은 `.skin`, `.shirt`, `.pants`.
 
-## 치료사 손
+## 치료사 팔
 
-`blender -b --python mpfb_export_hands.py -- hands_raw.glb 1024 16` (중년 남성, `game_engine` 리그, 손과 팔뚝 손목 쪽 58%만 남김, 피부×AO를 1024 맵에 굽기) 후
+`blender -b --python mpfb_export_arms.py -- arms_raw.glb 1024 16` (중년 남성 + `male_casualsuit06` 티셔츠, `game_engine` 리그, 어깨 관절에서 위팔 12% 지점을 자른 팔 전체와 티셔츠 소매, 피부×AO를 1024 맵에 굽기 — 소매가 팔에 그늘을 드리운다) 후
 ```
 G="npx --yes @gltf-transform/cli@4.5.1"
-$G webp hands_raw.glb a.glb --quality 85
-$G meshopt a.glb ../../public/models/hands/hands.glb
+$G webp arms_raw.glb a.glb --quality 85
+$G meshopt a.glb ../../public/models/hands/arms.glb
 ```
-뼈 이름은 `<bone>_<l|r>`, 메시는 `hand_mesh_<l|r>`(이름이 겹치면 GLTFLoader가 뼈 이름을 바꿔 버린다). 로그의 `CUT_T`는 `realAssets.js`의 `CUT_T`와 같아야 한다. `PALM_DEPTH`(로그는 손바닥 피부까지 거리)는 손이 피부에 살짝 파묻히도록 그보다 작게 잡는다.
+한쪽마다 뼈대 `therapist_arm_<l|r>`(upperarm → lowerarm → hand → 손가락 01-03), 메시 `arm_skin_<l|r>`(재질 `therapist.skin`)와 `arm_sleeve_<l|r>`(재질 `therapist.sleeve` + 소매 끝 2.2 cm 밴드 `therapist.hem`; 둘 다 티셔츠 AO가 베이스 색이라 게임이 색을 곱해 칠한다). 소매는 티셔츠의 소매 패턴 조각(UV 섬)이고, 그 아래 피부는 MPFB 삭제 그룹 + 소매 입구에서 3.5 cm보다 깊은 부분을 지워 비집고 나오지 않는다. 뼈 이름은 `<bone>_<l|r>`(이름이 겹치면 GLTFLoader가 뼈 이름을 바꿔 버린다). 로그의 `LEN`(위팔·아래팔 길이)과 `PALM_DEPTH`(손바닥 피부까지 거리)를 `realAssets.js`에서 쓰고, `PALM_DEPTH`는 손이 피부에 살짝 파묻히도록 그보다 작게 잡는다.
