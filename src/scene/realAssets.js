@@ -22,7 +22,7 @@ function getLoader(){
 }
 /* Soft studio reflections for the realistic head only (eye catchlights, skin sheen). Built once, lazily. */
 let envP = null;
-function getEnv(){
+export function getEnv(){
   return envP || (envP = import("three/examples/jsm/environments/RoomEnvironment.js").then(({RoomEnvironment}) => {
     const pm = new THREE.PMREMGenerator(renderer);
     const tex = pm.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -31,6 +31,8 @@ function getEnv(){
   }));
 }
 const load = url => getLoader().then(loader => new Promise((res, rej) => loader.load(url, res, undefined, rej)));
+/* Shared with scene/xray.js (the spine model): path under public/models. */
+export const loadModel = path => load(BASE + path);
 
 // head-local frame: +y = face (ceiling), -z = top of head (camera side), +z = toward the feet, x = sides
 // s = +1 on world +x (screen left, therapist's left hand), s = -1 on world -x (screen right, right hand)

@@ -42,7 +42,7 @@
 | `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
 | `scene/room.js` | 진료실, 교정 테이블 |
 | `scene/patientModel.js` | 환자 몸, `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 링/충격파/파편. 교정 중 흐려지는 손·가운 재질 `crackFadeMats` |
-| `scene/xray.js` | 교정 X-ray: 경추 7마디·추간판·척수·신경근(단순화한 형태, 해부학 모델 아님), 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`)가 교정 순간 튕겨 들어가며 산호색에서 민트색으로 바뀐다 |
+| `scene/xray.js` | 교정 X-ray: 실제 경추 모델(BodyParts3D C1–C7·추간판, `public/models/spine/cervical.glb`, `loadSpine()`으로 지연 로드)과 척추관을 따라 만든 척수·신경근 관, 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`)와 그 아래 디스크가 산호색으로 눌려 있다가, 교정 순간 마디가 튕겨 들어가고 디스크 공간이 벌어지며 척수가 다시 열리고 민트색으로 바뀐다. 증상별 차이는 환자 `xr`(flat 일자목, disc 압박, rot 회전, facet 관절 잠김, muscle 근육 긴장 표시)가 정한다. X-ray 동안 카메라는 목 옆으로 돈다 |
 | `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
 | `scene/realAssets.js` | 사실적 glTF 에셋(첫 환자 `look.real`만): 환자 머리(MakeHuman, 표정 블렌드셰이프 12개, 각막 반사 셸 `.cornea`, 입 벌림을 따라가는 치아·혀, AO가 구워진 피부)와 치료사 손(WebXR). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지. 모두 `head` 그룹 아래에 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다 |
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
