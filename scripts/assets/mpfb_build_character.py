@@ -13,6 +13,7 @@ info = {
   "eyebrows": "eyebrow001/eyebrow001.mhclo",
   "eyelashes": "eyelashes01/eyelashes01.mhclo",
   "hair": "short02/short02.mhclo",
+  "teeth": "teeth_base/teeth_base.mhclo", "tongue": "tongue01/tongue01.mhclo",
   "targets": [], "clothes": [], "rig": "", "proxy": ""
 }
 s = HS.get_default_deserialization_settings(); s["subdiv_levels"] = 0
