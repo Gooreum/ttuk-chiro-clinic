@@ -40,9 +40,9 @@ describe("aimBefore", () => {
 });
 
 describe("aimDelta", () => {
-  it("left/right follows the tilt: tilting left turns the head left", () => {
-    expect(aimDelta(-14, 0, 1.5, 1).dr).toBeCloseTo(-21, 10);
-    expect(aimDelta(14, 0, 1.5, 1).dr).toBeCloseTo(21, 10);
+  it("tilting left (lr goes up) turns the head left (rot goes down)", () => {
+    expect(aimDelta(14, 0, 1.5, 1).dr).toBeCloseTo(-21, 10);
+    expect(aimDelta(-14, 0, 1.5, 1).dr).toBeCloseTo(21, 10);
   });
   it("up/down keeps the prototype direction (-dpt)", () => {
     expect(aimDelta(0, 10, 1.5, 1).db).toBeCloseTo(-15, 10);
