@@ -12,3 +12,9 @@ export function aimBefore(hist, t, fallback){
   for(let i = hist.length - 1; i >= 0; i--) if(hist[i].t <= t) return hist[i];
   return hist[0] || fallback;
 }
+/* Tilt delta (degrees of phone pose) -> aim delta (degrees of head rotation / side bend).
+   Left/right sign set from the iPhone test on 2026-10-14: tilting the phone left must turn the head left.
+   Up/down is unchanged from the prototype. */
+export function aimDelta(dlr, dpt, sens, bend){
+  return {dr: dlr*sens, db: -dpt*sens*bend};
+}

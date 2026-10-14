@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifySample, aimBefore } from "../src/core/motion.js";
+import { classifySample, aimBefore, aimDelta } from "../src/core/motion.js";
 
 const base = {m: 0, lin: 0, playing: true, now: 5000, flickCool: 0, flick: 200, jerk: 10};
 const c = o => classifySample({...base, ...o});
@@ -36,5 +36,18 @@ describe("aimBefore", () => {
     expect(aimBefore(hist, 0, null)).toBe(hist[0]);
     const fb = {rot: 1, bend: 2};
     expect(aimBefore([], 100, fb)).toBe(fb);
+  });
+});
+
+describe("aimDelta", () => {
+  it("left/right follows the tilt: tilting left turns the head left", () => {
+    expect(aimDelta(-14, 0, 1.5, 1).dr).toBeCloseTo(-21, 10);
+    expect(aimDelta(14, 0, 1.5, 1).dr).toBeCloseTo(21, 10);
+  });
+  it("up/down keeps the prototype direction (-dpt)", () => {
+    expect(aimDelta(0, 10, 1.5, 1).db).toBeCloseTo(-15, 10);
+  });
+  it("up/down is scaled by the bend multiplier", () => {
+    expect(aimDelta(0, 10, 1.5, 2).db).toBeCloseTo(-30, 10);
   });
 });
