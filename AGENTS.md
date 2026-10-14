@@ -34,7 +34,7 @@
 | 모듈 | 내용 |
 |---|---|
 | `tuning.js` | `DEFAULTS`, `T`(localStorage `chiroTune`), `saveT`, `resetT`. 튜닝 패널과 1:1 |
-| `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·대사 `lines`), `REVIEWS`, `makePatients()`(매 판 목표 각도와 위험 한계 `limR/limB` 랜덤) |
+| `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·증상 쪽 회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·대사 `lines`), `REVIEWS`, `makePatients()`(매 판 양쪽 목표 각도 `sides`와 위험 한계 `limR/limB` 랜덤) |
 | `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`) |
 | `scene/renderer.js` | 렌더러·씬·카메라·조명. ACES 톤매핑, 그림자는 `sun` 하나만 |
 | `scene/textures.js` | 캔버스 텍스처(나무 바닥, 러그, 경추 포스터, 자격증). 폰트 로드 후 `redraw()` |
@@ -47,7 +47,7 @@
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
 | `audio/audio.js` | WebAudio 합성(뚝 소리 3겹, 차임, 틱, 배경음), `vib` |
 | `game/feel.js` | `core/feel.js`를 현재 환자·튜닝으로 감싼 래퍼: `distAtNow`, `distNorm`(촬영용 `__FORCE_HIT__` 훅), `closeness`, `applyDelta`, `breath` |
-| `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`) |
+| `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `switchSide`(반대쪽) → … → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`). `S.target`은 환자 + 지금 쪽(`aimAt`) |
 | `ui/hud.js` | 토스트, 말풍선, 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |
 | `ui/ring.js` | `#hud` 2D 캔버스에 머리 둘레 조준 링(3-6) |
 | `ui/tuneSheet.js` | 튜닝 패널 |
@@ -100,10 +100,12 @@
 
 ## 4. 게임 규칙 요약
 
+- 환자마다 **양쪽**을 교정한다: 증상 쪽(`side`)을 먼저, 성공하면 2.3초 뒤 같은 환자의 반대쪽(`-side`). 쪽마다 목표 각도를 따로 굴리고(`makePatients` → `sides[0..1]`), 긴장형 축소·호흡 주기·`painHere`는 쪽마다 다시 시작한다. 차트 칩에 `1/2`, `2/2`로 표시.
 - 거리: `d = sqrt(((rot−목표rot)/(tolR·T.tol·tolMul))² + ((bend−목표bend)/(tolB·…))²)`. `d ≤ 1`이면 성공 구역.
-- 점수: `100 − 40d` + 날숨 보너스 15 + 연속 성공 보너스 `(streak−1)·10`. `d < 0.35`면 PERFECT(뚝 3번).
+- 점수(쪽마다): `100 − 40d` + 날숨 보너스 15 + 연속 성공 보너스 `(streak−1)·10`. `d < 0.35`면 PERFECT(뚝 3번). 진료 일지에는 환자당 두 쪽 합.
 - 위험 한계 초과 또는 구역 밖 교정 → 통증. 통증 3번이면 종료.
-- 별점: PERFECT이고 첫 시도 = 3, 통증 1회 이하 = 2, 그 외 1.
+- 별점(쪽마다): PERFECT이고 첫 시도 = 3, 통증 1회 이하 = 2, 그 외 1. 진료 일지 별점은 두 쪽 중 낮은 쪽(`patientStars`).
+- 등급: 교정 1회당 평균(`crackAvg` = 점수 / (환자 수 × 2))으로 115 / 98 / 82 기준.
 - 특성: 긴장형(시간이 갈수록 허용 범위 최대 40% 축소, 호흡 빠름), 근육 뭉침(무거움 +0.25, 감도 ×0.8), 유연함(목표 회전 44–53°), 어르신(위험 한계 50°/22°, 목표 작음).
 
 튜닝 기본값(`DEFAULTS`): 감도 1.5, 위아래 1.0, 무거움 0.6, 허용 범위 1.0, 꺾는 속도 200°/s, 툭 세기 10 m/s². 사용자가 패널에서 바꾸면 localStorage에 남으므로, 기본값을 바꿔도 기존 사용자에게는 "기본값으로"를 눌러야 반영된다.
@@ -117,7 +119,7 @@
    ```bash
    python3 -m venv .venv && .venv/bin/pip install playwright pillow && .venv/bin/python -m playwright install chromium
    npm run build:shot                                         # dist-shot/ (판정 강제 성공 빌드)
-   .venv/bin/python -I scripts/shot.py dist-shot --label new  # shots/new/1-title.png, 2-play.png, 3-crack.png
+   .venv/bin/python -I scripts/shot.py dist-shot --label new  # shots/new/1-title, 2-play, 3-crack, 4-switch(반대쪽 전환)
    .venv/bin/python -I scripts/shot.py --legacy legacy/index.html --label legacy
    .venv/bin/python -I scripts/compare.py shots/legacy shots/new --out shots/compare
    ```

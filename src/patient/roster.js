@@ -1,4 +1,4 @@
-/* Patients: 5 per day. makePatients() rolls each day's target angles and danger limits. */
+/* Patients: 5 per day. makePatients() rolls each day's target angles (both sides) and danger limits. */
 export const TRAITS = {
   nervous:  {label:"긴장형", desc:"오래 끌면 점점 굳어요"},
   stiff:    {label:"근육 뭉침", desc:"머리가 묵직해서 잘 안 돌아가요"},
@@ -28,13 +28,15 @@ export const REVIEWS = {
   2:["시원했어요. 조금 무서웠지만", "다음에도 올게요", "목이 한결 가벼워요"],
   1:["다음엔 살살 부탁해요", "시원하긴 한데 좀 아팠어요", "용기 내서 또 올게요"]
 };
-export function makePatients(){
+/* Each patient is adjusted on both sides: the complaint side (p.side) first, then the opposite side.
+   Every side rolls its own target angle. rand is injectable for tests. */
+export function makePatients(rand = Math.random){
   return ROSTER.map(p => {
     const big = p.trait === "flexible", old = p.trait === "elder";
-    const mag = big ? 44 + Math.random()*9 : old ? 24 + Math.random()*10 : 28 + Math.random()*14;
-    return {...p,
-      rot: p.side * mag,
-      bend: -p.side * (old ? 6 + Math.random()*8 : 8 + Math.random()*10),
-      limR: old ? 50 : 63, limB: old ? 22 : 27};
+    const roll = side => {
+      const mag = big ? 44 + rand()*9 : old ? 24 + rand()*10 : 28 + rand()*14;
+      return {side, rot: side * mag, bend: -side * (old ? 6 + rand()*8 : 8 + rand()*10)};
+    };
+    return {...p, sides: [roll(p.side), roll(-p.side)], limR: old ? 50 : 63, limB: old ? 22 : 27};
   });
 }
