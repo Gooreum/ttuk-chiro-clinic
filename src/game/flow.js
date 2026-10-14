@@ -82,8 +82,8 @@ export function adjust(src){
 }
 
 const XRAY_DELAY = 0.35;   // s of real time between the crack and the x-ray
-const RELIEF_AT = 1650;    // ms: the x-ray (opens 0.35 s, holds 1.2 s) is fading, the relieved face shows
-const NEXT_AT = 3200;      // ms: next side / patient
+const RELIEF_AT = 2900;    // ms: the x-ray (opens 0.35 s, holds 2.4 s) is fading, the relieved face shows
+const NEXT_AT = 4400;      // ms: next side / patient
 function success(d, exhale){
   const target = S.target;
   S.busy = true;

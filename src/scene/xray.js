@@ -13,7 +13,8 @@ import { loadModel, getEnv } from "./realAssets.js";
    Model frame (M): +y toward the skull, +z anterior, +x the patient's left, metres, real size. Each vertebra is
    moved about its own centre (the glTF node origin). The whole model hangs under the neck pivot, scaled SC.
 
-   Story of one crack (driven from game/loop.js, crackT = seconds since the x-ray opened):
+   Story of one crack (driven from game/loop.js, crackT = seconds since the x-ray opened; the release comes
+   XRAY_PRE later):
    - before: the stuck vertebra (upper of the chart pair, seg-1) glows coral and sits out of line in the way its
      symptom says (target.xr, below); the disc under it is squashed thin and glows coral; the cord is squeezed
      narrow at that level; the nerve root on the stuck side glows coral
@@ -42,7 +43,9 @@ pivot.add(root);
 
 const COL = {
   bone: new THREE.Color(0xa69c88), disc: new THREE.Color(0x7fb8cc), nerve: new THREE.Color(0xf1dfb4),
-  coral: new THREE.Color(0xff7a59), mint: new THREE.Color(0x8adfbf), black: new THREE.Color(0)
+  coral: new THREE.Color(0xff7a59), mint: new THREE.Color(0x8adfbf), black: new THREE.Color(0),
+  // the pinched disc only (user request, outside the palette): red while pinched, turning blue as it frees up
+  pinched: new THREE.Color(0xe8383d), freed: new THREE.Color(0x3d8bff)
 };
 const solid = color => new THREE.MeshStandardMaterial({color, roughness: 0.7, metalness: 0, envMapIntensity: 0.45,
   emissive: new THREE.Color(0), transparent: true, opacity: 0});
@@ -104,6 +107,8 @@ const bubbles = Array.from({length: 24}, () => {
   root.add(s);
   return {s, v: new THREE.Vector3(), p: new THREE.Vector3()};
 });
+// heat on the pressed disc that bursts mint on the release (core + halo)
+const discGlow = [spriteMat(0xff7a59), spriteMat(0xff7a59)].map(m => { const s = new THREE.Sprite(m); root.add(s); return s; });
 const haze = Array.from({length: 6}, () => { const s = new THREE.Sprite(spriteMat(0xff7a59)); root.add(s); return s; });
 
 // dark x-ray film: a camera-attached quad drawn after the (faded) scene. It clears the depth buffer, so the spine
@@ -153,7 +158,14 @@ export function loadSpine(){
     for(let i = 0; i < 7; i++){ const p = part(gltf, `C${i+1}`, solid(COL.bone)); p.mat.envMap = env; V.push(p); }
     for(let i = 1; i < 7; i++){
       const p = part(gltf, `Disc_C${i+1}_${i < 6 ? "C" + (i+2) : "T1"}`, solid(COL.disc));
-      if(p){ p.mat.envMap = env; p.mat.roughness = 0.4; D[i] = p; }
+      if(p){
+        p.mat.envMap = env; p.mat.roughness = 0.4; D[i] = p;
+        // see-through flat colour of the same disc, drawn over the bones (only the pinched one shows it). Normal
+        // blending and no tone mapping: an additive glow on the pale bone burns out to white and loses the red/blue.
+        p.over = new THREE.Mesh(p.m.geometry, new THREE.MeshBasicMaterial({color: 0, transparent: true, opacity: 0,
+          depthTest: false, depthWrite: false, toneMapped: false}));
+        p.over.renderOrder = 1000; p.g.add(p.over);
+      }
     }
     for(let i = 0; i < 7; i++){
       R[i] = {};
@@ -170,7 +182,7 @@ export function loadSpine(){
       const ghost = new THREE.Mesh(geo, ghostMat); ghost.renderOrder = 1000; ghost.frustumCulled = false;
       root.add(cordMesh, ghost);
     }
-    flash.renderOrder = 1001; bubbles.forEach(b => { b.s.renderOrder = 1001; }); haze.forEach(h => { h.renderOrder = 1001; });
+    flash.renderOrder = 1001; bubbles.forEach(b => { b.s.renderOrder = 1001; }); haze.forEach(h => { h.renderOrder = 1001; }); discGlow.forEach(g => { g.renderOrder = 1001; });
     ready = true;
     document.documentElement.dataset.spine = "ready";
   }).catch(err => {
@@ -181,29 +193,40 @@ export function loadSpine(){
 
 const easeOutBack = t => { const c = 2.2; t -= 1; return 1 + (c + 1)*t*t*t + c*t*t; };
 const SNAP = 0.14;
-const snapAt = (crackT, delay) => crackT < 0 ? 0 : easeOutBack(clamp((crackT - delay)/SNAP, 0, 1));
-// how hard each symptom squeezes the cord
+const snapAt = (t, delay) => t < 0 ? 0 : easeOutBack(clamp((t - delay)/SNAP, 0, 1));
+// disc release: shoots past its height, then settles in a few damped bounces (0 -> ~1.35 -> 1)
+const spring = t => t <= 0 ? 0 : 1 - Math.exp(-4.2*t)*Math.cos(10*t);
+// a single swell that rolls over the neighbouring discs
+const swell = u => u <= 0 || u > 1.4 ? 0 : Math.sin(Math.PI*u/1.4)*Math.exp(-1.6*u);
+// how hard each symptom squeezes the cord, and the disc
 const PINCH = {disc: 0.9, rot: 0.65, facet: 0.55, flat: 0.6, muscle: 0.45};
+const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
+/* Seconds of "pressure" after the x-ray opens, before the release. Exported for the camera push in game/loop.js. */
+export const XRAY_PRE = 0.55;
 const _c = new THREE.Color();
 let popped = false;
 
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
-   hurt: 0..1 recent wrong crack (coral throb). */
+   hurt: 0..1 recent wrong crack (coral throb). Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target){
   film.material.opacity = Math.min(amount, 1)*0.86;
   film.visible = amount >= 0.002;
   if(amount < 0.002 || !target || !ready){
     root.visible = false; popped = false;
-    flash.material.opacity = 0;
-    return;
+    flash.material.opacity = 0; discGlow.forEach(g => { g.material.opacity = 0; });
+    return false;
   }
   root.visible = true;
   key.intensity = 0.45*amount;
   key.position.set(0, levelY[3], 0.09);
   const kind = target.xr || "rot", side = target.side, stuck = clamp(target.seg - 1, 0, 5);
-  const align = snapAt(crackT, 0), off = 1 - align;            // 1 = stuck, 0 = in line, < 0 = overshoot
-  const freed = crackT >= 0 ? clamp(crackT/SNAP, 0, 1) : 0;
-  const throb = 0.5 + 0.5*Math.sin(now*0.012);
+  // ct: seconds since the release (< 0: still pressed). pressure: 0..1 build-up over XRAY_PRE.
+  const ct = crackT < 0 ? -1 : crackT - XRAY_PRE, before = ct < 0;
+  const pressure = crackT < 0 ? 1 : clamp(crackT/XRAY_PRE, 0, 1);
+  const align = snapAt(ct, 0), off = 1 - align;                 // 1 = stuck, 0 = in line, < 0 = overshoot
+  const freed = before ? 0 : clamp(ct/SNAP, 0, 1);
+  // the throb quickens while the pressure builds
+  const throb = 0.5 + 0.5*Math.sin(now*(0.012 + 0.02*(crackT >= 0 && before ? pressure : 0)));
   const level = levelY[stuck];
 
   // reset to the healthy pose, then bend it by symptom
@@ -211,6 +234,7 @@ export function updateXray(now, amount, crackT, hurt, target){
   all.forEach(p => {
     p.g.position.copy(p.home); p.g.rotation.set(0, 0, 0); p.g.scale.set(1, 1, 1);
     p.mat.opacity = amount; p.mat.emissive.setRGB(0, 0, 0); p.mat.color.copy(p.base);
+    if(p.over) p.over.material.opacity = 0;
   });
   // only the roots at the stuck level are drawn: fourteen of them read as bristles
   R.forEach((r, i) => [r.L, r.R].forEach(p => { if(p) p.g.visible = i === stuck; }));
@@ -218,49 +242,78 @@ export function updateXray(now, amount, crackT, hurt, target){
   if(kind === "rot"){ sv.g.rotation.y = 0.34*off*side; sv.g.position.x += 0.0018*off*side; }
   if(kind === "facet"){ sv.g.rotation.z = -0.24*off*side; sv.g.position.x += 0.0015*off*side; }
   if(kind === "muscle"){ sv.g.rotation.y = 0.12*off*side; }
-  // every symptom: the disc under the stuck vertebra is squashed thin and the space closes; on the crack the space
-  // opens and the disc regains its height (overshooting a little). Strongest for the compression symptom, where the
-  // disc also bulges back toward the cord.
-  if(D[stuck]){
-    const d = D[stuck], q = Math.max(-0.35, off), sq = kind === "disc" ? 0.6 : 0.4;
-    d.g.scale.set(1 + 0.25*sq*q, 1 - sq*q, 1 + 0.08*sq*q);
-    if(kind === "disc") d.g.position.z -= 0.0035*q;
-    for(let j = 0; j <= stuck; j++) V[j].g.position.y -= 0.0045*sq*q;   // the column above settles onto it
+
+  // The disc under the stuck vertebra is the main event. Pressed: nearly flat, bulging out sideways, the column above
+  // sitting down on it and trembling. Released: it springs past its full height and settles in damped bounces,
+  // lifting everything above it; a swell rolls over the neighbouring discs; then it keeps breathing gently.
+  const dz = D[stuck];
+  if(dz){
+    const sq = (SQUASH[kind] || 0.65)*(0.88 + 0.12*pressure);
+    const open = before ? 0 : spring(ct);                       // 0 pressed .. ~1.35 .. 1
+    const breathe = before ? 0 : 0.05*Math.sin(ct*4.5)*Math.exp(-0.6*ct)*clamp(ct - 0.5, 0, 1);
+    const h = 1 - sq*(1 - open) + breathe;                         // disc height factor
+    const bulge = Math.max(0, 1 - open);
+    dz.g.scale.set(1 + 0.45*sq*bulge, Math.max(0.12, h), 1 + 0.3*sq*bulge);
+    if(kind === "disc") dz.g.position.z -= 0.004*bulge;            // pushed back toward the cord
+    const lift = 0.0075*(h - 1);                                   // < 0 pressed, > 0 decompressed
+    const tremble = before && crackT >= 0 ? 0.00035*Math.sin(now*0.09)*pressure : 0;
+    for(let j = 0; j < stuck; j++){ V[j].g.position.y += lift; V[j].g.position.x += tremble; }
+    sv.g.position.y += lift; sv.g.position.x += tremble;
+    D.forEach((d, j) => {
+      if(!d || j === stuck) return;
+      const w = swell((ct - 0.07*Math.abs(j - stuck))*1.4);
+      d.g.scale.y = 1 + 0.22*w;
+      if(j < stuck) for(let k = 0; k <= j; k++) V[k].g.position.y += 0.0052*0.22*w;
+    });
   }
   if(kind === "flat"){
     // straight neck: every vertebra pushed onto the line C1-C7 and a little past it; they fall back into the curve
     // one after another, outward from the stuck level
     const a = V[0].home, b = V[6].home;
     V.forEach((v, i) => {
-      const lin = a.z + (b.z - a.z)*i/6, o = 1 - snapAt(crackT, 0.045*Math.abs(i - stuck));
+      const lin = a.z + (b.z - a.z)*i/6, o = 1 - snapAt(ct, 0.06*Math.abs(i - stuck));
       v.g.position.z += (lin - v.home.z - 0.005*Math.sin(Math.PI*i/6))*o;
     });
   }
 
-  // stuck vertebra: coral, throbbing before; mint after
-  const before = crackT < 0;
+  // stuck vertebra and its disc: coral, throbbing before; a mint burst on the release that settles to a soft glow
   _c.copy(COL.coral).lerp(COL.mint, freed);
-  sv.mat.emissive.copy(_c).multiplyScalar(before ? 0.7 + 0.4*throb + 0.4*hurt : 0.7*Math.max(0, 1 - crackT*0.9) + 0.15);
-  // tint the stuck pair itself (emissive alone washes out on the pale bone)
-  const tint = before ? 0.55 : 0.55*Math.max(0, 1 - crackT*0.8);
-  sv.mat.color.lerp(_c, tint*0.6);
-  if(D[stuck]) D[stuck].mat.color.lerp(_c, tint + 0.2);
-  if(D[stuck]) D[stuck].mat.emissive.copy(_c).multiplyScalar(before ? 1.1 + 0.5*throb + 0.3*hurt : 1.1*Math.max(0, 1 - crackT*0.8) + 0.3);
+  const burst = before ? 0 : Math.exp(-2.2*ct);
+  // the vertebra only warms faintly: the red belongs to the disc
+  sv.mat.emissive.copy(_c).multiplyScalar(before ? 0.12 + 0.08*throb + 0.3*hurt : 0.25*burst);
+  // the pinched disc: red and throbbing; from the release it turns blue over ~1.4 s and settles to the healthy disc
+  if(dz){
+    const blue = before ? 0 : clamp(ct/1.4, 0, 1), b2 = blue*blue*(3 - 2*blue);
+    const dc = _c.clone().copy(COL.pinched).lerp(COL.freed, b2);
+    const settle = before ? 0 : clamp((ct - 1.4)/0.8, 0, 1);
+    dz.mat.color.copy(dc).lerp(dz.base, settle*0.6);
+    dz.mat.emissive.copy(dc).multiplyScalar(before ? 0.3 + 0.2*throb + 0.2*hurt : 0.2 + 0.3*burst);
+    dz.over.material.color.copy(dc);
+    dz.over.material.opacity = (before ? 0.55 + 0.25*throb : 0.7)*(1 - settle*0.55)*amount;
+    discGlow.forEach((g, i) => {
+      g.position.copy(dz.g.position); g.position.z += 0.006;     // on the front of the disc, where it bulges
+      g.material.color.copy(dc);
+      g.material.opacity = (before ? (0.1 + 0.1*throb) : 0.25*burst)*(i ? 1 : 0)*amount;
+      g.scale.setScalar(i ? 0.03 + (before ? 0 : 0.05*(1 - burst)) : 0.014);
+    });
+  }
+  D.forEach((d, j) => { if(d && j !== stuck && !before) d.mat.emissive.copy(COL.mint).multiplyScalar(0.7*swell((ct - 0.07*Math.abs(j - stuck))*1.4)); });
 
   // nerve root on the stuck side (target.side > 0 = patient's left)
   const rt = R[stuck] && R[stuck][side > 0 ? "L" : "R"];
-  if(rt) rt.mat.emissive.copy(_c).multiplyScalar(before ? 0.5 + 0.5*throb + hurt : 0.9*Math.max(0, 1 - crackT*1.2) + 0.1);
+  if(rt) rt.mat.emissive.copy(_c).multiplyScalar(before ? 0.5 + 0.5*throb + hurt : 0.1 + 0.9*burst);
 
-  // cord: squeezed narrow and hot at the stuck level; opens (a touch wider, then settles) with a pulse both ways
+  // cord: squeezed narrow and hot at the stuck level; springs open (wider, then settles) with a pulse both ways
   const cu = cordMat.uniforms, P = PINCH[kind] || 0.6;
+  const cOpen = before ? 0 : spring(ct);
   cu.uOpacity.value = amount;
   cu.uLevel.value = level;
-  cu.uPinch.value = P*Math.max(-0.45, off);
+  cu.uPinch.value = P*(1 - cOpen)*(before ? 0.88 + 0.12*pressure : 1);
   cu.uOff.value = 0.0015*Math.max(0, off)*side;
-  cu.uHotAmt.value = Math.max(0, off)*(0.6 + 0.4*throb) + hurt*0.5;
-  cu.uPulseR.value = before ? 0 : crackT*0.11;
-  cu.uPulseAmt.value = before ? 0 : Math.max(0, 1 - crackT*1.1);
-  cu.uColor.value.copy(COL.nerve).lerp(COL.mint, before ? 0 : clamp(crackT*2.5, 0, 0.5));
+  cu.uHotAmt.value = before ? 0.6 + 0.4*throb + hurt*0.5 : Math.max(0, off) + hurt*0.5;
+  cu.uPulseR.value = before ? 0 : ct*0.09;
+  cu.uPulseAmt.value = before ? 0 : Math.max(0, 1 - ct*0.8);
+  cu.uColor.value.copy(COL.nerve).lerp(COL.mint, before ? 0 : 0.2 + 0.4*burst);
 
   // tight muscles: hot haze on both sides of the segment, cooling to mint and shrinking after the release
   haze.forEach((h, i) => {
@@ -268,35 +321,37 @@ export function updateXray(now, amount, crackT, hurt, target){
     const s = i % 2 ? 1 : -1, j = (i >> 1) - 1;
     h.position.set(s*0.024, level + j*0.012, cordZ - 0.01);
     h.material.color.copy(COL.coral).lerp(COL.mint, freed);
-    const k = before ? 0.55 + 0.3*throb + 0.3*hurt : 0.6*Math.max(0, 1 - crackT*1.3);
+    const k = before ? 0.55 + 0.3*throb + 0.3*hurt : 0.6*Math.max(0, 1 - ct*1.1);
     h.material.opacity = k*amount;
     h.scale.setScalar(0.03*(before ? 1 : 1 - 0.5*freed));
   });
 
   // flash + bubbles at the facet joint on the stuck side
-  const jx = side*0.014, jz = cordZ - 0.006, n = kind === "facet" ? 24 : 12;
+  const jx = side*0.014, jz = cordZ - 0.006, n = kind === "facet" ? 24 : 16;
+  let released = false;
   if(!before && !popped){
-    popped = true;
+    popped = true; released = true;
     bubbles.forEach(b => {
       b.p.set(jx, level, jz);
-      b.v.set(side*(0.4 + Math.random()), (Math.random() - 0.5)*1.2, (Math.random() - 0.5)*1.2).normalize().multiplyScalar(0.03 + Math.random()*0.04);
+      b.v.set(side*(0.4 + Math.random()), (Math.random() - 0.5)*1.2, (Math.random() - 0.5)*1.2).normalize().multiplyScalar(0.03 + Math.random()*0.05);
     });
   }
   if(!before){
-    const ft = crackT - SNAP*0.6, fl = ft < 0 ? 0 : Math.max(0, 1 - ft/0.45);
-    flash.position.set(jx*0.6, level, jz);
+    const ft = ct - SNAP*0.4, fl = ft < 0 ? 0 : Math.max(0, 1 - ft/0.5);
+    flash.position.set(jx*0.5, level, jz);
     flash.material.opacity = fl*amount;
-    flash.scale.setScalar((kind === "facet" ? 0.016 : 0.01) + 0.035*(1 - fl));
+    flash.scale.setScalar((kind === "facet" ? 0.012 : 0.008) + 0.025*(1 - fl));
     bubbles.forEach((b, i) => {
       const t = Math.max(0, ft);
-      b.s.position.copy(b.p).addScaledVector(b.v, Math.min(t, 0.8));
-      b.s.material.opacity = i >= n || ft < 0 ? 0 : Math.max(0, 1 - t/0.7)*amount;
-      b.s.scale.setScalar((kind === "facet" ? 0.006 : 0.004) + 0.007*Math.min(1, t*3));
+      b.s.position.copy(b.p).addScaledVector(b.v, Math.min(t, 1));
+      b.s.material.opacity = i >= n || ft < 0 ? 0 : Math.max(0, 1 - t/0.9)*amount;
+      b.s.scale.setScalar((kind === "facet" ? 0.006 : 0.0045) + 0.008*Math.min(1, t*3));
     });
   }else{
     flash.material.opacity = 0;
     bubbles.forEach(b => { b.s.material.opacity = 0; });
   }
+  return released;
 }
 /* Pivot z of the gap under vertebra i (where the release wave rings). Rough spacing until the model is in. */
 export const XRAY_LEVEL = i => ready ? root.position.z - levelY[clamp(i, 0, 6)]*SC : -0.118 + i*0.0335 + 0.0167;

@@ -11,7 +11,7 @@ import {
   torso, collar, pivot, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
-import { updateXray, XRAY_LEVEL } from "../scene/xray.js";
+import { updateXray, XRAY_LEVEL, XRAY_PRE } from "../scene/xray.js";
 import { tone, vib } from "../audio/audio.js";
 import { say, headScreen, projectHead } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
@@ -104,13 +104,19 @@ export function frame(now){
   // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
   if(S.xrayIn > 0){
     S.xrayIn -= rdt;
-    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 1.2; S.crackT = 0; S.wave = 1; }
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 2.4; S.crackT = 0; }
   }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
   S.hurtX = Math.max(0, S.hurtX - rdt*1.4);
   const xray = Math.max(S.xray, S.hurtX*0.55);
-  updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target);
+  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target)){
+    // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave
+    tone(150, 55, 0.2, "sine", 0.16);
+    setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60);
+    vib([30, 30, 60]);
+    S.shake = Math.max(S.shake, 0.45); S.wave = 1;
+  }
   fadeMats(xrayMats, xray > 0.001 ? 1 - 0.78*xray : 1, xray < 0.5);
   fadeMats(crackFadeMats, S.xray > 0.001 ? 1 - 0.8*S.xray : 1, S.xray < 0.5);
   renderer.toneMappingExposure = EXPOSURE*(1 - 0.35*xray);
@@ -158,13 +164,15 @@ export function frame(now){
   const zt = S.xrayIn > 0 ? 0.12 : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
-  pivot.localToWorld(neckW.set(0, 0, -0.03));
+  // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
+  pivot.localToWorld(neckW.set(0, -0.01, target ? XRAY_LEVEL(target.seg - 1) : -0.03));
+  const push = S.crackT >= 0 ? ease(clamp(S.crackT/XRAY_PRE, 0, 1)) : 0;
   camPos.copy(camBase);
   if(!reduce){ camPos.x += Math.sin(now*0.0004)*0.012; camPos.y += Math.sin(now*0.00053)*0.008; }
   // swing round to the side of the neck: the spine lies across the landscape screen, the canal (and the cord in it)
   // shows between the bodies and the arches
   const orbitX = (target ? -target.side : 1)*0.2;
-  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.14, 0.0)), z*0.92);
+  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
   camera.position.copy(camPos);
   if(!reduce && S.shake > 0){
