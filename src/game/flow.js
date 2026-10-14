@@ -89,10 +89,10 @@ export function adjust(src){
   hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요");
 }
 
-const XRAY_DELAY = 0.35;   // s of real time between the crack and the x-ray
-const RELIEF_AT = 2900;    // ms: the x-ray (opens 0.35 s, holds 2.4 s) is fading, the first reaction shows
-const THEN_AT = 4700;      // ms: the second reaction, held until the next side
-const NEXT_AT = 6900;      // ms: next side / patient
+const XRAY_DELAY = 0.7;    // s of real time between the crack and the x-ray: the neck's snap and wobble (core/crack.js) play first
+const RELIEF_AT = 3250;    // ms: the x-ray (opens 0.7 s, holds 2.4 s) is fading, the first reaction shows
+const THEN_AT = 5050;      // ms: the second reaction, held until the next side
+const NEXT_AT = 7250;      // ms: next side / patient
 function success(d, exhale){
   const target = S.target;
   S.busy = true;

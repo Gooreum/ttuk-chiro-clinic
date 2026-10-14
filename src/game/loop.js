@@ -18,6 +18,7 @@ import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody } from "../scene/realAssets.js";
 import { updateBreathFx } from "../scene/breathFx.js";
+import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -35,7 +36,7 @@ function fadeMats(list, opacity, depthWrite){
 }
 const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new THREE.Vector3(), faceW = new THREE.Vector3();
 let fz = 0;
-const NOD = 1.4*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
+const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 export function frame(now){
   const target = S.target, cur = S.cur, input = S.input, face = () => S.face;
@@ -48,7 +49,7 @@ export function frame(now){
   cur.rot += (input.rot - cur.rot)*k;
   cur.bend += (input.bend - cur.bend)*k;
 
-  S.thrust = Math.max(0, S.thrust - rdt*3);         // real time: the snap is over before the x-ray opens
+  S.thrust = Math.max(0, S.thrust - rdt/CRACK_LEN);   // real time: the snap and its wobble are over before the x-ray opens
   S.shake = Math.max(0, S.shake - rdt*3.5);
   S.jitter = Math.max(0, S.jitter - dt*2.2);
   S.peakRate *= Math.pow(0.5, rdt/1.5);
@@ -56,19 +57,19 @@ export function frame(now){
   aimHist.push({t:now, rot:cur.rot, bend:cur.bend});
   while(aimHist.length && aimHist[0].t < now - 800) aimHist.shift();
 
-  // crack: a fast snap past the aim (peak ~0.08 s) and a slower settle back, all inside the x-ray delay
-  const tu = 1 - S.thrust, snap = S.thrust > 0 ? (tu < 0.25 ? Math.sin(tu/0.25*Math.PI/2) : Math.pow(1 - (tu - 0.25)/0.75, 2)) : 0;
-  const thrustDeg = snap * 12 * Math.sign(cur.rot || 1);
+  // crack: load-up, thrust past the aim, damped wobble back (core/crack.js), all inside the x-ray delay
+  const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), dir = Math.sign(cur.rot || 1);
+  const snap = cp.push, thrustDeg = cp.rot*dir, thrustBend = cp.bend*Math.sign(cur.bend || -dir);
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
   // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
-  pivot.rotation.set(-NOD*ease(br.fill), cur.bend*DEG, (cur.rot + thrustDeg + jit)*DEG);
+  pivot.rotation.set(-NOD*ease(br.fill), (cur.bend + thrustBend)*DEG, (cur.rot + thrustDeg + jit)*DEG);
 
-  torso.scale.z = 0.7 + 0.05*br.fill;
-  collar.position.y = 1.05 + 0.012*br.fill;
+  torso.scale.z = 0.7 + 0.09*br.fill;
+  collar.position.y = 1.05 + 0.022*br.fill;
   updateRealBody(ease(br.fill));
-  updateBreathFx(rdt, br, S.phase === "play" && S.xray < 0.05);
+  updateBreathFx(br, S.phase === "play" && !S.busy && S.xray < 0.05);
 
   // feel feedback
   const playing = S.phase === "play" && !S.busy;
@@ -176,7 +177,8 @@ export function frame(now){
   // eased toward, not snapped: the dolly takes ~0.3 s, so the turn of the head is seen on the way in
   // only a slight push while the head turns (face and neck stay in frame), the full dolly once the x-ray opens
   // and held at the side of the neck while the x-ray is up, easing back as it fades
-  const zt = S.xrayIn > 0 ? 0.12 : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
+  // while the neck snaps: part of the way round to the side of the neck, so the twist itself reads
+  const zt = S.xrayIn > 0 ? 0.34 : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
