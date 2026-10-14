@@ -65,8 +65,8 @@ const glasses = new THREE.Group(); head.add(glasses);
 });
 mesh(box(0.02,0.003,0.003), mats.frames, glasses, [0,0.124,-0.02], null, null, true);
 
-// therapist hands (palm + thumb along the jaw) and coat sleeves
-// handParts: every primitive hand mesh, so a realistic hand model can hide them (hands[] stay as forearm anchors).
+// therapist hands (palm + thumb along the jaw) and coat sleeves: the fallback while the realistic arms (realAssets.js,
+// arms.glb) are not shown. handParts: every primitive hand mesh; hands[] are the capsule sleeves' anchors.
 const handParts = [];
 const hands = [-1,1].map(s => {
   const h = mesh(cap(0.042,0.12), mats.doc, head, [0.135*s,-0.015,-0.025], [Math.PI/2,0,0.25*s], [1,1,0.75]);
@@ -79,6 +79,7 @@ const forearms = [-1,1].map(s => {
   const cuff = mesh(cyl(0.052,0.052,0.03,16), mats.cuff, null, null, null, null, true);
   // tip: cuff distance back from the hand anchor, rad: sleeve thickness (realAssets slims it for the real forearms)
   // elbow: rest position (world), elbowNow: where it is this frame (the therapist's arms turn with the head, see loop.js)
+  // m / cuff are hidden while the realistic arms show (realAssets.js syncArms)
   return {m, cuff, elbow: new THREE.Vector3(0.5*s, 0.95, -0.24), elbowNow: new THREE.Vector3(0.5*s, 0.95, -0.24), tip: 0.1, rad: 1};
 });
 const UP = new THREE.Vector3(0,1,0), tmpA = new THREE.Vector3(), tmpB = new THREE.Vector3(), tmpC = new THREE.Vector3();

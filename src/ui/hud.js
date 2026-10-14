@@ -10,9 +10,23 @@ export function toast(msg, ms=1200){
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), ms);
 }
 export function say(text, ms=1800){
+  hideCoach();   // the patient's bubble and the therapist's pill sit at the same height: the latest line wins
   const b = $("#bubble"); b.textContent = text; b.classList.add("show");
   clearTimeout(bubbleTimer); bubbleTimer = setTimeout(()=>b.classList.remove("show"), ms);
 }
+/* The therapist's own line (prep talk, breath cue). The patient keeps the paper bubble; this is a small dark pill. */
+let coachTimer = 0;
+export function coach(text, ms=1600){
+  let c = document.getElementById("coach");
+  if(!c){ c = document.createElement("div"); c.id = "coach"; $("#app").appendChild(c); }
+  c.textContent = "";
+  const who = document.createElement("small"); who.textContent = "선생님";
+  c.append(who, text);
+  c.classList.add("show");
+  clearTimeout(bubbleTimer); $("#bubble").classList.remove("show");
+  clearTimeout(coachTimer); coachTimer = setTimeout(()=>c.classList.remove("show"), ms);
+}
+export function hideCoach(){ clearTimeout(coachTimer); const c = document.getElementById("coach"); if(c) c.classList.remove("show"); }
 export const headScreen = {x:0, y:0, r:60};
 export function projectHead(){
   head.getWorldPosition(tmpA);

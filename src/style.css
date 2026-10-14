@@ -89,6 +89,10 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 #banner small{font-size:10px;letter-spacing:.1em;color:#6b7774}
 #banner b{font-family:var(--display);font-weight:400;font-size:20px}
 #banner span{font-size:11px;color:var(--coral-deep);font-weight:700}
+/* therapist talk (prep "힘 빼세요", breath cue): the doctor's side, so dark panel + mint, not the patient's paper bubble */
+#coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
+#coach small{color:var(--muted);font-size:10px;font-weight:600;margin-right:6px}
+#coach.show{opacity:1}
 #fade{position:absolute;inset:0;background:var(--room-deep);opacity:0;transition:opacity .25s;pointer-events:none;z-index:4}
 #fade.on{opacity:1}
 

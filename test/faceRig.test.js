@@ -76,3 +76,51 @@ describe("pickReaction", () => {
     expect(pickReaction(undefined, false, () => 0).then).toBe("relief");
   });
 });
+
+describe("after-crack faces (98-video reference)", () => {
+  it("sigh: pursed lips breathing out (no teeth), eyes still closed", () => {
+    [0, 1.2, 3.7].forEach(t => {
+      const w = expressionWeights("sigh", false, t);
+      expect(w["mouth-pursing"]).toBeGreaterThan(0.2); expect(w["mouth-open"]).toBe(0); expect(w["mouth-protusion"]).toBe(0);
+      expect(w["eye-left-closure"]).toBe(1);
+      expect(w["eye-right-closure"]).toBe(1);
+    });
+  });
+  it("awake: eyes open and both blink together now and then", () => {
+    expect(eyesOpen("awake")).toBe(true);
+    const ts = Array.from({length: 260}, (_, i) => i*0.01);
+    const shut = ts.filter(t => expressionWeights("awake", false, t)["eye-left-closure"] === 1);
+    expect(shut.length).toBeGreaterThan(0);
+    expect(shut.length).toBeLessThan(ts.length/4);
+  });
+  it("calm and serene keep the eyes closed and never startle", () => {
+    ["calm", "serene"].forEach(f => {
+      expect(eyesOpen(f)).toBe(false);
+      const w = expressionWeights(f, false, 2);
+      expect(w["eye-left-opened-up"]).toBe(0);
+      expect(w["mouth-open"]).toBeLessThan(0.15);
+    });
+  });
+  it("no face winks: both eyes always match", () => {
+    FACE_NAMES.forEach(f => [0, 0.1, 0.3, 1.7, 5.2].forEach(t => {
+      const w = expressionWeights(f, false, t);
+      expect(w["eye-left-closure"]).toBe(w["eye-right-closure"]);
+      expect(w["eye-left-slit"]).toBe(w["eye-right-slit"]);
+    }));
+  });
+  it("smiles keep the upper-lip lift small (no teeth to the molars)", () => {
+    FACE_NAMES.forEach(f => expect(expressionWeights(f, false, 1)["mouth-upward-retraction"]).toBeLessThanOrEqual(0.2));
+  });
+  it("pickReaction adds the sigh from an ahh pool, and leaves it out without one", () => {
+    const react = {jolt: ["calm"], ahh: ["sigh"], first: ["serene"], then: ["serene"], big: ["serene"]};
+    expect(pickReaction(react, false, () => 0)).toEqual({jolt: "calm", ahh: "sigh", first: "serene", then: "serene"});
+    expect(pickReaction({jolt: ["gasp"], first: ["dazed"], then: ["relief"], big: ["laugh"]}, false, () => 0)).not.toHaveProperty("ahh");
+  });
+  it("at least one roster patient is calm: no flinch, eyes closed throughout", () => {
+    const calm = ROSTER.filter(p => p.react.jolt.every(f => !eyesOpen(f)) && [...p.react.first, ...p.react.then, ...p.react.big].every(f => !eyesOpen(f)));
+    expect(calm.length).toBeGreaterThanOrEqual(1);
+  });
+  it("every patient has the after-crack lines", () => {
+    ROSTER.forEach(p => ["sigh", "what", "ahh", "after", "done"].forEach(k => expect(typeof p.lines[k]).toBe("string")));
+  });
+});

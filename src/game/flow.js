@@ -7,16 +7,17 @@ import { TRAITS, REVIEWS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roste
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
+import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, tone, chime, vib } from "../audio/audio.js";
-import { toast, say, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
+import { toast, say, coach, hideCoach, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite. */
 let bannerTimer = 0;
-let faceTok = 0;
+let faceTok = 0, loadTok = 0;
 export function setFace(f){ faceTok++; S.face = f; }
 /* A run of faces, [ms from now, face] each. Any setFace (next side, next patient, a hurt) cancels what is left. */
 function faceRun(steps){
@@ -60,8 +61,16 @@ function loadPatient(){
     $("#fade").classList.remove("on");
     showBanner(`${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`, `${target.name} 님 (${target.age})`,
       tr ? `${tr.label} · ${tr.desc}` : (S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : ""));
-    setTimeout(() => say(S.target.lines.start, 2000), 500);
-    setTimeout(() => { S.busy = false; S.patientStart = S.breathT0 = performance.now(); }, 450);
+    // prep (core/cue.js PREP_MS, 98-video reference): the patient settles, the hands palpate and rock the head
+    // (loop.js reads S.prepUntil), the therapist says to relax. S.busy stays on, so nothing aims or judges until it ends.
+    // The breath clock starts now so the chest keeps rising through the prep; patientStart (nervous tightening,
+    // idle line, breath cue) starts when the player gets the head.
+    const tok = ++loadTok, t0 = performance.now();
+    S.prepUntil = t0 + PREP_MS; S.breathT0 = t0;
+    // the patient complains, then the therapist answers (one line at a time: hud.js say / coach replace each other)
+    setTimeout(() => { if(tok === loadTok) say(S.target.lines.start, 1300); }, 300);
+    setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
+    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); }, PREP_MS);
   }, 280);
 }
 
@@ -90,6 +99,7 @@ export function adjust(src){
 }
 
 const XRAY_DELAY = 0.7;    // s of real time between the crack and the x-ray: the neck's snap and wobble (core/crack.js) play first
+const AHH_AT = 600;       // ms: right after the jolt, an open-mouth "ahh" sigh, eyes still closed (98-video reference)
 const RELIEF_AT = 3250;    // ms: the x-ray (opens 0.7 s, holds 2.4 s) is fading, the first reaction shows
 const THEN_AT = 5050;      // ms: the second reaction, held until the next side
 const NEXT_AT = 7250;      // ms: next side / patient
@@ -113,11 +123,14 @@ function success(d, exhale){
     s.v.set(Math.random()-0.5, Math.random()*0.8+0.2, Math.random()-0.5).normalize().multiplyScalar(0.35 + Math.random()*0.4);
     s.life = 1;
   });
-  // reaction (the patient's own pools, bigger on a PERFECT, the two sides differ): a jolt at the crack, a first
-  // reaction once the x-ray has cleared, then a second one held to the end. The camera leans in on the face meanwhile.
+  // reaction (the patient's own pools, bigger on a PERFECT, the two sides differ): a jolt at the crack, an open-mouth
+  // sigh with the eyes still closed, a first reaction once the x-ray has cleared (eyes open and blink, dazed, or a
+  // calm patient who never opens them), then a second one held to the end. The camera leans in on the face meanwhile.
+  hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, S.sideIdx === 1 ? S.reaction : null);
   S.reaction = react;
-  faceRun([[0, react.jolt], [RELIEF_AT, react.first], [THEN_AT, react.then]]);
+  faceRun([[0, react.jolt], [AHH_AT, react.ahh || "sigh"], [RELIEF_AT, react.first], [THEN_AT, react.then]]);
+  setTimeout(() => floater(target.lines.sigh || "하아…", -(headScreen.r + 46), -headScreen.r*0.6, "breath out", 1700), AHH_AT);
   const t0 = performance.now();
   S.reactFrom = t0 + RELIEF_AT + 250; S.reactUntil = t0 + NEXT_AT - 350;
   setTimeout(() => say(target.lines.jolt, 1000), 90);
@@ -131,7 +144,10 @@ function success(d, exhale){
   if(exhale) setTimeout(()=>floater("날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
-  setTimeout(() => say(S.sideIdx === 0 ? target.lines.ahh : target.lines.done, 2600), RELIEF_AT + 300);
+  // first side: "방금 뭐였어요?!" then the relief line; second side: "다 풀린 것 같아요" then the parting line
+  const [l1, l2] = S.sideIdx === 0 ? [target.lines.what, target.lines.ahh] : [target.lines.after, target.lines.done];
+  setTimeout(() => say(l1 || l2, l1 ? 1600 : 2600), RELIEF_AT + 300);
+  if(l1) setTimeout(() => say(l2, 1800), THEN_AT + 250);
   setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
 }
 
@@ -144,6 +160,7 @@ function hurt(msg){
   vib([120]);
   // a screwed-up "ouch", then a sulk that lingers after the hands are free again
   S.jitter = 1;
+  hideCoach();
   const calm = target.trait === "nervous" ? "worried" : "rest";
   faceRun([[0, "ouch"], [1100, "sulk"], [3200, calm]]);
   setTimeout(() => { S.hurtX = 1; }, XRAY_DELAY*1000);
