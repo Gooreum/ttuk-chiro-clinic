@@ -3,10 +3,14 @@ import { S } from "../game/state.js";
 
 /* WebAudio synthesis only (no sample files): 3-layer crack, chime, tick, room tone. */
 let ac = null, noiseBuf = null, master = null, ambGain = null;
+/* stale: the page was hidden. iOS Safari leaves the context "interrupted" (not "suspended") after a trip to
+   another app, and sometimes "running" but silent, so the first tap after coming back rebuilds it. */
+let stale = false;
 export function ensureAudio(){
   try{
     if(!ac){
       ac = new (window.AudioContext || window.webkitAudioContext)();
+      ac.onstatechange = () => { if(ac && ac.state === "interrupted") stale = true; };
       master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
       noiseBuf = ac.createBuffer(1, Math.floor(ac.sampleRate*0.08), ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
@@ -21,10 +25,25 @@ export function ensureAudio(){
       const hum = ac.createOscillator(); hum.frequency.value = 60; const hg = ac.createGain(); hg.gain.value = 0.006;
       hum.connect(hg); hg.connect(ambGain); hum.start();
     }
-    if(ac.state === "suspended") ac.resume();
+    if(ac.state !== "running") ac.resume().catch(() => {});
     setAmbient();
   }catch(e){ ac = null; }
 }
+function rebuild(){
+  const old = ac; ac = null; stale = false;
+  try{ old && old.close().catch(() => {}); }catch(e){}
+  ensureAudio();
+}
+// leaving: suspend it ourselves so coming back is a plain resume
+function sleep(){ stale = true; try{ ac && ac.state === "running" && ac.suspend().catch(() => {}); }catch(e){} }
+// back (no tap yet): try a resume; it may need the tap below on iOS
+function wake(){ if(ac && document.visibilityState === "visible" && ac.state !== "running") ac.resume().catch(() => {}); }
+// any tap: rebuild a context that went through a hide, or one that still isn't running
+function tapWake(){ if(ac && (stale || ac.state !== "running")) rebuild(); }
+document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" ? sleep() : wake());
+window.addEventListener("pagehide", sleep);
+window.addEventListener("pageshow", wake);
+for(const ev of ["pointerdown", "touchend", "click", "keydown"]) document.addEventListener(ev, tapWake, true);
 export function setAmbient(){ if(ac && ambGain) ambGain.gain.setTargetAtTime(T.sound && S.phase === "play" ? 0.05 : 0, ac.currentTime, 0.4); }
 function pop(t, f, vol){
   // transient click
