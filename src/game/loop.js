@@ -151,8 +151,9 @@ export function frame(now){
     tmpB.normalize();
     f.m.position.copy(tmpA).addScaledVector(tmpB, len*0.5);
     f.m.quaternion.setFromUnitVectors(UP, tmpB);
-    f.m.scale.set(1, len/0.52, 1);
-    f.cuff.position.copy(tmpA).addScaledVector(tmpB, 0.1);
+    f.m.scale.set(f.rad, len/0.52, f.rad);
+    f.cuff.position.copy(tmpA).addScaledVector(tmpB, f.tip);
+    f.cuff.scale.set(f.rad, 1, f.rad);
     f.cuff.quaternion.copy(f.m.quaternion);
   });
 

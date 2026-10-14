@@ -25,3 +25,13 @@
 측정값(정수리 y 1.625, 턱 y 1.358, 뒤통수 z -0.062)은 `src/scene/realAssets.js`의 머리 맞춤에 쓰인다. 다시 만들면 4단계 로그의 `MEASURE` 줄로 확인한다.
 
 GLB 재질 이름(끝부분): `.body`(피부), `.high-poly`(눈알), `.cornea`(각막), `.short02`(머리카락), `.eyebrow001`, `.eyelashes01`, `.teeth_base`, `.tongue01`. `realAssets.js`가 이 이름으로 재질을 고른다.
+
+## 치료사 손
+
+`blender -b --python mpfb_export_hands.py -- hands_raw.glb 1024 16` (중년 남성, `game_engine` 리그, 손과 팔뚝 손목 쪽 58%만 남김, 피부×AO를 1024 맵에 굽기) 후
+```
+G="npx --yes @gltf-transform/cli@4.5.1"
+$G webp hands_raw.glb a.glb --quality 85
+$G meshopt a.glb ../../public/models/hands/hands.glb
+```
+뼈 이름은 `<bone>_<l|r>`, 메시는 `hand_mesh_<l|r>`(이름이 겹치면 GLTFLoader가 뼈 이름을 바꿔 버린다). 로그의 `CUT_T`는 `realAssets.js`의 `CUT_T`와 같아야 한다. `PALM_DEPTH`(로그는 손바닥 피부까지 거리)는 손이 피부에 살짝 파묻히도록 그보다 작게 잡는다.
