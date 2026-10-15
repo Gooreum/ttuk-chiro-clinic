@@ -78,13 +78,24 @@ export function drawRing(now, c, zone, br){
     ctx.strokeStyle = grd;
     ctx.beginPath(); ctx.arc(cx, cy, R + 9, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
-  // breath arc (top: the head sits low in the head-side view, so the bottom of the ring runs off screen)
-  ctx.lineWidth = 4;
+  // breath arc (top: the head sits low in the head-side view, so the bottom of the ring runs off screen): how full the
+  // lungs are; on the out-breath it pulses mint. With the breath bonus on, a line over it says what it means (user:
+  // "들숨 날숨 게이지가… 뭘 뜻하는지 파악이 안됨", 2026-10-15): a crack on the out-breath scores +15 (core/scoring.js)
+  ctx.lineWidth = 7;
   ctx.strokeStyle = "rgba(241,234,220,.12)";
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.7); ctx.stroke();
   ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
+  if(br.exhale) ctx.globalAlpha = fade*(0.75 + 0.25*Math.sin(now*0.008));
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
+  ctx.globalAlpha = fade;
   ctx.lineCap = "butt";
+  if(T.breath){
+    const label = br.exhale ? "내쉬는 중 · 지금 꺾으면 +15" : "숨 들이쉬는 중…";
+    ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
+    // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
+    ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.85)"; ctx.fillText(label, cx, cy - R + 20);
+  }
 
   // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
   // ripple and a dashed line between them, ~2.5 s
@@ -132,9 +143,5 @@ export function drawRing(now, c, zone, br){
   ctx.fillStyle = zone ? C_CORAL : C_BONE;
   const H = hud.height/hudDpr;
   ctx.fillText(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "", cx, Math.min(cy + R + 44, H - 52));
-  ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif";
-  ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.6)";
-  ctx.textAlign = "right";
-  ctx.fillText(br.exhale ? "날숨" : "들숨", cx + Math.cos(Math.PI*1.3)*(R+22) - 6, cy + Math.sin(Math.PI*1.3)*(R+22) + 4);
   ctx.globalAlpha = 1;
 }

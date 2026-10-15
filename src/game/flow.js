@@ -46,6 +46,9 @@ function loadPatient(){
     S.sidePts = []; S.sideStars = []; S.fails = []; S.tiers = [];
     const target = aimAt(0);
     applyLook(target);
+    // the chart opens wide for the new patient (complaint, mini spine) and folds to one line once the head is handed
+    // over: at full size it covered the top left for the whole game (user: "진료차트가 너무 쓸데 없이 커", 2026-10-15)
+    $(".chart").classList.remove("compact");
     $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
     $("#clock").textContent = clockTxt(S.idx);
     $("#pname").textContent = target.name;
@@ -71,7 +74,7 @@ function loadPatient(){
     // the patient complains, then the therapist answers (one line at a time: hud.js say / coach replace each other)
     setTimeout(() => { if(tok === loadTok) say(S.target.lines.start, 1300); }, 300);
     setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
-    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); }, PREP_MS);
+    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); $(".chart").classList.add("compact"); }, PREP_MS);
   }, 280);
 }
 
