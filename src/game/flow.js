@@ -11,7 +11,7 @@ import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTa
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren } from "../audio/audio.js";
-import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
+import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 
@@ -46,9 +46,6 @@ function loadPatient(){
     S.sidePts = []; S.sideStars = []; S.fails = []; S.tiers = [];
     const target = aimAt(0);
     applyLook(target);
-    // the chart opens wide for the new patient (complaint, mini spine) and folds to one line once the head is handed
-    // over: at full size it covered the top left for the whole game (user: "진료차트가 너무 쓸데 없이 커", 2026-10-15)
-    $(".chart").classList.remove("compact");
     $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
     $("#clock").textContent = clockTxt(S.idx);
     $("#pname").textContent = target.name;
@@ -63,8 +60,8 @@ function loadPatient(){
     S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0; S.fracLvl = 0;
     setFace(target.trait === "nervous" ? "worried" : "rest");
     $("#fade").classList.remove("on");
-    showBanner(`${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`, `${target.name} 님 (${target.age})`,
-      tr ? `${tr.label} · ${tr.desc}` : (S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : ""));
+    // the new patient's chart, big in the middle through the prep (the old top banner); folds when the head is handed over
+    renderChartSheet(target, S.idx, S.patients.length, S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : ""); openChart(true);
     // prep (core/cue.js PREP_MS, 98-video reference): the patient settles, the hands palpate and rock the head
     // (loop.js reads S.prepUntil), the therapist says to relax. S.busy stays on, so nothing aims or judges until it ends.
     // The breath clock starts now so the chest keeps rising through the prep; patientStart (nervous tightening,
@@ -74,7 +71,7 @@ function loadPatient(){
     // the patient complains, then the therapist answers (one line at a time: hud.js say / coach replace each other)
     setTimeout(() => { if(tok === loadTok) say(S.target.lines.start, 1300); }, 300);
     setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
-    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); $(".chart").classList.add("compact"); }, PREP_MS);
+    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); closeChart(); }, PREP_MS);
   }, 280);
 }
 
@@ -97,12 +94,12 @@ const GRIP_GRACE = 600;    // ms after the head is handed over
 /* Would a crack right now land? input/motion.js cracks a good one at once and holds a bad one for the flick's peak. */
 export function wouldSucceed(){
   const target = S.target;
-  if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return false;
+  if(S.phase !== "play" || S.busy || !target || uiBlocked()) return false;
   return Math.abs(S.cur.rot) <= target.limR && Math.abs(S.cur.bend) <= target.limB && distNorm() <= 1;
 }
 export function adjust(src, force = 0){
   const target = S.target;
-  if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return;
+  if(S.phase !== "play" || S.busy || !target || uiBlocked()) return;
   ensureAudio();
   const d = distNorm();
   if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over", force);
@@ -264,7 +261,7 @@ function hurt(msg, kind, force = 0){
 }
 
 function finish(){
-  S.phase = "result"; S.busy = true; setAmbient();
+  S.phase = "result"; S.busy = true; setAmbient(); closeChart();
   const score = S.score;
   const best = store.get("chiroBest", 0);
   const isBest = score > best && S.pain < 3 && !S.ambulance;
@@ -319,7 +316,7 @@ async function start(){
   layout();
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.patients = makePatients();
-  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false;
+  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
   $("#intro").hidden = true; $("#result").hidden = true;

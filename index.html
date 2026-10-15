@@ -16,7 +16,7 @@
   <canvas id="hud"></canvas>
 
   <div class="top">
-    <div class="chart">
+    <div class="chart compact" id="chartMini" role="button" aria-label="진료 기록지 열기">
       <div class="clip"><span id="pno">진료 차트 No.01</span><span class="dots" id="dots"></span><span id="clock">오후 2:00</span></div>
       <div class="chartbody">
         <div style="min-width:0">
@@ -41,6 +41,40 @@
 
   <div id="toast"></div>
   <div id="bubble"></div>
+  <!-- big medical chart (ui/hud.js openChart): new patient, or tap the small chart -->
+  <div id="chartSheet" hidden>
+    <div class="board">
+      <div class="clamp" aria-hidden="true"></div>
+      <div class="paper">
+        <div class="ph">
+          <div><b>뚝 카이로 클리닉</b><small>진료 기록지</small></div>
+          <div class="pno"><span id="csNo">No.01</span><span id="csTime">오후 2:00</span></div>
+        </div>
+        <div class="pgrid">
+          <div class="pleft">
+            <table class="pinfo">
+              <tr><th>성명</th><td id="csName">—</td><th>나이</th><td id="csAge">—</td></tr>
+              <tr><th>내원</th><td id="csVisit">—</td><th>특이</th><td id="csTrait">—</td></tr>
+            </table>
+            <div class="plabel">주 호소 (C.C.)</div>
+            <div class="pcc" id="csCC">—</div>
+          </div>
+          <div class="pright">
+            <div class="plabel">소견</div>
+            <div class="pfind">
+              <div class="spine big" id="csSpine" aria-label="경추 위치"></div>
+              <div class="ptx">
+                <div class="pseg" id="csSeg">C5–C6</div>
+                <div id="csPlan">—</div>
+                <div class="pnote" id="csNote"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="pfoot"><span id="csHint">잠시 후 시작해요</span><span class="psign">담당 원장 <i class="seal" aria-hidden="true">뚝<small>원장인</small></i></span></div>
+      </div>
+    </div>
+  </div>
   <div id="banner"><small id="bnNo">2번째 환자</small><b id="bnName">—</b><span id="bnTrait"></span></div>
 
   <div class="bottom">
