@@ -311,7 +311,10 @@ export function frame(now){
   elBubble.style.left = clamp(headScreen.x, bw*0.25, bw*0.75) + "px";
   // under the chart card's real bottom (it folds while aiming); offset* are layout coords, fine inside the rotated #app
   const chartBottom = elTop.offsetTop + elChart.offsetTop + elChart.offsetHeight + 8;
-  elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom) + "px";
+  // style.top is the bubble's tail end (translate -100%): keep its whole height under the chart card, or it runs off
+  // the top when the head is high on screen (the towel mode's third-person view). Width from #app, not vw (3-4)
+  elBubble.style.maxWidth = Math.round(bw*0.46) + "px";
+  elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom + elBubble.offsetHeight) + "px";
 
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);
