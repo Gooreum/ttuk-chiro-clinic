@@ -1,4 +1,6 @@
 import * as THREE from "three";
+import {createBackXray} from "./xray.js";
+import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -33,10 +35,10 @@ const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
 
 /* how far the tissue under the hands goes in at impulse 1 (m), and how the rebound overshoots */
 const DEPTH = {ok: 0.034, weak: 0.013, miss: 0.026, over: 0.055};
-const PRELOAD = 0.007;
+const PRELOAD = 0.012;
 const LEAN = {pre: 2.5, ok: 6, weak: 3, miss: 5, over: 11};    // trunk flex (degrees) at pressure 1 / impulse 1
 const RING_R = 0.045, RING_W = 0.0065;
-const CAM_ELEV = 48, CAM_AZ = 50;            // degrees down; degrees from +x toward +z (over the left shoulder)
+const CAM_ELEV = 65, CAM_AZ = 58;            // degrees down; degrees from +x toward +z (over the left shoulder)
 const CAM_FOV = 38;
 
 const clamp01 = v => Math.min(1, Math.max(0, v));
@@ -323,6 +325,9 @@ export async function createBackScene(canvas, view = {}){
     fetch(BASE + "back_surface.json").then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); })
   ]);
   const hf = heightField(surf);
+  const [xray, reaction] = await Promise.all([createBackXray(),createBackReaction(renderer)]);
+  scene.add(xray.group);
+  const patientFade=[], therapistFade=[];
 
   // ---- patient ----
   const U = makeUniforms();
@@ -337,6 +342,7 @@ export async function createBackScene(canvas, view = {}){
     if (/shirt/.test(n)){ m.color.copy(lin(COL.gown)); m.roughness = 0.9; }
     else if (/pants/.test(n)){ m.color.copy(lin(COL.pants)); m.roughness = 0.88; }
     else if (/skin/.test(n)){ m.roughness = 0.58; }
+    m.transparent=true; m.depthWrite=true; patientFade.push(m);
     patchBack(m, U, true);
   });
   const patientRoot = new THREE.Group(); patientRoot.add(patient); scene.add(patientRoot);
@@ -350,6 +356,7 @@ export async function createBackScene(canvas, view = {}){
       o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
       const m = o.material; if (!stdMat(m)) return;
       m.envMapIntensity = 0.28;
+      if (!/short04|eyebrow|eyelash/.test(m.name)){m.transparent=true;m.depthWrite=true;therapistFade.push(m);}
       // MakeHuman hair textures are light brown; the game tints them (roster hairTint)
       if (/short04/.test(m.name)){ m.transparent = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; m.roughness = 0.5; m.color.copy(lin(0x1c1816)); hairOver(m); }
       else if (/eyebrow|eyelash/.test(m.name)){ m.transparent = true; m.depthWrite = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }
@@ -466,8 +473,17 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0} = {}){
+  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0} = {}){
+    if(faceVisible){
+      reaction.update({time:faceTime,kind,forceTier,now});
+      renderer.render(reaction.scene,reaction.camera);return;
+    }
     const k = kind || "ok";
+    const film = shotTime>=0?smooth(.20,.65,shotTime)*(1-smooth(2.25,2.8,shotTime)):0;
+    xray.update({time:shotTime,step,kind,position,forceTier});
+    for(const m of patientFade){m.opacity=1-film*.97;m.depthWrite=film<.05;}
+    for(const m of therapistFade){m.opacity=1-film*.92;m.depthWrite=film<.05;}
+    renderer.toneMappingExposure=1-film*.2;
     const dt = st.t == null ? 1/60 : Math.min(0.1, Math.max(0, (now - st.t)/1000));
     st.t = now;
     if (st.lastCompleted == null) st.lastCompleted = completed;
@@ -503,7 +519,7 @@ export async function createBackScene(canvas, view = {}){
     st.lastCompleted = completed;
 
     // depth under the hands: preload + thrust + the cushion rebound (negative = springs above the rest)
-    let depth = pressure*PRELOAD + impulse*(DEPTH[k] ?? DEPTH.ok);
+    let depth = pressure*PRELOAD + impulse*(forceTier===2?.065:forceTier===1?.048:(DEPTH[k] ?? DEPTH.ok));
     let bounce = 0;
     if (st.rebound){
       const t = (now - st.rebound.t0)/1000, over = st.rebound.kind === "over";
@@ -550,19 +566,24 @@ export async function createBackScene(canvas, view = {}){
     const kk = 1 - Math.exp(-dt*5);
     st.rootZ += (contact.z - st.rootZ)*kk;
     theRoot.position.z = st.rootZ - C0.z;
-    const lean = pressure*LEAN.pre + impulse*(LEAN[k] ?? LEAN.ok) + Math.max(0, -depth)*-40;
+    const lean = pressure*LEAN.pre + impulse*(forceTier===2?14:forceTier===1?10:(LEAN[k] ?? LEAN.ok)) + Math.max(0, -depth)*-40;
     theRoot.updateMatrixWorld(true);
     poseTherapist(contact, lean);
 
     // camera: a small dip with the thrust, a shake on "over"
     st.shake = Math.max(0, st.shake - dt*1.6);
     camera.position.copy(camBase);
-    camera.position.y -= impulse*0.012;
+    const handLook=new THREE.Vector3(0,1.02,zAt(clamp01(position)));
+    const leanZoom=smooth(.15,.6,pressure)*.48*(1-film);
+    camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
+    camera.position.addScaledVector(camDir,-pressure*.035-impulse*.045);
+    const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
+    camera.position.lerp(new THREE.Vector3(-.26,1.23,focus.z+.035),film*.95);
     if (st.shake > 0){
       const s = st.shake*st.shake*0.012, t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
-    camera.lookAt(camTarget);
+    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(focus,film*.95));
     renderer.render(scene, camera);
   }
 
@@ -570,7 +591,7 @@ export async function createBackScene(canvas, view = {}){
     cssW = Math.max(1, width|0); cssH = Math.max(1, height|0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(cssW, cssH, false);
-    fitCamera();
+    fitCamera(); reaction.resize(cssW,cssH);
   }
 
   /* back position (0..1) -> canvas-local CSS pixels of the spine's surface there */
@@ -611,6 +632,7 @@ export async function createBackScene(canvas, view = {}){
   }
 
   function dispose(){
+    xray.dispose();reaction.dispose();
     scene.traverse(o => {
       if (o.geometry) o.geometry.dispose();
       const ms = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
@@ -629,5 +651,6 @@ export async function createBackScene(canvas, view = {}){
   resize(canvas.clientWidth || canvas.width || 1, canvas.clientHeight || canvas.height || 1);
   // compile now so the first frame does not hitch
   renderer.compile(scene, camera);
+  renderer.compile(reaction.scene,reaction.camera);
   return {render, resize, dispose, projectPosition, pickPosition, renderer, scene, camera};
 }
