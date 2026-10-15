@@ -119,6 +119,11 @@ $("#chartSheet").addEventListener("click", closeChart);
 export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return `오후 ${h}:${mm}`; };
 export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? `연속 성공 ×${S.streak}` : ""; }
 export function setModeText(){
+  if(S.game === "towel"){
+    $("#mode").innerHTML = S.mode === "tilt" ? "<b>위쪽을 몸 쪽으로 젖혀</b> 수건 장력 · <b>툭 당겨</b> 견인"
+      : `<b>위아래 드래그</b>로 수건 장력 · <b>휙 쓸어서</b> 당기기${matchMedia("(pointer: coarse)").matches ? "" : " · 스페이스"}`;
+    return;
+  }
   $("#mode").innerHTML = S.mode === "tilt"
     ? "<b>핸들처럼 돌려</b> 회전 · <b>위쪽을 젖혀</b> 위아래 · <b>툭 꺾어</b> 교정"
     : `<b>천천히 드래그</b>로 각도 · <b>휙 쓸어서</b> 교정${matchMedia("(pointer: coarse)").matches ? "" : " · 스페이스"}`;

@@ -8,7 +8,7 @@ import { setFace } from "./flow.js";
 import { renderer, scene, camera, camBase, camLook, canvas } from "../scene/renderer.js";
 import { mats } from "../scene/materials.js";
 import {
-  torso, collar, pivot, head, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
+  torso, collar, pivot, head, neckMesh, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
 import { updateXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
@@ -16,16 +16,20 @@ import { tone, vib, crunch } from "../audio/audio.js";
 import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
+import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
+import { updateTowel } from "../scene/towel.js";
+import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
+import { stretchProfile, STRETCH_LEN } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const elHud = $("#hud"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble"), elTop = $(".top"), elChart = $(".chart");
 let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
+const HEAD_Z = head.position.z, NECK_Z = neckMesh.position.z;   // rest positions; towel mode slides them toward the camera
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
 function fadeMats(list, opacity, depthWrite){
@@ -89,12 +93,20 @@ export function frame(now){
   // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
-  pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), (cur.bend + thrustBend)*DEG,
+  // towel mode (core/towel.js): the aim's vertical axis is the towel's tension, so the head does not tilt with it and
+  // there is no turning; a tug shoots the head out toward the camera and the neck stretches with it
+  const towel = S.game === "towel";
+  if(towel) S.input.rot = 0;
+  if(S.stretchAt && now - S.stretchAt > STRETCH_LEN*1000) S.stretchAt = 0;
+  const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak) : 0;
+  pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? 0 : (cur.bend + thrustBend)*DEG,
     (cur.rot + thrustDeg + jit + boingDeg + headRock(now))*DEG);
+  head.position.z = HEAD_Z - stretch;
+  neckMesh.scale.y = 1 + stretch/0.24; neckMesh.position.z = NECK_Z - stretch/2;
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
-  updateRealBody(ease(br.fill));
+  updateRealBody(ease(br.fill), stretch);
   updateBreathFx(br, S.phase === "play" && !S.busy && S.xray < 0.05);
 
   // feel feedback
@@ -162,7 +174,7 @@ export function frame(now){
       }
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
-  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target, frac)){
+  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target, frac, towel)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave
     tone(150, 55, 0.2, "sine", 0.16);
     setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60);
@@ -200,9 +212,11 @@ export function frame(now){
   handSetup += ((S.thrust > 0 ? 1 : S.busy ? 0 : c) - handSetup)*(1 - Math.exp(-rdt*4));
   // a failure in the realistic arms falls back to the primitive hands instead of breaking the frame
   try{
-    updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
-      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1});
+    updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: towel ? 0 : ease(clamp(handSetup*1.25, 0, 1)), push: snap,
+      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
+      towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
+  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{
@@ -224,7 +238,8 @@ export function frame(now){
   // only a slight push while the head turns (face and neck stay in frame), the full dolly once the x-ray opens
   // and held at the side of the neck while the x-ray is up, easing back as it fades
   // while the neck snaps: part of the way round to the side of the neck, so the twist itself reads
-  const zt = S.xrayIn > 0 ? 0.34 : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
+  // towel mode: no push while the neck stretches (the long neck is the joke), the dolly waits for the x-ray
+  const zt = S.xrayIn > 0 ? (towel ? 0 : 0.34) : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
@@ -237,6 +252,9 @@ export function frame(now){
   const orbitX = (target ? -target.side : 1)*0.2;
   camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
   camTgt.copy(camLook).lerp(neckW, z*0.92);
+  // towel mode: the head shoots out toward the camera, so the camera backs off and rises with it to keep the head
+  // and the long neck in frame
+  if(stretch > 0){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
   // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
   // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
   if(!reduce){

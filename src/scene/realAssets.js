@@ -4,6 +4,7 @@ import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
 import { flinchProfile } from "../core/fail.js";
+import { clamp } from "../lib/math.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
    built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
@@ -126,7 +127,7 @@ function placeHead(gltf, env, g, model){
    Head space at rest = the pivot's rest position plus the head offset (the pivot has no rotation at rest), so a frame
    there plus the head's GLB root puts the body exactly under the head. Every frame the neck bone gets the pivot's
    current turn about the pivot itself (D = pivot * pivotRest^-1), the same motion the head makes. */
-const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4();
+const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4(), _St = new THREE.Matrix4();
 function placeBody(gltf, env, g, model){
   const frame = new THREE.Group();
   frame.position.copy(pivot.position).add(head.position);
@@ -164,13 +165,14 @@ const current = () => wantModel && real.models[wantModel];
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
 // grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
 const BREATH_GAIN = 1;
-/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
-export function updateRealBody(fill){
+/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). s: towel mode neck stretch
+   (m): the seam slides toward the camera with the head along the pivot's -z, and the 8 cm weight fade stretches the skin. */
+export function updateRealBody(fill, s = 0){
   const cur = current();
   if(!cur || !cur.body.visible) return;
   const {morphs, neck, parentInv, neckRest} = cur.body.userData;
   pivot.updateMatrix();
-  _D.multiplyMatrices(pivot.matrix, _P0);
+  _D.multiplyMatrices(pivot.matrix, _St.makeTranslation(0, 0, -s)).multiply(_P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
@@ -270,7 +272,10 @@ const POSE_NAMES = Object.keys(HAND_POSES);
 // the elbow's preferred side per role (world, x mirrored): always out and down toward the floor, next to the
 // therapist's body; the support elbow lowest (forearm low and flat), the contact elbow a little higher and further
 // out (its forearm rises steeper onto the up-side neck)
-const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -0.7, -0.25], pat: [0.6, -1, -0.4], away: [0.6, -1, -0.2]};
+const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -0.7, -0.25], pat: [0.6, -1, -0.4], away: [0.6, -1, -0.2], towel: [1, -0.55, -0.4]};
+/* Towel mode (core/towel.js): a fist on each towel end just past the crown (head-local, x mirrored), pulled toward the
+   therapist (-z) by the tension, up to TOWEL_PULL. scene/towel.js runs the towel from here around the back of the neck. */
+export const TOWEL_GRIP = [0.12, 0.04, -0.09], TOWEL_PULL = 0.06;   // beside the crown, toward the therapist (further is off screen)
 
 /* Finger pose, rebuilt from the rest skeleton every frame. Every joint turns about an axis fixed in the hand frame,
    converted once into that bone's own rest frame: curl about fingers x normal (tips move toward the palm), spread
@@ -355,7 +360,7 @@ function placeArm(root, s, matFor){
   return {root, s, upper, lower, hand, joints, fingerRest, phase: s > 0 ? 0 : 2.1,
     F0, N0, Qh0, palmOff: palm0.clone().sub(W0), hingeU: local(Qu0, hinge), hingeL: local(Ql0, hinge),
     handRestL: hand.quaternion.clone(), fore, back, side,
-    w: {contact: 0, support: 0, cup: 0, away: 0, pat: 0}, phi: null, shoulder: new THREE.Vector3(), seen: false};
+    w: {contact: 0, support: 0, cup: 0, away: 0, pat: 0, towel: 0}, phi: null, shoulder: new THREE.Vector3(), seen: false, palm: new THREE.Vector3()};
 }
 
 /* ---- per-patient hand poses, measured on the head's own skin mesh ----
@@ -537,6 +542,13 @@ function solveArm(arm, S, W, Qh, pole, dt){
 export function setRealHands(on){ wantHands = on; syncArms(); }
 /* The loop calls this when updateRealHands throws: log once, keep the primitive hands for the rest of the session. */
 let armsBroken = false;
+/* Towel mode: where the two fists hold the towel (world), and how much they hold it (0 = let go). null without the
+   realistic arms (scene/towel.js then rests the ends beside the head). */
+export function towelGrips(){
+  if(!real.arms || !armsShown || armsBroken) return null;
+  const l = real.arms.find(a => a.s > 0), r = real.arms.find(a => a.s < 0);
+  return l && r && l.seen && r.seen ? {l: l.palm, r: r.palm, hold: Math.min(l.w.towel, r.w.towel)} : null;
+}
 export function disableRealArms(err){
   if(armsBroken) return;
   armsBroken = true;
@@ -678,6 +690,20 @@ export function updateRealHands(st){
       _P.lerp(_v2, w.pat);
       _qR.slerp(_qB, w.pat);
     }
+    // towel mode: both fists on the towel ends past the crown, knuckles toward the feet, palms in; pulled toward the
+    // therapist with the tension. A slip throws both hands up and back for a moment (the towel flew off)
+    w.towel += ((st.towel && !cupOn && !awayOn ? 1 : 0) - w.towel)*(1 - Math.exp(-dt*6));
+    if(!arm.seen) w.towel = st.towel && !cupOn && !awayOn ? 1 : 0;
+    if(w.towel > 0.001){
+      const sl = st.slip >= 0 && st.slip < 0.8 ? Math.sin(Math.PI*st.slip/0.8) : 0;
+      _v2.set(s*TOWEL_GRIP[0], TOWEL_GRIP[1], TOWEL_GRIP[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
+      _v2.y += 0.07*sl; _v2.z -= 0.08*sl; _v2.x += s*0.03*sl;
+      pairQuat(arm.F0, arm.N0, _v.set(0, -0.55, 1).normalize(), _v3.set(-s, 0, 0), _qB);
+      _P.lerp(_v2, w.towel);
+      _qR.slerp(_qB, w.towel);
+      grip += (1.05*(1 - sl) - grip)*w.towel;
+    }
+    arm.palm.copy(_P);
     _qh.copy(_qR).multiply(arm.Qh0);
     _W.copy(arm.palmOff).applyQuaternion(_qR).negate().add(_P);
     // shoulder and pole
@@ -689,7 +715,8 @@ export function updateRealHands(st){
       const p = POLES[n]; _pole.x += p[0]*s*ww; _pole.y += p[1]*ww; _pole.z += p[2]*ww;
     });
     _pole.lerp(_v.set(POLES.away[0]*s, POLES.away[1], POLES.away[2]), w.away);
-    _pole.lerp(_v.set(POLES.pat[0]*s, POLES.pat[1], POLES.pat[2]), w.pat).normalize();
+    _pole.lerp(_v.set(POLES.pat[0]*s, POLES.pat[1], POLES.pat[2]), w.pat);
+    _pole.lerp(_v.set(POLES.towel[0]*s, POLES.towel[1], POLES.towel[2]), w.towel).normalize();
     solveArm(arm, arm.shoulder, _W, _qh, _pole, arm.seen ? dt : 1);
     grip *= 1 - 0.6*w.away;
     poseFingers(arm, grip*(1 - w.pat) + 0.1*w.pat, 1 - 0.5*Math.min(1, grip), t, st.prep ? w.cup : 0);

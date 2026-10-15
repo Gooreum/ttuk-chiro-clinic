@@ -9,14 +9,17 @@ import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
+import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview } from "../core/towel.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
-import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren } from "../audio/audio.js";
+import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, popOut, whoosh } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
-   (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite. */
+   (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite.
+   Towel practice (S.game "towel", core/towel.js): one tug per patient, adjust -> towelAdjust -> towelSuccess / towelHurt,
+   best score in "chiroTowelBest". */
 let bannerTimer = 0;
 let faceTok = 0, loadTok = 0, hurtTok = 0;
 export function setFace(f){ faceTok++; S.face = f; }
@@ -51,7 +54,9 @@ function loadPatient(){
     $("#pname").textContent = target.name;
     $("#page").textContent = `${target.age}세`;
     $("#pcc").textContent = target.cc;
-    $("#pseg").textContent = sideLabel(target);
+    $("#pseg").textContent = S.game === "towel" ? "수건 견인 · 장력 맞추고 툭" : sideLabel(target);
+    S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
+    S.stretchAt = 0; S.slipAt = 0;
     const tr = target.trait ? TRAITS[target.trait] : null;
     $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
     renderSpine(target.seg); renderDots();
@@ -61,7 +66,11 @@ function loadPatient(){
     setFace(target.trait === "nervous" ? "worried" : "rest");
     $("#fade").classList.remove("on");
     // the new patient's chart, big in the middle through the prep (the old top banner); folds when the head is handed over
-    renderChartSheet(target, S.idx, S.patients.length, S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : ""); openChart(true);
+    if(S.game === "towel"){
+      renderChartSheet(target, S.idx, S.patients.length, S.idx < SHOW_ZONE_UNTIL ? "수건 장력을 초록에 맞추고 숨 내쉴 때 툭 당기세요" : "숨 내쉴 때 툭 당기세요");
+      $("#csPlan").textContent = "처방: 수건 견인 · 목 쭈욱";
+    }else renderChartSheet(target, S.idx, S.patients.length, S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : "");
+    openChart(true);
     // prep (core/cue.js PREP_MS, 98-video reference): the patient settles, the hands palpate and rock the head
     // (loop.js reads S.prepUntil), the therapist says to relax. S.busy stays on, so nothing aims or judges until it ends.
     // The breath clock starts now so the chest keeps rising through the prep; patientStart (nervous tightening,
@@ -71,7 +80,12 @@ function loadPatient(){
     // the patient complains, then the therapist answers (one line at a time: hud.js say / coach replace each other)
     setTimeout(() => { if(tok === loadTok) say(S.target.lines.start, 1300); }, 300);
     setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
-    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); closeChart(); }, PREP_MS);
+    setTimeout(() => {
+      if(tok !== loadTok || S.phase !== "play") return;
+      S.busy = false; S.patientStart = performance.now(); closeChart();
+      // towel practice: how to play, on the first patients
+      if(S.game === "towel" && S.idx < SHOW_ZONE_UNTIL) coach(S.mode === "tilt" ? "폰 위쪽을 몸 쪽으로 젖혀 초록에 맞추고, 숨 내쉴 때 툭!" : "위로 드래그해 초록에 맞추고, 휙 쓸어 당겨요", 2800);
+    }, PREP_MS);
   }, 280);
 }
 
@@ -95,12 +109,14 @@ const GRIP_GRACE = 600;    // ms after the head is handed over
 export function wouldSucceed(){
   const target = S.target;
   if(S.phase !== "play" || S.busy || !target || uiBlocked()) return false;
+  if(S.game === "towel") return !!S.towel && (__FORCE_HIT__ || towelKind(towelTension(S.cur.bend), S.towel) === "ok");
   return Math.abs(S.cur.rot) <= target.limR && Math.abs(S.cur.bend) <= target.limB && distNorm() <= 1;
 }
 export function adjust(src, force = 0){
   const target = S.target;
   if(S.phase !== "play" || S.busy || !target || uiBlocked()) return;
   ensureAudio();
+  if(S.game === "towel") return towelAdjust(src);
   const d = distNorm();
   if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over", force);
   if(d <= 1) return success(d, T.breath && breath(performance.now()).exhale);
@@ -260,14 +276,93 @@ function hurt(msg, kind, force = 0){
   setTimeout(() => { S.busy = false; }, 1100);
 }
 
+/* Towel practice (core/towel.js): the tension when the tug lands. A tug on a slack towel right as the head is handed
+   over is the player settling the grip (like GRIP_GRACE above): a toast, no pain. */
+function towelAdjust(src){
+  const t = towelTension(S.cur.bend), kind = __FORCE_HIT__ ? "ok" : towelKind(t, S.towel);
+  if(kind === "ok") return towelSuccess(distNorm(), T.breath && breath(performance.now()).exhale);
+  if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
+  towelHurt(kind);
+}
+const TOWEL_XRAY_DELAY = 1.0;   // s: the long neck and its tremble read first, the x-ray opens as it springs back
+const STRETCH_OK = 0.09, STRETCH_OVER = 0.2;   // m the head shoots out: a good tug, past the limit (core/towel.js stretchProfile)
+function towelSuccess(d, exhale){
+  const target = S.target;
+  S.busy = true;
+  hurtTok++;
+  const r = scoreSuccess(d, exhale, S.streak, S.painHere);
+  const {perfect, base, comboBonus, pts} = r;
+  S.streak = r.streak;
+  S.score += pts;
+  S.results.push({name:target.name, age:target.age, pts, stars: r.stars, label: perfect ? "PERFECT" : "GOOD", fails: [...S.fails], lines: target.lines});
+  $("#score").textContent = S.score; renderCombo();
+  // the neck shoots out "쭈우욱", trembles, then springs back "뽁"; the x-ray then shows every disc opening
+  stretchSound(); popOut(0.75);
+  vib(perfect ? [45,40,45,40,80] : [45,50,45]);
+  const now = performance.now();
+  S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1);
+  S.thrust = 0; S.shake = 0.6; S.slow = 1; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
+  hideCoach();
+  const react = pickReaction(target.react, perfect, Math.random, null);
+  S.reaction = react;
+  faceRun([[0, react.jolt], [AHH_AT, react.ahh || "sigh"], [RELIEF_AT, react.first], [THEN_AT, react.then]]);
+  setTimeout(() => floater(target.lines.sigh || "하아…", -(headScreen.r + 46), -headScreen.r*0.6, "breath out", 1700), AHH_AT);
+  S.reactFrom = now + RELIEF_AT + 250; S.reactUntil = now + NEXT_AT - 350;
+  setTimeout(() => say(target.lines.jolt, 1000), 90);
+  floater("쭈우욱", -60, -headScreen.r - 10);
+  setTimeout(() => floater("뽁!", 50, -headScreen.r - 34), 750);
+  setTimeout(() => floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
+  if(exhale) setTimeout(() => floater("날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
+  if(comboBonus) setTimeout(() => floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
+  chime(perfect);
+  setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + 300);
+  setTimeout(() => say(target.lines.done, 1800), THEN_AT + 450);
+  setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
+}
+/* A wrong tug: "over" the neck goes giraffe and boings back, "slip" only the towel comes off and flies away. Pain and
+   the third-strike end work as for a wrong crack; there is no crack / break tier in this mode. */
+function towelHurt(kind){
+  const target = S.target, tok = ++hurtTok, idx = S.idx;
+  S.busy = true;
+  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(0);
+  renderPain(); renderCombo();
+  hideCoach();
+  const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
+  const now = performance.now(), r = headScreen.r;
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : "수건이 너무 느슨했어요", kind === "over" ? "over" : "dud", 1700);
+  if(kind === "over"){
+    flashOuch();
+    stretchSound(); boing(); vib([60, 40, 60]);
+    S.stretchAt = now; S.stretchPeak = STRETCH_OVER; S.shake = 0.6; S.jitter = 0.6;
+    faceRun([[0, "gasp"], [500, "ouch"], [1600, "sulk"], [3200, "doubt"]]);
+    floater("쭈와아악", -64, -r - 10); later(700, () => floater("뾰잉~", 40, -r - 30, "small"));
+    say(towelLine(target.name, "over"), 1500, true);
+    later(XRAY_DELAY*1000, () => { S.hurtX = 1; });
+  }else{
+    whoosh(); vib([60]);
+    S.slipAt = now; S.shake = 0.4;
+    faceRun([[0, "wince"], [600, "doubt"]]);
+    floater("쏙!", r + 20, r*0.4); later(150, () => floater("…?", 0, -r - 20, "small", 1400));
+    later(250, () => say(towelLine(target.name, "slip"), 1600, true));
+  }
+  later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
+  later(kind === "over" ? 3200 : 600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
+  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
+  if(S.pain >= 3){
+    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    return;
+  }
+  setTimeout(() => { S.busy = false; }, kind === "over" ? 1700 : 1100);
+}
+
 function finish(){
   S.phase = "result"; S.busy = true; setAmbient(); closeChart();
-  const score = S.score;
-  const best = store.get("chiroBest", 0);
+  const score = S.score, towel = S.game === "towel", key = towel ? "chiroTowelBest" : "chiroBest";
+  const best = store.get(key, 0);
   const isBest = score > best && S.pain < 3 && !S.ambulance;
-  if(isBest) store.set("chiroBest", score);
-  const avg = crackAvg(score, S.patients.length);
-  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= 3 ? "환자들이 도망갔어요" : "오늘 진료 끝";
+  if(isBest) store.set(key, score);
+  const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
+  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= 3 ? "환자들이 도망갔어요" : towel ? "수건 견인 연습 끝" : "오늘 진료 끝";
   $("#rank").textContent = rankTitle(avg, S.ambulance ? 3 : S.pain);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
@@ -278,9 +373,9 @@ function finish(){
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
     const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? "이송" : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
-    rev.textContent = "“" + reviewLine(r) + "”";
+    rev.textContent = "“" + (towel ? towelReview(r) : reviewLine(r)) + "”";
     li.append(who, pts, st);
-    const tags = failTags(r.fails, r.tiers);
+    const tags = towel ? towelTags(r.fails) : failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
       tags.forEach(t => { const i = document.createElement("i"); i.textContent = t; tg.appendChild(i); });
@@ -290,13 +385,13 @@ function finish(){
     list.appendChild(li);
   });
   $("#result").hidden = false;
-  $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
+  if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
 }
 
 let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
    un-awaited, so the user gesture is still alive. Await them only afterwards. Do not reorder. */
-async function start(){
+async function start(game){
   let perm = null, operm = null, fs = null;
   try{ if(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") perm = DeviceMotionEvent.requestPermission(); }catch(e){}
   try{ if(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") operm = DeviceOrientationEvent.requestPermission(); }catch(e){}
@@ -315,6 +410,7 @@ async function start(){
   }catch(e){}
   layout();
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
+  S.game = game === "towel" ? "towel" : "clinic";
   S.patients = makePatients();
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
@@ -324,6 +420,7 @@ async function start(){
   setModeText();
   loadPatient();
 }
-$("#start").addEventListener("click", start);
-$("#again").addEventListener("click", start);
+$("#start").addEventListener("click", () => start("clinic"));
+$("#startTowel").addEventListener("click", () => start("towel"));
+$("#again").addEventListener("click", () => start(S.game));
 { const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? `최고 기록 ${b}점` : "최고 기록 —"; }

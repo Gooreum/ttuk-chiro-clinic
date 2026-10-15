@@ -18,5 +18,8 @@ export const S = {
   tiers: [], fracLvl: 0, fracT: 0, fracFired: false,   // how hard each wrong crack was (0..2); fracture x-ray: tier, seconds, cue played
   ambulance: false, lastForce: 0, chartOpen: false,                      // a crack / break ended the day; the last flick's peak strength (tuning panel)
   viewRot: 0,                                          // self-rotation of #app: 0 / 90 / 270
-  sideIdx: 0, sidePts: [], sideStars: []               // both-side adjustment: 0 = complaint side, 1 = opposite
+  sideIdx: 0, sidePts: [], sideStars: [],             // both-side adjustment: 0 = complaint side, 1 = opposite
+  game: "clinic",                                      // "clinic" | "towel" (the title's practice mode; S.mode is the input mode)
+  towel: null,                                         // towel mode: this patient's tension band {mid, half, limit} (core/towel.js)
+  stretchAt: 0, stretchPeak: 0, slipAt: 0              // towel mode gag clocks (ms) and how far the neck goes (m)
 };
