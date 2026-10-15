@@ -214,6 +214,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .tip{font-size:12px;color:var(--ink);background:rgba(138,223,191,.1);border:1px solid rgba(138,223,191,.35);border-radius:8px;padding:8px 10px;line-height:1.5}
 .btn{font-family:var(--display);font-size:22px;border:0;border-radius:10px;padding:13px;background:var(--coral);color:var(--room-deep);cursor:pointer;box-shadow:0 4px 0 var(--coral-deep)}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--coral-deep)}
+.btn.ghost{font-size:18px;padding:10px;background:transparent;color:var(--mint);border:2px solid var(--mint);box-shadow:none}
+.btn.ghost:active{transform:translateY(2px);box-shadow:none}
 .best{font-size:11px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 
 .log{background:var(--paper);color:var(--paper-ink);max-width:460px;gap:12px}

@@ -145,6 +145,28 @@ export function boing(){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.62); lfo.start(t); lfo.stop(t+0.62);
 }
+/* Towel traction (core/towel.js). stretchSound: a rising, wobbly "쭈우욱" as the neck shoots out; popOut: the "뽁"
+   as it springs back; whoosh: the towel slipping off ("쏙"). */
+export function stretchSound(){
+  if(!ac) return;
+  const t = ac.currentTime + 0.01, o = ac.createOscillator(), g = ac.createGain();
+  const lfo = ac.createOscillator(), lg = ac.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(560, t+0.55);
+  lfo.frequency.value = 11; lg.gain.value = 25; lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.04, t+0.05); g.gain.exponentialRampToValueAtTime(0.0001, t+0.7);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.72); lfo.start(t); lfo.stop(t+0.72);
+}
+export function popOut(delay = 0){
+  if(!ac) return;
+  pop(ac.currentTime + 0.01 + delay, 900, 0.5);
+  tone(600, 1400, 0.09, "sine", 0.08, delay);
+}
+export function whoosh(){
+  if(!ac) return;
+  tone(900, 120, 0.35, "triangle", 0.05);
+  tone(1800, 300, 0.25, "sine", 0.025, 0.03);
+}
 /* A hard wrong crack (core/fail.js forceTier): tier 1 "으그적" = four gritty low pops over a dull thud; tier 2
    "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
 export function crunch(tier, vol = 1){

@@ -1,4 +1,5 @@
 import { clamp } from "../lib/math.js";
+import { REVIEWS } from "../patient/roster.js";
 
 /* Towel traction practice (title button "수건 견인 연습", game/flow.js towelAdjust). A towel is wrapped under the
    back of the head and both hands hold its ends. Tilting the phone's top toward the body (the aim's vertical axis,
@@ -45,3 +46,15 @@ export const TOWEL_LINES = {
 };
 const TOWEL_LINE_FALLBACK = {ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?"};
 export const towelLine = (name, kind) => (TOWEL_LINES[name] || TOWEL_LINE_FALLBACK)[kind] || TOWEL_LINE_FALLBACK[kind] || "";
+// day log reviews: walked out -> the patient's parting line, a wrong tug -> the last kind's pool, else the star reviews
+export const TOWEL_REVIEWS = {
+  over:  ["30초 동안 기린이었어요", "목도리 사이즈가 바뀌었어요", "목이 고무줄 체험판이었어요"],
+  slip:  ["수건만 세탁하고 왔어요", "수건이 저보다 먼저 퇴근했어요", "수건 마술쇼인 줄 알았어요"]
+};
+export function towelReview(r, rand = Math.random){
+  const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
+  if(!r.stars) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
+  const last = r.fails && r.fails[r.fails.length - 1];
+  if(last && TOWEL_REVIEWS[last]) return pick(TOWEL_REVIEWS[last]);
+  return pick(REVIEWS[r.stars] || ["다음에 다시 올게요…"]);
+}

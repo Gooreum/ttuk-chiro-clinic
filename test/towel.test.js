@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN,
-  TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine } from "../src/core/towel.js";
-import { ROSTER } from "../src/patient/roster.js";
+  TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
+import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
 describe("towel tension", () => {
   it("reads the aim's vertical axis, clamped to 0..1", () => {
@@ -60,5 +60,14 @@ describe("towel lines and chips", () => {
     expect(towelTags(["slip", "over", "slip"])).toEqual(["엿가락 ×1", "헛당김 ×2"]);
     expect(towelTags([])).toEqual([]);
     expect(towelTags(undefined)).toEqual([]);
+  });
+});
+
+describe("towelReview", () => {
+  it("walked out: own line; a wrong tug: that kind's pool; clean: star reviews", () => {
+    expect(towelReview({stars: 0, fails: ["slip"], lines: {quit: "원장 나오라 그래!"}})).toBe("원장 나오라 그래!");
+    expect(TOWEL_REVIEWS.slip).toContain(towelReview({stars: 2, fails: ["over", "slip"]}, () => 0.5));
+    expect(TOWEL_REVIEWS.over).toContain(towelReview({stars: 1, fails: ["over"]}, () => 0.5));
+    expect(REVIEWS[3]).toContain(towelReview({stars: 3, fails: []}, () => 0));
   });
 });
