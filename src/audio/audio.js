@@ -70,6 +70,29 @@ export function crackSound(n){
   let t = ac.currentTime + 0.01;
   for(let i=0;i<n;i++){ pop(t, 900 + Math.random()*1400, 0.85 - i*0.12); t += 0.045 + Math.random()*0.05; }
 }
+/* Wrong cracks (core/fail.js kinds). dud: one weak low pop that fizzles out ("뚜…륵?").
+   finger: a high, dry double click (the therapist's own knuckle). over: a rubber-band "boing" with a wobble. */
+export function fizzle(){
+  if(!ac) return;
+  const t = ac.currentTime + 0.01;
+  pop(t, 520, 0.28);
+  tone(260, 110, 0.35, "triangle", 0.05, 0.08);
+}
+export function knuckle(){
+  if(!ac) return;
+  const t = ac.currentTime + 0.01;
+  pop(t, 2600, 0.7); pop(t + 0.035, 3100, 0.45);
+}
+export function boing(){
+  if(!ac) return;
+  const t = ac.currentTime + 0.01, o = ac.createOscillator(), g = ac.createGain();
+  const lfo = ac.createOscillator(), lg = ac.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(230, t); o.frequency.exponentialRampToValueAtTime(720, t+0.07); o.frequency.exponentialRampToValueAtTime(170, t+0.55);
+  lfo.frequency.value = 18; lg.gain.value = 40; lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t+0.62); lfo.start(t); lfo.stop(t+0.62);
+}
 export function tone(f1, f2, dur, type, vol, delay=0){
   if(!ac) return;
   const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();

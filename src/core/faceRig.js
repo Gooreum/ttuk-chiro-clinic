@@ -1,6 +1,7 @@
 /* Face state -> blendshape weights for the realistic head (MakeHuman expression units, Asian set).
    Patients lie with eyes closed ("rest"), open them when worried or tense and blink while open. A wrong crack is
-   "ouch", then a sulk. A good crack plays a reaction (pickReaction): a jolt at the crack, a first reaction as the
+   "ouch", then a sulk, and a wary squint ("doubt") while the player tries again (game/flow.js hurt).
+   A good crack plays a reaction (pickReaction): a jolt at the crack, a first reaction as the
    x-ray clears, then a second one held until the next side. Which faces a patient uses is the roster's `react`. */
 const BOTH = (l, r, v) => ({[l]: v, [r]: v});
 const LR = (unit, v) => BOTH(unit.replace("*", "left"), unit.replace("*", "right"), v);
@@ -32,6 +33,10 @@ const FACES = {
   ouch:    {w: {...closure(1), ...slit(1), ...browDown(1), ...sneer(0.6), "mouth-open": 0.45, "mouth-elevation": 0.45, "mouth-retraction": 0.4}, prim: "ouch"},
   sulk:    {w: {...closure(0.45), ...browUp(0.7), ...browDown(0.25), "mouth-compression": 0.45, "mouth-protusion": 0.5, "mouth-pursing": 0.25}, prim: "worried",
             live: (t, w) => { w["mouth-protusion"] += 0.1*Math.sin(t*2.1); }},
+  // after a wrong crack, held while the player tries again: eyes open but narrowed, brows down, lips pressed,
+  // watching the therapist (both eyes together, the squint breathes a little)
+  doubt:   {w: {...closure(0.3), ...slit(0.65), ...browDown(0.5), ...browUp(0.15), "mouth-compression": 0.55, "mouth-protusion": 0.15}, prim: "tense",
+            live: (t, w) => { Object.assign(w, slit(0.65 + 0.08*Math.sin(t*0.8))); }},
   // the instant of the crack
   startle: {w: {...wide(0.8), ...browUp(1), ...browOut(0.8), "mouth-open": 0.7, "mouth-pursing": 0.25}, prim: "startle"},
   gasp:    {w: {...wide(1), ...browUp(1), ...browOut(1), "mouth-open": 0.45, "mouth-pursing": 0.6, ...flare(0.6)}, prim: "startle"},
