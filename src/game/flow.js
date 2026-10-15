@@ -9,7 +9,7 @@ import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
-import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, FALL_HIT, OVER_XRAY, OVER_HOLD } from "../core/towel.js";
+import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, towelReaction, FALL_HIT, OVER_XRAY, OVER_HOLD } from "../core/towel.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { canvas } from "../scene/renderer.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
@@ -308,19 +308,24 @@ function towelSuccess(d, exhale){
   hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, null);
   S.reaction = react;
-  faceRun([[0, react.jolt], [AHH_AT, react.ahh || "sigh"], [RELIEF_AT, react.first], [THEN_AT, react.then]]);
-  setTimeout(() => floater(target.lines.sigh || "하아…", -(headScreen.r + 46), -headScreen.r*0.6, "breath out", 1700), AHH_AT);
-  S.reactFrom = now + RELIEF_AT + 250; S.reactUntil = now + NEXT_AT - 350;
-  setTimeout(() => say(target.lines.jolt, 1000), 90);
+  // young and thin: "와 시원하다" right away; older or heavier: a long run of swearing first, then slowly the relief
+  // (core/towel.js towelReaction); the rest of the reaction and the next patient wait for it (x)
+  const feel = towelReaction(target.name, target.burn || 0), x = feel.extra;
+  const early = feel.steps.map(([ms, f]) => [ms, f]);
+  faceRun([...(x ? [] : [[0, react.jolt]]), ...early, [RELIEF_AT + x, react.first], [THEN_AT + x, react.then]]);
+  feel.steps.forEach(([ms, , line, loud], i) => setTimeout(() => say(line, i + 1 < feel.steps.length ? feel.steps[i + 1][0] - ms + 150 : 1900, loud), ms));
+  if(!x) setTimeout(() => floater(target.lines.sigh || "하아…", -(headScreen.r + 46), -headScreen.r*0.6, "breath out", 1700), AHH_AT);
+  S.reactFrom = now + RELIEF_AT + x + 250; S.reactUntil = now + NEXT_AT + x - 350;
+  if(!x) setTimeout(() => say(target.lines.jolt, 400), 90);
   floater("쭈우욱", -60, -headScreen.r - 10);
   floater(perfect ? "우두둑!" : "뚜둑!", 50, -headScreen.r - 34);
   setTimeout(() => floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
   if(exhale) setTimeout(() => floater("날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
   if(comboBonus) setTimeout(() => floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
-  setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + 300);
-  setTimeout(() => say(target.lines.done, 1800), THEN_AT + 450);
-  setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
+  setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + x + 300);
+  setTimeout(() => say(target.lines.done, 1800), THEN_AT + x + 450);
+  setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT + x);
 }
 /* A wrong tug: "over" the neck goes giraffe and boings back, "slip" only the towel comes off and flies away. Pain and
    the third-strike end work as for a wrong crack; there is no crack / break tier in this mode. */

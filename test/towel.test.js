@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, towelReaction, TOWEL_BURN, towelCool,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -116,5 +116,30 @@ describe("letGoProfile", () => {
     let prev = 0;
     for(let t = 0; t < GETUP_AT; t += 0.01){ const v = letGoProfile(t); expect(v).toBeGreaterThanOrEqual(prev - 1e-9); prev = v; }
     for(let t = GETUP_AT; t < GETUP_AT + GETUP_LEN; t += 0.01){ const v = letGoProfile(t); expect(v).toBeLessThanOrEqual(prev + 1e-9); prev = v; }
+  });
+});
+
+describe("towelReaction: who feels what after a good tug", () => {
+  it("young and thin: relief within a second, no swearing", () => {
+    const r = towelReaction("이라이더", 0);
+    expect(r.extra).toBe(0);
+    expect(r.steps[0][0]).toBeLessThan(1000); expect(r.steps[0][2]).toBe(towelCool("이라이더"));
+    expect(r.steps.some(s => TOWEL_BURN.includes(s[2]))).toBe(false);
+  });
+  it("old or heavy: a long run of swearing, then slowly the relief", () => {
+    const r = towelReaction("김사장", 3.6);
+    expect(r.extra).toBe(3600);
+    const swear = r.steps.filter(s => TOWEL_BURN.includes(s[2]));
+    expect(swear.length).toBeGreaterThanOrEqual(3);
+    const cool = r.steps.find(s => s[2] === towelCool("김사장"));
+    expect(cool[0]).toBeGreaterThanOrEqual(3600);
+    expect(cool[0]).toBeGreaterThan(Math.max(...swear.map(s => s[0])));
+    r.steps.forEach((s, i) => { if(i) expect(s[0]).toBeGreaterThan(r.steps[i - 1][0]); });
+  });
+  it("the roster: the thin young ones feel it at once, the oldest and heaviest swears longest", () => {
+    const b = Object.fromEntries(ROSTER.map(p => [p.name, p.burn]));
+    expect(b["이라이더"]).toBe(0); expect(b["정작가"]).toBe(0);
+    expect(Math.max(...Object.values(b))).toBe(b["김사장"]);
+    expect(b["박대리"]).toBeGreaterThan(0);
   });
 });
