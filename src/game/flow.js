@@ -279,6 +279,7 @@ function towelAdjust(src){
   if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
   towelHurt(kind);
 }
+const TOWEL_XRAY_DELAY = 1.0;   // s: the long neck and its tremble read first, the x-ray opens as it springs back
 const STRETCH_OK = 0.09, STRETCH_OVER = 0.2;   // m the head shoots out: a good tug, past the limit (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;
@@ -295,7 +296,7 @@ function towelSuccess(d, exhale){
   vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   const now = performance.now();
   S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1);
-  S.thrust = 0; S.shake = 0.6; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY; S.fracLvl = 0;
+  S.thrust = 0; S.shake = 0.6; S.slow = 1; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
   hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, null);
   S.reaction = react;

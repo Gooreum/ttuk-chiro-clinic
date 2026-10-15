@@ -126,7 +126,7 @@ function placeHead(gltf, env, g, model){
    Head space at rest = the pivot's rest position plus the head offset (the pivot has no rotation at rest), so a frame
    there plus the head's GLB root puts the body exactly under the head. Every frame the neck bone gets the pivot's
    current turn about the pivot itself (D = pivot * pivotRest^-1), the same motion the head makes. */
-const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4();
+const _D = new THREE.Matrix4(), _P0 = new THREE.Matrix4(), _M = new THREE.Matrix4(), _St = new THREE.Matrix4();
 function placeBody(gltf, env, g, model){
   const frame = new THREE.Group();
   frame.position.copy(pivot.position).add(head.position);
@@ -164,13 +164,14 @@ const current = () => wantModel && real.models[wantModel];
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
 // grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
 const BREATH_GAIN = 1;
-/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). */
-export function updateRealBody(fill){
+/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). s: towel mode neck stretch
+   (m): the seam slides toward the camera with the head along the pivot's -z, and the 8 cm weight fade stretches the skin. */
+export function updateRealBody(fill, s = 0){
   const cur = current();
   if(!cur || !cur.body.visible) return;
   const {morphs, neck, parentInv, neckRest} = cur.body.userData;
   pivot.updateMatrix();
-  _D.multiplyMatrices(pivot.matrix, _P0);
+  _D.multiplyMatrices(pivot.matrix, _St.makeTranslation(0, 0, -s)).multiply(_P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });

@@ -251,13 +251,15 @@ const PINCH = {disc: 0.9, rot: 0.65, facet: 0.55, flat: 0.6, muscle: 0.45};
 const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
 /* Seconds of "pressure" after the x-ray opens, before the release. Exported for the camera push in game/loop.js. */
 export const XRAY_PRE = 0.55;
-const _c = new THREE.Color();
+const _c = new THREE.Color(), _tc = new THREE.Color();
+const TRACT_OPEN = 0.55;   // towel traction: how much taller than healthy every disc springs
 let popped = false;
 
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
    hurt: 0..1 recent wrong crack (coral throb). frac: {lvl 1|2, t seconds} on a hard wrong crack (see the header), else
-   null. Returns true on the frame of the release (sound, rumble, wave). */
-export function updateXray(now, amount, crackT, hurt, target, frac = null){
+   null. traction: towel mode (game/flow.js towelSuccess), every disc opens. Returns true on the frame of the release
+   (sound, rumble, wave). */
+export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = false){
   film.material.opacity = Math.min(amount, 1)*0.86;
   film.visible = amount >= 0.002;
   if(amount < 0.002 || !target || !ready){
@@ -399,6 +401,23 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null){
   }else{
     flash.material.opacity = 0;
     bubbles.forEach(b => { b.s.material.opacity = 0; });
+  }
+  // towel traction: every disc pressed flat and red, then they all spring open at once, taller than healthy, each one
+  // lifting the column above it, and turn blue (a cartoon stretch, not anatomy)
+  if(traction){
+    const op = before ? -0.3*pressure : spring(ct)*TRACT_OPEN;
+    const blue = before ? 0 : clamp(ct/1.2, 0, 1), b2 = blue*blue*(3 - 2*blue);
+    _tc.copy(COL.pinched).lerp(COL.freed, b2);
+    for(let j = 1; j < D.length; j++){
+      const d = D[j];
+      if(!d) continue;
+      d.g.scale.y *= Math.max(0.3, 1 + op);
+      const lift = 0.0075*op;
+      d.g.position.y += lift/2;
+      for(let k = 0; k < j; k++){ V[k].g.position.y += lift; if(D[k]) D[k].g.position.y += lift; }
+      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(before ? 0.3 + 0.2*throb : 0.35);
+      d.over.material.color.copy(_tc); d.over.material.opacity = (before ? 0.5 + 0.2*throb : 0.65)*amount;
+    }
   }
   if(frac) fracture(frac, sv, stuck, side, amount, throb);
   else hideFrac();

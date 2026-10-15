@@ -24,7 +24,7 @@ pivot.position.set(0, 1.0, 0.3);
 pivot.rotation.order = "YZX";
 scene.add(pivot);
 const neckMesh = mesh(cyl(0.056,0.066,0.24,20), mats.neck, pivot, [0,0,-0.08], [Math.PI/2,0,0]);
-bodyParts.push(neckMesh);
+bodyParts.push(neckMesh);   // towel mode stretches it (game/loop.js)
 
 const head = new THREE.Group();
 head.position.set(0, 0.04, -0.2);
@@ -102,7 +102,7 @@ const sparks = Array.from({length:14}, () => {
 });
 
 export {
-  torso, collar, bodyParts, pivot, head, hairShort, hairBald, hairLong, hairSpikes,
+  torso, collar, bodyParts, pivot, head, neckMesh, hairShort, hairBald, hairLong, hairSpikes,
   lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, glasses, hands, handParts, forearms,
   UP, tmpA, tmpB, tmpC, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 };
