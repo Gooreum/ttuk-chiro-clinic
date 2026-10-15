@@ -69,7 +69,7 @@ export async function createBackXray({scene,camera,env,renderer}){
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
     const crackT=success?time-.7:-1;
-    engine.updateXray(Math.max(0,time)*1000,amount,crackT,success?0:1,target,fracture?{lvl:tier,t:time-.45}:null,null);
+    engine.updateXray(Math.max(0,time)*1000,amount,crackT,success?0:Math.max(0,1-Math.max(0,time-.7)*1.4),target,fracture?{lvl:tier,t:time-.45}:null,null);
   }
   function dispose(){
     const allGeometry=new Set(geometries),allMaterials=new Set(),allTextures=new Set();

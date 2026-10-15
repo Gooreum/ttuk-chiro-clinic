@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm} from '../src/back/core.js';
+import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -58,17 +58,20 @@ describe('back motion follows neck rules with a directional thrust',()=>{
     expect(m.sample(packet({linear:false,forward:12}),800,0).type).toBe('impulse');
   });
 });
-describe('same success and damage rules as neck adjustment',()=>{
+describe('back overload with clinic damage thresholds',()=>{
   it('requires both position and preload inside the ellipse',()=>{
     expect(backDistance(.27,0,.735)).toBeGreaterThan(1);
     expect(judgePress(.27,0,.735).kind).toBe('over');
     expect(judgePress(.18,0,.6).kind).toBe('ok');
   });
-  it('uses the same force thresholds and only damages failed attempts',()=>{
+  it('uses clinic damage thresholds even at the right spot',()=>{
     expect(judgePress(.8,0,.6,2.49).tier).toBe(0);
     expect(judgePress(.8,0,.6,2.5).tier).toBe(1);
     expect(judgePress(.8,0,.6,4).tier).toBe(2);
-    expect(judgePress(.18,0,.6,5)).toMatchObject({kind:'ok',tier:0});
+    expect(judgePress(.18,0,.6,2.5)).toMatchObject({kind:'over',tier:1,points:0});
+    expect(judgePress(.18,0,.6,4)).toMatchObject({kind:'over',tier:2,points:0});
+    expect(judgePress(.18,0,1,1).tier).toBe(1);
+    expect(judgePress(.18,0,1.2,1).tier).toBe(2);
     expect(judgePress(.18,0,.6,.8)).toMatchObject({kind:'weak',tier:0});
   });
   it('shares perfect, exhale and first-try streak scoring',()=>{
@@ -125,4 +128,11 @@ it('uses the clinic film timings for success, injury and a harmless wrong crack'
   expect(clinicFilm(3.15,'miss',2)).toBeCloseTo(0);
   expect(clinicFilm(.7,'weak')).toBe(.55);
   expect(clinicFilm(1.45,'weak')).toBe(0);
+});
+
+it('scales actual pressure movement continuously and keeps crack and break distinct',()=>{
+  expect(impactFeel(1.8).gain).toBeGreaterThan(impactFeel(1.1).gain);
+  expect(impactFeel(3.8,1).gain).toBeGreaterThan(impactFeel(2.6,1).gain);
+  expect(impactFeel(4.2,2).gain).toBeGreaterThan(impactFeel(3.8,1).gain);
+  expect(pressProfile(.15,'weak',0,'dud',.75)).toBeLessThan(pressProfile(.15,'ok',0,'dud',1.2));
 });

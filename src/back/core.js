@@ -33,8 +33,10 @@ export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhal
   const d=backDistance(position,step,pressure,targets);
   let kind=pressure>SWEET.max?'over':Math.abs(position-targets[step])>POSITION_TOL?'miss':pressure<SWEET.min||force<1?'weak':d<=1+1e-9?'ok':pressure>SWEET.ideal?'over':'weak';
   if(!Number.isFinite(position)||!Number.isFinite(pressure)||!Number.isInteger(step)||step<0||step>=3)kind='miss';
-  const tier=kind==='ok'?0:forceTier(force);
-  if(kind!=='ok')return {kind,feedback:failKind(kind==='over',kind==='weak'?Math.min(d,1.99):d),points:0,perfect:false,tier,d,streak:0,stars:0};
+  // Back pressing follows the requested overload rule even at the correct spot.
+  const tier=Math.max(forceTier(force),pressure>=1.2?2:pressure>=1?1:0);
+  if(tier)kind='over';
+  if(kind!=='ok')return {kind,feedback:tier? (tier===2?'break':'crack'):failKind(kind==='over',kind==='weak'?Math.min(d,1.99):d),points:0,perfect:false,tier,d,streak:0,stars:0};
   const score=scoreSuccess(Math.min(1,d),exhale,streak,pain);
   return {...score,points:score.pts,kind,perfect:score.perfect,tier:0,d};
 }
@@ -44,9 +46,14 @@ export function reactionTiming(kind,tier=0){
     :{faceAt:3.5,faceEnd:7.25,end:7.25};
 }
 // Exactly the clinic's load-up, thrust and damped return; only the destination is the back.
-export function pressProfile(t,kind='ok',tier=0,feedback='dud'){
-  const amp=tier?FORCE_AMP[tier]:kind==='ok'?1:FAIL_AMP[kind==='over'?'over':feedback];
-  return crackProfile(t).rot/15*amp;
+export function impactFeel(force=1,tier=0){
+  const f=Number.isFinite(force)?Math.max(0,force):1;
+  const gain=tier===2?FORCE_AMP[2]+.25*clamp((f-4)/2,0,1):tier===1?FORCE_AMP[1]+.2*clamp((f-2.5)/1.5,0,1):clamp(.3+.7*f,.35,1.5);
+  return {gain,rate:1,shake:tier===2?1.35:tier===1?.85:clamp(f*.32,.12,.72),settle:tier===2?.006:tier===1?.003:0};
+}
+export function pressProfile(t,kind='ok',tier=0,feedback='dud',force=1){
+  const feel=impactFeel(force,tier),amp=tier?feel.gain:feel.gain*(kind==='ok'?1:FAIL_AMP[kind==='over'?'over':feedback]);
+  return crackProfile(t*feel.rate).rot/15*amp;
 }
 export function formatRank(score, mistakes){
   return mistakes >= 3 ? '침대도 쉬고 싶대요' : score >= 330 ? '손끝에서 오케스트라' : score >= 250 ? '허리까지 시원한 원장님' : '오늘도 한 뚝 배웠어요';
