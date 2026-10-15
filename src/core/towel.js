@@ -21,7 +21,7 @@ export function towelKind(t, tg){ return t > tg.limit ? "over" : towelDist(t, tg
 /* How far the head slides toward the therapist (m) after the tug: shoots out by STRETCH_RISE, holds trembling to
    STRETCH_HOLD (long enough to see the spine stretch on the x-ray), then springs back with a damped spring (a little
    squash past zero) and is still by STRETCH_LEN. The bone crack lands at STRETCH_HOLD, as it snaps back. */
-export const STRETCH_RISE = 0.25, STRETCH_HOLD = 1.3, STRETCH_LEN = 2.3;
+export const STRETCH_RISE = 0.12, STRETCH_HOLD = 1.3, STRETCH_LEN = 2.3;
 // the end of the stretch for a given hold (the spring back always takes STRETCH_LEN - STRETCH_HOLD)
 export const stretchLen = (hold = STRETCH_HOLD) => hold + STRETCH_LEN - STRETCH_HOLD;
 export function stretchProfile(t, peak, hold = STRETCH_HOLD){
@@ -55,9 +55,10 @@ export function letGoProfile(t){
 }
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
-/* The patient slides whole toward the therapist by the stretch profile (game/loop.js), the neck keeps its length; inside,
-   on the x-ray, the spine's gaps open by this share of the slide (a good tug about 3 cm, an over-pull about 7 cm). */
-export const SPINE_GAIN = 0.35;
+/* The head snaps out by the stretch profile and the body below the neck comes along only this share of it (game/loop.js),
+   so the neck takes the rest (user: "목 아래는 거의 안움직이면서(조금은 움직여야돼) 목부터는 확 잡아 댕기는", 2026-10-16;
+   the whole patient sliding killed the yank, the neck alone stretching 9 cm read as a tongue). */
+export const BODY_SHARE = 0.15;
 /* The x-ray spine follows the stretch (scene/xray.js): the head end moves by sm (model units), the body end stays, and
    the pull spreads over 8 gaps (skull-C1, C1-C2, six discs), so C(k+1) moves sm*(7-k)/8: C1 7/8, C7 1/8. */
 export const spineOffsets = sm => Array.from({length: 7}, (_, k) => sm*(7 - k)/8);

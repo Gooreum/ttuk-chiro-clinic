@@ -286,7 +286,7 @@ function towelAdjust(src){
   towelHurt(kind);
 }
 const TOWEL_XRAY_DELAY = 0.55;  // s: the long neck in the towel reads first, then the see-through x-ray shows the spine stretched (scene/xray.js traction)
-const STRETCH_OK = 0.09, STRETCH_OVER = 0.2;   // m the head shoots out: a good tug, past the limit (core/towel.js stretchProfile)
+const STRETCH_OK = 0.07, STRETCH_OVER = 0.16;   // m the head snaps out (the neck takes 85%, core/towel.js BODY_SHARE): a good tug, past the limit (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;
   S.busy = true;
