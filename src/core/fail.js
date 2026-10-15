@@ -4,7 +4,11 @@ import { REVIEWS } from "../patient/roster.js";
    kind: "over" past the danger limit (rubber-band boing, "잠깐잠깐!"), "dud" just off (a half crack that fizzles),
    "finger" way off (the therapist's own knuckle cracks and the hand shakes out). */
 export function failKind(over, d){ return over ? "over" : d < 2 ? "dud" : "finger"; }
-export const DUD_AMP = 0.4;          // a dud: the neck's crack motion at 40%
+export const DUD_AMP = 0.6;          // a dud: the neck's crack motion at 60%
+// how far the neck is wrenched on a wrong crack, times the crack motion (core/crack.js, peak 15°): it has to read on a
+// phone (user: "거의 안돌아가", 2026-10-15). By kind, and by force tier on a hard one (forceTier below)
+export const FAIL_AMP = { over: 1.2, dud: DUD_AMP, finger: 1.6 };
+export const FORCE_AMP = { 1: 1.8, 2: 2.3 };
 // the patient's line for the n-th wrong crack on them (1-based); the last one repeats
 export function failLine(lines, n){
   const a = (lines && lines.fail) || [];
