@@ -5,7 +5,7 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, closeness, breath } from "./feel.js";
 import { setFace } from "./flow.js";
-import { renderer, scene, camera, camBase, camLook } from "../scene/renderer.js";
+import { renderer, scene, camera, camBase, camLook, canvas } from "../scene/renderer.js";
 import { mats } from "../scene/materials.js";
 import {
   torso, collar, pivot, head, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
@@ -249,8 +249,10 @@ export function frame(now){
   camera.updateMatrixWorld();
 
   projectHead();
-  elBubble.style.left = headScreen.x + "px";
-  elBubble.style.top = (headScreen.y - headScreen.r*2.0 - 34) + "px";
+  // the bubble is big and may wrap: keep it under the chart card and inside the screen sides
+  const bw = canvas.clientWidth || innerWidth;
+  elBubble.style.left = clamp(headScreen.x, bw*0.25, bw*0.75) + "px";
+  elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, 134) + "px";
 
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);

@@ -9,7 +9,7 @@ import { aimHist } from "../input/motion.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
-   outer arc = tension (closeness), small top arc = breathing, mint ghost dot = the right spot after a wrong crack. */
+   outer arc = tension (closeness), small top arc = breathing, mint ghost ring = the right spot after a wrong crack (coral X = where it was aimed). */
 const hud = $("#hud"), hctx = hud.getContext("2d");
 let hudDpr = 1;
 export function sizeHud(w, h){
@@ -86,21 +86,32 @@ export function drawRing(now, c, zone, br){
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
   ctx.lineCap = "butt";
 
-  // after a wrong crack (game/flow.js hurt): where it should have been, a mint ghost dot with a dashed line from the
-  // aim, flickering in and out over ~1.6 s
+  // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
+  // ripple and a dashed line between them, ~2.5 s
   if(now > S.ghostFrom && now < S.ghostUntil){
     const u = (now - S.ghostFrom)/(S.ghostUntil - S.ghostFrom);
-    const a = Math.sin(Math.PI*u)*(0.7 + 0.3*Math.sin(now*0.02));
+    const a = Math.min(1, Math.sin(Math.PI*u)*1.6)*(0.8 + 0.2*Math.sin(now*0.02));
     const gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
-    const ax0 = cx + clamp(S.cur.rot,-75,75)*ax, ay0 = cy - clamp(S.cur.bend,-32,32)*ay;
+    const mx = cx + clamp(S.missRot,-75,75)*ax, my = cy - clamp(S.missBend,-32,32)*ay;
     ctx.globalAlpha = fade*a;
-    ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
-    ctx.beginPath(); ctx.moveTo(ax0, ay0); ctx.lineTo(gx, gy); ctx.stroke(); ctx.setLineDash([]);
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(gx, gy, 10 + 3*u, 0, Math.PI*2); ctx.stroke();
-    ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
-    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("여기였어요", gx, gy - 18);   // readable on the coral x-ray
-    ctx.fillStyle = C_MINT; ctx.fillText("여기였어요", gx, gy - 18);
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.lineWidth = 7;          // dark under-stroke: readable on the coral x-ray
+    ctx.beginPath(); ctx.moveTo(mx-8, my-8); ctx.lineTo(mx+8, my+8); ctx.moveTo(mx+8, my-8); ctx.lineTo(mx-8, my+8); ctx.stroke();
+    ctx.strokeStyle = C_CORAL; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(mx-8, my-8); ctx.lineTo(mx+8, my+8); ctx.moveTo(mx+8, my-8); ctx.lineTo(mx-8, my+8); ctx.stroke();
+    ctx.strokeStyle = C_MINT; ctx.lineWidth = 2.5; ctx.setLineDash([5,5]);
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(gx, gy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(138,223,191,.28)";
+    ctx.beginPath(); ctx.arc(gx, gy, 14 + 4*Math.sin(now*0.012), 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = 4; ctx.stroke();
+    ctx.globalAlpha = fade*a*(1 - (u*2.5 % 1));                          // ripple, three rings over the run
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(gx, gy, 16 + 22*(u*2.5 % 1), 0, Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = fade*a;
+    ctx.lineCap = "butt";
+    ctx.font = "17px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("여기였어요", gx, gy - 26);
+    ctx.fillStyle = C_MINT; ctx.fillText("여기였어요", gx, gy - 26);
     ctx.globalAlpha = fade;
   }
 
