@@ -1,52 +1,30 @@
 import * as THREE from "three";
 import { scene } from "./renderer.js";
-import { M } from "./materials.js";
 import { head, crackFadeMats } from "./patientModel.js";
 
 /* Towel mode (core/towel.js): a thick folded towel wrapped snug round the back of the neck (under the skull), up both
    sides of the neck past the jaw to the therapist's fists, with the loose ends hanging out of them. Never round the
    front of the throat. Swept every frame along a curve with a rounded-box cross section (width along the neck's axis
-   where it wraps, twisting flat toward the fists so the camera above sees the cloth, not its edge). Terry texture
-   with teal stripes. Without the realistic arms the ends rest beside the head. */
-const W = 0.072, TH = 0.02, SEG = 56, NS = 14;
-function terry(){
-  const c = document.createElement("canvas"); c.width = 128; c.height = 256;
-  const g = c.getContext("2d");
-  g.fillStyle = "#f3eee3"; g.fillRect(0, 0, 128, 256);
-  // the terry loops are in the bump map (a stretched speckle here read as zebra stripes)
-  // teal border stripes and a mint pinstripe, along the length
-  g.fillStyle = "#2f5f6b"; g.fillRect(10, 0, 12, 256); g.fillRect(106, 0, 12, 256);
-  g.fillStyle = "#8adfbf"; g.fillRect(26, 0, 3, 256); g.fillRect(99, 0, 3, 256);
-  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-function bumpTex(){
-  const c = document.createElement("canvas"); c.width = 64; c.height = 64;
-  const g = c.getContext("2d"), img = g.createImageData(64, 64);
-  for(let i = 0; i < 64*64; i++){ const v = 150 + Math.random()*60; img.data.set([v, v, v, 255], i*4); }
-  g.putImageData(img, 0, 0);
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 10);
-  return t;
-}
-const mat = M(0xffffff, 1, {map: terry(), bumpMap: bumpTex(), bumpScale: 0.25, side: THREE.DoubleSide});
+   where it wraps, twisting flat toward the fists so the camera above sees the cloth, not its edge). Plain white.
+   Without the realistic arms the ends rest beside the head. */
+const W = 0.075, TH = 0.024, SEG = 56, NS = 16;
+// a plain white towel (user: "흰수건으로", 2026-10-15; the striped, bump-noised one read as creepy): soft white
+// cloth with a sheen on the grazing edges, no texture
+const mat = new THREE.MeshPhysicalMaterial({color: 0xfbf9f4, roughness: 1, metalness: 0, sheen: 1, sheenRoughness: 0.7,
+  sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide});
 crackFadeMats.push(mat);
 // cross section: a rounded box, NS points round it (u across the width, v through the thickness)
 const SECT = Array.from({length: NS}, (_, k) => {
   const a = k/NS*Math.PI*2, c = Math.cos(a), s = Math.sin(a);
-  const p = 6;   // superellipse: flat faces, rounded edges
+  const p = 3.2;   // superellipse: soft, plump folded edges
   return [Math.sign(c)*Math.pow(Math.abs(c), 2/p)*W/2, Math.sign(s)*Math.pow(Math.abs(s), 2/p)*TH/2, k/NS];
 });
 const geo = new THREE.BufferGeometry();
-const pos = new Float32Array((SEG + 1)*(NS + 1)*3), uv = new Float32Array((SEG + 1)*(NS + 1)*2), idx = [];
+const pos = new Float32Array((SEG + 1)*(NS + 1)*3), idx = [];
 for(let i = 0; i <= SEG; i++) for(let k = 0; k <= NS; k++){
-  const sec = SECT[k % NS];
-  // the stripes face the camera on the top face: u from the width position, v along the length
-  uv.set([0.5 + sec[0]/W*(sec[1] >= 0 ? 1 : -1), i/SEG*3.5], (i*(NS + 1) + k)*2);
   if(i < SEG && k < NS){ const a = i*(NS + 1) + k, b = a + NS + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
 }
 geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
 geo.setIndex(idx);
 const towel = new THREE.Mesh(geo, mat);
 towel.frustumCulled = false; towel.castShadow = true; towel.receiveShadow = true; towel.visible = false;
