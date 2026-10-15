@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine, FAIL_STAMP, FAIL_TAG, failTags, forceTier, FORCE_STAMP, FORCE_LINES, FORCE_TAG, FORCE_REVIEWS } from "../src/core/fail.js";
+import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine, FAIL_STAMP, FAIL_TAG, failTags, forceTier, FAIL_AMP, FORCE_AMP, FORCE_STAMP, FORCE_LINES, FORCE_TAG, FORCE_REVIEWS } from "../src/core/fail.js";
 import { REVIEWS, ROSTER } from "../src/patient/roster.js";
 import { eyesOpen, isBaseFace, FACE_NAMES } from "../src/core/faceRig.js";
 
@@ -118,5 +118,17 @@ describe("how hard the wrong crack was", () => {
     expect(reviewLine({stars: 0, fails: ["dud"], tiers: [2], lines})).toBe("산재 신청하러 갑니다");
     expect(FORCE_REVIEWS[2]).toContain(reviewLine({stars: 2, fails: ["dud", "over"], tiers: [1, 2, 0], lines}));
     expect(FAIL_REVIEWS.over).toContain(reviewLine({stars: 2, fails: ["dud", "over"], tiers: [0, 0], lines}));
+  });
+});
+
+describe("the neck is wrenched on a wrong crack", () => {
+  it("by kind: way off and past the limit swing hard, a dud only part way", () => {
+    expect(FAIL_AMP.finger).toBeGreaterThan(1);
+    expect(FAIL_AMP.over).toBeGreaterThanOrEqual(1);
+    expect(FAIL_AMP.dud).toBeLessThan(1);
+  });
+  it("hard ones further still", () => {
+    expect(FORCE_AMP[2]).toBeGreaterThan(FORCE_AMP[1]);
+    expect(FORCE_AMP[1]).toBeGreaterThan(FAIL_AMP.finger);
   });
 });

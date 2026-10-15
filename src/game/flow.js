@@ -7,7 +7,7 @@ import { TRAITS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
-import { failKind, failLine, reviewLine, DUD_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
+import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch } from "../audio/audio.js";
@@ -90,6 +90,7 @@ function switchSide(){
 
 /* force: how hard the crack was (input/motion.js, input/pointer.js; 0 = unknown, the button). Only the show of a
    wrong crack uses it (core/fail.js forceTier); judging below does not. */
+const GRIP_GRACE = 600;    // ms after the head is handed over
 export function adjust(src, force = 0){
   const target = S.target;
   if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return;
@@ -97,7 +98,9 @@ export function adjust(src, force = 0){
   const d = distNorm();
   if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over", force);
   if(d <= 1) return success(d, T.breath && breath(performance.now()).exhale);
-  if(src === "snap" && d > 3){ toast("툭! 그런데 아직 각도가 멀어요", 900); return; }
+  // a flick far off right as the head is handed over is the player settling the grip: a toast, no pain. After that a
+  // far-off flick is a wrong crack like any other (user: "초점 안 맞추면 실패가 잘 안돼", 2026-10-15)
+  if(src === "snap" && d > 3 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 각도가 멀어요", 900); return; }
   hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요", failKind(false, d), force);
 }
 
@@ -184,11 +187,13 @@ function hurt(msg, kind, force = 0){
   stamp(tier ? FORCE_STAMP[tier] : FAIL_STAMP[kind], msg, tier ? (tier > 1 ? "break" : "crack") : kind, tier ? 900 : 1700);   // a hard one: gone before the x-ray zooms in
   if(kind !== "dud" || tier) flashOuch();
   const xrayEnd = FRAC_AT + FRAC_HOLD*1000 + 400;   // the fracture x-ray has closed
+  // every wrong crack wrenches the neck, wrong spot or not (core/fail.js FAIL_AMP / FORCE_AMP)
+  S.thrust = 1; S.crackAmp = tier ? FORCE_AMP[tier] : FAIL_AMP[kind];
   if(tier){
     // hard (AGENTS.md 3-6): a bone crunch instead of the gag, the neck snaps further, then the x-ray shows the
     // vertebra the player was after cracking (tier 1) or breaking in two (tier 2)
     crunch(tier); vib(tier > 1 ? [120, 40, 200] : [80, 30, 120]);
-    S.thrust = 1; S.crackAmp = tier > 1 ? 1.7 : 1.3; S.shake = tier > 1 ? 1.2 : 0.8; S.jitter = tier > 1 ? 1.4 : 0.8;
+    S.shake = tier > 1 ? 1.2 : 0.8; S.jitter = tier > 1 ? 1.4 : 0.8;
     faceRun([[0, "gasp"], [350, "ouch"], [tier > 1 ? 2600 : 1800, "sulk"], [tier > 1 ? 4200 : 3400, "doubt"]]);
     const word = tier > 1 ? "아그작" : "으그적";
     floater(word, -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
@@ -205,7 +210,6 @@ function hurt(msg, kind, force = 0){
     later(1000, () => say(target.lines.ouch, 900, true));
   }else if(kind === "dud"){
     fizzle(); vib([30]);
-    S.thrust = 1; S.crackAmp = DUD_AMP;
     faceRun([[0, "wince"], [500, "doubt"]]);
     later(150, () => floater("…?", 0, -r - 20, "small", 1400));
     later(250, () => say(target.lines.dud, 1500, true));

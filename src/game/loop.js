@@ -80,7 +80,9 @@ export function frame(now){
 
   // crack: load-up, thrust past the aim, damped wobble back (core/crack.js), all inside the x-ray delay
   // (a dud wrong crack plays it at S.crackAmp; past the limit, a rubber-band boing wobbles the head: core/fail.js)
-  const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), dir = Math.sign(cur.rot || 1), amp = S.crackAmp;
+  // the way the head is turned; from the middle, toward this side's target (a wrong crack with the head still centred)
+  const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), amp = S.crackAmp;
+  const dir = Math.abs(cur.rot) > 2 ? Math.sign(cur.rot) : (target ? target.side : 1);
   const snap = cp.push*amp, thrustDeg = cp.rot*dir*amp, thrustBend = cp.bend*Math.sign(cur.bend || -dir)*amp;
   const boingDeg = S.boingAt ? boingProfile((now - S.boingAt)/1000)*dir : 0;
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
