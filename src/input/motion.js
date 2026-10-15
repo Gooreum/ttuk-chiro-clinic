@@ -25,12 +25,12 @@ export function onOrientation(e){
   pose = {beta: e.beta, gamma: e.gamma, t: performance.now()};
 }
 export const aimHist = [];
-function snap(now){
+function snap(now, force){
   S.flickCool = now + 900;
   const pre = aimBefore(aimHist, now - 250, {rot:S.cur.rot, bend:S.cur.bend});
   S.input.rot = S.cur.rot = pre.rot;
   S.input.bend = S.cur.bend = pre.bend;
-  adjust("snap");
+  adjust("snap", force);
 }
 export function onMotion(e){
   const now = performance.now();
@@ -45,7 +45,7 @@ export function onMotion(e){
   if(lin > S.jerkPeak) S.jerkPeak = lin;
   const playing = S.phase === "play" && !S.busy && $("#tune").hidden;
   const kind = classifySample({m, lin, playing, now, flickCool: S.flickCool, flick: T.flick, jerk: T.jerk});
-  if(kind === "snap"){ snap(now); return; }
+  if(kind === "snap"){ snap(now, Math.max(m/T.flick, lin/T.jerk)); return; }   // how hard: for the wrong-crack show only
   if(kind === "discard") return;
   // gSign: decided by the pose angles when deviceorientation is available (works in any posture, keeps checking);
   // otherwise the first sample's z sign (player holds the screen facing up).

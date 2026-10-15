@@ -7,10 +7,10 @@ import { TRAITS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
-import { failKind, failLine, reviewLine, DUD_AMP, FAIL_STAMP, failTags } from "../core/fail.js";
+import { failKind, failLine, reviewLine, DUD_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
-import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing } from "../audio/audio.js";
+import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
@@ -43,7 +43,7 @@ function loadPatient(){
   S.busy = true;
   $("#fade").classList.add("on");
   setTimeout(() => {
-    S.sidePts = []; S.sideStars = []; S.fails = [];
+    S.sidePts = []; S.sideStars = []; S.fails = []; S.tiers = [];
     const target = aimAt(0);
     applyLook(target);
     $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
@@ -57,7 +57,7 @@ function loadPatient(){
     renderSpine(target.seg); renderDots();
     S.input.rot = S.input.bend = S.cur.rot = S.cur.bend = 0;
     S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
-    S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0;
+    S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0; S.fracLvl = 0;
     setFace(target.trait === "nervous" ? "worried" : "rest");
     $("#fade").classList.remove("on");
     showBanner(`${S.idx+1}번째 환자 · ${clockTxt(S.idx)}`, `${target.name} 님 (${target.age})`,
@@ -80,7 +80,7 @@ function switchSide(){
   const target = aimAt(1);
   S.input.rot = S.input.bend = 0;
   S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
-  S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0;
+  S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0; S.fracLvl = 0;
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
@@ -88,15 +88,17 @@ function switchSide(){
   S.busy = false; S.patientStart = S.breathT0 = performance.now();
 }
 
-export function adjust(src){
+/* force: how hard the crack was (input/motion.js, input/pointer.js; 0 = unknown, the button). Only the show of a
+   wrong crack uses it (core/fail.js forceTier); judging below does not. */
+export function adjust(src, force = 0){
   const target = S.target;
   if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return;
   ensureAudio();
   const d = distNorm();
-  if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over");
+  if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over", force);
   if(d <= 1) return success(d, T.breath && breath(performance.now()).exhale);
   if(src === "snap" && d > 3){ toast("툭! 그런데 아직 각도가 멀어요", 900); return; }
-  hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요", failKind(false, d));
+  hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요", failKind(false, d), force);
 }
 
 const XRAY_DELAY = 0.7;    // s of real time between the crack and the x-ray: the neck's snap and wobble (core/crack.js) play first
@@ -114,13 +116,13 @@ function success(d, exhale){
   S.score += pts;
   S.sidePts.push(pts); S.sideStars.push(r.stars);
   if(S.sideIdx === 1) S.results.push({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD",
-    fails: [...S.fails], lines: target.lines});
+    fails: [...S.fails], tiers: [...S.tiers], lines: target.lines});
   $("#score").textContent = S.score; renderCombo();
 
   crackSound(perfect ? 3 : 2);
   vib(perfect ? [18,40,18,40,18] : [18,50,18]);
   // the neck turn and the face read first; the x-ray (the vertebra snapping home) opens XRAY_DELAY later
-  S.thrust = 1; S.crackAmp = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY;
+  S.thrust = 1; S.crackAmp = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY; S.fracLvl = 0;
   sparks.forEach(s => {
     pivot.localToWorld(tmpA.set(0,0,-0.04)); s.m.position.copy(tmpA);
     s.v.set(Math.random()-0.5, Math.random()*0.8+0.2, Math.random()-0.5).normalize().multiplyScalar(0.35 + Math.random()*0.4);
@@ -166,10 +168,12 @@ function flashOuch(){   // a coral flash at the screen edges (style.css #app.ouc
   const a = $("#app"); a.classList.remove("ouch"); void a.offsetWidth; a.classList.add("ouch");
   clearTimeout(ouchTimer); ouchTimer = setTimeout(() => a.classList.remove("ouch"), 650);
 }
-function hurt(msg, kind){
-  const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx;
+const FRAC_AT = 450;       // ms: a hard wrong crack opens the fracture x-ray (scene/xray.js frac)
+const FRAC_HOLD = 2.3;     // s the fracture x-ray stays open
+function hurt(msg, kind, force = 0){
+  const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx, tier = forceTier(force);
   S.busy = true;
-  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind);
+  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(tier);
   renderPain(); renderCombo();
   hideCoach();
   // timed lines only while the same patient and side are still up (a new side / patient / the day log cancels them)
@@ -177,9 +181,22 @@ function hurt(msg, kind){
   const now = performance.now(), r = headScreen.r;
   S.ghostFrom = now + 300; S.ghostUntil = now + 2800; S.missRot = S.cur.rot; S.missBend = S.cur.bend;
   // the old toast line rides under a big stamp, away from the patient's bubble (they used to overlap)
-  stamp(FAIL_STAMP[kind], msg, kind, 1700);
-  if(kind !== "dud") flashOuch();
-  if(kind === "over"){
+  stamp(tier ? FORCE_STAMP[tier] : FAIL_STAMP[kind], msg, tier ? (tier > 1 ? "break" : "crack") : kind, tier ? 900 : 1700);   // a hard one: gone before the x-ray zooms in
+  if(kind !== "dud" || tier) flashOuch();
+  const xrayEnd = FRAC_AT + FRAC_HOLD*1000 + 400;   // the fracture x-ray has closed
+  if(tier){
+    // hard (AGENTS.md 3-6): a bone crunch instead of the gag, the neck snaps further, then the x-ray shows the
+    // vertebra the player was after cracking (tier 1) or breaking in two (tier 2)
+    crunch(tier); vib(tier > 1 ? [120, 40, 200] : [80, 30, 120]);
+    S.thrust = 1; S.crackAmp = tier > 1 ? 1.7 : 1.3; S.shake = tier > 1 ? 1.2 : 0.8; S.jitter = tier > 1 ? 1.4 : 0.8;
+    faceRun([[0, "gasp"], [350, "ouch"], [tier > 1 ? 2600 : 1800, "sulk"], [tier > 1 ? 4200 : 3400, "doubt"]]);
+    const word = tier > 1 ? "아그작" : "으그적";
+    floater(word, -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
+    const pool = FORCE_LINES[tier];
+    say(pool[Math.floor(Math.random()*pool.length)], 1300, true);
+    S.ghostFrom = now + xrayEnd; S.ghostUntil = now + xrayEnd + 2500;
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
+  }else if(kind === "over"){
     boing(); vib([60, 40, 60]);
     S.boingAt = now; S.shake = 0.6; S.jitter = 1;
     faceRun([[0, "gasp"], [500, "ouch"], [1500, "sulk"], [3200, "doubt"]]);
@@ -201,17 +218,17 @@ function hurt(msg, kind){
     later(800, () => say(target.lines.finger, 1500, true));
   }
   // the squint is small on a phone: a "흠…" by the head when the doubt face sets in
-  later(DOUBT_AT[kind], () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
+  later(tier ? xrayEnd : DOUBT_AT[kind], () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
   later(XRAY_DELAY*1000, () => { S.hurtX = 1; });
   later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
   later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   // the third one ends the day, a beat later so the gag and the patient's line still land
   if(S.pain >= 3){
-    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
-      fails: [...S.fails], lines: target.lines}); finish(); });
+    later(tier ? 4400 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+      fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
     return;
   }
-  setTimeout(() => { S.busy = false; }, 1100);
+  setTimeout(() => { S.busy = false; }, tier ? xrayEnd : 1100);
 }
 
 function finish(){
@@ -234,7 +251,7 @@ function finish(){
     const rev = document.createElement("span"); rev.className = "rev";
     rev.textContent = "“" + reviewLine(r) + "”";
     li.append(who, pts, st);
-    const tags = failTags(r.fails);
+    const tags = failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
       tags.forEach(t => { const i = document.createElement("i"); i.textContent = t; tg.appendChild(i); });

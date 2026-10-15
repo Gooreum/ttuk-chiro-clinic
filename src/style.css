@@ -79,6 +79,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .float.small{font-size:15px;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.7)}
 .float.breath{font-family:var(--body);font-weight:700;font-size:17px;color:var(--bone);text-shadow:0 2px 8px rgba(0,0,0,.65);animation:breathe 1.7s ease-out forwards}
 .float.breath.out{color:var(--mint)}
+/* a hard wrong crack: the vertebra's name on the fracture x-ray ("C5 골절!") */
+.float.frac{font-size:30px;color:var(--coral);text-shadow:0 3px 0 var(--room-deep),0 0 14px rgba(0,0,0,.6);animation:breathe 1.9s ease-out forwards}
 @keyframes breathe{0%{opacity:0;transform:translate(-50%,4px)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
 @keyframes up{from{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-14px) scale(1.15);opacity:1}to{transform:translate(-50%,-70px) scale(1);opacity:0}}
 #bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:var(--paper);color:var(--paper-ink);font-size:16px;font-weight:700;padding:9px 14px;border-radius:14px;white-space:normal;width:max-content;max-width:46vw;text-wrap:balance;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:2}
@@ -95,6 +97,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 #stamp.over.show b{animation:wob .9s ease-out}
 #stamp.dud{border-color:var(--bone)}
 #stamp.dud b{color:var(--bone)}
+#stamp.break b{font-size:54px}
+#stamp.break.show b{animation:shake .4s 2}
 @keyframes stampIn{from{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(1.9)}to{opacity:1;transform:translate(-50%,-50%) rotate(-9deg) scale(1)}}
 @keyframes wob{0%,100%{transform:none}20%{transform:skewX(-16deg)}40%{transform:skewX(12deg)}60%{transform:skewX(-7deg)}80%{transform:skewX(3deg)}}
 /* a wrong crack (over / finger): the screen edges flash coral */

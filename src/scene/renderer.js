@@ -10,6 +10,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.92;
+renderer.localClippingEnabled = true;   // the broken vertebra on a hard wrong crack (scene/xray.js)
 
 export const scene = new THREE.Scene();
 const roomCol = new THREE.Color(0x1b332e);
