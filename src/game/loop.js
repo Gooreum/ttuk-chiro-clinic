@@ -23,7 +23,7 @@ import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
-import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, towelLine, fallProfile } from "../core/towel.js";
+import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, towelLine, fallProfile, letGoProfile } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -239,9 +239,11 @@ export function frame(now){
   // a failure in the realistic arms falls back to the primitive hands instead of breaking the frame
   try{
     updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: towel ? 0 : ease(clamp(handSetup*1.25, 0, 1)), push: snap,
-      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
+      // the towel mode's fists stay on the towel: the clinic's cup / draw-back after a crack is not theirs (the towel
+      // x-ray's clock kept running after an over-pull, and the next try found the hands open in the air, 2026-10-15)
+      after: towel ? -1 : S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
       towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1,
-      shoulder: therapistShoulder, fall});
+      shoulder: therapistShoulder, fall, drop: towel && S.overAt ? letGoProfile((now - S.overAt)/1000) : 0});
   }catch(err){ disableRealArms(err); }
   const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
   updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, fall > 0.01 ? 0 : tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,

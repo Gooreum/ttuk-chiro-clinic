@@ -44,6 +44,15 @@ export function fallProfile(t){
   const u = Math.min(1, (t - GETUP_AT)/GETUP_LEN);
   return Math.max(0, (1 - u)*(1 - u)*(1 + 2*u) - 0.12*Math.sin(Math.PI*u)*u);                // springs back up, rocks past
 }
+/* The fists let go of the towel the moment he tips (well before the body has moved, so the arms go over with him
+   instead of staying on the towel; user: "몸은 뒹구는데 팔은 수건에 붙어 있음", 2026-10-15) and take it again as he
+   gets back up. 0 = holding .. 1 = let go. */
+export const LETGO_LEN = 0.15;
+export function letGoProfile(t){
+  if(t <= FALL_START) return 0;
+  if(t < GETUP_AT){ const u = Math.min(1, (t - FALL_START)/LETGO_LEN); return u*u*(3 - 2*u); }
+  const u = Math.min(1, (t - GETUP_AT)/GETUP_LEN); return 1 - u*u*(3 - 2*u);
+}
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
 /* The x-ray spine follows the stretch (scene/xray.js): the head end moves by sm (model units), the body end stays, and
