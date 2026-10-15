@@ -297,10 +297,10 @@ function towelSuccess(d, exhale){
   S.score += pts;
   S.results.push({name:target.name, age:target.age, pts, stars: r.stars, label: perfect ? "PERFECT" : "GOOD", fails: [...S.fails], lines: target.lines});
   $("#score").textContent = S.score; renderCombo();
-  // the neck shoots out "쭈우욱" and trembles while the see-through x-ray shows the spine stretching with it, then it
-  // springs back with the recorded bone crack (user: "뼈 우두둑 소리… 기존 뼈 소리로", 2026-10-15) and the discs go blue
-  stretchSound();
-  setTimeout(() => { if(S.phase === "play") crackSound(perfect ? 3 : 2); }, STRETCH_HOLD*1000);
+  // the recorded bone crack right on the tug (user: "우두둑 소리는 잡아당기자 마자", 2026-10-15; at the x-ray it fell
+  // flat), with a soft "쭈우욱" as the neck shoots out and trembles; the see-through x-ray then shows the spine stretched
+  // and the discs go blue as it springs back
+  crackSound(perfect ? 3 : 2); stretchSound();
   vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   const now = performance.now();
   S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1);
@@ -313,7 +313,7 @@ function towelSuccess(d, exhale){
   S.reactFrom = now + RELIEF_AT + 250; S.reactUntil = now + NEXT_AT - 350;
   setTimeout(() => say(target.lines.jolt, 1000), 90);
   floater("쭈우욱", -60, -headScreen.r - 10);
-  setTimeout(() => floater(perfect ? "우두둑!" : "뚜둑!", 50, -headScreen.r - 34), STRETCH_HOLD*1000);
+  floater(perfect ? "우두둑!" : "뚜둑!", 50, -headScreen.r - 34);
   setTimeout(() => floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
   if(exhale) setTimeout(() => floater("날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
   if(comboBonus) setTimeout(() => floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);

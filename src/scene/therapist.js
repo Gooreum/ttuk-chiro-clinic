@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { scene } from "./renderer.js";
+import { scene, camBase } from "./renderer.js";
 import { mats } from "./materials.js";
 import { crackFadeMats } from "./patientModel.js";
 import { loadModel, getEnv } from "./realAssets.js";
@@ -10,6 +10,10 @@ import { loadModel, getEnv } from "./realAssets.js";
    towel mode's third-person camera (game/loop.js) shows it; the clinic camera is this man's eyes. Loaded the first
    time the towel mode wants it. */
 let root = null, loading = false;
+// the camera base the body was fitted to (scripts/assets/therapist_build.py); input/orientation.js picks another one
+// on other aspect ratios (an iPhone held sideways: (0, 1.52, -0.2)), and the arms' shoulders follow camBase, so the
+// body moves with it (user: "치료사 어깨랑 팔 잘려서 나온다", 2026-10-15)
+const REF_BASE = new THREE.Vector3(0, 1.55, -0.24);
 function prepare(g, env){
   root = g.scene;
   root.traverse(o => {
@@ -32,5 +36,5 @@ export function updateTherapist(on){
     Promise.all([loadModel("therapist/therapist.glb"), getEnv()]).then(([g, env]) => prepare(g, env))
       .catch(err => console.warn("therapist body not loaded", err));
   }
-  if(root) root.visible = on;
+  if(root){ root.visible = on; root.position.copy(camBase).sub(REF_BASE); }
 }
