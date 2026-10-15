@@ -14,8 +14,8 @@ const N = 25, HALF = 0.475;
 const BX = Array.from({length: N}, (_, i) => -HALF + i*(2*HALF/(N - 1)));
 
 // the path, head-local (x mirrored, s = +1 the therapist's left hand), from the middle under the chin outward
-const CHIN = [0, 0.05, 0.168];            // under the chin tip, toward the feet
-const UNDER = [0.05, 0.025, 0.155];       // under the jaw
+const CHIN = [0, 0.062, 0.163];           // cupping the chin tip (not round the throat: that read as a neck brace)
+const UNDER = [0.052, 0.032, 0.152];      // under the jaw
 const JAW = [0.088, 0.012, 0.11];         // up along the jaw toward the ear
 const TAIL = [0.02, -0.07, -0.11];        // from the fist: the loose end hangs toward the therapist and down
 const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
@@ -23,7 +23,9 @@ const _m = new THREE.Matrix4(), _fly = new THREE.Vector3(), _p = new THREE.Vecto
 const sides = [1, -1].map(s => ({s, pts: Array.from({length: 6}, () => new THREE.Vector3()), out: Array.from({length: 6}, () => new THREE.Vector3()),
   curve: null}));
 sides.forEach(sd => { sd.curve = new THREE.CatmullRomCurve3(sd.pts, false, "centripetal"); });
-const frames = Array.from({length: N}, () => ({p: new THREE.Vector3(), q: new THREE.Quaternion(), x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3()}));
+const frames = Array.from({length: N}, () => ({p: new THREE.Vector3(), q: new THREE.Quaternion(), x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3(), sy: 1, sz: 1}));
+// a fixed unevenness per bone (width, twist, ripple), the same every frame so the cloth doesn't boil
+const RAND = Array.from({length: N}, (_, i) => [0, 1, 2].map(k => { const v = Math.sin((i + 1)*12.9898 + k*78.233)*43758.5453; return v - Math.floor(v); }));
 
 let model = null, bones = null, loading = false;
 function load(){
@@ -36,6 +38,7 @@ function load(){
       if(!o.isMesh) return;
       o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
       o.material.envMap = env; o.material.envMapIntensity = 0.2;
+      if(o.material.normalScale) o.material.normalScale.set(1.8, 1.8);   // the terry pile reads on a phone
       if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
     });
     model.visible = false;
@@ -75,8 +78,8 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0){
   sides.forEach(sd => {
     const s = sd.s, P = sd.pts;
     // slack: the sling drops away from under the chin (toward the feet and down); taut: snug on the jaw
-    local(0, CHIN[1] - 0.025*slack, CHIN[2] + 0.03*slack + tremble, P[0]);
-    local(s*UNDER[0], UNDER[1] - 0.02*slack, UNDER[2] + 0.025*slack, P[1]);
+    local(0, CHIN[1] - 0.015*slack, CHIN[2] + 0.02*slack + tremble, P[0]);
+    local(s*UNDER[0], UNDER[1] - 0.012*slack, UNDER[2] + 0.015*slack, P[1]);
     local(s*JAW[0], JAW[1], JAW[2] + 0.01*slack, P[2]);
     // the fist: the hand's palm, or a rest point beside the jaw without the realistic arms
     local(s*0.12, 0.02, 0.04, P[3]);
@@ -91,6 +94,8 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0){
     outward(s, 0.1, sd.out[3]); outward(s, 0, sd.out[4]); outward(s, 0, sd.out[5]);
     sd.curve.updateArcLengths();
     sd.len = sd.curve.getLength();
+    const L = sd.curve.getLengths(100);
+    sd.fist = L[60];   // arc length to the fist (control point 3 of 6)
   });
   // the slip: the whole towel flies up and back toward the therapist, spinning out of the frame
   const u = slip >= 0 && slip < SLIP_GONE ? slip/SLIP_GONE : 0;
@@ -107,11 +112,21 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0){
     _y.copy(sd.out[k0]).lerp(sd.out[k0 + 1], k - k0);
     f.y.copy(_y).addScaledVector(f.x, -_y.dot(f.x)).normalize();
     f.z.crossVectors(f.x, f.y);
+    // cloth, not a cast (user: "수건 여전히 깁스처럼", 2026-10-15): gathered in the fist (narrow, bunched thick), and
+    // everywhere else a fixed per-bone unevenness of width, twist and ripple, bigger while the towel is slack
+    const g = Math.exp(-Math.pow((d - sd.fist)/0.05, 2)), loose = 0.35 + 0.65*slack, r = RAND[i];
+    // under the chin the band rides narrower and crumpled (a cradle, not a collar)
+    const chin = Math.max(0, 1 - d/0.12);
+    f.sz = (1 - 0.65*g)*(1 - (1 - g)*0.18*r[0])*(1 - 0.25*chin);
+    f.sy = 1 + 0.5*g;
+    const roll = (r[1] - 0.5)*(0.55*loose + 0.5*chin)*(1 - g);
+    if(roll){ _t.copy(f.y).multiplyScalar(Math.cos(roll)).addScaledVector(f.z, Math.sin(roll)); f.z.multiplyScalar(Math.cos(roll)).addScaledVector(f.y, -Math.sin(roll)); f.y.copy(_t); }
+    f.p.addScaledVector(f.y, (r[2] - 0.5)*0.012*loose*(1 - g));
     if(u > 0){ _fly.set(Math.sin(i*1.7)*0.05*u, 0.35*u*u + 0.05*u, -0.55*u*u); f.p.add(_fly); }
     _m.makeBasis(f.x, f.y, f.z); f.q.setFromRotationMatrix(_m);
   });
   if(model){
-    bones.forEach((b, i) => { b.position.copy(frames[i].p); b.quaternion.copy(frames[i].q); });
+    bones.forEach((b, i) => { b.position.copy(frames[i].p); b.quaternion.copy(frames[i].q); b.scale.set(1, frames[i].sy, frames[i].sz); });
   }else{
     frames.forEach((f, i) => {
       _p.copy(f.p).addScaledVector(f.z, -W/2); rPos.set([_p.x, _p.y, _p.z], i*6);

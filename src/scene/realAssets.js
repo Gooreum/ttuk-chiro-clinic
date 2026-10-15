@@ -699,10 +699,16 @@ export function updateRealHands(st){
       const sl = st.slip >= 0 && st.slip < 0.8 ? Math.sin(Math.PI*st.slip/0.8) : 0;
       _v2.set(s*TOWEL_GRIP[0], TOWEL_GRIP[1], TOWEL_GRIP[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
       _v2.y += 0.07*sl; _v2.z -= 0.08*sl; _v2.x += s*0.03*sl;
-      pairQuat(arm.F0, arm.N0, _v.set(0, -0.55, 1).normalize(), _v3.set(-s, 0, 0), _qB);
+      // a fist round the towel end (user: "진짜 사람이 잡고 있는것처럼", 2026-10-15): the band runs through the palm, the
+      // fingers point across it toward the table and curl round it, the thumb on top; the palm faces the head; the
+      // wrist cocks back toward the therapist as the pull builds
+      const pl = clamp(st.pull || 0, 0, 1);
+      _v.set(0, -1, 0.3 - 0.55*pl).normalize().transformDirection(head.matrixWorld);
+      _v3.set(-s, 0.2, 0).normalize().transformDirection(head.matrixWorld);
+      pairQuat(arm.F0, arm.N0, _v, _v3, _qB);
       _P.lerp(_v2, w.towel);
       _qR.slerp(_qB, w.towel);
-      grip += (1.05*(1 - sl) - grip)*w.towel;
+      grip += (1.2*(1 - sl) - grip)*w.towel;
     }
     arm.palm.copy(_P);
     _qh.copy(_qR).multiply(arm.Qh0);
