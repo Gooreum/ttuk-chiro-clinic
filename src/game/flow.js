@@ -3,13 +3,14 @@ import { store } from "../lib/store.js";
 import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath } from "./feel.js";
-import { TRAITS, REVIEWS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
+import { TRAITS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
+import { failKind, failLine, reviewLine, DUD_AMP } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
-import { ensureAudio, setAmbient, crackSound, tone, chime, vib } from "../audio/audio.js";
+import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
@@ -17,7 +18,7 @@ import { onMotion, onOrientation } from "../input/motion.js";
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite. */
 let bannerTimer = 0;
-let faceTok = 0, loadTok = 0;
+let faceTok = 0, loadTok = 0, hurtTok = 0;
 export function setFace(f){ faceTok++; S.face = f; }
 /* A run of faces, [ms from now, face] each. Any setFace (next side, next patient, a hurt) cancels what is left. */
 function faceRun(steps){
@@ -42,7 +43,7 @@ function loadPatient(){
   S.busy = true;
   $("#fade").classList.add("on");
   setTimeout(() => {
-    S.sidePts = []; S.sideStars = [];
+    S.sidePts = []; S.sideStars = []; S.fails = [];
     const target = aimAt(0);
     applyLook(target);
     $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
@@ -92,10 +93,10 @@ export function adjust(src){
   if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return;
   ensureAudio();
   const d = distNorm();
-  if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요");
+  if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over");
   if(d <= 1) return success(d, T.breath && breath(performance.now()).exhale);
   if(src === "snap" && d > 3){ toast("툭! 그런데 아직 각도가 멀어요", 900); return; }
-  hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요");
+  hurt(d < 2 ? "조금 빗나갔어요" : "각도가 전혀 달라요", failKind(false, d));
 }
 
 const XRAY_DELAY = 0.7;    // s of real time between the crack and the x-ray: the neck's snap and wobble (core/crack.js) play first
@@ -106,18 +107,20 @@ const NEXT_AT = 7250;      // ms: next side / patient
 function success(d, exhale){
   const target = S.target;
   S.busy = true;
+  hurtTok++;   // a wrong crack's lines still pending must not talk over the reaction
   const r = scoreSuccess(d, exhale, S.streak, S.painHere);
   const {perfect, base, comboBonus, pts} = r;
   S.streak = r.streak;
   S.score += pts;
   S.sidePts.push(pts); S.sideStars.push(r.stars);
-  if(S.sideIdx === 1) S.results.push({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD"});
+  if(S.sideIdx === 1) S.results.push({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD",
+    fails: [...S.fails], lines: target.lines});
   $("#score").textContent = S.score; renderCombo();
 
   crackSound(perfect ? 3 : 2);
   vib(perfect ? [18,40,18,40,18] : [18,50,18]);
   // the neck turn and the face read first; the x-ray (the vertebra snapping home) opens XRAY_DELAY later
-  S.thrust = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY;
+  S.thrust = 1; S.crackAmp = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY;
   sparks.forEach(s => {
     pivot.localToWorld(tmpA.set(0,0,-0.04)); s.m.position.copy(tmpA);
     s.v.set(Math.random()-0.5, Math.random()*0.8+0.2, Math.random()-0.5).normalize().multiplyScalar(0.35 + Math.random()*0.4);
@@ -151,25 +154,51 @@ function success(d, exhale){
   setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
 }
 
-function hurt(msg){
-  const target = S.target;
+/* A wrong crack (core/fail.js kinds; judging and the pain count are as before, only the show differs):
+   over  past the danger limit: a rubber-band boing, the head wobbles, "잠깐잠깐!" then the ouch line
+   dud   just off: a half crack (DUD_AMP of the neck motion) that fizzles, "…끝난 거예요?"
+   finger way off: the therapist's own knuckle cracks, the contact hand jumps off and shakes out
+   Then the patient's own line (sharper with each wrong crack on them), a wary squint ("doubt") held while the
+   player tries again with a "this time for real?" line, and the right spot flashes on the ring. */
+function hurt(msg, kind){
+  const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx;
   S.busy = true;
-  S.pain++; S.painHere++; S.streak = 0;
+  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind);
   renderPain(); renderCombo();
-  tone(170, 85, 0.3, "square", 0.07);
-  vib([120]);
-  // a screwed-up "ouch", then a sulk that lingers after the hands are free again
-  S.jitter = 1;
   hideCoach();
-  const calm = target.trait === "nervous" ? "worried" : "rest";
-  faceRun([[0, "ouch"], [1100, "sulk"], [3200, calm]]);
-  setTimeout(() => { S.hurtX = 1; }, XRAY_DELAY*1000);
-  say(target.lines.ouch, 1100);
+  // timed lines only while the same patient and side are still up (a new side / patient / the day log cancels them)
+  const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx && S.sideIdx === side) fn(); }, ms);
+  const now = performance.now();
+  S.ghostFrom = now + 300; S.ghostUntil = now + 1900;
+  if(kind === "over"){
+    boing(); vib([60, 40, 60]);
+    S.boingAt = now; S.shake = 0.6; S.jitter = 1;
+    faceRun([[0, "gasp"], [500, "ouch"], [1500, "sulk"], [3200, "doubt"]]);
+    say(target.lines.stop, 800);
+    later(800, () => say(target.lines.ouch, 900));
+  }else if(kind === "dud"){
+    fizzle(); vib([30]);
+    S.thrust = 1; S.crackAmp = DUD_AMP;
+    faceRun([[0, "wince"], [500, "doubt"]]);
+    later(250, () => say(target.lines.dud, 1100));
+  }else{
+    knuckle(); vib([20, 30, 20]);
+    S.flinchAt = now; S.jitter = 0.3;
+    faceRun([[0, "startle"], [900, "doubt"]]);
+    coach("으, 손가락…", 750);
+    later(800, () => say(target.lines.finger, 1100));
+  }
+  later(XRAY_DELAY*1000, () => { S.hurtX = 1; });
+  later(2000, () => say(failLine(target.lines, S.fails.length), 1800));
+  later(4000, () => { if(!S.busy) say(target.lines.doubt, 1500); });
   toast(msg, 1100);
-  setTimeout(()=>{
-    if(S.pain >= 3){ S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단"}); finish(); return; }
-    S.busy = false;
-  }, 1100);
+  // the third one ends the day, a beat later so the gag and the patient's line still land
+  if(S.pain >= 3){
+    later(2400, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+      fails: [...S.fails], lines: target.lines}); finish(); });
+    return;
+  }
+  setTimeout(() => { S.busy = false; }, 1100);
 }
 
 function finish(){
@@ -190,8 +219,7 @@ function finish(){
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
     const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
-    const pool = REVIEWS[r.stars] || ["다음에 다시 올게요…"];
-    rev.textContent = "“" + pool[Math.floor(Math.random()*pool.length)] + "”";
+    rev.textContent = "“" + reviewLine(r) + "”";
     li.append(who, pts, st, rev);
     list.appendChild(li);
   });

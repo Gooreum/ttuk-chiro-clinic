@@ -9,7 +9,7 @@ import { aimHist } from "../input/motion.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
-   outer arc = tension (closeness), small top arc = breathing. */
+   outer arc = tension (closeness), small top arc = breathing, mint ghost dot = the right spot after a wrong crack. */
 const hud = $("#hud"), hctx = hud.getContext("2d");
 let hudDpr = 1;
 export function sizeHud(w, h){
@@ -85,6 +85,24 @@ export function drawRing(now, c, zone, br){
   ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
   ctx.lineCap = "butt";
+
+  // after a wrong crack (game/flow.js hurt): where it should have been, a mint ghost dot with a dashed line from the
+  // aim, flickering in and out over ~1.6 s
+  if(now > S.ghostFrom && now < S.ghostUntil){
+    const u = (now - S.ghostFrom)/(S.ghostUntil - S.ghostFrom);
+    const a = Math.sin(Math.PI*u)*(0.7 + 0.3*Math.sin(now*0.02));
+    const gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
+    const ax0 = cx + clamp(S.cur.rot,-75,75)*ax, ay0 = cy - clamp(S.cur.bend,-32,32)*ay;
+    ctx.globalAlpha = fade*a;
+    ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(ax0, ay0); ctx.lineTo(gx, gy); ctx.stroke(); ctx.setLineDash([]);
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(gx, gy, 10 + 3*u, 0, Math.PI*2); ctx.stroke();
+    ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
+    ctx.lineWidth = 4; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("여기였어요", gx, gy - 18);   // readable on the coral x-ray
+    ctx.fillStyle = C_MINT; ctx.fillText("여기였어요", gx, gy - 18);
+    ctx.globalAlpha = fade;
+  }
 
   // aim dot with short trail
   for(let i=Math.max(0, aimHist.length-8); i<aimHist.length; i++){

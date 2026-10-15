@@ -3,6 +3,7 @@ import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
+import { flinchProfile } from "../core/fail.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
    built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
@@ -653,6 +654,15 @@ export function updateRealHands(st){
     // to world
     _P.copy(_pa).applyMatrix4(head.matrixWorld);
     _qR.premultiply(_qH);
+    // a wrong crack way off (core/fail.js "finger"): the therapist's own knuckle cracked, so the contact hand jerks
+    // back off the neck toward the shoulder, the fingers open and the wrist shakes it out, then it settles back
+    const fl = role === "contact" && st.flinch >= 0 ? flinchProfile(st.flinch) : null;
+    if(fl && fl.away > 0){
+      _v3.copy(arm.shoulder).sub(_P).normalize();
+      _P.addScaledVector(_v3, 0.12*fl.away); _P.y += 0.05*fl.away;   // back toward the shoulder and up off the skin
+      _qR.premultiply(_qB.setFromAxisAngle(_v3, fl.shake));
+      grip *= 1 - fl.away;
+    }
     // drawn back toward the therapist, palm turned in, below the frame
     if(w.away > 0.001){
       _v2.set(camBase.x + AWAY[0]*s, camBase.y + AWAY[1], camBase.z + AWAY[2]);

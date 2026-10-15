@@ -19,6 +19,7 @@ import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
+import { boingProfile } from "../core/fail.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -78,14 +79,16 @@ export function frame(now){
   while(aimHist.length && aimHist[0].t < now - 800) aimHist.shift();
 
   // crack: load-up, thrust past the aim, damped wobble back (core/crack.js), all inside the x-ray delay
-  const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), dir = Math.sign(cur.rot || 1);
-  const snap = cp.push, thrustDeg = cp.rot*dir, thrustBend = cp.bend*Math.sign(cur.bend || -dir);
+  // (a dud wrong crack plays it at S.crackAmp; past the limit, a rubber-band boing wobbles the head: core/fail.js)
+  const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), dir = Math.sign(cur.rot || 1), amp = S.crackAmp;
+  const snap = cp.push*amp, thrustDeg = cp.rot*dir*amp, thrustBend = cp.bend*Math.sign(cur.bend || -dir)*amp;
+  const boingDeg = S.boingAt ? boingProfile((now - S.boingAt)/1000)*dir : 0;
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
   // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), (cur.bend + thrustBend)*DEG,
-    (cur.rot + thrustDeg + jit + headRock(now))*DEG);
+    (cur.rot + thrustDeg + jit + boingDeg + headRock(now))*DEG);
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
@@ -181,7 +184,7 @@ export function frame(now){
   // a failure in the realistic arms falls back to the primitive hands instead of breaking the frame
   try{
     updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
-      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results});
+      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
@@ -220,7 +223,7 @@ export function frame(now){
   // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
   // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
   if(!reduce){
-    const lu = ease(clamp(handSetup, 0, 1))*(1 - z), dip = S.thrust > 0 ? trunkDip((1 - S.thrust)*CRACK_LEN) : 0;
+    const lu = ease(clamp(handSetup, 0, 1))*(1 - z), dip = S.thrust > 0 ? trunkDip((1 - S.thrust)*CRACK_LEN)*S.crackAmp : 0;
     if(lu > 0.001){
       // toward the face, and the gaze tips down onto it, so the head rises a touch on screen (ring stays readable)
       head.localToWorld(faceW.set(0, 0.08, 0.04));
