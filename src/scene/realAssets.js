@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { renderer, scene, camera, camBase } from "./renderer.js";
+import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
@@ -239,9 +239,14 @@ function armMaterial(src, env){
    therapist's left hand), -1 on world -x (the right hand). */
 const ARM_A = 0.2335, ARM_B = 0.2374, ARM_MAX = 0.97*(ARM_A + ARM_B);   // upper arm, forearm (export log LEN)
 const PALM_IN = 0.021;          // bone line -> palm skin is 0.0288 (export PALM_DEPTH): less, so the palm presses in a touch
-/* Shoulder anchor from the camera's base position (s mirrors x): below and beside the eyes, a little behind them, so
-   the upper-arm cut never shows; the hands then reach the head with the elbows bent about 100 deg. */
-const SHOULDER = [0.2, -0.27, 0.0];
+/* Shoulder anchor from the camera's base position (s mirrors x): where a therapist bent over the head end has his
+   shoulders, 0.33 m below the eyes, 0.19 m to the sides and a little behind them, so the upper arm never shows; the
+   hands then reach the head with the elbows bent about 95-115 deg. (0.27 m below and the elbows free to rise read as
+   "squid arms" on the phone, 2026-10-15: upper arms in from the screen sides, elbows bulging up next to the head.) */
+const SHOULDER = [0.19, -0.33, -0.03];
+/* The elbows stay below the bottom edge of the therapist's resting view (camBase -> camLook): only the forearms rise
+   into the frame from the bottom / bottom corners, as in a chest-cam video. NDC y the elbow keeps under, and how hard. */
+const ELBOW_VIEW_Y = -1.12, ELBOW_VIEW_K = 25, ELBOW_VIEW_CORNER = 1.0;
 /* The trunk follows the camera's small moves (the set-up lean, the thrust dip, the sway) within 5 cm, smoothed so
    the camera shake never jitters; the big ones (the x-ray orbit, the reaction close-up) are the camera's alone. */
 const SHOULDER_FOLLOW = 0.8, SHOULDER_FOLLOW_MAX = 0.05;
@@ -261,9 +266,10 @@ const HAND_POSES = {
   support: {around: -0.35, dz: 0.0,  lift: 0.006, fingers: [0, -0.9, 0.42], grip: 0.6, roll: 0}
 };
 const POSE_NAMES = Object.keys(HAND_POSES);
-// the elbow's preferred side per role (world, x mirrored): out to the side, up for the contact arm (forearm from
-// above, 45-60 deg), down for the support arm (forearm low and flat)
-const POLES = {rest: [1, -0.15, -0.35], contact: [1, 0.55, -0.3], support: [1, -0.6, -0.25], pat: [1, -0.2, -0.5], away: [1, -0.7, -0.2]};
+// the elbow's preferred side per role (world, x mirrored): always out and down toward the floor, next to the
+// therapist's body; the support elbow lowest (forearm low and flat), the contact elbow a little higher and further
+// out (its forearm rises steeper onto the up-side neck)
+const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -0.7, -0.25], pat: [0.6, -1, -0.4], away: [0.6, -1, -0.2]};
 
 /* Finger pose, rebuilt from the rest skeleton every frame. Every joint turns about an axis fixed in the hand frame,
    converted once into that bone's own rest frame: curl about fingers x normal (tips move toward the palm), spread
@@ -291,9 +297,12 @@ function poseFingers(h, grip, spread, t, probe){
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _m3 = new THREE.Matrix4(), _m4 = new THREE.Matrix4();
 // rotation taking the pair (a1, a2) onto (b1, b2): a1 -> b1 exactly, a2 as close as it goes
+// (scratch vectors, no allocation: the elbow search calls it 36 times per arm per frame)
+const _pq = [0, 1, 2, 3, 4, 5].map(() => new THREE.Vector3());
 function pairQuat(a1, a2, b1, b2, out){
-  const ax = a1.clone().normalize(), ay = a2.clone().addScaledVector(ax, -a2.dot(ax)).normalize(), az = ax.clone().cross(ay);
-  const bx = b1.clone().normalize(), by = b2.clone().addScaledVector(bx, -b2.dot(bx)).normalize(), bz = bx.clone().cross(by);
+  const [ax, ay, az, bx, by, bz] = _pq;
+  ax.copy(a1).normalize(); ay.copy(a2).addScaledVector(ax, -a2.dot(ax)).normalize(); az.crossVectors(ax, ay);
+  bx.copy(b1).normalize(); by.copy(b2).addScaledVector(bx, -b2.dot(bx)).normalize(); bz.crossVectors(bx, by);
   _m3.makeBasis(ax, ay, az).transpose();
   _m4.makeBasis(bx, by, bz).multiply(_m3);
   return out.setFromRotationMatrix(_m4);
@@ -437,6 +446,18 @@ const _u = new THREE.Vector3(), _e1 = new THREE.Vector3(), _e2 = new THREE.Vecto
 const _qu = new THREE.Quaternion(), _ql = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qt = new THREE.Quaternion();
 const _hl = new THREE.Vector3(), _du = new THREE.Vector3(), _dl = new THREE.Vector3(), _hg = new THREE.Vector3();
 const SAMPLES = 36;
+// the therapist's resting view for the elbow test: eye, forward, up, tan(half fov); set each frame by updateRealHands
+const view = {eye: new THREE.Vector3(), f: new THREE.Vector3(0, 0, 1), u: new THREE.Vector3(0, 1, 0), r: new THREE.Vector3(1, 0, 0), tan: 0.47, aspect: 2};
+const _ve = new THREE.Vector3();
+// how far into the frame a point is above ELBOW_VIEW_Y (NDC y; 0 = under it or behind the eye); toward the sides the
+// line rises, so an elbow may sit in a bottom corner but never in the middle of the picture
+function inView(p){
+  _ve.copy(p).sub(view.eye);
+  const fw = _ve.dot(view.f);
+  if(fw < 0.02) return 0;
+  const ny = _ve.dot(view.u)/(fw*view.tan), nx = Math.abs(_ve.dot(view.r))/(fw*view.tan*view.aspect);
+  return Math.max(0, ny - ELBOW_VIEW_Y - ELBOW_VIEW_CORNER*Math.max(0, nx - 0.5));
+}
 function wristCost(arm, Qh, E, W){
   _d.copy(E).sub(W).normalize().applyQuaternion(_qi.copy(Qh).invert());       // forearm direction in hand space
   const a = _d.dot(arm.fore);
@@ -445,6 +466,23 @@ function wristCost(arm, Qh, E, W){
   // neutral = 0.25 rad extended; beyond ~1.0 back / 0.5 forward / 0.35 sideways it gets steep
   const e = ext - 0.25;
   return (e > 0 ? (e/0.6)**2 : (e/0.45)**2) + (dev/0.3)**2 + (ext > 1.1 || ext < -0.6 || Math.abs(dev) > 0.5 ? 6 : 0);
+}
+/* The forearm's turn (pronation / supination, radians) the hand's orientation asks for with the elbow at E: the hand
+   frame against the forearm's hinge frame, about the forearm axis, from the rest pose (T-pose, palm down, elbow crease
+   forward = the forearm's neutral, thumb ahead). A real forearm turns ~80 deg either way and is at ease within ~45. */
+const _tu = new THREE.Vector3(), _tl = new THREE.Vector3(), _th = new THREE.Vector3(), _tq = new THREE.Quaternion(), _tr = new THREE.Quaternion();
+function twistAt(arm, S, E, W, Qh){
+  _tu.copy(E).sub(S).normalize(); _tl.copy(W).sub(E).normalize();
+  _th.crossVectors(_tu, _tl);
+  if(_th.lengthSq() < 1e-8) return 0;
+  pairQuat(YAX, arm.hingeL, _tl, _th.normalize(), _tq);
+  _tq.invert().multiply(Qh).multiply(_tr.copy(arm.handRestL).invert());
+  const tw = 2*Math.atan2(_tq.y, _tq.w);
+  return Math.atan2(Math.sin(tw), Math.cos(tw));
+}
+function twistCost(tw){
+  const a = Math.abs(tw);
+  return (a/0.8)**2 + (a > 1.4 ? 8*(a - 1.4) : 0);
 }
 function solveArm(arm, S, W, Qh, pole, dt){
   _S.copy(S);
@@ -462,9 +500,11 @@ function solveArm(arm, S, W, Qh, pole, dt){
     const phi = i/SAMPLES*Math.PI*2;
     _E.copy(_C).addScaledVector(_e1, r*Math.cos(phi)).addScaledVector(_e2, r*Math.sin(phi));
     _v.copy(_E).sub(_C).normalize();
-    let c = wristCost(arm, Qh, _E, W) + 2.2*(1 - _v.dot(pd));
+    let c = 0.5*wristCost(arm, Qh, _E, W) + 2.2*(1 - _v.dot(pd));
     if(_E.y < 1.02) c += 40*(1.02 - _E.y);                          // never into the table / the patient
-    if(_E.x*arm.s < 0.12) c += 30*(0.12 - _E.x*arm.s);               // never across the face
+    if(_E.x*arm.s < 0.16) c += 80*(0.16 - _E.x*arm.s);               // never across the face (out beside the head)
+    c += ELBOW_VIEW_K*inView(_E);                                      // elbow under the frame, not in the middle of it
+    c += 2*twistCost(twistAt(arm, _S, _E, W, Qh));                     // forearm near its neutral turn (no candy wrapper)
     if(c < bestC){ bestC = c; best = phi; }
   }
   // ease toward the best elbow (no popping between samples)
@@ -494,10 +534,19 @@ function solveArm(arm, S, W, Qh, pole, dt){
 
 /* Called from applyLook: realistic arms while a realistic patient is on the table (they need its measured poses). */
 export function setRealHands(on){ wantHands = on; syncArms(); }
+/* The loop calls this when updateRealHands throws: log once, keep the primitive hands for the rest of the session. */
+let armsBroken = false;
+export function disableRealArms(err){
+  if(armsBroken) return;
+  armsBroken = true;
+  console.warn("realistic arms failed, keeping primitives", err);
+  document.documentElement.dataset.arms = "failed";
+  syncArms();
+}
 let armsShown = false;
 function syncArms(){
   const cur = current();
-  const use = wantHands && !!real.arms && !!cur && !!measureHead(cur);
+  const use = wantHands && !armsBroken && !!real.arms && !!cur && !!measureHead(cur);
   if(real.arms) real.arms.forEach(a => { a.root.visible = use; if(!use) a.seen = false; });
   if(use === armsShown && real.armsSynced) return use;
   armsShown = use; real.armsSynced = true;
@@ -520,7 +569,7 @@ const _camF = new THREE.Vector3(), _sh = new THREE.Vector3();
 let lastRoleTurn = 1;
 // the pat starts during the second reaction (flow.js: the result is pushed at the crack, the next patient comes 7.25 s later)
 const PAT_DELAY = 5400;
-let patRes = null, patLen = 0, patAt = -1;
+let patRes = null, patLen = 0, patAt = -1, patChest = null;
 // blend two poses in cylinder coordinates about the head's long axis (x = 0, y = AXIS_Y)
 const AXIS_Y = -0.01;
 function cylLerp(a, b, w, out){
@@ -543,10 +592,13 @@ export function updateRealHands(st){
   // a patient done (a new result with stars): one hand pats the chest twice before the next patient
   const res = st.results;
   if(res !== patRes){ patRes = res; patLen = res ? res.length : 0; }
-  else if(res && res.length > patLen){ patLen = res.length; if(res[patLen - 1].stars > 0) patAt = st.now + PAT_DELAY; }
+  else if(res && res.length > patLen){ patLen = res.length; if(res[patLen - 1].stars > 0){ patAt = st.now + PAT_DELAY; patChest = null; } }
   const pat = patAt > 0 && st.now >= patAt ? (st.now - patAt)/1000 : -1;
   if(pat > 2) patAt = -1;
-  const chest = pat >= 0 ? measureChest(current()) : null;
+  // kept after the pat ends: the hand still eases back from it for a few frames (w.pat > 0) once pat is -1 again
+  // (reading a null chest there threw every time a patient was done, 2026-10-15)
+  if(pat >= 0 && !patChest) patChest = measureChest(current());
+  const chest = patChest;
   // which way the head is really turned (hysteresis near the middle); before any turn, the target's side
   if(Math.abs(st.rot) > 4) lastRoleTurn = Math.sign(st.rot);
   else if(Math.abs(st.rot) < 1.5 && st.aim) lastRoleTurn = st.aim;
@@ -560,6 +612,11 @@ export function updateRealHands(st){
   _camF.copy(camera.position).sub(camBase);
   if(_camF.length() > SHOULDER_FOLLOW_MAX) _camF.setLength(SHOULDER_FOLLOW_MAX);
   _camF.multiplyScalar(SHOULDER_FOLLOW);
+  view.eye.copy(camBase).add(_camF);
+  view.f.copy(camLook).sub(camBase).normalize();
+  view.u.set(0, 1, 0).addScaledVector(view.f, -view.f.y).normalize();
+  view.r.crossVectors(view.f, view.u);
+  view.tan = Math.tan(camera.fov*Math.PI/360); view.aspect = camera.aspect;
   real.arms.forEach(arm => {
     const s = arm.s, P = poses[s], w = arm.w;
     const role = s === lastRoleTurn ? "contact" : "support";
@@ -604,7 +661,7 @@ export function updateRealHands(st){
       _qR.slerp(_qB, w.away);
     }
     // the pat: palm down on the upper chest, two quick pats, then back
-    if(w.pat > 0.001){
+    if(w.pat > 0.001 && chest){
       const u = pat, lift = u < 0.45 ? 0.035 : u < 1.05 ? 0.03*(0.5 - 0.5*Math.cos(2*Math.PI*(u - 0.45)/0.3)) : 0.035;
       _v2.copy(chest).add(_v.set(0, PALM_IN*0.2 + lift, 0));
       pairQuat(arm.F0, arm.N0, _v.set(0.25*-s, -0.15, 1).normalize(), _v3.set(0, -1, 0), _qB);
