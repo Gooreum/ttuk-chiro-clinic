@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import {BACK_XRAY,cameraPreload,TARGETS} from './core.js';
+import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm} from './core.js';
+import {boingProfile,flinchProfile} from '../core/fail.js';
 import {createBackXray} from "./xray.js";
 import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -295,7 +296,7 @@ export async function createBackScene(canvas, view = {}){
   const scene = new THREE.Scene();
   scene.background = lin(0x0e211d);
   scene.fog = new THREE.Fog(lin(0x0e211d), 4.5, 9);
-  const camera = new THREE.PerspectiveCamera(CAM_FOV, 16/9, 0.05, 20);
+  const camera = new THREE.PerspectiveCamera(CAM_FOV, 16/9, 0.03, 20);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -326,9 +327,10 @@ export async function createBackScene(canvas, view = {}){
     fetch(BASE + "back_surface.json").then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); })
   ]);
   const hf = heightField(surf);
-  const [xray, reaction] = await Promise.all([createBackXray(),createBackReaction(renderer)]);
+  const [xray, reaction] = await Promise.all([createBackXray({scene,camera,env,renderer}),createBackReaction(renderer)]);
   scene.add(xray.group);
   const patientFade=[], therapistFade=[];
+  const roomBackground=scene.background.clone(), xrayBackground=new THREE.Color(0x0f231f);
 
   // ---- patient ----
   const U = makeUniforms();
@@ -474,43 +476,25 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, targets=TARGETS, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest', targets=TARGETS, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
-      reaction.update({time:faceTime,kind,forceTier,now});
+      reaction.update({time:faceTime,kind,forceTier,now,faceName});
       renderer.render(reaction.scene,reaction.camera);return;
     }
     const k = kind || "ok";
-    const film = shotTime>=0?smooth(BACK_XRAY.start,BACK_XRAY.full,shotTime)*(1-smooth(BACK_XRAY.fade,BACK_XRAY.end,shotTime)):0;
+    const film=clinicFilm(shotTime,kind,forceTier);
     xray.update({time:shotTime,step,kind,position,forceTier});
-    for(const m of patientFade){m.opacity=1-film*.97;m.depthWrite=film<.05;}
-    for(const m of therapistFade){m.opacity=1-film*.92;m.depthWrite=film<.05;}
-    renderer.toneMappingExposure=1-film*.2;
+    for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
+    for(const m of therapistFade){m.opacity=1-film*.8;m.depthWrite=film<.05;}
+    renderer.toneMappingExposure=1-film*.35;
+    scene.background.copy(roomBackground).lerp(xrayBackground,film*.8);
     const dt = st.t == null ? 1/60 : Math.min(0.1, Math.max(0, (now - st.t)/1000));
     st.t = now;
     if (st.lastCompleted == null) st.lastCompleted = completed;
-    pressure = clamp01(pressure); impulse = clamp01(impulse);
+    pressure = clamp01(pressure); impulse=THREE.MathUtils.clamp(impulse,-.5,2.5);
 
-    // thrust start / end: the rebound starts when the hands come off
-    if (!st.pressing && impulse > 0.06){ st.pressing = true; st.peak = 0; st.pressStep = step; }
-    if (st.pressing){
-      if (impulse >= st.peak){ st.peak = impulse; st.peakKind = k; }
-      if (impulse < 0.04 && st.lastImp >= impulse){
-        st.pressing = false;
-        const pk = st.peakKind, amp = st.peak*(DEPTH[pk] ?? DEPTH.ok);
-        st.rebound = {t0: now, amp: amp*(pk === "over" ? 0.5 : 0.5), kind: pk};
-        const z = zAt(clamp01(position));
-        if (pk === "over"){
-          st.wave = {t0: now, x: C0.x, z, amp: 0.011*st.peak};
-          st.shake = 1;
-          pulse(now, C0.x, z, ringCol.coral, 0.9, RING_R*0.8, RING_R*4.5, 1);
-        } else if (pk === "miss"){
-          pulse(now, C0.x, z, ringCol.coral, 0.6, RING_R*0.6, RING_R*2.2, 0.9);
-        } else if (pk === "weak"){
-          pulse(now, C0.x, z, ringCol.paper, 0.55, RING_R*0.9, RING_R*1.8, 0.45);
-        }
-      }
-    }
-    st.lastImp = impulse;
+    // Original clinic profiles supply the whole thrust; do not add the old back-only spring/gag.
+    if(shotTime>=0&&shotTime<.18)st.shake=Math.max(st.shake,forceTier?forceTier>1?1.2:.8:kind==='ok'?1:feedback==='over'?.6:feedback==='finger'?.3:0);
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
       const i = Math.min(2, completed - 1), z = zAt(targets[i]);
@@ -520,28 +504,17 @@ export async function createBackScene(canvas, view = {}){
     st.lastCompleted = completed;
 
     // depth under the hands: preload + thrust + the cushion rebound (negative = springs above the rest)
-    let depth = pressure*PRELOAD + impulse*(forceTier===2?.065:forceTier===1?.048:(DEPTH[k] ?? DEPTH.ok));
-    let bounce = 0;
-    if (st.rebound){
-      const t = (now - st.rebound.t0)/1000, over = st.rebound.kind === "over";
-      const tau = over ? 0.42 : 0.22, per = over ? 0.34 : 0.26;
-      if (t > 2.2) st.rebound = null;
-      else {
-        depth += -st.rebound.amp*Math.exp(-t/tau)*Math.sin(2*Math.PI*t/per);
-        bounce = (over ? 0.05 : 0.006)*Math.exp(-t/(over ? 0.5 : 0.18))*Math.abs(Math.sin(Math.PI*t/(over ? 0.36 : 0.22)));
-      }
-    }
-    patientRoot.position.y = bounce;
-    depth = Math.max(depth, -0.028);           // the rebound dome; the hands ride on it
+    let depth = pressure*PRELOAD + impulse*DEPTH.ok;
+    const boing=kind==='over'&&!forceTier?boingProfile(shotTime):0;
+    patientRoot.rotation.x=boing*Math.PI/180*.35;
+    patientRoot.position.y=Math.abs(boing)*.0015;
+    depth=Math.max(depth,-.028);
 
     // the press point on the back follows the hands
     const contact = contactAt(position, depth*0.92);
+    if(kind!=='ok'&&feedback==='finger'&&!forceTier&&shotTime>=0){const f=flinchProfile(shotTime);contact.y+=f.away*.12;contact.x+=f.shake*.025;}
     U.bkPress.value.set(contact.x, 0, contact.z, depth);
-    if (st.wave){
-      const t = (now - st.wave.t0)/1000;
-      if (t > 2.4) { st.wave = null; U.bkWave.value.w = 0; }
-      else U.bkWave.value.set(st.wave.x, st.wave.z, t, st.wave.amp*Math.exp(-t*1.4));
-    } else U.bkWave.value.w = 0;
+    U.bkWave.value.w=0;
 
     // rings
     const breathe = 0.5 + 0.5*Math.sin(now/1000*Math.PI*1.6);
@@ -569,7 +542,7 @@ export async function createBackScene(canvas, view = {}){
     const kk = 1 - Math.exp(-dt*5);
     st.rootZ += (contact.z - st.rootZ)*kk;
     theRoot.position.z = st.rootZ - C0.z;
-    const lean = pressure*LEAN.pre + impulse*(forceTier===2?14:forceTier===1?10:(LEAN[k] ?? LEAN.ok)) + Math.max(0, -depth)*-40;
+    const lean = pressure*LEAN.pre + impulse*LEAN.ok + Math.max(0, -depth)*-40;
     theRoot.updateMatrixWorld(true);
     poseTherapist(contact, lean);
 
@@ -582,7 +555,7 @@ export async function createBackScene(canvas, view = {}){
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
-    camera.position.lerp(new THREE.Vector3(-.26,1.23,focus.z+.035),film*.95);
+    camera.position.lerp(new THREE.Vector3(-.20,.96+.07,focus.z),film*.92);
     if (st.shake > 0){
       const s = st.shake*st.shake*0.012, t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;

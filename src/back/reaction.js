@@ -76,22 +76,14 @@ export async function createBackReaction(renderer){
   });
   let lastNow=null, previousTime=-1;
   const clamp=THREE.MathUtils.clamp;
-  function faceAt(t,kind,tier){
-    if(tier>1)return t<.25?'gasp':'ouch';
-    if(tier>0)return t<.25?'gasp':t<1.6?'ouch':'sulk';
-    if(kind==='ok')return t<.22?'startle':t<.65?'sigh':t<1.85?'bliss':'beam';
-    if(kind==='weak')return t<1.1?'doubt':'sulk';
-    if(kind==='miss')return t<.35?'startle':'doubt';
-    return t<.25?'gasp':t<1.6?'ouch':'sulk';
-  }
-  function update({time=0,kind='ok',forceTier=0,now=time*1000}={}){
+  function update({time=0,kind='ok',forceTier=0,now=time*1000,faceName='rest'}={}){
     const t=Math.max(0,time), fresh=t<previousTime||lastNow===null;
     const dt=fresh?1/30:clamp((now-lastNow)/1000,0,.1);
     lastNow=now; previousTime=t;
-    const face=faceAt(t,kind,forceTier), blink=(t%3.1>2.63&&t%3.1<2.75);
+    const face=faceName, blink=(t%3.1>2.63&&t%3.1<2.75);
     const weights=expressionWeights(face,blink,t,Math.max(0,Math.sin(t*2.1))*.22);
     const severe=forceTier>0, mix=fresh?1:1-Math.exp(-dt*15);
-    if(severe&&t>.25&&(forceTier>1||t<1.6)){weights['mouth-open']=forceTier>1?.6+.065*Math.sin(t*10):.48; weights['eyebrows-left-down']=1;weights['eyebrows-right-down']=1;}
+
     for(const mesh of morphs)for(const [name,value]of Object.entries(weights)){
       const i=mesh.morphTargetDictionary[name]; if(i!==undefined)mesh.morphTargetInfluences[i]+=(value-mesh.morphTargetInfluences[i])*mix;
     }

@@ -1,5 +1,9 @@
+import {createClinicAudio} from 'virtual:clinic-audio';
+import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
+import {pickReaction} from '../core/faceRig.js';
+import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {TARGETS,SWEET,pressureAt,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint} from './core.js';
+import {TARGETS,SWEET,pressureAt,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,clinicFilm} from './core.js';
 import {BackMotion} from './motion.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
@@ -19,53 +23,13 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   cue:'',pausedAt:0,previousPhase:null,sirenPlayed:false,faceVisible:false,speechStage:-1};
 let scene,width=innerWidth,height=innerHeight,rotated=false,raf=0,wasNear=false,nextPulse=0;
 const names=['등 위쪽','등 가운데','허리'];
-let audio, samples = {}, sources = new Set();
-function ensureSound(){
-  if(!S.sound) return;
-  try{
-    if(!audio){
-      audio = new (window.AudioContext || window.webkitAudioContext)();
-      for(const [key,file] of Object.entries({crack:'crack-hard.wav', tail:'crack.wav', break:'break.wav'}))
-        fetch(import.meta.env.BASE_URL + 'audio/' + file).then(r => { if(!r.ok) throw new Error('audio'); return r.arrayBuffer(); })
-          .then(b => audio.decodeAudioData(b)).then(b => { samples[key] = b; }).catch(() => {});
-    }
-    if(audio.state !== 'running') audio.resume().catch(() => {});
-  }catch{ audio = null; }
-}
-function stopSound(){ for(const source of sources){ try{ source.stop(); }catch{} } sources.clear(); }
-function tone(from, to, length, volume, delay = 0){
-  if(!S.sound || !audio) return;
-  const t = audio.currentTime + delay, o = audio.createOscillator(), g = audio.createGain();
-  o.type = 'sine'; o.frequency.setValueAtTime(from,t); o.frequency.exponentialRampToValueAtTime(to,t+length);
-  g.gain.setValueAtTime(volume,t); g.gain.exponentialRampToValueAtTime(0.001,t+length);
-  o.connect(g); g.connect(audio.destination); sources.add(o); o.onended = () => { sources.delete(o); o.disconnect(); g.disconnect(); };
-  o.start(t); o.stop(t+length);
-}
-function crack(kind, step){
-  if(!S.sound || !audio) return;
-  if(kind === 'weak'){ tone(130, 70, .13, .08); return; }
-  if(kind === 'over'){ tone(110,360,.16,.14);tone(360,70,.35,.12,.13);return; }
-  if(kind === 'miss'){ if(S.outcome?.feedback==='dud')soundSample('tail',.16,.8);else soundSample('crack',.26,1.65);return; }
-  const play = (key, delay, volume, rate) => {
-    if(!samples[key]){ tone(200, 45, .14, .18, delay); return; }
-    const source = audio.createBufferSource(), gain = audio.createGain();
-    source.buffer = samples[key]; source.playbackRate.value = rate; gain.gain.value = volume;
-    source.connect(gain); gain.connect(audio.destination); sources.add(source);
-    source.onended = () => { sources.delete(source); source.disconnect(); gain.disconnect(); };
-    source.start(audio.currentTime + delay);
-  };
-  play('crack',0,.66, .96 + Math.random()*.08);
-  for(let i=0;i<step+1;i++) play('tail', .08 + i*.07, .16 + i*.025, 1.12 - i*.08);
-
-}
-function soundSample(key,volume,rate=1){
-  if(!S.sound||!audio)return;
-  if(!samples[key]){tone(180,40,.17,volume*.2);return;}
-  const source=audio.createBufferSource(),g=audio.createGain();source.buffer=samples[key];source.playbackRate.value=rate;g.gain.value=volume;
-  source.connect(g);g.connect(audio.destination);sources.add(source);source.onended=()=>{sources.delete(source);source.disconnect();g.disconnect();};source.start();
-}
-function damageSound(tier){soundSample('break',tier===2?.85:.6,tier===2?1:1.15);if(tier===2)soundSample('crack',.6,.88);}
-function ambulanceSound(){for(let i=0;i<4;i++)tone(960,700,.48,.10,i*.55);}
+const patient=ROSTER.find(p=>p.name==='박대리');
+const clinicAudio=createClinicAudio({S,T:new Proxy(T,{get:(t,k)=>k==='music'?false:k==='sound'?S.sound:t[k]})});
+function ensureSound(){if(S.sound)clinicAudio.ensureAudio();}
+function stopSound(){clinicAudio.stopSiren();}
+function tone(from,to,length,volume,delay=0){if(S.sound)clinicAudio.tone(from,to,length,'sine',volume,delay);}
+function damageSound(tier,volume=1){if(S.sound)clinicAudio.crunch(tier,volume);}
+function ambulanceSound(){if(S.sound)clinicAudio.siren(3.4);}
 function cue(text,style=''){
   if(text===S.cue&&$('backCue').className==='cue '+style)return;
   S.cue=text;$('backCue').textContent=text;$('backCue').className='cue '+style;
@@ -94,13 +58,13 @@ function applyPress(position,pressure,force=1){
   S.position=position;S.pressure=pressure;S.force=force;
   S.outcome=judgePress(position,S.step,pressure,force,{streak:S.streak,pain:S.painHere,exhale:T.breath&&br.exhale,targets:S.targets});
   S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.peakPressure=pressure;S.animAt=now;S.phase='anim';S.pending=null;
-  S.holdAt=null;S.pointer=null;S.sirenPlayed=false;S.speechStage=-1;
+  S.holdAt=null;S.pointer=null;S.sirenPlayed=false;S.speechStage=-1;S.releaseSoundPlayed=false;S.fracSoundPlayed=false;S.reaction=pickReaction(patient.react,S.outcome.perfect);
   press.classList.remove('holding','over');
-  if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;crack('ok',S.step);if(navigator.vibrate)navigator.vibrate([45,40,45,40,80]);}
-  else{S.mistakes++;S.painHere++;S.streak=0;S.fails.push({kind:S.kind,tier:S.tier});
-    if(S.tier)damageSound(S.tier);else if(S.kind==='weak')soundSample('tail',.22,1.15);else crack(S.kind,S.step);
-    if(navigator.vibrate)navigator.vibrate(S.tier?[100,40,130]:[55]);}
-  $('backImpact').textContent=S.tier===2?'아그작!!':S.tier===1?'으그적!':S.kind==='ok'?S.step===2?'우두두둑!':'두루룩!':S.kind==='weak'?'뚜…륵?':S.kind==='over'?'뾰잉!':S.outcome.feedback==='dud'?'뚜…둑?':'손가락 뚝!';
+  if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;if(S.sound){clinicAudio.crackSound(S.outcome.perfect?3:2);clinicAudio.chime(S.outcome.perfect);}clinicAudio.vib(S.outcome.perfect?[45,40,45,40,80]:[45,50,45]);}
+  else{S.mistakes++;S.painHere++;S.streak=0;S.fails.push({kind:S.kind,feedback:S.outcome.feedback,tier:S.tier});
+    if(S.tier)damageSound(S.tier);else if(S.sound){const f=S.outcome.feedback;if(f==='over')clinicAudio.boing();else if(f==='dud')clinicAudio.fizzle();else clinicAudio.knuckle();}
+    clinicAudio.vib(S.tier?S.tier>1?[120,40,200]:[80,30,120]:S.outcome.feedback==='over'?[60,40,60]:S.outcome.feedback==='dud'?[60]:[40,30,40]);}
+  $('backImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':FAIL_STAMP[S.outcome.feedback];
   cue(S.kind==='ok'?'그 자리에서 우두둑.':S.tier?'잠깐… 방금 소리가 이상한데요.':'조금 빗나갔어요.',S.kind==='ok'?'good':'bad');sync();
 }
 function releasePress(){if(S.holdAt!==null&&S.phase==='play'&&S.control==='touch')applyPress(S.position,pressureAt(performance.now()-S.holdAt),1);}
@@ -109,7 +73,7 @@ function finish(){
   const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=complete&&S.score>best;
   if(record)store.set('chiroBackMotionBest',S.score);
   $('backResultTitle').textContent=S.tier?'구급차가 왔어요':complete?'허리까지 시원하게.':'오늘은 여기까지만.';
-  $('backReview').textContent=S.tier?'“허리 풀러 왔다가 구급차 타고 갑니다…”':complete?'“와… 그 우두둑 소리, 아직 귀에 남아요.”':'“다음엔 살살 부탁해요…”';
+  $('backReview').textContent='“'+reviewLine({stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('backTotal').textContent=S.score;
   $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('span');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
   $('backRank').textContent=rankTitle(S.score/3,S.tier?3:S.mistakes);
@@ -139,7 +103,7 @@ async function start(useMotion=preferMotion){
 function pause(){
   if(S.phase!=='play'&&S.phase!=='anim')return;
   S.previousPhase=S.phase;S.pausedAt=performance.now();cancelInput();S.phase='paused';
-  stopSound();if(audio)audio.suspend().catch(()=>{});$('backPaused').hidden=false;sync();
+  stopSound();clinicAudio.suspend();$('backPaused').hidden=false;sync();
 }
 function resume(){
   if(S.phase!=='paused')return;
@@ -180,7 +144,7 @@ $('backStart').addEventListener('click',()=>start());$('backAgain').addEventList
 $('backTouchStart').addEventListener('click',()=>start(false));$('backTouchFallback').addEventListener('click',()=>start(false));
 $('backSensorRetry').addEventListener('click',()=>start(true));
 $('backCenter').addEventListener('click',()=>{motion.recenter();S.motionReady=false;S.position=.5;S.pressure=.12;S.prepUntil=performance.now()+700;sync();});
-$('backSound').addEventListener('click',()=>{S.sound=!S.sound;$('backSound').setAttribute('aria-pressed',String(S.sound));$('backSound').textContent=S.sound?'소리 켬':'소리 끔';if(S.sound)ensureSound();else stopSound();});
+$('backSound').addEventListener('click',()=>{S.sound=!S.sound;$('backSound').setAttribute('aria-pressed',String(S.sound));$('backSound').textContent=S.sound?'소리 켬':'소리 끔';if(S.sound)ensureSound();else{stopSound();clinicAudio.suspend();}});
 addEventListener('deviceorientation',e=>motion.orientation(e,performance.now()));
 addEventListener('devicemotion',e=>{
   if(S.control!=='motion'||!S.motionEnabled||!['play','anim'].includes(S.phase))return;
@@ -206,11 +170,17 @@ addEventListener('devicemotion',e=>{
   if(active&&sample.type==='aim'){S.position=sample.position;S.pressure=sample.pressure;}
 });
 function speechFor(kind,tier,t){
-  if(tier)return t<.8?tier===2?'으아아악!!':'어… 방금 으그적 했는데요?':t<2?'잠깐만요! 허리에서 과자 소리가…':'선생님… 구급차 불러 주세요…';
-  if(kind==='ok')return t<.22?'헉!':t<1.5?'하아… 거기였어요.':'와… 허리가 쭉 풀리는 느낌이에요.';
-  if(kind==='weak')return t<1?'…아직 시작 안 하신 거죠?':'누르신 거예요, 손만 얹으신 거예요?';
-  if(kind==='over')return t<.7?'아 잠깐잠깐잠깐!':'침대까지 같이 접으실 생각이에요?!';
-  return S.outcome?.feedback==='dud'?'거의 거긴데… 아직 덜 풀렸어요.':t<.8?'방금 선생님 손가락에서 소리 났는데요?':'제 허리는 아직 그대로예요…';
+  if(tier)return FORCE_LINES[tier][t<1?0:1].replaceAll('목','허리');
+  if(kind==='ok')return t<1.8?patient.lines.what:patient.lines.ahh;
+  const f=S.outcome.feedback;
+  return (t<1.2?(f==='over'?patient.lines.ouch:f==='dud'?patient.lines.dud:patient.lines.finger):failLine(patient.lines,S.mistakes)).replaceAll('목','허리');
+}
+function faceFor(t){
+  if(S.tier)return t<.35?'gasp':t<(S.tier>1?2.6:1.8)?'ouch':t<(S.tier>1?4.2:3.4)?'sulk':'doubt';
+  if(S.kind==='ok')return t<.6?S.reaction.jolt:t<3.25?S.reaction.ahh||'sigh':t<5.05?S.reaction.first:S.reaction.then;
+  if(S.outcome.feedback==='over')return t<.5?'gasp':t<1.5?'ouch':t<3.2?'sulk':'doubt';
+  if(S.outcome.feedback==='dud')return t<.5?'wince':'doubt';
+  return t<.9?'startle':'doubt';
 }
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
@@ -219,11 +189,13 @@ function frame(now){
   const br=breathState(now,S.breathAt,4.4);$('backBreath').textContent=br.exhale?'후우… 지금 툭 하면 날숨 보너스':'흐읍… 들이쉬는 중';app.classList.toggle('exhaling',br.exhale);
   if(S.phase==='anim'){
     shotTime=(now-S.animAt)/1000;const timing=reactionTiming(S.kind,S.tier);
-    impulse=pressProfile(shotTime,S.kind)*(S.tier?S.tier===2?1.7:1.35:1);
+    impulse=pressProfile(shotTime,S.kind,S.tier,S.outcome.feedback);
+    if(S.kind==='ok'&&shotTime>=1.25&&!S.releaseSoundPlayed){S.releaseSoundPlayed=true;tone(150,55,.2,.16);tone(520,1300,.5,.04,.06);clinicAudio.vib([45,30,70]);}
+    if(S.tier&&shotTime>=.8&&!S.fracSoundPlayed){S.fracSoundPlayed=true;damageSound(S.tier,.6);clinicAudio.vib(S.tier>1?[60,30,90]:[50]);}
     pressure=S.peakPressure*Math.max(0,1-shotTime/.35);
     face=shotTime>=timing.faceAt&&shotTime<timing.faceEnd;
     if(face){const faceTime=shotTime-timing.faceAt;$('backSpeech').textContent=speechFor(S.kind,S.tier,faceTime);}
-    $('backCutLabel').textContent=face?'':S.tier===2?'골절!':S.tier===1?'뼈에 금이 갔어요':S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    $('backCutLabel').textContent=face?'':S.tier===2?`T${[3,4,5][S.step]} 골절!`:S.tier===1?`T${[3,4,5][S.step]} 금 감`:S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<BACK_XRAY.start;
     if(shotTime>=BACK_XRAY.start&&shotTime<BACK_XRAY.release&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
@@ -269,7 +241,7 @@ function frame(now){
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
   if(S.phase!=='paused')scene.render({now,position:S.position,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
-    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
+    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,faceName:S.phase==='anim'?faceFor(shotTime):'rest',targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
   if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
 }
 addEventListener('resize',resize);resize();
