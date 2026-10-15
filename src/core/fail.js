@@ -31,19 +31,20 @@ export function flinchProfile(t){
 }
 // the big tilted stamp on a wrong crack (ui/hud.js stamp), the old toast line rides under it
 export const FAIL_STAMP = { over: "뾰잉~", dud: "뚜…륵?", finger: "손가락 뚝!" };
-// day log chips: how many of each kind, in over / dud / finger order
+// day log chips: how many of each kind, in over / dud / finger order. A hard one shows the crunch, not its kind's gag,
+// so it counts as 금 / 골절 only
 export const FAIL_TAG = { over: "뾰잉", dud: "삑사리", finger: "손가락" };
 export function failTags(fails, tiers){
-  const n = {}; (fails || []).forEach(k => { n[k] = (n[k] || 0) + 1; });
+  const n = {}; (fails || []).forEach((k, i) => { if(!(tiers && tiers[i])) n[k] = (n[k] || 0) + 1; });
   const m = {}; (tiers || []).forEach(t => { if(t) m[t] = (m[t] || 0) + 1; });
   return [...Object.keys(FAIL_TAG).filter(k => n[k]).map(k => `${FAIL_TAG[k]} ×${n[k]}`),
     ...Object.keys(FORCE_TAG).filter(t => m[t]).map(t => `${FORCE_TAG[t]} ×${m[t]}`)];
 }
-/* How hard the wrong crack was (user request 2026-10-15): f = the flick's strength over its trigger (1 = just enough;
+/* How hard the wrong crack was (user request 2026-10-15): f = the flick's peak strength over its trigger (1 = just enough;
    motion: max(rotation rate / T.flick, jolt / T.jerk), swipe: speed / 1.6; the button gives 0).
    0 gentle -> the gags above as they are; 1 hard -> a bone crunch and a hairline crack on the x-ray; 2 very hard ->
    a louder crunch and the vertebra breaks in two. A cartoon warning, not anatomy. Judging is untouched. */
-export const FORCE_CRACK = 1.6, FORCE_BREAK = 2.4;
+export const FORCE_CRACK = 2.5, FORCE_BREAK = 4.0;
 export function forceTier(f){ return f >= FORCE_BREAK ? 2 : f >= FORCE_CRACK ? 1 : 0; }
 export const FORCE_STAMP = { 1: "으그적!", 2: "아그작!!" };
 export const FORCE_LINES = {
@@ -61,12 +62,12 @@ export const FAIL_REVIEWS = {
   finger: ["치료사님 손가락이 더 아파 보였어요", "제 목 말고 선생님 손이 풀렸대요"],
   over:   ["잠깐 천장이 옆으로 보였어요", "목이 고무줄인 줄 알았어요"]
 };
-/* r: a day log row {stars, fails: [kind...], tiers: [0|1|2...], lines}. Walked out (stars 0) -> the patient's own parting line;
+/* r: a day log row {stars, fails: [kind...], tiers: [0|1|2...], lines, ambulance}. Walked out (stars 0) -> the patient's own parting line;
    a crack / break -> the pool of the last hard one; wrong cracks -> the pool of the last kind; otherwise the usual
    star reviews. */
 export function reviewLine(r, rand = Math.random){
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
-  if(!r.stars) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
+  if(!r.stars && !r.ambulance) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
   const hard = (r.tiers || []).filter(Boolean).pop();
   if(hard && FORCE_REVIEWS[hard]) return pick(FORCE_REVIEWS[hard]);
   const last = r.fails && r.fails[r.fails.length - 1];

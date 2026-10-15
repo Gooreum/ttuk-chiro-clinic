@@ -10,7 +10,7 @@ import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
-import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch } from "../audio/audio.js";
+import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
@@ -91,6 +91,12 @@ function switchSide(){
 /* force: how hard the crack was (input/motion.js, input/pointer.js; 0 = unknown, the button). Only the show of a
    wrong crack uses it (core/fail.js forceTier); judging below does not. */
 const GRIP_GRACE = 600;    // ms after the head is handed over
+/* Would a crack right now land? input/motion.js cracks a good one at once and holds a bad one for the flick's peak. */
+export function wouldSucceed(){
+  const target = S.target;
+  if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return false;
+  return Math.abs(S.cur.rot) <= target.limR && Math.abs(S.cur.bend) <= target.limB && distNorm() <= 1;
+}
 export function adjust(src, force = 0){
   const target = S.target;
   if(S.phase !== "play" || S.busy || !target || !$("#tune").hidden) return;
@@ -173,6 +179,13 @@ function flashOuch(){   // a coral flash at the screen edges (style.css #app.ouc
 }
 const FRAC_AT = 450;       // ms: a hard wrong crack opens the fracture x-ray (scene/xray.js frac)
 const FRAC_HOLD = 2.3;     // s the fracture x-ray stays open
+const SIREN_AT = FRAC_AT + FRAC_HOLD*1000 + 400;   // ms: the x-ray has closed, the ambulance is called
+const AMBULANCE_END = SIREN_AT + 2500;             // ms: the day log
+let sirenTimer = 0;
+function flashSiren(ms){   // red / blue lights at the screen edges (style.css #app.siren)
+  const a = $("#app"); a.classList.add("siren");
+  clearTimeout(sirenTimer); sirenTimer = setTimeout(() => a.classList.remove("siren"), ms);
+}
 function hurt(msg, kind, force = 0){
   const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx, tier = forceTier(force);
   S.busy = true;
@@ -186,7 +199,6 @@ function hurt(msg, kind, force = 0){
   // the old toast line rides under a big stamp, away from the patient's bubble (they used to overlap)
   stamp(tier ? FORCE_STAMP[tier] : FAIL_STAMP[kind], msg, tier ? (tier > 1 ? "break" : "crack") : kind, tier ? 900 : 1700);   // a hard one: gone before the x-ray zooms in
   if(kind !== "dud" || tier) flashOuch();
-  const xrayEnd = FRAC_AT + FRAC_HOLD*1000 + 400;   // the fracture x-ray has closed
   // every wrong crack wrenches the neck, wrong spot or not (core/fail.js FAIL_AMP / FORCE_AMP)
   S.thrust = 1; S.crackAmp = tier ? FORCE_AMP[tier] : FAIL_AMP[kind];
   if(tier){
@@ -199,7 +211,7 @@ function hurt(msg, kind, force = 0){
     floater(word, -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
     const pool = FORCE_LINES[tier];
     say(pool[Math.floor(Math.random()*pool.length)], 1300, true);
-    S.ghostFrom = now + xrayEnd; S.ghostUntil = now + xrayEnd + 2500;
+    S.ghostFrom = S.ghostUntil = 0;   // no "여기였어요": the day ends on an ambulance
     later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
   }else if(kind === "over"){
     boing(); vib([60, 40, 60]);
@@ -221,29 +233,42 @@ function hurt(msg, kind, force = 0){
     coach("으, 손가락…", 750);
     later(800, () => say(target.lines.finger, 1500, true));
   }
-  // the squint is small on a phone: a "흠…" by the head when the doubt face sets in
-  later(tier ? xrayEnd : DOUBT_AT[kind], () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
   later(XRAY_DELAY*1000, () => { S.hurtX = 1; });
   later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
-  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
-  // the third one ends the day, a beat later so the gag and the patient's line still land
-  if(S.pain >= 3){
-    later(tier ? 4400 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+  // a crack or a break ends the day whatever the pain count (user: "금가거나 골절되면 삐용 삐용 엠뷸런스 소리 나면서
+  // 끝나는게 맞을듯", 2026-10-15): once the x-ray closes the ambulance is called, lights flash, then the day log
+  if(tier){
+    S.ambulance = true;
+    later(SIREN_AT, () => {
+      siren(3.4); vib([200, 100, 200, 100, 200]); flashSiren(AMBULANCE_END - SIREN_AT + 300);
+      stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
+      S.input.rot = 0; S.input.bend = 0;
+    });
+    later(AMBULANCE_END, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"구급차 이송", ambulance:true,
       fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
     return;
   }
-  setTimeout(() => { S.busy = false; }, tier ? xrayEnd : 1100);
+  // the squint is small on a phone: a "흠…" by the head when the doubt face sets in
+  later(DOUBT_AT[kind], () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
+  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
+  // the third one ends the day, a beat later so the gag and the patient's line still land
+  if(S.pain >= 3){
+    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+      fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
+    return;
+  }
+  setTimeout(() => { S.busy = false; }, 1100);
 }
 
 function finish(){
   S.phase = "result"; S.busy = true; setAmbient();
   const score = S.score;
   const best = store.get("chiroBest", 0);
-  const isBest = score > best && S.pain < 3;
+  const isBest = score > best && S.pain < 3 && !S.ambulance;
   if(isBest) store.set("chiroBest", score);
   const avg = crackAvg(score, S.patients.length);
-  $("#rtitle").textContent = S.pain >= 3 ? "환자들이 도망갔어요" : "오늘 진료 끝";
-  $("#rank").textContent = rankTitle(avg, S.pain);
+  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= 3 ? "환자들이 도망갔어요" : "오늘 진료 끝";
+  $("#rank").textContent = rankTitle(avg, S.ambulance ? 3 : S.pain);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
   const list = $("#rlist"); list.textContent = "";
@@ -251,7 +276,7 @@ function finish(){
     const li = document.createElement("li");
     const who = document.createElement("span"); who.className = "who"; who.textContent = `${r.name} (${r.age})`;
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
-    const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : "중단";
+    const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? "이송" : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
     rev.textContent = "“" + reviewLine(r) + "”";
     li.append(who, pts, st);
@@ -291,7 +316,8 @@ async function start(){
   layout();
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.patients = makePatients();
-  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = [];
+  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false;
+  stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
   $("#intro").hidden = true; $("#result").hidden = true;
   S.phase = "play"; setAmbient();
