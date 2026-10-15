@@ -3,7 +3,7 @@ import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { applyDelta } from "../game/feel.js";
 import { adjust } from "../game/flow.js";
-import { toast } from "../ui/hud.js";
+import { toast, uiBlocked } from "../ui/hud.js";
 import { canvas } from "../scene/renderer.js";
 
 /* Drag / swipe / keyboard fallback (no sensor, or desktop). Drag deltas are mapped through S.viewRot. */
@@ -32,7 +32,7 @@ canvas.addEventListener("pointerup", () => {
 });
 canvas.addEventListener("pointercancel", () => { drag = null; swipePeak = 0; });
 addEventListener("keydown", e => {
-  if(S.phase !== "play" || !$("#tune").hidden) return;
+  if(S.phase !== "play" || uiBlocked()) return;
   const k = e.key;
   if(k === "ArrowLeft") applyDelta(-2, 0);
   else if(k === "ArrowRight") applyDelta(2, 0);

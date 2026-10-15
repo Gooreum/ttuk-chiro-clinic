@@ -2,6 +2,7 @@ import { $ } from "../lib/dom.js";
 import { S } from "../game/state.js";
 import { canvas, camera } from "../scene/renderer.js";
 import { head, tmpA, tmpB, tmpC } from "../scene/patientModel.js";
+import { TRAITS } from "../patient/roster.js";
 
 /* DOM HUD helpers: toast, speech bubble, floating text, chart card, mini spine, mode line. */
 let toastTimer = 0, bubbleTimer = 0;
@@ -65,12 +66,46 @@ export function renderDots(){
   const d = $("#dots"); d.textContent = "";
   S.patients.forEach((p, i) => { const e = document.createElement("i"); if(i < S.idx) e.className = "done"; else if(i === S.idx) e.className = "now"; d.appendChild(e); });
 }
-export function renderSpine(n){
-  const s = $("#spine"); s.textContent = "";
+export function renderSpine(n, s = $("#spine")){
+  s.textContent = "";
   const top = document.createElement("span"); top.textContent = "C1"; s.appendChild(top);
   for(let i=1;i<=7;i++){ const b = document.createElement("b"); b.style.width = (14 + i*2) + "px"; if(i === n || i === n+1) b.className = "hit"; s.appendChild(b); }
   const bot = document.createElement("span"); bot.textContent = "C7"; s.appendChild(bot);
 }
+/* The big medical chart (user: "환자가 바뀔때 잠깐 화면 가운데에… 게임 시작되면 접게… 터치하면 다시 열리게… 진짜
+   차트 모양처럼", 2026-10-15). game/flow.js opens it for each new patient through the prep and folds it when the head is
+   handed over; the small chart top left opens it again. While it is open, aiming and cracking stop (uiBlocked). */
+export function renderChartSheet(target, idx, total, hint = ""){
+  const tr = target.trait ? TRAITS[target.trait] : null, seg = `C${target.seg}–C${target.seg+1}`;
+  $("#csNo").textContent = `No.${String(idx+1).padStart(2,"0")}`; $("#csTime").textContent = clockTxt(idx);
+  $("#csName").textContent = target.name; $("#csAge").textContent = `${target.age}세`;
+  $("#csVisit").textContent = `${idx+1}번째 / ${total}`; $("#csTrait").textContent = tr ? tr.label : "—";
+  $("#csCC").textContent = target.cc;
+  $("#csSeg").textContent = seg;
+  $("#csPlan").textContent = `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전 교정 · 양쪽 모두`;
+  $("#csNote").textContent = [tr ? tr.desc : "", hint || (tr ? "" : "숨을 내쉴 때 툭 꺾어 주세요")].filter(Boolean).join(" · ");
+  renderSpine(target.seg, $("#csSpine"));
+}
+let sheetTimer = 0;
+export function openChart(auto){
+  if(!auto && (S.phase !== "play" || S.busy || S.chartOpen)) return;
+  const el = $("#chartSheet");
+  clearTimeout(sheetTimer);
+  $("#csHint").textContent = auto ? "잠시 후 시작해요 · 탭해서 닫기" : "탭해서 닫기";
+  el.hidden = false; el.classList.remove("closing"); el.classList.remove("opening"); void el.offsetWidth; el.classList.add("opening");
+  S.chartOpen = true;
+}
+export function closeChart(){
+  if(!S.chartOpen) return;
+  S.chartOpen = false;
+  const el = $("#chartSheet");
+  el.classList.remove("opening"); el.classList.add("closing");   // folds toward the small chart top left
+  clearTimeout(sheetTimer); sheetTimer = setTimeout(() => { el.hidden = true; el.classList.remove("closing"); }, 340);
+}
+// aiming and cracking stop while the tuning sheet or the big chart is up
+export const uiBlocked = () => !$("#tune").hidden || S.chartOpen;
+$("#chartMini").addEventListener("click", () => openChart(false));
+$("#chartSheet").addEventListener("click", closeChart);
 export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return `오후 ${h}:${mm}`; };
 export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? `연속 성공 ×${S.streak}` : ""; }
 export function setModeText(){

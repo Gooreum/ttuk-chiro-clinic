@@ -4,7 +4,7 @@ import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { applyDelta } from "../game/feel.js";
 import { adjust, wouldSucceed } from "../game/flow.js";
-import { setModeText } from "../ui/hud.js";
+import { setModeText, uiBlocked } from "../ui/hud.js";
 import { physAngle } from "./orientation.js";
 import { tiltAngles } from "../core/tilt.js";
 import { classifySample, aimBefore, aimDelta, orientationSign, voteSign, signFromVotes } from "../core/motion.js";
@@ -51,7 +51,7 @@ export function onMotion(e){
   if(!S.sensorSeen){ S.sensorSeen = true; S.mode = "tilt"; setModeText(); }
   const lin = Math.abs(Math.hypot(a.x, a.y, a.z) - 9.81);
   if(lin > S.jerkPeak) S.jerkPeak = lin;
-  const playing = S.phase === "play" && !S.busy && $("#tune").hidden;
+  const playing = S.phase === "play" && !S.busy && !uiBlocked();
   const kind = classifySample({m, lin, playing, now, flickCool: S.flickCool, flick: T.flick, jerk: T.jerk});
   if(kind === "snap"){ snap(now, Math.max(m/T.flick, lin/T.jerk)); return; }   // how hard: for the wrong-crack show only
   if(kind === "discard") return;
