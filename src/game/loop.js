@@ -24,7 +24,7 @@ import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/fac
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const elHud = $("#hud"), elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble");
+const elHud = $("#hud"), elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble"), elTop = $(".top"), elChart = $(".chart");
 let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
@@ -270,7 +270,9 @@ export function frame(now){
   // the bubble is big and may wrap: keep it under the chart card and inside the screen sides
   const bw = canvas.clientWidth || innerWidth;
   elBubble.style.left = clamp(headScreen.x, bw*0.25, bw*0.75) + "px";
-  elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, 134) + "px";
+  // under the chart card's real bottom (it folds while aiming); offset* are layout coords, fine inside the rotated #app
+  const chartBottom = elTop.offsetTop + elChart.offsetTop + elChart.offsetHeight + 8;
+  elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom) + "px";
 
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);

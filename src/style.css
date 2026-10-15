@@ -31,6 +31,14 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 /* ---------- chart clipboard ---------- */
 .top{position:absolute;top:10px;left:var(--gl);right:var(--gr);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
 .chart{background:var(--paper);color:var(--paper-ink);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);width:min(300px,46%);min-width:0;overflow:hidden;transform:rotate(-1deg);transform-origin:top left}
+/* folded while aiming (game/flow.js loadPatient): the strip and one line, name · segment · trait */
+.chart.compact{width:auto;max-width:min(240px,40%)}
+.chart.compact .cc,.chart.compact .spine{display:none}
+.chart.compact .chartbody{display:flex;align-items:center;gap:8px;padding:5px 9px 6px}
+.chart.compact .chartbody > div:first-child{display:flex;align-items:center;gap:8px;min-width:0}
+.chart.compact .name{font-size:15px;white-space:nowrap}
+.chart.compact .chips{margin-top:0;flex-wrap:nowrap}
+.chart.compact .clip{padding:3px 9px;font-size:9px}
 .clip{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2c4842;color:var(--bone);padding:5px 10px;font-size:10px;letter-spacing:.06em;font-variant-numeric:tabular-nums;position:relative}
 .clip::before{content:"";position:absolute;left:50%;top:-1px;width:44px;height:7px;margin-left:-22px;border-radius:0 0 5px 5px;background:#c9c2b2}
 .dots{display:flex;gap:4px}
