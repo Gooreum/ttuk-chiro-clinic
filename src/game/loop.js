@@ -16,7 +16,9 @@ import { tone, vib, crunch } from "../audio/audio.js";
 import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
+import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
+import { updateTowel } from "../scene/towel.js";
+import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
@@ -210,9 +212,11 @@ export function frame(now){
   handSetup += ((S.thrust > 0 ? 1 : S.busy ? 0 : c) - handSetup)*(1 - Math.exp(-rdt*4));
   // a failure in the realistic arms falls back to the primitive hands instead of breaking the frame
   try{
-    updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
-      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1});
+    updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: towel ? 0 : ease(clamp(handSetup*1.25, 0, 1)), push: snap,
+      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
+      towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
+  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{
