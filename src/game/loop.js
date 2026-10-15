@@ -24,7 +24,7 @@ import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/fac
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const elHud = $("#hud"), elAdj = $("#adjust"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble"), elTop = $(".top"), elChart = $(".chart");
+const elHud = $("#hud"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble"), elTop = $(".top"), elChart = $(".chart");
 let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
@@ -114,7 +114,6 @@ export function frame(now){
   if(playing && target && target.trait === "nervous" && isBaseFace(face())) setFace(now - S.patientStart > 9000 ? "tense" : "worried");
   ringMat.opacity = zone ? 0.55 + Math.sin(now*0.012)*0.25 : c*0.2;
   mats.headSkin.emissiveIntensity = zone ? 0.14 : c*0.05;
-  elAdj.classList.toggle("ready", zone);
 
   // face
   const f = face(), pf = primitiveFace(f);

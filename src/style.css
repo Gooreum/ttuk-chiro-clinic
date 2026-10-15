@@ -104,26 +104,29 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .spine span{font-size:8px;color:#7b8783;letter-spacing:.04em}
 
 /* ---------- score ---------- */
-.stat{text-align:right;display:grid;gap:5px;justify-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;backdrop-filter:blur(6px)}
-.score{font-family:var(--display);font-size:30px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.4)}
-.score small{font-family:var(--body);font-size:10px;color:var(--muted);display:block;letter-spacing:.08em;margin-bottom:2px}
-.combo{font-size:11px;font-weight:700;color:var(--mint);min-height:14px}
+/* top right: a tight score panel, the rarely used tuning / music chips small under it (user: "쓸데 없이 큼", 2026-10-15) */
+.side{display:grid;gap:5px;justify-items:end}
+.stat{text-align:right;display:grid;gap:4px;justify-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 9px;backdrop-filter:blur(6px)}
+.score{display:flex;align-items:baseline;gap:6px;font-family:var(--display);font-size:26px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.4)}
+.score small{font-family:var(--body);font-size:10px;color:var(--muted);letter-spacing:.08em}
+.combo{font-size:11px;font-weight:700;color:var(--mint)}
+.combo:empty{display:none}
 .pain{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--muted);letter-spacing:.06em}
 .pain i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--coral);display:inline-block}
 .pain i.on{background:var(--coral)}
 .tools{display:flex;gap:6px;pointer-events:auto}
 .chip{font:600 11px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer}
 .chip.off{opacity:.55;text-decoration:line-through}
-.chip:focus-visible,.btn:focus-visible,#adjust:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+.chip.mini{font-size:10px;padding:3px 7px;border-radius:5px}
+.chip:focus-visible,.btn:focus-visible,#zero:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
 
 /* ---------- bottom ---------- */
 .bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
 .mode{font-size:11px;color:var(--muted);line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
 .mode b{color:var(--ink);font-weight:600}
-#adjust{pointer-events:auto;flex:none;width:90px;height:90px;border-radius:50%;border:0;background:var(--coral);color:var(--room-deep);font-family:var(--display);font-size:24px;cursor:pointer;box-shadow:0 6px 0 var(--coral-deep),0 10px 24px rgba(0,0,0,.35);transition:transform .08s,box-shadow .08s}
-#adjust:active{transform:translateY(5px);box-shadow:0 1px 0 var(--coral-deep),0 4px 10px rgba(0,0,0,.35)}
-#adjust.ready{animation:pulse 1s ease-in-out infinite}
-@keyframes pulse{50%{box-shadow:0 6px 0 var(--coral-deep),0 0 0 10px rgba(255,122,89,.25)}}
+/* "중앙으로" where the thumb rests: the crack is a flick / swipe / space, no button (user request, 2026-10-15) */
+#zero{pointer-events:auto;flex:none;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--mint);background:var(--panel);color:var(--mint);font:700 13px var(--body);letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .08s}
+#zero:active{transform:scale(.94)}
 
 /* ---------- floating text ---------- */
 #toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);font-family:var(--display);font-size:24px;text-align:center;color:var(--ink);text-shadow:0 2px 12px rgba(0,0,0,.7);pointer-events:none;opacity:0;transition:opacity .25s;max-width:56%;text-wrap:balance}
@@ -233,7 +236,6 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 @media (orientation:portrait){
   .card.wide{grid-template-columns:1fr}
   .chart{width:min(260px,62%)}
-  #adjust{width:80px;height:80px;font-size:21px}
   .sheet{left:var(--gl);right:var(--gr);width:auto;top:auto;max-height:72%}
   .mode{max-width:58%}
 }
@@ -249,4 +251,4 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   .how li{grid-template-columns:28px 1fr}
   .lead{gap:10px}
 }
-@media (prefers-reduced-motion:reduce){#adjust.ready{animation:none}.float{animation-duration:.01s}.float.breath{animation-duration:1.7s}#banner{transition:none}#app.siren::before,#stamp.siren.show b{animation-duration:1.4s}}
+@media (prefers-reduced-motion:reduce){.float{animation-duration:.01s}.float.breath{animation-duration:1.7s}#banner{transition:none}#app.siren::before,#stamp.siren.show b{animation-duration:1.4s}}

@@ -121,5 +121,5 @@ export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? `연속
 export function setModeText(){
   $("#mode").innerHTML = S.mode === "tilt"
     ? "<b>핸들처럼 돌려</b> 회전 · <b>위쪽을 젖혀</b> 위아래 · <b>툭 꺾어</b> 교정"
-    : "<b>천천히 드래그</b>로 각도 · <b>휙 쓸거나 버튼</b>으로 교정";
+    : `<b>천천히 드래그</b>로 각도 · <b>휙 쓸어서</b> 교정${matchMedia("(pointer: coarse)").matches ? "" : " · 스페이스"}`;
 }
