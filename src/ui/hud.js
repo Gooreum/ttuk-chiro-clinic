@@ -87,12 +87,22 @@ export function renderChartSheet(target, idx, total, hint = ""){
   renderSpine(target.seg, $("#csSpine"));
 }
 let sheetTimer = 0;
+// fit the sheet on the screen: #app's pre-rotation size (input/orientation.js), never vh, which is the portrait viewport
+// when #app is rotated. --fx/--fy: how far it folds toward the small chart top left
+function fitSheet(el){
+  const app = $("#app"), b = el.querySelector(".board");
+  b.style.setProperty("--fit", 1);
+  const k = Math.min(1, (app.clientHeight - 24)/b.offsetHeight, (app.clientWidth - 24)/b.offsetWidth);
+  b.style.setProperty("--fit", Math.max(0.6, k).toFixed(3));
+  b.style.setProperty("--fx", -0.38*app.clientWidth + "px");
+  b.style.setProperty("--fy", -0.38*app.clientHeight + "px");
+}
 export function openChart(auto){
   if(!auto && (S.phase !== "play" || S.busy || S.chartOpen)) return;
   const el = $("#chartSheet");
   clearTimeout(sheetTimer);
   $("#csHint").textContent = auto ? "잠시 후 시작해요 · 탭해서 닫기" : "탭해서 닫기";
-  el.hidden = false; el.classList.remove("closing"); el.classList.remove("opening"); void el.offsetWidth; el.classList.add("opening");
+  el.hidden = false; fitSheet(el); el.classList.remove("closing"); el.classList.remove("opening"); void el.offsetWidth; el.classList.add("opening");
   S.chartOpen = true;
 }
 export function closeChart(){
