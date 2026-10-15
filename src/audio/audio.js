@@ -35,7 +35,7 @@ function ensureMusic(){
     ac.createMediaElementSource(music).connect(musicGain); musicGain.connect(master);
   }catch(e){ music = null; musicGain = null; }
 }
-const wantMusic = () => T.sound && document.visibilityState === "visible";
+const wantMusic = () => T.music && document.visibilityState === "visible";   // its own switch (T.sound is the room tone)
 function playMusic(){ if(music && music.paused && wantMusic()) music.play().catch(() => {}); }
 /* stale: the page was hidden. iOS Safari leaves the context "interrupted" (not "suspended") after a trip to
    another app, and sometimes "running" but silent, so the first tap after coming back rebuilds it. */
@@ -84,8 +84,8 @@ for(const ev of ["pointerdown", "touchend", "click", "keydown"]) document.addEve
 export function setAmbient(){
   if(!ac) return;
   if(ambGain) ambGain.gain.setTargetAtTime(T.sound && S.phase === "play" ? 0.05 : 0, ac.currentTime, 0.4);
-  if(musicGain) musicGain.gain.setTargetAtTime(T.sound ? (S.phase === "play" ? MUSIC_PLAY : MUSIC_REST) : 0, ac.currentTime, 0.6);
-  if(music && !T.sound) music.pause(); else playMusic();
+  if(musicGain) musicGain.gain.setTargetAtTime(T.music ? (S.phase === "play" ? MUSIC_PLAY : MUSIC_REST) : 0, ac.currentTime, 0.6);
+  if(music && !T.music) music.pause(); else playMusic();
 }
 function pop(t, f, vol){
   // transient click
@@ -110,13 +110,13 @@ function pop(t, f, vol){
 /* n: 3 on a PERFECT (always 우두둑), else 2. The pattern (뚝 / 두둑 / 우두둑) and spacing change every time
    (core/crackPattern.js); each hit is the same pop as before. A click-cluster rewrite of pop sounded less natural
    (user: "원래 소리가 제일 자연스럽다", 2026-10-15), so pop stays. */
-/* The recorded neck crack, its pitch shaken ±8% each time; a PERFECT is a touch lower and louder with a small second
-   crack 0.09 s on. Before the sample decodes: the synth pattern below. */
+/* The main crack is "Breaking Bones" (user's pick, 2026-10-15), its pitch shaken ±8% each time; a PERFECT is a touch
+   lower and louder with the small neck crack as a tail 0.09 s on. Before the samples decode: the synth pattern below. */
 export function crackSound(n){
   if(!ac) return;
   const perfect = n >= 3;
-  if(sample("crack", perfect ? 1 : 0.85, (perfect ? 0.94 : 1)*(0.92 + Math.random()*0.16))){
-    if(perfect) sample("crack", 0.45, 1.1 + Math.random()*0.1, 0.09);
+  if(sample("crackHard", perfect ? 1 : 0.9, (perfect ? 0.94 : 1)*(0.92 + Math.random()*0.16))){
+    if(perfect) sample("crack", 0.4, 1.05 + Math.random()*0.1, 0.09);
     return;
   }
   let t = ac.currentTime + 0.01;
@@ -149,7 +149,10 @@ export function boing(){
    "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
 export function crunch(tier, vol = 1){
   if(!ac) return;
-  if(sample(tier > 1 ? "break" : "crackHard", vol, 0.95 + Math.random()*0.1)) return;   // recorded; synth below until decoded
+  // recorded (synth below until decoded): a crack is the neck break pitched up and softer; a break is it at pitch with
+  // the main crack stacked on for more splinter
+  if(tier > 1){ if(sample("break", vol, 0.95 + Math.random()*0.1)){ sample("crackHard", vol*0.8, 0.85); return; } }
+  else if(sample("break", vol*0.8, 1.1 + Math.random()*0.1)) return;
   let t = ac.currentTime + 0.01;
   tone(tier > 1 ? 95 : 120, 38, tier > 1 ? 0.32 : 0.24, "sine", 0.2*vol);
   const n = tier > 1 ? 7 : 4;
@@ -163,7 +166,7 @@ let sirenOut = null;
 export function siren(dur = 3.4){
   if(!ac) return;
   stopSiren();
-  if(musicGain && T.sound) musicGain.gain.setTargetAtTime(MUSIC_DUCK, ac.currentTime, 0.3);   // the day log's setAmbient brings it back
+  if(musicGain && T.music) musicGain.gain.setTargetAtTime(MUSIC_DUCK, ac.currentTime, 0.3);   // the day log's setAmbient brings it back
   const t = ac.currentTime + 0.02, end = t + dur;
   const out = ac.createGain(); out.connect(master);
   out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.4, t + 0.9);

@@ -9,16 +9,23 @@ const SLIDERS = [
   ["heavy", v => Math.round(v*100) + "%"], ["tol", v => "×" + (+v).toFixed(2)],
   ["flick", v => v + "°/s"], ["jerk", v => (+v).toFixed(1) + " m/s²"]
 ];
-const CHECKS = ["breath","tick","sound","flip","portrait"];
+const CHECKS = ["breath","tick","sound","music","flip","portrait"];
 function syncTune(){
   SLIDERS.forEach(([k, fmt]) => { $("#t-"+k).value = T[k]; $("#v-"+k).textContent = fmt(T[k]); });
   CHECKS.forEach(k => { $("#t-"+k).checked = !!T[k]; });
+  syncMusic();
 }
+// the quick music switch by the tuning button (same T.music as the sheet's checkbox, kept in localStorage)
+function syncMusic(){
+  const b = $("#musicBtn");
+  b.textContent = T.music ? "음악" : "음악 끔"; b.classList.toggle("off", !T.music); b.setAttribute("aria-pressed", T.music ? "true" : "false");
+}
+$("#musicBtn").addEventListener("click", () => { T.music = !T.music; saveT(); syncTune(); setAmbient(); });
 SLIDERS.forEach(([k, fmt]) => $("#t-"+k).addEventListener("input", e => { T[k] = parseFloat(e.target.value); $("#v-"+k).textContent = fmt(T[k]); saveT(); }));
 CHECKS.forEach(k => $("#t-"+k).addEventListener("change", e => {
   T[k] = e.target.checked; saveT();
   if(k === "flip" || k === "portrait") layout();
-  if(k === "sound") setAmbient();
+  if(k === "sound" || k === "music"){ setAmbient(); syncMusic(); }
 }));
 $("#treset").addEventListener("click", () => { resetT(); saveT(); syncTune(); layout(); setAmbient(); });
 $("#tuneBtn").addEventListener("click", () => { syncTune(); $("#tune").hidden = false; });

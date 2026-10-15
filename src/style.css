@@ -60,6 +60,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .pain i.on{background:var(--coral)}
 .tools{display:flex;gap:6px;pointer-events:auto}
 .chip{font:600 11px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer}
+.chip.off{opacity:.55;text-decoration:line-through}
 .chip:focus-visible,.btn:focus-visible,#adjust:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
 
 /* ---------- bottom ---------- */

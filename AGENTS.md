@@ -49,7 +49,7 @@
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
 | `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
-| `audio/audio.js` | 뼈 소리는 사용자가 고른 녹음 샘플이다(`public/audio/`, 출처·라이선스는 `CREDITS.md`, 2026-10-15): 교정 성공 `crack.wav`(매번 높이 ±8%, PERFECT는 조금 낮고 크게 + 0.09초 뒤 작은 두 번째 뚝), 금 `crack-hard.wav`, 골절 `break.wav`. 그 전까지는 합성만 썼는데 사용자가 직접 샘플을 주며 바꿔 달라고 했다. 클릭 다발 합성은 "원래 소리가 제일 자연스럽다"는 피드백으로 되돌렸고, 합성 `pop`(+ `crackPattern` 뚝/두둑/우두둑)은 샘플이 decode되기 전의 폴백으로 남았다. 차임·틱·사이렌 `siren`·고무줄·손가락·룸톤은 합성이다. 배경음악 `bgm.m4a`(사용자 제공, AAC로 다시 인코딩)는 `<audio loop>`를 MediaElementSource로 gain에 물려 스트리밍한다(통째로 decode하면 폰 메모리 부담, iOS는 `audio.volume` 무시). 진료 중 0.22, 결과 화면 0.14, 사이렌 동안 0.06, 소리 끄기면 정지. 화면을 떠나면 멈추고, 컨텍스트를 다시 만들면 새 element가 이어서 재생한다. `vib` |
+| `audio/audio.js` | 뼈 소리는 사용자가 고른 녹음 샘플이다(`public/audio/`, 출처·라이선스는 `CREDITS.md`, 2026-10-15): 교정 성공은 "Breaking Bones" `crack-hard.wav`(사용자가 메인으로 지정, 매번 높이 ±8%, PERFECT는 조금 낮고 크게 + 0.09초 뒤 목 소리 `crack.wav`가 작은 꼬리), 금은 `break.wav`를 높게(×1.15) 작게, 골절은 `break.wav` 원래 높이에 `crack-hard.wav`를 겹친다. 그 전까지는 합성만 썼는데 사용자가 직접 샘플을 주며 바꿔 달라고 했다. 클릭 다발 합성은 "원래 소리가 제일 자연스럽다"는 피드백으로 되돌렸고, 합성 `pop`(+ `crackPattern` 뚝/두둑/우두둑)은 샘플이 decode되기 전의 폴백으로 남았다. 차임·틱·사이렌 `siren`·고무줄·손가락·룸톤은 합성이다. 배경음악 `bgm.m4a`(사용자 제공, AAC로 다시 인코딩)는 `<audio loop>`를 MediaElementSource로 gain에 물려 스트리밍한다(통째로 decode하면 폰 메모리 부담, iOS는 `audio.volume` 무시). 진료 중 0.22, 결과 화면 0.14, 사이렌 동안 0.06. 음악은 `T.music`으로 따로 끈다(오른쪽 위 "음악" 칩과 튜닝 패널 "배경음악", localStorage에 남음). `T.sound`("진료실 소음")는 룸톤만 켜고 끈다. 화면을 떠나면 멈추고, 컨텍스트를 다시 만들면 새 element가 이어서 재생한다. `vib` |
 | `game/feel.js` | `core/feel.js`를 현재 환자·튜닝으로 감싼 래퍼: `distAtNow`, `distNorm`(촬영용 `__FORCE_HIT__` 훅), `closeness`, `applyDelta`, `breath` |
 | `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `switchSide`(반대쪽) → … → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`). `S.target`은 환자 + 지금 쪽(`aimAt`). 새 환자가 오면 `PREP_MS`(2.2초) 준비 시간: `S.prepUntil`까지 `S.busy`가 켜져 있어 조준·판정·스냅이 모두 꺼지고, 그동안 손이 목을 더듬고 머리를 살살 흔든다(`loop.js`가 `S.prepUntil`을 읽는다). 환자 첫 마디 뒤 치료사가 "힘 빼세요…"(`PREP_LINES`). 호흡 시계(`breathT0`)는 준비 시작부터, `patientStart`(긴장형 축소·재촉 대사·호흡 안내)는 준비가 끝날 때부터. 반대쪽 전환에는 준비 시간이 없다 |
 | `ui/hud.js` | 토스트, 말풍선, 치료사 말 `coach`(어두운 알약 모양, 민트 글씨. 말풍선과 같은 높이라 나중 말이 앞 말을 지운다), 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |
@@ -118,7 +118,7 @@
 - 등급: 교정 1회당 평균(`crackAvg` = 점수 / (환자 수 × 2))으로 115 / 98 / 82 기준.
 - 특성: 긴장형(시간이 갈수록 허용 범위 최대 40% 축소, 호흡 빠름), 근육 뭉침(무거움 +0.25, 감도 ×0.8), 유연함(목표 회전 44–53°), 어르신(위험 한계 50°/22°, 목표 작음).
 
-튜닝 기본값(`DEFAULTS`): 감도 1.5, 위아래 1.0, 무거움 0.6, 허용 범위 1.0, 꺾는 속도 200°/s, 툭 세기 10 m/s². 사용자가 패널에서 바꾸면 localStorage에 남으므로, 기본값을 바꿔도 기존 사용자에게는 "기본값으로"를 눌러야 반영된다.
+튜닝 기본값(`DEFAULTS`): 감도 1.5, 위아래 1.0, 무거움 0.6, 허용 범위 1.0, 꺾는 속도 200°/s, 툭 세기 10 m/s², 배경음악 켬. 사용자가 패널에서 바꾸면 localStorage에 남으므로, 기본값을 바꿔도 기존 사용자에게는 "기본값으로"를 눌러야 반영된다.
 
 ---
 
