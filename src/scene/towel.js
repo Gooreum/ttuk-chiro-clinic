@@ -28,6 +28,31 @@ const frames = Array.from({length: N}, () => ({p: new THREE.Vector3(), q: new TH
 const RAND = Array.from({length: N}, (_, i) => [0, 1, 2].map(k => { const v = Math.sin((i + 1)*12.9898 + k*78.233)*43758.5453; return v - Math.floor(v); }));
 
 let model = null, bones = null, loading = false;
+/* The cloth-simulated towel (public/models/towel/towel_sim.glb, scripts/assets/towel_sim.py; user: "여전히 깁스잖아",
+   "목을 x자로 감고 있는게 자연스럽고 사실적으로", 2026-10-15): per patient a towel draped by Blender's cloth sim on that
+   patient's own head and neck, the middle under the back of the neck, the ends crossing in an X under the chin and up to
+   the opposite fists, the rest hanging out of them. Head-local, so it is a child of `head` and follows the head (the
+   stretch too). Morph "taut" = the fists pulled TOWEL_PULL toward the therapist; its weight is the tension. When it is
+   in, the bone towel below stays hidden. */
+let sim = null, simLoading = false;
+const simMeshes = {};
+function loadSim(){
+  simLoading = true;
+  Promise.all([loadModel("towel/towel_sim.glb"), getEnv()]).then(([g, env]) => {
+    g.scene.traverse(o => {
+      if(!o.isMesh) return;
+      const id = (o.name.match(/patient0\d/) || [])[0];
+      if(!id) return;
+      o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
+      o.material.envMap = env; o.material.envMapIntensity = 0.2;
+      if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
+      simMeshes[id] = o;
+    });
+    sim = new THREE.Group();
+    Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
+    head.add(sim);
+  }).catch(err => console.warn("simulated towel not loaded, keeping the bone towel", err));
+}
 function load(){
   loading = true;
   Promise.all([loadModel("towel/towel.glb"), getEnv()]).then(([g, env]) => {
@@ -66,7 +91,23 @@ const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(h
    (a fine tremble), slip: seconds since the towel slipped off (< 0 none): it flies up toward the therapist and is
    gone, then is back in the hands by SLIP_BACK. t: seconds (the hanging ends sway). */
 const SLIP_GONE = 0.7, SLIP_BACK = 1.3;
-export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0){
+export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patient = ""){
+  if(on && !sim && !simLoading) loadSim();
+  const simMesh = sim && simMeshes[patient];
+  if(simMesh){
+    // the simulated towel: shown for this patient only, tension blends slack -> taut, a slip throws it off
+    const showSim = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
+    Object.values(simMeshes).forEach(m => { m.visible = showSim && m === simMesh; });
+    if(model) model.visible = false;
+    ribbon.visible = false;
+    if(!showSim) return;
+    const k = simMesh.morphTargetDictionary && simMesh.morphTargetDictionary.taut;
+    if(k != null) simMesh.morphTargetInfluences[k] = Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
+    const u = slip >= 0 && slip < SLIP_GONE ? slip/SLIP_GONE : 0;
+    sim.position.set(0, 0.35*u*u + 0.05*u, -0.55*u*u);
+    sim.rotation.set(-2.5*u*u, 0, 0.8*u);
+    return;
+  }
   if(on && !model && !loading) load();
   const show = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
   if(model) model.visible = show;

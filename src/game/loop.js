@@ -235,7 +235,8 @@ export function frame(now){
       towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
   const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
-  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000);
+  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,
+    target && target.look ? target.look.model : "");
   updateTherapist(towel && S.phase === "play" && tv > 0.02);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
