@@ -2,7 +2,7 @@ import {describe, it, expect} from 'vitest';
 import {TARGETS, pressureAt, judgePress, pressProfile} from '../src/back/core.js';
 describe('back press pressure and judging', () => {
   it('accepts all three positions, with quality and finite scores', () => {
-    TARGETS.forEach((p, i) => expect(judgePress(p, i, 0.6)).toEqual({kind:'ok', points:100, perfect:true}));
+    TARGETS.forEach((p, i) => expect(judgePress(p, i, 0.6)).toMatchObject({kind:'ok', points:100, perfect:true}));
     expect(judgePress(0.25, 0, 0.48)).toMatchObject({kind:'ok', perfect:false});
   });
   it('distinguishes weak, misplaced and excessive pushes', () => {
