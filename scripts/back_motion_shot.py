@@ -121,7 +121,7 @@ async def main():
    await page.evaluate('window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),200);window.cancelAnimationFrame=id=>clearTimeout(id)')
    await page.click('#backStart');pose={'lr':0.,'pt':0.};await warm()
    await aim(min(.95,(await state())['targets'][0]+offset),pressure)
-   await send(forward=12,ms=180)
+   await send(forward=12,ms=400)
    assert (await state())['outcome']['feedback']==expected,(await state())
    await page.clock.fast_forward(1550)
    assert await page.locator('#backSpeech').is_visible()
