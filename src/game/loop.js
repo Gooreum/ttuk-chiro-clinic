@@ -40,7 +40,11 @@ function fadeMats(list, opacity, depthWrite){
   });
 }
 const camPos = new THREE.Vector3(), camTgt = new THREE.Vector3(), neckW = new THREE.Vector3(), faceW = new THREE.Vector3();
-let fz = 0;
+let fz = 0, tv = 0;
+/* Towel mode camera (user's reference video, 2026-10-15): third person, from above the patient's left hip looking up
+   the table at the head, the therapist bent over it at the head end. The pull (toward the therapist, -z) runs up the
+   screen on a diagonal, so the long neck and the stretching spine read. Eased in over ~1.2 s; the clinic stays first person. */
+const TV_POS = new THREE.Vector3(-0.32, 1.58, 0.68), TV_LOOK = new THREE.Vector3(0, 1.0, 0.02), _tvFace = new THREE.Vector3(-0.22, 0.3, 0.3);
 const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 // visual-only head pose on top of the aim (never read by judging: distAt / S.input / S.cur stay as they are)
@@ -252,26 +256,27 @@ export function frame(now){
   // and held at the side of the neck while the x-ray is up, easing back as it fades
   // while the neck snaps: part of the way round to the side of the neck, so the twist itself reads
   // towel mode: no push while the neck stretches (the long neck is the joke), the dolly waits for the x-ray
-  const zt = S.xrayIn > 0 ? (towel ? 0 : 0.34) : S.xrayHold > 0 ? 1 : ease(clamp(S.zoom*1.4, 0, 1));
+  const zt = S.xrayIn > 0 ? (towel ? 0 : 0.34) : S.xrayHold > 0 ? (towel ? 0.62 : 1) : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
   pivot.localToWorld(neckW.set(0, -0.01, target ? XRAY_LEVEL(target.seg - 1) : -0.03));
   const push = S.crackT >= 0 ? ease(clamp(S.crackT/XRAY_PRE, 0, 1)) : 0;
-  camPos.copy(camBase);
+  tv += ((towel && S.phase === "play" ? 1 : 0) - tv)*(1 - Math.exp(-rdt*3));
+  camPos.copy(camBase).lerp(TV_POS, ease(tv));
   if(!reduce){ camPos.x += Math.sin(now*0.0004)*0.012; camPos.y += Math.sin(now*0.00053)*0.008; }
   // swing round to the side of the neck: the spine lies across the landscape screen, the canal (and the cord in it)
   // shows between the bodies and the arches
   const orbitX = (target ? -target.side : 1)*0.2;
   camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
-  camTgt.copy(camLook).lerp(neckW, z*0.92);
+  camTgt.copy(camLook).lerp(TV_LOOK, ease(tv)).lerp(neckW, z*0.92);
   // towel mode: the head shoots out toward the camera, so the camera backs off and rises with it to keep the head
   // and the long neck in frame
-  if(stretch > 0){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
+  if(stretch > 0 && tv < 0.5){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
   // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
   // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
   if(!reduce){
-    const lu = ease(clamp(handSetup, 0, 1))*(1 - z), dip = S.thrust > 0 ? trunkDip((1 - S.thrust)*CRACK_LEN)*S.crackAmp : 0;
+    const lu = ease(clamp(handSetup, 0, 1))*(1 - z)*(1 - tv), dip = S.thrust > 0 ? trunkDip((1 - S.thrust)*CRACK_LEN)*S.crackAmp : 0;
     if(lu > 0.001){
       // toward the face, and the gaze tips down onto it, so the head rises a touch on screen (ring stays readable)
       head.localToWorld(faceW.set(0, 0.08, 0.04));
@@ -284,7 +289,8 @@ export function frame(now){
   fz += ((now > S.reactFrom && now < S.reactUntil ? 1 : 0) - fz)*(1 - Math.exp(-rdt*2.5));
   if(fz > 0.001){
     head.localToWorld(faceW.set(0, 0.08, 0.04));
-    camPos.lerp(tmpA.copy(faceW).add(tmpB.set(0, 0.3, -0.13)), 0.6*fz);
+    // first person: over the face from the head end; towel mode: in from the third-person side
+    camPos.lerp(tmpA.copy(faceW).add(tmpB.set(0, 0.3, -0.13).lerp(_tvFace, tv)), 0.6*fz);
     camTgt.lerp(faceW, 0.7*fz);
   }
   elHud.style.opacity = (1 - 0.85*fz).toFixed(3);       // the aim ring steps back off the face meanwhile

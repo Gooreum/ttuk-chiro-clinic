@@ -623,6 +623,7 @@ export function updateRealHands(st){
   head.getWorldQuaternion(_qH);
   // shoulders: the therapist's trunk, i.e. the camera's base position, following the camera's lean a little
   _camF.copy(camera.position).sub(camBase);
+  if(st.towel) _camF.set(0, 0, 0);   // towel mode: the camera is a third-person one, the trunk stays put
   if(_camF.length() > SHOULDER_FOLLOW_MAX) _camF.setLength(SHOULDER_FOLLOW_MAX);
   _camF.multiplyScalar(SHOULDER_FOLLOW);
   view.eye.copy(camBase).add(_camF);
