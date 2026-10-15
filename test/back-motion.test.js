@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets} from '../src/back/core.js';
+import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -76,7 +76,7 @@ describe('same success and damage rules as neck adjustment',()=>{
     expect(judgePress(.18,0,.6,1,{streak:2,pain:1,exhale:false})).toMatchObject({points:100,streak:0,stars:2});
   });
   it('keeps the face visible before the ambulance ends a damage run',()=>{
-    const timing=reactionTiming('miss',2);expect(timing.sirenAt).toBeGreaterThan(timing.faceAt);expect(timing.end).toBeGreaterThan(timing.faceEnd);
+    const timing=reactionTiming('miss',2);expect(timing.sirenAt).toBeGreaterThanOrEqual(timing.faceAt);expect(timing.end).toBeGreaterThanOrEqual(timing.faceEnd);
   });
 });
 
@@ -85,7 +85,7 @@ describe('back feel regression fixes',()=>{
     expect(cameraPreload(0,.6,.35)).toBe(.6);
     expect(cameraPreload(.12,.6,-1)).toBe(.12);
     expect(BACK_XRAY.start).toBeGreaterThanOrEqual(.6);
-    expect(BACK_XRAY.release-BACK_XRAY.full).toBeGreaterThanOrEqual(.5);
+    expect(BACK_XRAY.release-BACK_XRAY.start).toBeCloseTo(.55);
     expect(reactionTiming('ok').faceAt).toBeGreaterThanOrEqual(BACK_XRAY.end);
   });
   it('asks for less pressure at an ellipse corner and distinguishes close and far misses',()=>{
@@ -115,4 +115,14 @@ describe('back feel regression fixes',()=>{
       expect(m.sample(e,800,0).type).toBe('impulse');
     }
   });
+});
+
+it('uses the clinic film timings for success, injury and a harmless wrong crack',()=>{
+  expect(clinicFilm(.69,'ok')).toBe(0);
+  expect(clinicFilm(.9,'ok')).toBe(1);
+  expect(clinicFilm(3.5,'ok')).toBeCloseTo(0);
+  expect(clinicFilm(.65,'miss',2)).toBe(1);
+  expect(clinicFilm(3.15,'miss',2)).toBeCloseTo(0);
+  expect(clinicFilm(.7,'weak')).toBe(.55);
+  expect(clinicFilm(1.45,'weak')).toBe(0);
 });

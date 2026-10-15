@@ -1,8 +1,16 @@
-import {forceTier} from '../core/fail.js';
+import {forceTier,failKind,FAIL_AMP,FORCE_AMP} from '../core/fail.js';
+import {crackProfile} from '../core/crack.js';
 import {scoreSuccess} from '../core/scoring.js';
 // Game-only pressure and motion curves. No DOM, rendering or device dependencies.
 export const TARGETS = [0.18, 0.50, 0.82];
-export const BACK_XRAY={start:.7,full:1,release:1.55,released:2.35,fade:3.05,end:3.5};
+export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
+// Timing from clinic flow.js (XRAY_DELAY/FRAC_AT/FRAC_HOLD) and loop.js opacity speeds.
+export function clinicFilm(time,kind,tier=0){
+  if(time<0)return 0;
+  if(kind!=='ok'&&!tier)return time<.7?0:Math.max(0,1-(time-.7)*1.4)*.55;
+  const start=tier?.45:.7,hold=tier?2.3:2.4;
+  return Math.max(0,Math.min(1,(time-start)*5,1-Math.max(0,time-start-hold)*2.5));
+}
 export const makeBackTargets=(random=Math.random)=>TARGETS.map(p=>p+(random()-.5)*.10);
 // Keep the camera loaded until the radiograph takes over, independent of tissue rebound.
 export const cameraPreload=(pressure,peak,time)=>time>=0&&time<BACK_XRAY.end?peak:pressure;
@@ -26,22 +34,19 @@ export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhal
   let kind=pressure>SWEET.max?'over':Math.abs(position-targets[step])>POSITION_TOL?'miss':pressure<SWEET.min||force<1?'weak':d<=1+1e-9?'ok':pressure>SWEET.ideal?'over':'weak';
   if(!Number.isFinite(position)||!Number.isFinite(pressure)||!Number.isInteger(step)||step<0||step>=3)kind='miss';
   const tier=kind==='ok'?0:forceTier(force);
-  if(kind!=='ok')return {kind,feedback:kind==='miss'?(d<2?'dud':'finger'):kind,points:0,perfect:false,tier,d,streak:0,stars:0};
+  if(kind!=='ok')return {kind,feedback:failKind(kind==='over',kind==='weak'?Math.min(d,1.99):d),points:0,perfect:false,tier,d,streak:0,stars:0};
   const score=scoreSuccess(Math.min(1,d),exhale,streak,pain);
   return {...score,points:score.pts,kind,perfect:score.perfect,tier:0,d};
 }
 export function reactionTiming(kind,tier=0){
-  return tier?{faceAt:3.5,faceEnd:7.05,end:7.95,sirenAt:5.95}
-    :kind==='weak'||kind==='miss'?{faceAt:3.5,faceEnd:5.75,end:6.15}
-    :{faceAt:3.5,faceEnd:5.9,end:6.35};
+  return tier?{faceAt:3.15,faceEnd:5.65,end:5.65,sirenAt:3.15}
+    :kind!=='ok'?{faceAt:1.45,faceEnd:3.6,end:3.6}
+    :{faceAt:3.5,faceEnd:7.25,end:7.25};
 }
-export function pressProfile(t, kind = 'ok'){
-  if(!Number.isFinite(t) || t < 0 || t >= 0.9) return 0;
-  const rise = Math.sin(Math.min(1, t / 0.10) * Math.PI / 2);
-  const decay = t <= 0.10 ? 1 : Math.exp(-(t - 0.10) * 7);
-  const bounce = t <= 0.10 ? 1 : Math.cos((t - 0.10) * 16);
-  const amplitude = kind === 'over' ? 1.65 : kind === 'weak' ? 0.30 : kind === 'miss' ? 0.55 : 1;
-  return rise * decay * bounce * amplitude;
+// Exactly the clinic's load-up, thrust and damped return; only the destination is the back.
+export function pressProfile(t,kind='ok',tier=0,feedback='dud'){
+  const amp=tier?FORCE_AMP[tier]:kind==='ok'?1:FAIL_AMP[kind==='over'?'over':feedback];
+  return crackProfile(t).rot/15*amp;
 }
 export function formatRank(score, mistakes){
   return mistakes >= 3 ? '침대도 쉬고 싶대요' : score >= 330 ? '손끝에서 오케스트라' : score >= 250 ? '허리까지 시원한 원장님' : '오늘도 한 뚝 배웠어요';

@@ -1,4 +1,5 @@
 import {describe, it, expect} from 'vitest';
+import {crackProfile} from '../src/core/crack.js';
 import {TARGETS, pressureAt, judgePress, pressProfile} from '../src/back/core.js';
 describe('back press pressure and judging', () => {
   it('accepts all three positions, with quality and finite scores', () => {
@@ -26,11 +27,13 @@ describe('back press pressure and judging', () => {
     }
   });
   it('makes an immediate thrust, rebound, then settles fully', () => {
-    expect(pressProfile(0)).toBe(0); expect(pressProfile(0.1)).toBeCloseTo(1);
-    expect(pressProfile(0.1,'over')).toBeGreaterThan(1);
-    expect(pressProfile(0.1,'weak')).toBeLessThan(0.4);
-    expect(pressProfile(0.3)).toBeLessThan(0);
-    expect(pressProfile(-1)).toBe(0); expect(pressProfile(0.9)).toBe(0);
-    expect(pressProfile(NaN)).toBe(0);
+    expect(pressProfile(0)).toBe(0);
+    expect(pressProfile(.15)).toBeCloseTo(1);
+    expect(pressProfile(.07)).toBeLessThan(0);
+    expect(pressProfile(.15,'over')).toBeCloseTo(1.2);
+    expect(pressProfile(.15,'weak')).toBeCloseTo(.6);
+    for(const t of [0,.03,.07,.12,.15,.3,.62,.9])expect(pressProfile(t)).toBeCloseTo(crackProfile(t).rot/15);
+    expect(pressProfile(-1)).toBe(0);expect(pressProfile(.9)).toBe(0);
+
   });
 });

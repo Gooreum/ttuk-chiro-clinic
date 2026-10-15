@@ -84,7 +84,7 @@ async def main():
    st=await state();assert st['faceVisible'],st
    assert await page.locator('#backSpeech').is_visible()
    if step==0:await page.screenshot(path=str(OUT/'06-face-relief.png'))
-   await page.clock.fast_forward(3000)
+   await page.clock.fast_forward(3700)
    st=await state();assert len(st['results'])==step+1,st
    if step<2:
     for _ in range(8):await send(ms=100)
@@ -104,9 +104,9 @@ async def main():
   await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim((await state())['targets'][0])
   await send(forward=7.5,ms=150)
   assert (await state())['kind']=='weak'
-  await page.clock.fast_forward(3700);await page.screenshot(path=str(OUT/'10-face-weak.png'))
+  await page.clock.fast_forward(1700);await page.screenshot(path=str(OUT/'10-face-weak.png'))
   assert await page.locator('#backSpeech').is_visible()
-  await page.clock.fast_forward(2500)
+  await page.clock.fast_forward(2100)
   assert (await state())['phase']=='play'
   assert await page.locator('#backMissMark').is_visible()
   assert await page.locator('#backAnswer').is_visible()
@@ -115,6 +115,18 @@ async def main():
   await page.click('#backPause');before=(await state())['mistakes'];await send(forward=45,ms=200)
   assert (await state())['mistakes']==before
   await page.click('#backResume')
+  # The clinic's three harmless wrong-crack scenarios retain their distinct names and faces.
+  for label,offset,pressure,expected in [('12-over',0,1.0,'over'),('13-dud',.15,.6,'dud'),('14-finger',.65,.6,'finger')]:
+   await page.reload();await page.wait_for_selector('html[data-back-ready="true"]',state='attached',timeout=90000)
+   await page.evaluate('window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),200);window.cancelAnimationFrame=id=>clearTimeout(id)')
+   await page.click('#backStart');pose={'lr':0.,'pt':0.};await warm()
+   await aim(min(.95,(await state())['targets'][0]+offset),pressure)
+   await send(forward=12,ms=180)
+   assert (await state())['outcome']['feedback']==expected,(await state())
+   await page.clock.fast_forward(1550)
+   assert await page.locator('#backSpeech').is_visible()
+   await page.screenshot(path=str(OUT/(label+'.png')))
+  print('clinic over/dud/finger scenarios passed',flush=True)
   # Permission denial has an explicit fallback, rather than silently becoming a button game.
   await page.reload();await page.wait_for_selector('html[data-back-ready="true"]',state='attached',timeout=90000)
   await page.evaluate("() => {Object.defineProperty(DeviceMotionEvent,'requestPermission',{value:()=>Promise.resolve('denied'),configurable:true});}")
