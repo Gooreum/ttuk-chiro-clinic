@@ -411,14 +411,14 @@ export async function createBackScene(canvas, view = {}){
     for (const [n, b] of Object.entries(bones)) b.quaternion.copy(REST[n]);
     ther.updateMatrixWorld(true);
     // the body weight drops onto the hands: hip hinge + rounded upper back (+ about z = forward, toward -x)
-    const r = THREE.MathUtils.degToRad(lean),hip=r*.3*move.power;
+    const r = THREE.MathUtils.degToRad(lean),hip=r*.3;
     if(bones.pelvis)worldRotate(bones.pelvis,new THREE.Quaternion().setFromAxisAngle(ZAXIS,hip));
     const knee=THREE.MathUtils.degToRad(move.knee);
     for(const sd of ['l','r'])for(const [name,angle] of [['thigh_',-hip-knee*.5],['calf_',knee],['foot_',-knee*.5]]){
       if(bones[name+sd])worldRotate(bones[name+sd],new THREE.Quaternion().setFromAxisAngle(ZAXIS,angle));
     }
     for (const [n, s] of [["spine_01", 0.45], ["spine_02", 0.3], ["spine_03", 0.25]])
-      if (bones[n]) worldRotate(bones[n], new THREE.Quaternion().setFromAxisAngle(ZAXIS, r*s*(1-.3*move.power)));
+      if (bones[n]) worldRotate(bones[n], new THREE.Quaternion().setFromAxisAngle(ZAXIS, r*s*.7));
     if (bones.head) worldRotate(bones.head, new THREE.Quaternion().setFromAxisAngle(ZAXIS, -r*0.4));
     // arms: two-bone IK to the stacked hands; hands keep their bind orientation
     const shift = contact.clone().sub(C0);
@@ -511,11 +511,11 @@ export async function createBackScene(canvas, view = {}){
     st.lastCompleted = completed;
 
     // depth under the hands: preload + thrust + the cushion rebound (negative = springs above the rest)
-    let depth = pressure*PRELOAD + impulse*DEPTH.ok;
+    let depth = pressure*PRELOAD + impulse*DEPTH.ok+move.compression;
     const snap=Math.max(0,impulse);
     patientRoot.rotation.x=0;
     patientRoot.rotation.z=forceTier&&shotTime>=0?Math.sin(shotTime*(forceTier===2?32:23))*feel.settle*Math.exp(-shotTime*(forceTier===2?1.6:3)):0;
-    patientRoot.position.y=-snap*.008;
+    patientRoot.position.y=-snap*.008-move.compression*.45;
     depth=Math.max(depth,-.028);
 
     // the press point on the back follows the hands
