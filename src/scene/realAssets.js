@@ -722,7 +722,8 @@ export function updateRealHands(st){
       _qR.slerp(_qB, w.towel);
       grip += (1.2*(1 - sl) - grip)*w.towel;
       // an over-pull: he goes over backwards (scene/therapist.js), lets go of the towel and the arms fly up, hands open
-      const fl = clamp((st.fall || 0)*1.6, 0, 1);
+      // (core/towel.js letGoProfile: at once, before the body has moved, so the arms go over with him)
+      const fl = clamp(st.drop || 0, 0, 1);
       if(fl > 0.001 && st.shoulder && st.shoulder(s, _shT)){
         const wob = 0.03*Math.sin(t*9 + s);
         _v2.copy(_shT).add(_v.set(s*(0.16 + wob), 0.4, 0.08 + wob));
@@ -742,6 +743,12 @@ export function updateRealHands(st){
     const onBody = w.towel > 0.001 && st.shoulder && st.shoulder(s, _shT);
     if(onBody) _sh.lerp(_shT, w.towel);
     if(arm.seen && !onBody) arm.shoulder.lerp(_sh, 1 - Math.exp(-dt*8)); else arm.shoulder.copy(_sh);
+    // on the body the shoulder stays where it is and the hand comes along out of reach (solveArm would pull the
+    // shoulder off the body toward the hand instead)
+    if(onBody && _W.distanceTo(arm.shoulder) > ARM_MAX){
+      _v.copy(_W); _W.sub(arm.shoulder).setLength(ARM_MAX).add(arm.shoulder);
+      arm.palm.add(_v.subVectors(_W, _v));
+    }
     const wr = Math.max(0, 1 - w.contact - w.support);
     _pole.set(0, 0, 0);
     [["rest", wr], ["contact", w.contact], ["support", w.support]].forEach(([n, ww]) => {
