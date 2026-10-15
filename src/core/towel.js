@@ -59,6 +59,25 @@ export const PREPULL = 0.015;
    so the neck takes the rest (user: "목 아래는 거의 안움직이면서(조금은 움직여야돼) 목부터는 확 잡아 댕기는", 2026-10-16;
    the whole patient sliding killed the yank, the neck alone stretching 9 cm read as a tongue). */
 export const BODY_SHARE = 0.15;
+/* How much of a body-mesh vertex follows the neck bone (scene/realAssets.js neckColumn): t, how far down the neck column
+   from the head seam (1 = its base, NECK_LEN seam radii down), r, the distance from the column's axis, R0 the seam
+   radius. Only the thin column follows, linearly so the stretch spreads over its length; the trapezius slope and the
+   shoulders (r >= 1.5 R0) stay on the trunk (user: "승모근이 그대로 올라오냐고.. 더 얇게 올라와야", 2026-10-16). */
+export const NECK_LEN = 1.3, NECK_IN = 1.2, NECK_OUT = 1.5;
+export function neckWeight(t, r, R0){
+  const axial = Math.min(1, Math.max(0, (1 - t)/0.95));   // the seam ring's few mm of slope stay fully on the head
+  const u = Math.min(1, Math.max(0, (r/R0 - NECK_IN)/(NECK_OUT - NECK_IN)));
+  return axial*(1 - u*u*(3 - 2*u));
+}
+/* The whole neck draws out, not one piece of it (user: "목 뽑혀 나갈때 진짜 목이 자연스럽게 뽑혀 나가야지 ... 그것만
+   길게 뽑냐", 2026-10-16): the upper neck on the head mesh (from under the jaw, HEAD_NECK_LEN seam radii, down to the
+   seam) takes UPPER_SHARE of the stretch, the column on the body the rest, both linearly. */
+export const HEAD_NECK_LEN = 0.7, UPPER_SHARE = 0.35;
+/* As it draws out it thins like a real neck would, a little more than keeping its volume (a neck NECK_REST m long):
+   a share of the
+   radius, capped at PINCH; even along the neck, easing off near the jaw and the collarbones (scene/realAssets.js). */
+export const NECK_REST = 0.14, PINCH = 0.5;
+export const neckPinch = stretch => Math.min(PINCH, 1.5*(1 - Math.sqrt(NECK_REST/(NECK_REST + Math.max(0, stretch)))));
 /* The x-ray spine follows the stretch (scene/xray.js): the head end moves by sm (model units), the body end stays, and
    the pull spreads over 8 gaps (skull-C1, C1-C2, six discs), so C(k+1) moves sm*(7-k)/8: C1 7/8, C7 1/8. */
 export const spineOffsets = sm => Array.from({length: 7}, (_, k) => sm*(7 - k)/8);

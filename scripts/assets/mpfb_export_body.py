@@ -24,7 +24,7 @@ ARGS=sys.argv[sys.argv.index("--")+1:]
 OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if len(ARGS)>2 else 16
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
 AO_MIX=0.7
-NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0
+NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0 (the game redoes the skin's weights about the neck column on load, src/scene/realAssets.js neckColumn)
 BREATH_CHEST=0.026   # rib cage rise at full inhale (metres)
 BREATH_BELLY=0.016   # belly rise at full inhale: a broad soft swell, never a bulge
 SHRUG=0.03           # shoulders lift toward the head at full inhale (metres): the move that reads from the head end

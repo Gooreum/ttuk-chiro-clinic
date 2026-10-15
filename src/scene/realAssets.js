@@ -4,6 +4,7 @@ import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
 import { flinchProfile } from "../core/fail.js";
+import { neckWeight, neckPinch, NECK_LEN, HEAD_NECK_LEN, UPPER_SHARE } from "../core/towel.js";
 import { clamp } from "../lib/math.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
@@ -150,6 +151,7 @@ function placeBody(gltf, env, g, model){
     }
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if(!name.endsWith(".skin") && o.isSkinnedMesh) pinToBody(o);
+    if(name.endsWith(".skin") && o.isSkinnedMesh) neckColumn(o, m, model);
     if(model) (model.bodyMeshes || (model.bodyMeshes = [])).push(o);
     if(o.morphTargetDictionary && o.morphTargetDictionary.breath !== undefined) morphs.push(o);
   });
@@ -171,6 +173,126 @@ function pinToBody(o){
   for(let i = 0; i < si.array.length; i++) if(si.array[i] === ni) si.array[i] = bi;
   si.needsUpdate = true;
 }
+/* The neck stretches as a neck (user: "목이 과장되게 늘어날거면 진짜 목처럼 늘어나야지. 지금은 무슨 승모근이 그대로
+   올라오냐고.. 더 얇게 올라와야 한다고", 2026-10-16). scripts/assets/mpfb_export_body.py fades the neck bone's weight by
+   straight distance from the head seam, so it spilled sideways onto the trapezius slope and the shoulders rode up with
+   the neck. Here the skin's weights are redone about the column's axis (core/towel.js neckWeight): only the thin column
+   under the seam follows; it thins evenly as it stretches, easing off at the collarbones (a vertex-shader pinch, uPinch set per frame;
+   neckHead does the upper neck on the head mesh). Geometry space: the body stands along +y with the seam ring on top. */
+/* The mesh is coarse where the neck meets the shoulders: the radial cut-off left triangles going from 0.8 to 0 in one
+   step, which tore into slivers as the neck drew out. A few rounds of averaging over the mesh neighbours soften it;
+   vertices split at the same spot (UV seams) are kept equal so the skin does not crack. */
+function smoothWeights(geo, w, fixed, rounds){
+  const P = geo.attributes.position, n = P.count, idx = geo.index ? geo.index.array : null;
+  if(!idx) return;
+  const key = new Map(), weld = new Int32Array(n);
+  for(let i = 0; i < n; i++){
+    const k = Math.round(P.getX(i)*1e4) + "," + Math.round(P.getY(i)*1e4) + "," + Math.round(P.getZ(i)*1e4);
+    if(!key.has(k)) key.set(k, key.size);
+    weld[i] = key.get(k);
+  }
+  const m = key.size, sum = new Float32Array(m), cnt = new Float32Array(m), cur = new Float32Array(m), pin = new Uint8Array(m);
+  for(let i = 0; i < n; i++){ cur[weld[i]] = w[i]; if(fixed[i]) pin[weld[i]] = 1; }
+  for(let r = 0; r < rounds; r++){
+    sum.fill(0); cnt.fill(0);
+    for(let f = 0; f < idx.length; f += 3) for(let e = 0; e < 3; e++){
+      const a = weld[idx[f + e]], b = weld[idx[f + (e + 1)%3]];
+      sum[a] += cur[b]; cnt[a]++; sum[b] += cur[a]; cnt[b]++;
+    }
+    for(let v = 0; v < m; v++) if(!pin[v] && cnt[v]) cur[v] = 0.5*cur[v] + 0.5*sum[v]/cnt[v];
+  }
+  for(let i = 0; i < n; i++) w[i] = cur[weld[i]];
+}
+// a drawn-out neck is a cylinder: the slope's normals (along the neck's axis, +-y) turn out to the side with the stretch,
+// or the stretched skin keeps the shoulder slope's shading and reads as a dark band
+const NECK_NORMAL = a => `  objectNormal.y *= 1.0 - clamp(uPinch*4.0, 0.0, 1.0)*${a}*0.85; objectNormal = normalize(objectNormal);`;
+function neckColumn(o, mat, model){
+  const bones = o.skeleton.bones, ni = bones.findIndex(b => b.name === "neck"), bi = bones.findIndex(b => b.name === "body");
+  if(ni < 0 || bi < 0) return;
+  const P = o.geometry.attributes.position, n = P.count;
+  let top = -Infinity;
+  for(let i = 0; i < n; i++) top = Math.max(top, P.getY(i));
+  let cx = 0, cz = 0, k = 0, R0 = 0;
+  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004){ cx += P.getX(i); cz += P.getZ(i); k++; }
+  cx /= k; cz /= k;
+  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004) R0 += Math.hypot(P.getX(i) - cx, P.getZ(i) - cz)/k;
+  const si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight, full = sw.normalized ? 255 : 1;
+  const ws = new Float32Array(n), fixed = new Uint8Array(n);
+  for(let i = 0; i < n; i++){
+    const r = Math.hypot(P.getX(i) - cx, P.getZ(i) - cz);
+    ws[i] = neckWeight((top - P.getY(i))/(NECK_LEN*R0), r, R0);
+    if(P.getY(i) > top - 0.004 || r > 2*R0) fixed[i] = 1;           // the seam ring stays on the head, the shoulders on the trunk
+  }
+  smoothWeights(o.geometry, ws, fixed, 4);
+  const pinch = new Float32Array(n);
+  for(let i = 0; i < n; i++){
+    const w = ws[i];
+    si.array.set([bi, ni, 0, 0], i*4);
+    sw.array.set([Math.round((1 - w)*full), Math.round(w*full), 0, 0], i*4);
+    pinch[i] = w;
+  }
+  si.needsUpdate = sw.needsUpdate = true;
+  o.geometry.setAttribute("aPinch", new THREE.BufferAttribute(pinch, 1));
+  const uPinch = {value: 0}, uNeckC = {value: new THREE.Vector3(cx, 0, cz)};
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uPinch = uPinch; sh.uniforms.uNeckC = uNeckC;
+    sh.vertexShader = "attribute float aPinch;\nuniform float uPinch;\nuniform vec3 uNeckC;\n" + sh.vertexShader.replace("#include <morphtarget_vertex>",
+      "#include <morphtarget_vertex>\n  { vec2 d = transformed.xz - uNeckC.xz; transformed.xz = uNeckC.xz + d*(1.0 - uPinch*smoothstep(0.0, 0.4, aPinch)); }")
+      .replace("#include <morphnormal_vertex>", "#include <morphnormal_vertex>\n" + NECK_NORMAL("aPinch"));
+  };
+  mat.customProgramCacheKey = () => "neckColumn";
+  if(model){ model.neckPinch = uPinch; model.neckSkin = o; }
+}
+/* The upper neck on the head mesh draws out too (core/towel.js UPPER_SHARE): its vertices from the seam up to under the
+   jaw lag back toward the body (uLag, the head's geometry +y points to the crown) and thin with the column. The seam
+   ring, found from the body's seam in world space, gives the axis; once both meshes of a patient are placed. */
+const _hv = new THREE.Vector3(), _hm = new THREE.Matrix4(), _hs = new THREE.Vector3();
+function neckHead(model){
+  const bo = model.neckSkin, ho = model.skinMesh;
+  if(!bo || !ho || !model.neckPinch) return;
+  // at rest: the pivot unturned, as placeBody laid the body frame out (its neck bone is still at rest, nothing drives it yet)
+  const rot = pivot.rotation.clone();
+  pivot.rotation.set(0, 0, 0); pivot.updateMatrixWorld(true);
+  model.body.updateWorldMatrix(true, true); ho.updateWorldMatrix(true, false);
+  const BP = bo.geometry.attributes.position, SI = bo.geometry.attributes.skinIndex.array, SW = bo.geometry.attributes.skinWeight;
+  const full = SW.normalized ? 255 : 1, inv = new THREE.Matrix4().copy(ho.matrixWorld).invert();
+  let top = -Infinity;
+  for(let i = 0; i < BP.count; i++) top = Math.max(top, BP.getY(i));
+  const ring = [];
+  for(let i = 0; i < BP.count; i++){
+    if(BP.getY(i) <= top - 0.004) continue;
+    const p0 = new THREE.Vector3().fromBufferAttribute(BP, i).applyMatrix4(bo.bindMatrix), acc = new THREE.Vector3();
+    for(let k = 0; k < 4; k++){
+      const w = SW.array[i*4 + k]/full, b = SI[i*4 + k];
+      if(w) acc.addScaledVector(_hv.copy(p0).applyMatrix4(_hm.multiplyMatrices(bo.skeleton.bones[b].matrixWorld, bo.skeleton.boneInverses[b])), w);
+    }
+    ring.push(acc.applyMatrix4(inv));
+  }
+  pivot.rotation.copy(rot); pivot.updateMatrixWorld(true);
+  if(!ring.length) return;
+  const c = ring.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1/ring.length);
+  const R0 = ring.reduce((a, p) => a + Math.hypot(p.x - c.x, p.z - c.z), 0)/ring.length;
+  const P = ho.geometry.attributes.position, aw = new Float32Array(P.count), fixed = new Uint8Array(P.count);
+  for(let i = 0; i < P.count; i++){
+    const r = Math.hypot(P.getX(i) - c.x, P.getZ(i) - c.z);
+    aw[i] = neckWeight((P.getY(i) - c.y)/(HEAD_NECK_LEN*R0), r, R0);
+    if((P.getY(i) < c.y && r < 1.2*R0) || r > 2*R0) fixed[i] = 1;    // the skirt under the seam rides with it; the jaw and skull stay
+  }
+  smoothWeights(ho.geometry, aw, fixed, 4);
+  ho.geometry.setAttribute("aNeck", new THREE.BufferAttribute(aw, 1));
+  ho.matrixWorld.decompose(_hv, new THREE.Quaternion(), _hs);
+  const uLag = {value: 0}, uNeckC = {value: c.clone()}, uPinch = model.neckPinch, mat = ho.material, prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    if(prev) prev(sh, r);
+    sh.uniforms.uLag = uLag; sh.uniforms.uPinch = uPinch; sh.uniforms.uNeckC = uNeckC;
+    sh.vertexShader = "attribute float aNeck;\nuniform float uLag;\nuniform float uPinch;\nuniform vec3 uNeckC;\n" + sh.vertexShader.replace("#include <morphtarget_vertex>",
+      "#include <morphtarget_vertex>\n  { vec2 d = transformed.xz - uNeckC.xz; transformed.xz = uNeckC.xz + d*(1.0 - uPinch*smoothstep(0.0, 0.4, aNeck)); transformed.y -= uLag*aNeck; }")
+      .replace("#include <morphnormal_vertex>", "#include <morphnormal_vertex>\n" + NECK_NORMAL("aNeck"));
+  };
+  mat.customProgramCacheKey = () => "neckHead";
+  mat.needsUpdate = true;
+  model.neckLag = uLag; model.headUnit = _hs.x;     // world metres per head geometry unit
+}
 const current = () => wantModel && real.models[wantModel];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
@@ -185,8 +307,12 @@ export function updateRealBody(fill, s = 0, body = s){
   if(!cur || !cur.body.visible) return;
   const {morphs, neck, parentInv, neckRest, z0} = cur.body.userData;
   cur.body.position.z = z0 - body;
+  // the upper neck on the head takes UPPER_SHARE of the stretch, so the seam and the neck bone lag the head by that much
+  const lag = Math.max(0, s - body)*(cur.neckLag ? UPPER_SHARE : 0);
+  if(cur.neckPinch) cur.neckPinch.value = neckPinch(s - body);
+  if(cur.neckLag) cur.neckLag.value = lag/cur.headUnit;
   pivot.updateMatrix();
-  _D.makeTranslation(0, 0, body).multiply(pivot.matrix).multiply(_St.makeTranslation(0, 0, -s)).multiply(_P0);
+  _D.makeTranslation(0, 0, body).multiply(pivot.matrix).multiply(_St.makeTranslation(0, 0, -(s - lag))).multiply(_P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
@@ -198,6 +324,7 @@ function loadPatientModel(id){
   return Promise.all([load(BASE + `${id}/${id}.glb`), load(BASE + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
     model.head = placeHead(gh, env, MODELS[id], model);
     model.body = placeBody(gb, env, MODELS[id], model);
+    neckHead(model);
     real.models[id] = model;
     if(wantModel === id) setRealPatient(id, lastLook);
   });
