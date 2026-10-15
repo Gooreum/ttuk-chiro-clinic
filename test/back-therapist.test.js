@@ -9,13 +9,18 @@ it('keeps a light press grounded and makes the strongest shove jump, land and re
   expect(recoil.roll).toBeLessThan(0);expect(recoil.x).toBeGreaterThan(.2);expect(recoil.y).toBeGreaterThan(.15);expect(recoil.handAway).toBeGreaterThan(.15);
   expect(therapistMotion(2,4.4,2)).toMatchObject({x:0,y:0,wide:0});
 });
-it('plants a normal press with body weight, holds the compression, then releases without jumping',()=>{
-  const hit=therapistMotion(.15,1.2),hold=therapistMotion(.28,1.2),weak=therapistMotion(.15,.75);
-  expect(hit.x).toBeLessThan(-.1);expect(hit.y).toBeLessThan(-.04);
-  expect(hit.knee).toBeGreaterThan(15);expect(hit.lean).toBeGreaterThan(15);
+it('keeps every non-injury press compact and planted, with pressure in the hands rather than a squat',()=>{
+  const hit=therapistMotion(.15,1.2),hold=therapistMotion(.24,1.2),weak=therapistMotion(.15,.75);
+  expect(Math.abs(hit.x)).toBeLessThan(.03);expect(Math.abs(hit.y)).toBeLessThan(.01);
+  expect(hit.knee).toBe(0);expect(hit.lean).toBeGreaterThan(8);
   expect(hold.compression).toBeCloseTo(hit.compression);
   expect(weak.compression).toBeLessThan(hit.compression*.3);
-  for(let t=0;t<.7;t+=.01){expect(therapistMotion(t,1.2).y).toBeLessThanOrEqual(0);expect(therapistMotion(t,1.2).handLift).toBe(0);}
+  for(const force of [1,1.2,1.8,2.49])for(let t=0;t<1.5;t+=.01){
+    const m=therapistMotion(t,force);
+    expect(m.y).toBeLessThanOrEqual(0);expect(m.knee).toBe(0);
+    expect(m.handLift).toBe(0);expect(m.handAway).toBe(0);expect(m.wide).toBe(0);
+    expect(therapistStyle(force).impactAt).toBe(.15);
+  }
   expect(therapistMotion(.65,1.2)).toMatchObject({x:0,y:0,compression:0});
 });
 it('synchronises contact pressure and the radiograph with the actual landing',()=>{
