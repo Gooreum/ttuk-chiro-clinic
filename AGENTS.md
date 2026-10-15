@@ -36,7 +36,7 @@
 |---|---|
 | `tuning.js` | `DEFAULTS`, `T`(localStorage `chiroTune`), `saveT`, `resetT`. 튜닝 패널과 1:1 |
 | `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·증상 쪽 회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·교정 반응 풀 `react`(`jolt`/`ahh`/`first`/`then`/`big`)·대사 `lines`(교정 뒤 `sigh`/`what`/`ahh`/`after`/`done`)), `REVIEWS`, `makePatients()`(매 판 양쪽 목표 각도 `sides`와 위험 한계 `limR/limB` 랜덤) |
-| `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`), `crack.js`(`crackProfile` 교정 순간 목의 움직임), `faceRig.js`(표정 가중치, `pickReaction`), `cue.js`(준비 시간 `PREP_MS`·준비 대사, 호흡 안내 `breathCue`), `fail.js`(잘못 꺾었을 때 연출 종류 `failKind`, 환자 실패 대사 `failLine`, 고무줄 출렁 `boingProfile`, 손 털기 `flinchProfile`, 진료 일지 후기 `reviewLine`, 실패 도장 `FAIL_STAMP`, 일지 실패 칩 `failTags`, 꺾은 세기 단계 `forceTier`), `crackPattern.js`(뼈 소리 패턴 `crackPattern` 뚝/두둑/우두둑/드드득, 금·골절 `crunchPattern`) |
+| `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`), `crack.js`(`crackProfile` 교정 순간 목의 움직임), `faceRig.js`(표정 가중치, `pickReaction`), `cue.js`(준비 시간 `PREP_MS`·준비 대사, 호흡 안내 `breathCue`), `fail.js`(잘못 꺾었을 때 연출 종류 `failKind`, 환자 실패 대사 `failLine`, 고무줄 출렁 `boingProfile`, 손 털기 `flinchProfile`, 진료 일지 후기 `reviewLine`, 실패 도장 `FAIL_STAMP`, 일지 실패 칩 `failTags`, 꺾은 세기 단계 `forceTier`), `crackPattern.js`(교정 소리 패턴 `crackPattern` 뚝/두둑/우두둑) |
 | `scene/renderer.js` | 렌더러·씬·카메라·조명. ACES 톤매핑, 그림자는 `sun` 하나만 |
 | `scene/textures.js` | 캔버스 텍스처(나무 바닥, 러그, 경추 포스터, 자격증). 폰트 로드 후 `redraw()` |
 | `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
@@ -49,7 +49,7 @@
 | `input/orientation.js` | `resize()`, `layout()`, `physAngle()`, 셀프 회전 가로 화면(3-4) |
 | `input/motion.js` | `onMotion`, `snap`, `gSign`, `aimHist`, `live`(3-1~3-3) |
 | `input/pointer.js` | 드래그/스와이프/키보드 폴백, "중앙으로" 버튼 |
-| `audio/audio.js` | WebAudio 합성(뼈 소리 `bone`, 차임, 틱, 구급차 `siren`, 배경음), `vib`. 뼈 소리는 잡음 알갱이 6개 중 무작위로 고른 미세 클릭 2~5개 다발(넓은 대역, Q 0.7~1.5) + 저역통과 잡음 "툭" + 13/21ms 짧은 반사음이다. 예전에는 같은 잡음 버퍼 하나를 Q 6 좁은 대역으로 걸러(음높이가 남음) 사인파 미끄럼 위에 얹어 "기계음 같다"는 지적을 받았다(2026-10-15). 매번 `crackPattern`이 패턴과 높이·세기·간격을 새로 뽑는다 |
+| `audio/audio.js` | WebAudio 합성(뚝 소리 3겹 `pop`, 차임, 틱, 구급차 `siren`, 배경음), `vib`. 교정 소리는 매번 `crackPattern`이 뚝/두둑/우두둑과 간격(45~95ms)·높이(900~2300Hz)를 새로 뽑는다(PERFECT는 우두둑). 소리 하나하나는 원래 `pop` 그대로다. 잡음 알갱이 클릭 다발로 바꿔 봤지만 원래 소리가 더 자연스럽다는 피드백(사용자: "원래 소리가 제일 자연스럽다", 2026-10-15)으로 되돌렸다 |
 | `game/feel.js` | `core/feel.js`를 현재 환자·튜닝으로 감싼 래퍼: `distAtNow`, `distNorm`(촬영용 `__FORCE_HIT__` 훅), `closeness`, `applyDelta`, `breath` |
 | `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `switchSide`(반대쪽) → … → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`). `S.target`은 환자 + 지금 쪽(`aimAt`). 새 환자가 오면 `PREP_MS`(2.2초) 준비 시간: `S.prepUntil`까지 `S.busy`가 켜져 있어 조준·판정·스냅이 모두 꺼지고, 그동안 손이 목을 더듬고 머리를 살살 흔든다(`loop.js`가 `S.prepUntil`을 읽는다). 환자 첫 마디 뒤 치료사가 "힘 빼세요…"(`PREP_LINES`). 호흡 시계(`breathT0`)는 준비 시작부터, `patientStart`(긴장형 축소·재촉 대사·호흡 안내)는 준비가 끝날 때부터. 반대쪽 전환에는 준비 시간이 없다 |
 | `ui/hud.js` | 토스트, 말풍선, 치료사 말 `coach`(어두운 알약 모양, 민트 글씨. 말풍선과 같은 높이라 나중 말이 앞 말을 지운다), 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |

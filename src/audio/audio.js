@@ -1,9 +1,9 @@
 import { T } from "../tuning.js";
 import { S } from "../game/state.js";
-import { crackPattern, crunchPattern } from "../core/crackPattern.js";
+import { crackPattern } from "../core/crackPattern.js";
 
-/* WebAudio synthesis only (no sample files): bone cracks, chime, tick, siren, room tone. */
-let ac = null, master = null, ambGain = null, grains = [], thudBuf = null, roomIn = null;
+/* WebAudio synthesis only (no sample files): 3-layer crack, chime, tick, siren, room tone. */
+let ac = null, noiseBuf = null, master = null, ambGain = null;
 /* stale: the page was hidden. iOS Safari leaves the context "interrupted" (not "suspended") after a trip to
    another app, and sometimes "running" but silent, so the first tap after coming back rebuilds it. */
 let stale = false;
@@ -13,18 +13,9 @@ export function ensureAudio(){
       ac = new (window.AudioContext || window.webkitAudioContext)();
       ac.onstatechange = () => { if(ac && ac.state === "interrupted") stale = true; };
       master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);
-      // crack grains: six different noise bursts, each its own decay and grit (sparse spikes), picked at random per click
-      grains = [];
-      for(let k=0;k<6;k++){
-        const b = ac.createBuffer(1, Math.floor(ac.sampleRate*0.03), ac.sampleRate), g = b.getChannelData(0), ex = 3 + k*1.2;
-        for(let i=0;i<g.length;i++) g[i] = ((Math.random()*2-1) + (Math.random() < 0.04 ? (Math.random()*2-1)*3 : 0)) * Math.pow(1 - i/g.length, ex);
-        grains.push(b);
-      }
-      thudBuf = ac.createBuffer(1, Math.floor(ac.sampleRate*0.3), ac.sampleRate);
-      { const t = thudBuf.getChannelData(0); for(let i=0;i<t.length;i++) t[i] = (Math.random()*2-1) * Math.pow(1 - i/t.length, 3); }
-      // a short wet early reflection (two taps, 13 / 21 ms) so a crack isn't bone-dry and synthetic
-      roomIn = ac.createGain(); roomIn.gain.value = 0.16;
-      for(const [dl, gv] of [[0.013, 1], [0.021, 0.6]]){ const dn = ac.createDelay(0.05); dn.delayTime.value = dl; const lp2 = ac.createBiquadFilter(); lp2.type = "lowpass"; lp2.frequency.value = 3000; const g2 = ac.createGain(); g2.gain.value = gv; roomIn.connect(dn); dn.connect(lp2); lp2.connect(g2); g2.connect(master); }
+      noiseBuf = ac.createBuffer(1, Math.floor(ac.sampleRate*0.08), ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 6);
       // room tone: soft filtered noise loop + a faint low hum
       const len = ac.sampleRate*2, nb = ac.createBuffer(1, len, ac.sampleRate), nd = nb.getChannelData(0);
       let last = 0; for(let i=0;i<len;i++){ last = last*0.985 + (Math.random()*2-1)*0.015; nd[i] = last*6; }
@@ -55,53 +46,46 @@ window.addEventListener("pagehide", sleep);
 window.addEventListener("pageshow", wake);
 for(const ev of ["pointerdown", "touchend", "click", "keydown"]) document.addEventListener(ev, tapWake, true);
 export function setAmbient(){ if(ac && ambGain) ambGain.gain.setTargetAtTime(T.sound && S.phase === "play" ? 0.05 : 0, ac.currentTime, 0.4); }
-/* One bone crack at t (user: "너무 기계음 같아", 2026-10-15). Was one fixed noise burst through a Q 6 band-pass (a
-   pitched "beep") over a sine sweep (a synth "boop"). Now: a cluster of 2-5 tiny clicks 1-6 ms apart, each from a
-   random grain through a wide band (Q 0.7-1.5) so nothing rings at a pitch, over a low-passed noise knock, with a
-   faint early reflection. f: the clicks' centre (Hz), vol: 0..1. */
-function bone(t, f, vol){
-  const out = ac.createGain(); out.gain.value = 1; out.connect(master); out.connect(roomIn);
-  const n = 2 + Math.floor(Math.random()*4);
-  let ct = t;
-  for(let i=0;i<n;i++){
-    const src = ac.createBufferSource(); src.buffer = grains[Math.floor(Math.random()*grains.length)];
-    src.playbackRate.value = 0.8 + Math.random()*0.5;
-    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 0.7 + Math.random()*0.8;
-    bp.frequency.value = f*(0.7 + Math.random()*0.7);
-    const g = ac.createGain(), a = vol*(i ? 0.35 + Math.random()*0.5 : 1)*1.3, dur = 0.008 + Math.random()*0.014;
-    g.gain.setValueAtTime(0.0001, ct); g.gain.exponentialRampToValueAtTime(a, ct + 0.0005); g.gain.exponentialRampToValueAtTime(0.0001, ct + dur);
-    src.connect(bp); bp.connect(g); g.connect(out); src.start(ct); src.stop(ct + 0.035);
-    ct += 0.001 + Math.random()*0.005;
-  }
-  // knock: low-passed noise, not a sine
-  const k = ac.createBufferSource(); k.buffer = thudBuf; k.playbackRate.value = 0.9 + Math.random()*0.3;
-  const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 180 + Math.random()*240; lp.Q.value = 0.9;
-  const kg = ac.createGain(), kd = 0.04 + Math.random()*0.03;
-  kg.gain.setValueAtTime(0.0001, t); kg.gain.exponentialRampToValueAtTime(vol*1.6, t + 0.002); kg.gain.exponentialRampToValueAtTime(0.0001, t + kd);
-  k.connect(lp); lp.connect(kg); kg.connect(out); k.start(t); k.stop(t + kd + 0.02);
+function pop(t, f, vol){
+  // transient click
+  const src = ac.createBufferSource(); src.buffer = noiseBuf;
+  const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2200;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol*0.7, t+0.001); g.gain.exponentialRampToValueAtTime(0.0001, t+0.025);
+  src.connect(hp); hp.connect(g); g.connect(master); src.start(t); src.stop(t+0.05);
+  // knuckle body
+  const s2 = ac.createBufferSource(); s2.buffer = noiseBuf;
+  const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 6;
+  bp.frequency.setValueAtTime(f, t); bp.frequency.exponentialRampToValueAtTime(f*0.55, t+0.04);
+  const g2 = ac.createGain();
+  g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(vol, t+0.002); g2.gain.exponentialRampToValueAtTime(0.0001, t+0.06);
+  s2.connect(bp); bp.connect(g2); g2.connect(master); s2.start(t); s2.stop(t+0.08);
+  // low thump
+  const o = ac.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(65, t+0.06);
+  const og = ac.createGain(); og.gain.setValueAtTime(vol*0.6, t); og.gain.exponentialRampToValueAtTime(0.0001, t+0.08);
+  o.connect(og); og.connect(master); o.start(t); o.stop(t+0.1);
 }
-function playHits(hits, vol = 1, pitch = 1){
-  let t = ac.currentTime + 0.01;
-  for(const h of hits){ t += h.dt; bone(t, h.freq*pitch, h.gain*vol); }
-  return t;
-}
-/* n: 3 on a PERFECT (only the three-plus patterns), else 2. A different pattern and jitter every time (core/crackPattern.js). */
+/* n: 3 on a PERFECT (always 우두둑), else 2. The pattern (뚝 / 두둑 / 우두둑) and spacing change every time
+   (core/crackPattern.js); each hit is the same pop as before. A click-cluster rewrite of pop sounded less natural
+   (user: "원래 소리가 제일 자연스럽다", 2026-10-15), so pop stays. */
 export function crackSound(n){
   if(!ac) return;
-  playHits(crackPattern(Math.random, n >= 3).hits, 0.9);
+  let t = ac.currentTime + 0.01;
+  for(const h of crackPattern(Math.random, n >= 3).hits){ t += h.dt; pop(t, h.freq, h.gain*0.85); }
 }
 /* Wrong cracks (core/fail.js kinds). dud: one weak low pop that fizzles out ("뚜…륵?").
    finger: a high, dry double click (the therapist's own knuckle). over: a rubber-band "boing" with a wobble. */
 export function fizzle(){
   if(!ac) return;
   const t = ac.currentTime + 0.01;
-  bone(t, 520, 0.28);
+  pop(t, 520, 0.28);
   tone(260, 110, 0.35, "triangle", 0.05, 0.08);
 }
 export function knuckle(){
   if(!ac) return;
   const t = ac.currentTime + 0.01;
-  bone(t, 2600, 0.7); bone(t + 0.035, 3100, 0.45);
+  pop(t, 2600, 0.7); pop(t + 0.035, 3100, 0.45);
 }
 export function boing(){
   if(!ac) return;
@@ -113,18 +97,15 @@ export function boing(){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.62); lfo.start(t); lfo.stop(t+0.62);
 }
-/* A hard wrong crack (core/fail.js forceTier): tier 1 "으그적" = a grinding run of 10-12 low bone clicks over a dull
-   knock; tier 2 "아그작" = 14-16 louder ones ending on a sharp snap, a deeper knock. Pitched down (0.6) from a joint
-   crack. vol scales the whole (the x-ray replay is softer). */
+/* A hard wrong crack (core/fail.js forceTier): tier 1 "으그적" = four gritty low pops over a dull thud; tier 2
+   "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
 export function crunch(tier, vol = 1){
   if(!ac) return;
-  const t = ac.currentTime + 0.01;
-  const k = ac.createBufferSource(); k.buffer = thudBuf; k.playbackRate.value = tier > 1 ? 0.6 : 0.75;
-  const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = tier > 1 ? 140 : 190;
-  const kg = ac.createGain(), kd = tier > 1 ? 0.32 : 0.24;
-  kg.gain.setValueAtTime(0.0001, t); kg.gain.exponentialRampToValueAtTime(0.9*vol, t + 0.004); kg.gain.exponentialRampToValueAtTime(0.0001, t + kd);
-  k.connect(lp); lp.connect(kg); kg.connect(master); k.start(t); k.stop(t + kd + 0.02);
-  playHits(crunchPattern(Math.random, tier).hits, vol, 0.6);
+  let t = ac.currentTime + 0.01;
+  tone(tier > 1 ? 95 : 120, 38, tier > 1 ? 0.32 : 0.24, "sine", 0.2*vol);
+  const n = tier > 1 ? 7 : 4;
+  for(let i = 0; i < n; i++){ pop(t, 350 + Math.random()*700*tier, (0.55 + 0.25*tier)*vol*(1 - i*0.06)); t += 0.02 + Math.random()*0.03; }
+  if(tier > 1) pop(t + 0.015, 2600, 0.85*vol);
 }
 /* Ambulance (a crack / break ends the day, game/flow.js hurt): the Korean two-tone "삐-용" (960 Hz held, sliding down to
    700), 0.55 s a cycle, coming in from afar and fading out at the end. A saw + square through a low-pass, a little
@@ -135,8 +116,8 @@ export function siren(dur = 3.4){
   stopSiren();
   const t = ac.currentTime + 0.02, end = t + dur;
   const out = ac.createGain(); out.connect(master);
-  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.24, t + 0.9);
-  out.gain.setValueAtTime(0.24, end - 0.8); out.gain.exponentialRampToValueAtTime(0.0001, end);
+  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.4, t + 0.9);
+  out.gain.setValueAtTime(0.4, end - 0.8); out.gain.exponentialRampToValueAtTime(0.0001, end);
   const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400; lp.connect(out);
   const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 6; lg.gain.value = 7; lfo.connect(lg);
   for(const [type, v] of [["sawtooth", 0.5], ["square", 0.3]]){
