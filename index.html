@@ -27,14 +27,15 @@
         <div class="spine" id="spine" aria-label="경추 위치"></div>
       </div>
     </div>
-    <div class="stat">
-      <div class="score"><small>점수</small><span id="score">0</span></div>
-      <div class="combo" id="combo"></div>
-      <div class="pain">통증 <i></i><i></i><i></i></div>
+    <div class="side">
+      <div class="stat">
+        <div class="score"><small>점수</small><span id="score">0</span></div>
+        <div class="pain">통증 <i></i><i></i><i></i></div>
+        <div class="combo" id="combo"></div>
+      </div>
       <div class="tools">
-        <button class="chip" id="zero" type="button">중앙으로</button>
-        <button class="chip" id="tuneBtn" type="button">튜닝</button>
-        <button class="chip" id="musicBtn" type="button" aria-pressed="true">음악</button>
+        <button class="chip mini" id="tuneBtn" type="button">튜닝</button>
+        <button class="chip mini" id="musicBtn" type="button" aria-pressed="true">음악</button>
       </div>
     </div>
   </div>
@@ -79,7 +80,7 @@
 
   <div class="bottom">
     <div class="mode" id="mode">드래그로 각도 조절</div>
-    <button id="adjust" type="button">교정</button>
+    <button id="zero" type="button">중앙으로</button>
   </div>
 
   <div id="fade"></div>
@@ -151,7 +152,7 @@
         </li>
         <li>
           <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 24l9-9 4 4 7-9"/><path d="M22 10h6v6"/></svg>
-          <div>그 자리에서 <b>손목을 툭 꺾으면 교정</b>. 버튼이나 화면을 휙 쓸어도 돼요.</div>
+          <div>그 자리에서 <b>손목을 툭 꺾으면 교정</b>. 화면을 휙 쓸어도 돼요.</div>
         </li>
         <li>
           <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20c4 0 4-6 8-6s4 6 8 6 4-6 10-6"/><path d="M4 27h26"/></svg>

@@ -326,5 +326,4 @@ async function start(){
 }
 $("#start").addEventListener("click", start);
 $("#again").addEventListener("click", start);
-$("#adjust").addEventListener("click", () => adjust("button"));
 { const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? `최고 기록 ${b}점` : "최고 기록 —"; }
