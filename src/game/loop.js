@@ -102,11 +102,11 @@ export function frame(now){
   const d = distNorm();
   const c = playing ? closeness(cur.rot, cur.bend) : 0;
   const zone = playing && d <= 1;
-  if(zone && !S.inZone){ tone(880, 1320, 0.06, "sine", 0.05); vib(14); }
+  if(zone && !S.inZone){ tone(880, 1320, 0.06, "sine", 0.05); vib(35); }
   if(zone && !S.saidNear && target){ S.saidNear = true; say(target.lines.near, 1400); }
   S.inZone = zone;
   if(c > 0.05 && now > S.nextPulse){
-    vib(8);
+    vib(15);
     if(T.tick) tone(520 + 520*c, 480 + 480*c, 0.03, "sine", 0.015 + 0.03*c);
     S.nextPulse = now + lerp(560, 110, c);
   }
@@ -166,7 +166,7 @@ export function frame(now){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave
     tone(150, 55, 0.2, "sine", 0.16);
     setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60);
-    vib([30, 30, 60]);
+    vib([45, 30, 70]);
     S.shake = Math.max(S.shake, 0.45); S.wave = 1;
   }
   fadeMats(xrayMats, xray > 0.001 ? 1 - 0.78*xray : 1, xray < 0.5);

@@ -1,7 +1,7 @@
 import { $ } from "../lib/dom.js";
 import { T, saveT, resetT } from "../tuning.js";
 import { layout } from "../input/orientation.js";
-import { setAmbient } from "../audio/audio.js";
+import { setAmbient, vib } from "../audio/audio.js";
 
 /* Tuning sheet: sliders/checkboxes map 1:1 onto T. */
 const SLIDERS = [
@@ -29,5 +29,10 @@ CHECKS.forEach(k => $("#t-"+k).addEventListener("change", e => {
 }));
 $("#treset").addEventListener("click", () => { resetT(); saveT(); syncTune(); layout(); setAmbient(); });
 $("#tuneBtn").addEventListener("click", () => { syncTune(); $("#tune").hidden = false; });
+// tells a phone that never buzzes apart: the browser can't (iPhone, in-app browsers) or the phone's settings mute it
+$("#tvib").addEventListener("click", () => {
+  $("#vibMsg").textContent = vib([200, 80, 200]) ? "진동 신호를 보냈어요. 안 느껴지면 무음·진동 세기 설정을 확인해 주세요"
+    : "이 브라우저는 진동을 못 써요 (아이폰, 카톡 등 앱 안 브라우저). 크롬으로 열어 주세요";
+});
 $("#tclose").addEventListener("click", () => { $("#tune").hidden = true; });
 syncTune();
