@@ -332,7 +332,7 @@ function towelHurt(kind){
   hideCoach();
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
-  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : "수건이 너무 느슨했어요", kind === "over" ? "over" : "dud", 1700);
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : "수건이 너무 느슨했어요", kind === "over" ? "over" : "dud", kind === "over" ? 950 : 1700);   // over: gone before the x-ray
   // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
   crackSound(kind === "over" ? 3 : 2);
   floater(kind === "over" ? "우두둑!" : "뚜둑!", 50, -r - 34);
@@ -350,7 +350,8 @@ function towelHurt(kind){
     later(FALL_HIT*1000, () => { thud(); vib([90]); S.shake = 1; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("꽈당!", cw*0.5 - headScreen.x, ch*0.22 - headScreen.y, "frac", 1100); });
     later((OVER_XRAY + 0.3)*1000, () => { crunch(2, 0.8); vib([80, 30, 120]); S.shake = 0.9; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("목뼈 탈출!", cw/2 - headScreen.x, ch*0.28 - headScreen.y, "frac", 1500); });
     later(OVER_HOLD*1000, () => { boing(); crunch(1, 0.4); vib([40, 30, 40, 30, 80]); S.shake = 0.8; floater("철컥!", 40, -r - 30, "small"); });
-    later(FALL_HIT*1000 + 150, () => say(towelLine(target.name, "over"), 1800, true));
+    // the patient's line once the neck is back (a bubble over the x-ray hid the tear)
+    later(OVER_HOLD*1000 + 350, () => say(towelLine(target.name, "over"), 2000, true));
   }else{
     whoosh(); vib([60]);
     S.slipAt = now; S.shake = 0.4;
@@ -359,11 +360,11 @@ function towelHurt(kind){
     later(250, () => say(towelLine(target.name, "slip"), 1600, true));
   }
   const over = kind === "over";
-  later(over ? 4300 : 2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
+  later(over ? 5900 : 2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
   later(over ? 4600 : 600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
-  later(over ? 6400 : 4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
+  later(over ? 8200 : 4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   if(S.pain >= 3){
-    later(over ? 4800 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    later(over ? 5800 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
     return;
   }
   setTimeout(() => { S.busy = false; }, over ? 4600 : 1100);

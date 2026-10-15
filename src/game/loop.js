@@ -268,13 +268,13 @@ export function frame(now){
   // and held at the side of the neck while the x-ray is up, easing back as it fades
   // while the neck snaps: part of the way round to the side of the neck, so the twist itself reads
   // towel mode: no push while the neck stretches (the long neck is the joke), the dolly waits for the x-ray
-  const zt = S.xrayIn > 0 ? (towel ? 0 : 0.34) : S.xrayHold > 0 ? (towel ? 0.62 : 1) : ease(clamp(S.zoom*1.4, 0, 1));
+  const zt = S.xrayIn > 0 ? (towel ? 0 : 0.34) : S.xrayHold > 0 ? (towel ? 0.85 : 1) : ease(clamp(S.zoom*1.4, 0, 1));
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
   // (towel mode: the bottom of the neck, so the whole stretched neck and the top of the back, where an over-pull tears
   // it off at C7/T1, are both in frame)
-  pivot.localToWorld(neckW.set(0, -0.01, towel ? XRAY_LEVEL(6) : target ? XRAY_LEVEL(target.seg - 1) : -0.03));
+  pivot.localToWorld(neckW.set(0, -0.01, towel ? XRAY_LEVEL(S.overAt ? 6 : 5) + (S.overAt ? 0.02 : 0) : target ? XRAY_LEVEL(target.seg - 1) : -0.03));
   const push = S.crackT >= 0 ? ease(clamp(S.crackT/XRAY_PRE, 0, 1)) : 0;
   tv += ((towel && S.phase === "play" ? 1 : 0) - tv)*(1 - Math.exp(-rdt*3));
   camPos.copy(camBase).lerp(TV_POS, ease(tv));
@@ -289,7 +289,7 @@ export function frame(now){
   if(stretch > 0 && tv < 0.5){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
   // an over-pull: the camera rises and looks past the head end so the therapist going over backwards is in frame
   // (handed to the x-ray dolly when it opens)
-  if(fall > 0.001 && tv > 0.5){ const fv = ease(clamp(fall*1.4, 0, 1))*(1 - clamp(z/0.62, 0, 1)); camPos.lerp(_fallPos, fv); camTgt.lerp(_fallLook, fv); }
+  if(fall > 0.001 && tv > 0.5){ const fv = ease(clamp(fall*1.4, 0, 1))*(1 - clamp(z/0.85, 0, 1)); camPos.lerp(_fallPos, fv); camTgt.lerp(_fallLook, fv); }
   // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
   // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
   if(!reduce){
