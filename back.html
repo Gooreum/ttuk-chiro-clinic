@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#17312c">
+<title>허리 두루룩 · 뚝 카이로 클리닉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/src/back/style.css">
+</head>
+<body>
+<main id="backApp">
+  <canvas id="backCanvas" aria-label="엎드린 환자와 허리를 누르는 치료사"></canvas>
+  <header class="back-top">
+    <div class="brand"><a href="./index.html" aria-label="클리닉으로 돌아가기">뚝</a><div><small>뚝 카이로 클리닉</small><h1>허리 두루룩</h1></div><span class="practice">연습 진료</span></div>
+    <div class="top-actions"><button id="backSound" class="quiet" aria-pressed="true">소리 켬</button><button id="backPause" class="quiet" hidden>잠깐 쉬기</button></div>
+  </header>
+  <section class="patient-card" aria-label="환자 정보"><span class="eyebrow">오늘의 환자 / 01</span><h2>박대리 <small>32세</small></h2><p>“앉아 있었을 뿐인데<br>허리가 접이식이 됐어요.”</p><div class="patient-note"><span></span> 등부터 허리까지, 세 번</div></section>
+  <aside class="score-card"><span class="eyebrow">오늘의 손맛</span><strong id="backScore">000</strong><div id="backMistakes" aria-label="실수 0회 / 3회"><i></i><i></i><i></i><span>살살 부탁해요</span></div></aside>
+  <div id="backCue" class="cue" role="status" aria-live="polite">손을 첫 번째 구역으로 옮겨 주세요</div>
+  <div class="step-pills" aria-label="진행"><span class="active">01 등 위쪽</span><span>02 등 가운데</span><span>03 허리</span></div>
+  <section class="back-controls" id="backControls" hidden>
+    <div class="position-control"><div class="control-heading"><label for="backPosition">손 위치</label><span id="backPositionHint">등을 드래그해도 돼요</span></div><div class="position-track"><input id="backPosition" type="range" min="0" max="1" step="0.002" value="0.5" aria-label="등에서 허리까지 손 위치"><div class="position-target" id="positionTarget"></div></div><div class="track-labels"><span>등 위쪽</span><span>허리</span></div></div>
+    <div class="press-control"><div class="pressure-block"><div class="control-heading"><span>누르는 힘</span><b id="backPressureLabel">손을 얹어 주세요</b></div><div class="pressure-track"><span class="sweet-zone"></span><span id="backPressureFill"></span><i id="backPressureNeedle"></i></div><div class="track-labels"><span>가볍게</span><span class="sweet-label">여기서 놓기</span><span>너무 세요</span></div></div><button id="backPress" class="press-button" aria-label="누르고 있다가 민트 구간에서 놓기"><b>꾹</b><span>누르다 놓기</span></button></div>
+  </section>
+  <div class="veil" id="backWelcome"><section class="welcome-card"><span class="eyebrow">새로운 손맛</span><h2>이번엔,<br>허리까지 두루룩.</h2><p>손을 옮기고, 무게를 싣고.<br>민트 구간에서 놓으면 시원하게 풀려요.</p><ol><li><b>01</b><span>민트 링에 손을 맞춰요</span></li><li><b>02</b><span><em>꾹</em> 버튼을 누르고 있어요</span></li><li><b>03</b><span>힘이 민트에 오면 손을 떼요</span></li></ol><button id="backStart" class="primary" disabled>진료실 준비 중…</button><div class="welcome-foot"><span>터치 · 마우스 · 스페이스</span><span>한 환자 / 세 번의 손맛</span></div><p class="load-note" id="backLoadNote" role="status"></p></section></div>
+  <div class="veil" id="backResult" hidden><section class="result-card"><span class="eyebrow">오늘의 진료 일지</span><h2 id="backResultTitle">허리까지 시원하게.</h2><p id="backReview"></p><div class="result-score"><small>총점</small><strong id="backTotal">0</strong><span>/ 300</span></div><div class="result-steps" id="backResultSteps"></div><div class="result-rank" id="backRank"></div><p id="backBest"></p><button id="backAgain" class="primary">한 번 더 두루룩</button><a class="return-link" href="./index.html">클리닉으로 돌아가기</a></section></div>
+  <div class="veil" id="backPaused" hidden><section class="pause-card"><span class="eyebrow">잠깐 쉬어가요</span><h2>손에 힘 빼고.</h2><p>돌아오면 같은 구역부터 이어가요.</p><button id="backResume" class="primary">이어서 진료하기</button><a class="return-link" href="./index.html">클리닉으로 돌아가기</a></section></div>
+  <footer class="back-footer"><span>이건 만화예요. 실제 교정을 따라 하지 마세요.</span><button id="backTilt" class="text-button" hidden>기울기로 손 이동</button><span id="backBestSmall"></span></footer>
+</main>
+<script type="module" src="/src/back/main.js"></script>
+</body>
+</html>
