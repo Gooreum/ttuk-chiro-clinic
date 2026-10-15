@@ -157,7 +157,7 @@ function placeBody(gltf, env, g, model){
   scene.add(frame);
   frame.updateMatrixWorld(true);
   const neck = gltf.scene.getObjectByName("neck");
-  frame.userData = {morphs, neck, parentInv: neck.parent.matrixWorld.clone().invert(), neckRest: neck.matrixWorld.clone()};
+  frame.userData = {morphs, neck, parentInv: neck.parent.matrixWorld.clone().invert(), neckRest: neck.matrixWorld.clone(), z0: frame.position.z};
   _P0.makeTranslation(pivot.position.x, pivot.position.y, pivot.position.z).invert();
   return frame;
 }
@@ -176,14 +176,17 @@ const current = () => wantModel && real.models[wantModel];
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
 // grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
 const BREATH_GAIN = 1;
-/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). s: towel mode neck stretch
-   (m): the seam slides toward the camera with the head along the pivot's -z, and the 8 cm weight fade stretches the skin. */
+/* Per frame from the loop, after the pivot has its rotation. fill: breath 0 (out) .. 1 (in). s: towel mode slide (m):
+   the whole body slides up the table toward the therapist (world -z) with the head (along the pivot's -z), so the neck
+   keeps its length. It used to stretch the neck skin instead (user: "목 늘어나는거 존나 징그러워", 2026-10-16). The
+   neck bone is solved in the slid body frame: undo the frame's slide, then the head's own transform. */
 export function updateRealBody(fill, s = 0){
   const cur = current();
   if(!cur || !cur.body.visible) return;
-  const {morphs, neck, parentInv, neckRest} = cur.body.userData;
+  const {morphs, neck, parentInv, neckRest, z0} = cur.body.userData;
+  cur.body.position.z = z0 - s;
   pivot.updateMatrix();
-  _D.multiplyMatrices(pivot.matrix, _St.makeTranslation(0, 0, -s)).multiply(_P0);
+  _D.makeTranslation(0, 0, s).multiply(pivot.matrix).multiply(_St.makeTranslation(0, 0, -s)).multiply(_P0);
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });

@@ -8,7 +8,7 @@ import { setFace } from "./flow.js";
 import { renderer, scene, camera, camBase, camLook, canvas } from "../scene/renderer.js";
 import { mats } from "../scene/materials.js";
 import {
-  torso, collar, pivot, head, neckMesh, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
+  torso, collar, bodyParts, pivot, head, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
 import { updateXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
@@ -23,14 +23,15 @@ import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
-import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, towelLine, fallProfile, letGoProfile } from "../core/towel.js";
+import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, SPINE_GAIN, towelLine, fallProfile, letGoProfile } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const elHud = $("#hud"), elPeak = $("#peak"), elJpeak = $("#jpeak"), elSensor = $("#sensor"), elBubble = $("#bubble"), elTop = $(".top"), elChart = $(".chart");
 let last = performance.now(), blinkAt = 0, zs = 0, handSetup = 0;
-const HEAD_Z = head.position.z, NECK_Z = neckMesh.position.z;   // rest positions; towel mode slides them toward the camera
+const HEAD_Z = head.position.z;   // rest position; towel mode slides the patient toward the camera
+bodyParts.forEach(m => { m.userData.z0 = m.position.z; });
 const EXPOSURE = renderer.toneMappingExposure, ROOM_BG = scene.background.clone(), XRAY_BG = new THREE.Color(0x0f231f);
 // opaque materials turn transparent only while they are being faded
 function fadeMats(list, opacity, depthWrite){
@@ -101,7 +102,7 @@ export function frame(now){
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
   // towel mode (core/towel.js): the aim's vertical axis is the towel's tension, so the head does not tilt with it and
-  // there is no turning; a tug shoots the head out toward the camera and the neck stretches with it
+  // there is no turning; a tug drags the whole patient up the table toward the camera
   const towel = S.game === "towel";
   if(towel) S.input.rot = 0;
   const hold = S.stretchHold || STRETCH_HOLD;
@@ -113,12 +114,15 @@ export function frame(now){
   const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? 0 : (cur.bend + thrustBend)*DEG,
     (cur.rot + thrustDeg + jit + boingDeg + headRock(now))*DEG);
-  head.position.z = HEAD_Z - stretch - pre;
-  neckMesh.scale.y = 1 + (stretch + pre)/0.24; neckMesh.position.z = NECK_Z - (stretch + pre)/2;
+  // the whole patient slides up the table toward the therapist; the neck keeps its length (it used to stretch like
+  // taffy, user: "목 늘어나는거 존나 징그러워.. 무슨 혓바닥 늘어나는 것도 아니고", 2026-10-16)
+  const slide = stretch + pre;
+  head.position.z = HEAD_Z - slide;
+  bodyParts.forEach(m => { m.position.z = m.userData.z0 - slide; });
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
-  updateRealBody(ease(br.fill), stretch + pre);
+  updateRealBody(ease(br.fill), slide);
   updateBreathFx(br, S.phase === "play" && !S.busy && S.xray < 0.05);
 
   // feel feedback
@@ -192,10 +196,11 @@ export function frame(now){
       }
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
-  // towel mode: the spine stretches live with the neck; the stuck disc lets go only when the neck snaps back
+  // towel mode: the spine rides along with the sliding patient and its gaps open a little (core/towel.js SPINE_GAIN);
+  // the stuck disc lets go only when the patient snaps back
   // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
   const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
-  const traction = towel ? {s: stretch, over, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
+  const traction = towel ? {s: stretch*SPINE_GAIN, slide, over, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
   const crackT = S.xray > 0.001 ? (towel ? (over || tSince < STRETCH_HOLD - XRAY_PRE ? -1 : tSince - STRETCH_HOLD + XRAY_PRE) : S.crackT) : -1;
   if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the
