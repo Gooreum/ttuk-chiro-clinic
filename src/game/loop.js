@@ -22,7 +22,7 @@ import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
-import { stretchProfile, STRETCH_LEN } from "../core/towel.js";
+import { stretchProfile, STRETCH_LEN, STRETCH_HOLD, PREPULL, towelLine } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -99,14 +99,16 @@ export function frame(now){
   if(towel) S.input.rot = 0;
   if(S.stretchAt && now - S.stretchAt > STRETCH_LEN*1000) S.stretchAt = 0;
   const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak) : 0;
+  // the towel's tension already draws the head a little toward the therapist while aiming
+  const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? 0 : (cur.bend + thrustBend)*DEG,
     (cur.rot + thrustDeg + jit + boingDeg + headRock(now))*DEG);
-  head.position.z = HEAD_Z - stretch;
-  neckMesh.scale.y = 1 + stretch/0.24; neckMesh.position.z = NECK_Z - stretch/2;
+  head.position.z = HEAD_Z - stretch - pre;
+  neckMesh.scale.y = 1 + (stretch + pre)/0.24; neckMesh.position.z = NECK_Z - (stretch + pre)/2;
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
-  updateRealBody(ease(br.fill), stretch);
+  updateRealBody(ease(br.fill), stretch + pre);
   updateBreathFx(br, S.phase === "play" && !S.busy && S.xray < 0.05);
 
   // feel feedback
@@ -115,7 +117,13 @@ export function frame(now){
   const c = playing ? closeness(cur.rot, cur.bend) : 0;
   const zone = playing && d <= 1;
   if(zone && !S.inZone){ tone(880, 1320, 0.06, "sine", 0.05); vib(35); }
-  if(zone && !S.saidNear && target){ S.saidNear = true; say(target.lines.near, 1400); }
+  if(zone && !S.saidNear && target && !towel){ S.saidNear = true; say(target.lines.near, 1400); }
+  // towel mode: the patient feels the pull (once each): reaching the band, then past the limit
+  if(towel && playing && target && S.towel){
+    const tn = towelTension(cur.bend);
+    if(zone && !S.saidTense){ S.saidTense = true; setFace("worried"); say(towelLine(target.name, "tense"), 1600); }
+    if(tn > S.towel.limit && !S.saidTight){ S.saidTight = true; setFace("wince"); say(towelLine(target.name, "tight"), 1600, true); }
+  }
   S.inZone = zone;
   if(c > 0.05 && now > S.nextPulse){
     vib(15);
@@ -174,10 +182,15 @@ export function frame(now){
       }
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
-  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target, frac, towel)){
-    // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave
-    tone(150, 55, 0.2, "sine", 0.16);
-    setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60);
+  // towel mode: the spine stretches live with the neck; the stuck disc lets go only when the neck snaps back
+  // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
+  const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
+  const traction = towel ? {s: stretch, over, back: tSince >= STRETCH_HOLD && !over ? tSince - STRETCH_HOLD : (S.stretchAt ? -1 : 1)} : null;
+  const crackT = S.xray > 0.001 ? (towel ? (over || tSince < 0 ? -1 : S.crackT - (STRETCH_HOLD - 0.15 - XRAY_PRE)) : S.crackT) : -1;
+  if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
+    // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the
+    // recorded crack is already playing, no synth on top)
+    if(!towel){ tone(150, 55, 0.2, "sine", 0.16); setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60); }
     vib([45, 30, 70]);
     S.shake = Math.max(S.shake, 0.45); S.wave = 1;
   }

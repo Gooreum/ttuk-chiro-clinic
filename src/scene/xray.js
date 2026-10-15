@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { clamp } from "../lib/math.js";
+import { spineOffsets, discStretch } from "../core/towel.js";
 import { pivot } from "./patientModel.js";
 import { scene, camera } from "./renderer.js";
 import { loadModel, getEnv } from "./realAssets.js";
@@ -252,15 +253,15 @@ const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
 /* Seconds of "pressure" after the x-ray opens, before the release. Exported for the camera push in game/loop.js. */
 export const XRAY_PRE = 0.55;
 const _c = new THREE.Color(), _tc = new THREE.Color();
-const TRACT_OPEN = 0.55;   // towel traction: how much taller than healthy every disc springs
+const DISC_H = 0.0075;     // a disc's rest height (model units; the stuck-disc lift above uses the same)
 let popped = false;
 
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
    hurt: 0..1 recent wrong crack (coral throb). frac: {lvl 1|2, t seconds} on a hard wrong crack (see the header), else
-   null. traction: towel mode (game/flow.js towelSuccess), every disc opens. Returns true on the frame of the release
-   (sound, rumble, wave). */
-export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = false){
-  film.material.opacity = Math.min(amount, 1)*0.86;
+   null. traction: towel mode {s: neck stretch (m), over, back: seconds since the snap back (< 0 before)}, the spine
+   stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
+export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
+  film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
   film.visible = amount >= 0.002;
   if(amount < 0.002 || !target || !ready){
     root.visible = false; popped = false; hideFrac();
@@ -402,21 +403,26 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     flash.material.opacity = 0;
     bubbles.forEach(b => { b.s.material.opacity = 0; });
   }
-  // towel traction: every disc pressed flat and red, then they all spring open at once, taller than healthy, each one
-  // lifting the column above it, and turn blue (a cartoon stretch, not anatomy)
+  // towel traction (game/flow.js towelSuccess / towelHurt), live with the neck's stretch: the head end of the spine
+  // moves with the head, the body end stays, every gap opens (core/towel.js spineOffsets) and the discs pull tall and
+  // thin like taffy. A good tug: red and trembling while held, blue from the snap back (traction.back). Too hard ("over"):
+  // C1-C2 come out with the skull, the discs below go coral and stringy (a cartoon, not anatomy)
   if(traction){
-    const op = before ? -0.3*pressure : spring(ct)*TRACT_OPEN;
-    const blue = before ? 0 : clamp(ct/1.2, 0, 1), b2 = blue*blue*(3 - 2*blue);
-    _tc.copy(COL.pinched).lerp(COL.freed, b2);
+    const sm = traction.s/SC, offs = spineOffsets(sm);
+    if(traction.over){ offs[0] += sm*0.9; offs[1] += sm*0.45; }
+    const shiver = traction.s > 0.005 ? 0.0004*Math.sin(now*0.11) : 0;
+    V.forEach((v, k) => { v.g.position.y += offs[k]; v.g.position.x += shiver*(k % 2 ? 1 : -1); });
+    const blue = traction.back < 0 ? 0 : clamp(traction.back/0.6, 0, 1), b2 = blue*blue*(3 - 2*blue);
+    _tc.copy(traction.over ? COL.coral : COL.pinched).lerp(COL.freed, traction.over ? 0 : b2);
     for(let j = 1; j < D.length; j++){
       const d = D[j];
       if(!d) continue;
-      d.g.scale.y *= Math.max(0.3, 1 + op);
-      const lift = 0.0075*op;
-      d.g.position.y += lift/2;
-      for(let k = 0; k < j; k++){ V[k].g.position.y += lift; if(D[k]) D[k].g.position.y += lift; }
-      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(before ? 0.3 + 0.2*throb : 0.35);
-      d.over.material.color.copy(_tc); d.over.material.opacity = (before ? 0.5 + 0.2*throb : 0.65)*amount;
+      const below = j + 1 < V.length ? offs[j + 1] : 0;
+      const st = discStretch(offs[j] - below, DISC_H);   // D[j] sits under V[j], over V[j+1]
+      d.g.position.y += (offs[j] + below)/2;
+      d.g.scale.y *= st.sy; d.g.scale.x *= st.sxz; d.g.scale.z *= st.sxz;
+      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(traction.back < 0 ? 0.3 + 0.2*throb : 0.35);
+      d.over.material.color.copy(_tc); d.over.material.opacity = (traction.back < 0 ? 0.5 + 0.25*throb : 0.65)*amount;
     }
   }
   if(frac) fracture(frac, sv, stuck, side, amount, throb);
