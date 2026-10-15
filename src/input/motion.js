@@ -3,7 +3,7 @@ import { DEG } from "../lib/math.js";
 import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { applyDelta } from "../game/feel.js";
-import { adjust } from "../game/flow.js";
+import { adjust, wouldSucceed } from "../game/flow.js";
 import { setModeText } from "../ui/hud.js";
 import { physAngle } from "./orientation.js";
 import { tiltAngles } from "../core/tilt.js";
@@ -13,7 +13,10 @@ import { classifySample, aimBefore, aimDelta, orientationSign, voteSign, signFro
    - Pose comes from accelerationIncludingGravity, never from rotationRate axis names (iOS labels them differently).
    - rotationRate is used only as a magnitude, for snap detection.
    - Shaky samples are dropped; aim accumulates frame-to-frame deltas through applyDelta (for heaviness).
-   - A snap is judged at the aim from 250 ms before the flick. */
+   - A snap is judged at the aim from 250 ms before the flick.
+   - How hard it was (the wrong-crack show only, core/fail.js forceTier) is the flick's peak: the first sample over the
+     trigger is only the start of the swing (always ~1.0-1.3, so a break never came, user 2026-10-15). A good crack
+     lands at once; a wrong one waits FORCE_WINDOW ms for the peak. */
 const screenAngle = () => (physAngle() + S.viewRot) * DEG;
 let gSign = 0, prevTilt = null, signVotes = 0;
 const grav = {x:0, y:0, z:0, ok:false};
@@ -25,12 +28,16 @@ export function onOrientation(e){
   pose = {beta: e.beta, gamma: e.gamma, t: performance.now()};
 }
 export const aimHist = [];
+const FORCE_WINDOW = 130;   // ms
+let pend = null;            // {force}: a wrong crack waiting for the flick's peak
 function snap(now, force){
   S.flickCool = now + 900;
   const pre = aimBefore(aimHist, now - 250, {rot:S.cur.rot, bend:S.cur.bend});
   S.input.rot = S.cur.rot = pre.rot;
   S.input.bend = S.cur.bend = pre.bend;
-  adjust("snap", force);
+  if(wouldSucceed()){ S.lastForce = force; adjust("snap", force); return; }
+  pend = {force};
+  setTimeout(() => { const f = pend.force; pend = null; S.lastForce = f; adjust("snap", f); }, FORCE_WINDOW);
 }
 export function onMotion(e){
   const now = performance.now();
@@ -40,6 +47,7 @@ export function onMotion(e){
   if(m > S.peakRate) S.peakRate = m;
   const a = e.accelerationIncludingGravity;
   if(!a || a.x == null || a.y == null || a.z == null) return;
+  if(pend) pend.force = Math.max(pend.force, m/T.flick, Math.abs(Math.hypot(a.x, a.y, a.z) - 9.81)/T.jerk);
   if(!S.sensorSeen){ S.sensorSeen = true; S.mode = "tilt"; setModeText(); }
   const lin = Math.abs(Math.hypot(a.x, a.y, a.z) - 9.81);
   if(lin > S.jerkPeak) S.jerkPeak = lin;

@@ -26,7 +26,7 @@ export function drawRing(now, c, zone, br){
   const target = S.target;
   ctx.setTransform(hudDpr,0,0,hudDpr,0,0);
   ctx.clearRect(0,0,hud.width,hud.height);
-  if(S.phase !== "play" || !target) return;
+  if(S.phase !== "play" || !target || S.ambulance) return;   // the ambulance is coming: no more aiming
   const fade = 1 - clamp(Math.max(S.zoom, S.xray)*1.6, 0, 1);   // off while the camera is in on an x-ray
   if(fade <= 0.02) return;
   ctx.globalAlpha = fade;

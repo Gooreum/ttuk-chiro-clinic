@@ -51,6 +51,9 @@ describe("reviewLine", () => {
   it("a patient who walked out says their own line", () => {
     expect(reviewLine({stars: 0, fails: ["over"], lines})).toBe("원장 나오라 그래!");
   });
+  it("taken off in an ambulance: the crack / break review, not the walk-out line", () => {
+    expect(FORCE_REVIEWS[2]).toContain(reviewLine({stars: 0, ambulance: true, fails: ["finger"], tiers: [2], lines}, () => 0.5));
+  });
   it("wrong cracks: a review about the last kind", () => {
     ["dud", "finger", "over"].forEach(k => {
       expect(FAIL_REVIEWS[k]).toContain(reviewLine({stars: 2, fails: ["dud", k], lines}, () => 0.5));
@@ -97,8 +100,8 @@ describe("fail stamp and day log chips", () => {
 });
 
 describe("how hard the wrong crack was", () => {
-  it("tiers at 1.6 and 2.4", () => {
-    expect([0, 1.59, 1.6, 2.39, 2.4, 5].map(forceTier)).toEqual([0, 0, 1, 1, 2, 2]);
+  it("tiers at 2.5 and 4.0 (the flick's peak, input/motion.js)", () => {
+    expect([0, 2.49, 2.5, 3.99, 4.0, 8].map(forceTier)).toEqual([0, 0, 1, 1, 2, 2]);
   });
   it("every hard tier has a stamp, lines, a chip and reviews", () => {
     for(const t of [1, 2]){
@@ -110,7 +113,8 @@ describe("how hard the wrong crack was", () => {
   });
   it("chips add cracks and breaks after the kinds", () => {
     expect(failTags(["dud"], [0, 2])).toEqual(["삑사리 ×1", "골절 ×1"]);
-    expect(failTags(["over", "finger"], [1, 1])).toEqual(["뾰잉 ×1", "손가락 ×1", "금 ×2"]);
+    expect(failTags(["finger", "finger"], [0, 2])).toEqual(["손가락 ×1", "골절 ×1"]);
+    expect(failTags(["over", "finger"], [1, 1])).toEqual(["금 ×2"]);
     expect(failTags(["dud"])).toEqual(["삑사리 ×1"]);
   });
   it("reviews: walked out > the last break / crack > the last kind", () => {

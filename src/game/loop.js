@@ -19,7 +19,7 @@ import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
-import { boingProfile } from "../core/fail.js";
+import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -275,6 +275,8 @@ export function frame(now){
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);
     elJpeak.textContent = S.jerkPeak.toFixed(1);
+    $("#force").textContent = S.lastForce.toFixed(1);
+    $("#fcrack").textContent = FORCE_CRACK; $("#fbreak").textContent = FORCE_BREAK.toFixed(1);
     elSensor.textContent = S.sensorSeen ? `켜짐 · 방향 ${live.sign > 0 ? "+" : live.sign < 0 ? "−" : "?"} (${live.signSrc || "대기"})` : "없음 (드래그 모드)";
     $("#tlr").textContent = Math.round(live.lr);
     $("#tpt").textContent = Math.round(live.pt);
