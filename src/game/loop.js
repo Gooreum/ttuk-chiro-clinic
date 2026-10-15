@@ -18,6 +18,7 @@ import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
 import { updateTowel } from "../scene/towel.js";
+import { updateTherapist } from "../scene/therapist.js";
 import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
@@ -44,7 +45,7 @@ let fz = 0, tv = 0;
 /* Towel mode camera (user's reference video, 2026-10-15): third person, from above the patient's left hip looking up
    the table at the head, the therapist bent over it at the head end. The pull (toward the therapist, -z) runs up the
    screen on a diagonal, so the long neck and the stretching spine read. Eased in over ~1.2 s; the clinic stays first person. */
-const TV_POS = new THREE.Vector3(-0.32, 1.58, 0.68), TV_LOOK = new THREE.Vector3(0, 1.0, 0.02), _tvFace = new THREE.Vector3(-0.22, 0.3, 0.3);
+const TV_POS = new THREE.Vector3(-0.34, 1.62, 0.74), TV_LOOK = new THREE.Vector3(0, 1.06, -0.1), _tvFace = new THREE.Vector3(-0.22, 0.3, 0.3);
 const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 // visual-only head pose on top of the aim (never read by judging: distAt / S.input / S.cur stay as they are)
@@ -234,6 +235,7 @@ export function frame(now){
       towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
   updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1);
+  updateTherapist(towel && S.phase === "play" && tv > 0.02);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{

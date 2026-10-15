@@ -59,3 +59,26 @@ $G webp arms_raw.glb a.glb --quality 85
 $G meshopt a.glb ../../public/models/hands/arms.glb
 ```
 한쪽마다 뼈대 `therapist_arm_<l|r>`(upperarm → lowerarm → hand → 손가락 01-03), 메시 `arm_skin_<l|r>`(재질 `therapist.skin`)와 `arm_sleeve_<l|r>`(재질 `therapist.sleeve` + 소매 끝 2.2 cm 밴드 `therapist.hem`; 둘 다 티셔츠 AO가 베이스 색이라 게임이 색을 곱해 칠한다). 소매는 티셔츠의 소매 패턴 조각(UV 섬)이고, 그 아래 피부는 MPFB 삭제 그룹 + 소매 입구에서 3.5 cm보다 깊은 부분을 지워 비집고 나오지 않는다. 뼈 이름은 `<bone>_<l|r>`(이름이 겹치면 GLTFLoader가 뼈 이름을 바꿔 버린다). 로그의 `LEN`(위팔·아래팔 길이)과 `PALM_DEPTH`(손바닥 피부까지 거리)를 `realAssets.js`에서 쓰고, `PALM_DEPTH`는 손이 피부에 살짝 파묻히도록 그보다 작게 잡는다.
+
+## 치료사 상체
+
+수건 견인 모드의 3인칭 화면용 치료사 몸(팔 제외). `arms.glb`와 같은 피부(`middleage_asian_male`)·티셔츠(`male_casualsuit06`)를 입은 30대 초반 남성이고, 머리카락은 검은 `short04`, 눈 `low-poly`(홍채 진한 갈색), 눈썹 `eyebrow001`, 속눈썹 `eyelashes01`, 신발은 흰 운동화 `shoes05`다.
+
+```
+blender -b --python therapist_build.py -- therapist_raw.glb 1024 16
+G="npx --yes @gltf-transform/cli@4.5.1"
+$G resize therapist_raw.glb a.glb --width 512 --height 512 --pattern "short04*"
+$G resize a.glb b.glb --width 512 --height 512 --pattern "male_casualsuit06_normal*"
+$G resize b.glb c.glb --width 256 --height 256 --pattern "shoes05*"
+$G resize c.glb d.glb --width 256 --height 256 --pattern "therapist_eye*"
+$G resize d.glb e.glb --width 256 --height 256 --pattern "eye[bl]*"
+$G webp e.glb f.glb --quality 85
+$G meshopt f.glb ../../public/models/therapist/therapist.glb
+```
+(bake 크기를 `0`으로 주면 굽기 없이 자세만 빨리 확인한다. M 시리즈 CPU에서 1024 / 16샘플로 약 1분 반.)
+
+자세: 침대 머리맡에 서서 무릎을 조금 굽히고(엉덩이 3cm 내려감), 골반·척추를 앞으로 42도 숙이고, 목·머리를 22도 숙여 환자 얼굴을 내려다본다(얼굴 방향은 시선보다 18도 위). 스크립트가 무릎 굽힘·쇄골 길이(×1.09)·머리 숙임을 반복해서 풀어 두 어깨 관절(위팔 뼈 머리)이 `realAssets.js`의 팔 IK 고정점(`camBase` (0, 1.55, -0.24) + (±0.19, -0.33, -0.03) = (±0.19, 1.22, -0.27))에 오고 신발 밑창이 바닥(y 0)에 닿게 한다. 로그의 `MEASURE` 줄이 결과다. 눈은 (0, 1.27, -0.03)으로 `camBase`보다 35cm 낮고 앞이다: 그 어깨 높이에서 앞으로 숙이면 눈이 어깨 위 33cm에 올 수 없다(1인칭 카메라는 이 몸과 따로 논다).
+
+팔은 어깨부터 뺐다: 팔 뼈 가중치 0.5 이상인 피부와, 위팔 18% 지점 평면 너머(축에서 14cm 안)를 지운다. 티셔츠는 소매 패턴 조각(UV 섬)만 그 평면에서 잘라 소매 머리를 남기고 잘린 입구를 살짝 볼록한 뚜껑으로 막는다. `arms.glb` 소매가 위팔 12%에서 시작하니 6% 겹친다. 위팔은 턱 쪽(three.js 방향 (0.45, -0.72, 0.5))으로 돌린 채 잘라서 어깨 모양이 그 방향 기준이다. 숙이면 티셔츠 밑단이 청바지 허리띠(AO 맵에서 늘 셔츠 밑이라 까만 부분)에 파묻혀 뚫고 나오므로, 허리 근처의 청바지를 셔츠 안쪽 6mm로 당겨 넣고, 옷 AO는 0.55~1로 올려 쓴다.
+
+GLB는 정적 메시(뼈 없음)이고 three.js 월드 좌표 그대로다: 회전·이동 없이 `scene.add`하면 치료사가 +z(환자 발 쪽)를 보고 선다. 빈 노드 `mark_shoulder_l`/`mark_shoulder_r`/`mark_eyes`가 잰 위치를 담고 있다. 재질 이름: `therapist.skin`(피부×AO 구움), `therapist.shirt`/`therapist.pants`(옷 AO×장면 AO 1024 맵 하나를 같이 씀, 색은 base color factor: 셔츠 `mats.coat` 0xf4f1ea, 바지 남색 0x2a3345 — 게임이 팔 소매처럼 색을 바꿀 수 있다), `therapist.shoes`, `therapist.short04`·`therapist.eyebrow001`·`therapist.eyelashes01`(알파), `therapist.eyes`. 약 2만 삼각형, 약 380KB.
