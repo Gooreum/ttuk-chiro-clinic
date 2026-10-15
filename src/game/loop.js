@@ -16,7 +16,7 @@ import { tone, vib } from "../audio/audio.js";
 import { say, headScreen, projectHead } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands, updateRealBody } from "../scene/realAssets.js";
+import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
@@ -57,6 +57,8 @@ function trunkDip(t){
   return DIP*(0.5 + 0.5*Math.cos(Math.PI*(t - DIP_PEAK)/(DIP_END - DIP_PEAK)));
 }
 export function frame(now){
+  // next frame first: an exception anywhere below must never stop the game (a phone froze on one, 2026-10-15)
+  requestAnimationFrame(frame);
   const target = S.target, cur = S.cur, input = S.input, face = () => S.face;
   const rdt = Math.min(0.05, (now - last)/1000); last = now;
   const ts = 1 - 0.72*clamp(S.slow, 0, 1);       // slow-motion during the crack
@@ -176,8 +178,11 @@ export function frame(now){
   const turn = target ? Math.sign(target.rot) : 0;
   // back to rest under the x-ray, so the roles never flip mid-pose when the other side comes up
   handSetup += ((S.thrust > 0 ? 1 : S.busy ? 0 : c) - handSetup)*(1 - Math.exp(-rdt*4));
-  updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
-    after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results});
+  // a failure in the realistic arms falls back to the primitive hands instead of breaking the frame
+  try{
+    updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: ease(clamp(handSetup*1.25, 0, 1)), push: snap,
+      after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results});
+  }catch(err){ disableRealArms(err); }
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{
@@ -254,5 +259,4 @@ export function frame(now){
 
   renderer.render(scene, camera);
   drawRing(now, c, zone, br);
-  requestAnimationFrame(frame);
 }
