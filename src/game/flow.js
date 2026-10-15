@@ -285,7 +285,7 @@ function towelAdjust(src){
   if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
   towelHurt(kind);
 }
-const TOWEL_XRAY_DELAY = 0.15;  // s: the see-through x-ray opens right away so the spine is seen stretching (scene/xray.js traction)
+const TOWEL_XRAY_DELAY = 0.55;  // s: the long neck in the towel reads first, then the see-through x-ray shows the spine stretched (scene/xray.js traction)
 const STRETCH_OK = 0.09, STRETCH_OVER = 0.2;   // m the head shoots out: a good tug, past the limit (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;

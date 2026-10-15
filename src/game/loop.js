@@ -191,7 +191,7 @@ export function frame(now){
   // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
   const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
   const traction = towel ? {s: stretch, over, back: tSince >= STRETCH_HOLD && !over ? tSince - STRETCH_HOLD : (S.stretchAt ? -1 : 1)} : null;
-  const crackT = S.xray > 0.001 ? (towel ? (over || tSince < 0 ? -1 : S.crackT - (STRETCH_HOLD - 0.15 - XRAY_PRE)) : S.crackT) : -1;
+  const crackT = S.xray > 0.001 ? (towel ? (over || tSince < STRETCH_HOLD - XRAY_PRE ? -1 : tSince - STRETCH_HOLD + XRAY_PRE) : S.crackT) : -1;
   if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the
     // recorded crack is already playing, no synth on top)
@@ -234,7 +234,8 @@ export function frame(now){
       after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
       towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
   }catch(err){ disableRealArms(err); }
-  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1);
+  const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
+  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000);
   updateTherapist(towel && S.phase === "play" && tv > 0.02);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show

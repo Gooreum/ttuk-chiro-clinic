@@ -82,3 +82,15 @@ $G meshopt f.glb ../../public/models/therapist/therapist.glb
 팔은 어깨부터 뺐다: 팔 뼈 가중치 0.5 이상인 피부와, 위팔 18% 지점 평면 너머(축에서 14cm 안)를 지운다. 티셔츠는 소매 패턴 조각(UV 섬)만 그 평면에서 잘라 소매 머리를 남기고 잘린 입구를 살짝 볼록한 뚜껑으로 막는다. `arms.glb` 소매가 위팔 12%에서 시작하니 6% 겹친다. 위팔은 턱 쪽(three.js 방향 (0.45, -0.72, 0.5))으로 돌린 채 잘라서 어깨 모양이 그 방향 기준이다. 숙이면 티셔츠 밑단이 청바지 허리띠(AO 맵에서 늘 셔츠 밑이라 까만 부분)에 파묻혀 뚫고 나오므로, 허리 근처의 청바지를 셔츠 안쪽 6mm로 당겨 넣고, 옷 AO는 0.55~1로 올려 쓴다.
 
 GLB는 정적 메시(뼈 없음)이고 three.js 월드 좌표 그대로다: 회전·이동 없이 `scene.add`하면 치료사가 +z(환자 발 쪽)를 보고 선다. 빈 노드 `mark_shoulder_l`/`mark_shoulder_r`/`mark_eyes`가 잰 위치를 담고 있다. 재질 이름: `therapist.skin`(피부×AO 구움), `therapist.shirt`/`therapist.pants`(옷 AO×장면 AO 1024 맵 하나를 같이 씀, 색은 base color factor: 셔츠 `mats.coat` 0xf4f1ea, 바지 남색 0x2a3345 — 게임이 팔 소매처럼 색을 바꿀 수 있다), `therapist.shoes`, `therapist.short04`·`therapist.eyebrow001`·`therapist.eyelashes01`(알파), `therapist.eyes`. 약 2만 삼각형, 약 380KB.
+
+## 수건
+
+`blender -b --python towel_build.py -- towel_raw.glb 1024 [preview_dir]` (원본 에셋 없이 빈 씬에서 만든다. M 시리즈 CPU에서 미리보기 렌더까지 약 2분 반) 후
+```
+G="npx --yes @gltf-transform/cli@4.5.1"
+$G webp towel_raw.glb a.glb --quality 85
+$G meshopt a.glb ../../public/models/towel/towel.glb
+```
+흰 목욕 수건을 길이로 세 겹 접은 띠(길이 0.95 m, 폭 0.11 m, 천 두께 5 mm). 단면은 Z자라 긴 양옆에 둥근 접힌 자리와 그 위·아래 겹의 끝단이 층층이 보인다(관처럼 둥글지 않다). 양 끝 12 cm는 접힘이 풀려 폭 약 0.2 m로 퍼지고, 바깥 겹이 접힌 자리보다 짧아 겹이 드러나며 모서리가 처지고 주름이 진다. 끝은 1 cm 헴. 긴 주름(휨·비틀림)과 가로 눌림은 지오메트리에, 잔주름·테리 루프·도비 띠(끝에서 6 cm, 폭 3 cm)·헴 박음질은 노멀 맵에 있다. 베이스 색은 #f6f3ec × Cycles로 구운 AO(접힌 겹 사이가 그늘진다), 도비 띠만 살짝 회색. 줄무늬·노이즈 무늬는 넣지 않는다(이전 수건이 "징그럽다"는 지적). 재질 `towel.cloth`(거칠기 1, sheen). 미리보기 경로를 주면 펼친 모습과 지름 13 cm 원통에 U자로 건 모습을 렌더한다.
+
+뼈대 `towel_rig`(항등 변환) → `towel_root`(원점) → `towel_00`..`towel_24`가 모두 root의 직접 자식(사슬 아님). glTF에서 길이는 +X(`towel_00`이 x = −0.475, `towel_24`가 +0.475, 간격 0.0396 m), 폭은 Z, 두께는 Y(윗면 +Y). 모든 뼈의 쉼 회전은 항등이고 이동만 (x, 0, 0)이다. 정점 가중치는 길이 위치로 가까운 두 뼈를 선형 보간. 런타임은 뼈를 곡선 위에 놓고 뼈의 X축을 곡선 접선에 맞춰 돌린다.
