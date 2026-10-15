@@ -119,6 +119,7 @@ export function frame(now){
   head.position.z = HEAD_Z - pull;
   bodyParts.forEach(m => { if(m !== neckMesh) m.position.z = m.userData.z0 - body; });
   neckMesh.scale.y = 1 + (pull - body)/0.24; neckMesh.position.z = NECK_Z - (pull + body)/2;
+  neckMesh.scale.x = neckMesh.scale.z = 1/Math.sqrt(neckMesh.scale.y);   // thins as it stretches
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;

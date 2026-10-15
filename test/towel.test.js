@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, towelReaction, TOWEL_BURN, towelCool,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, neckWeight, neckPinch, NECK_OUT, PINCH, UPPER_SHARE, towelReaction, TOWEL_BURN, towelCool,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -141,5 +141,33 @@ describe("towelReaction: who feels what after a good tug", () => {
     expect(b["이라이더"]).toBe(0); expect(b["정작가"]).toBe(0);
     expect(Math.max(...Object.values(b))).toBe(b["김사장"]);
     expect(b["박대리"]).toBeGreaterThan(0);
+  });
+});
+
+describe("neckWeight: only the thin neck column follows the head", () => {
+  const R0 = 0.1;
+  it("the seam ring goes with the head, the column's base and below stay", () => {
+    expect(neckWeight(0, R0, R0)).toBe(1);
+    expect(neckWeight(1, R0, R0)).toBe(0);
+    expect(neckWeight(1.4, 0.5*R0, R0)).toBe(0);
+  });
+  it("the stretch spreads along the column", () => {
+    expect(neckWeight(0.5, R0, R0)).toBeCloseTo(0.53, 2);
+    expect(neckWeight(0.04, R0, R0)).toBe(1);
+    expect(neckWeight(0.25, R0, R0)).toBeGreaterThan(neckWeight(0.75, R0, R0));
+  });
+  it("the trapezius slope and the shoulders never follow, even right under the seam", () => {
+    expect(neckWeight(0, NECK_OUT*R0, R0)).toBe(0);
+    expect(neckWeight(0.2, 2*R0, R0)).toBe(0);
+    expect(neckWeight(0.2, 1.35*R0, R0)).toBeLessThan(neckWeight(0.2, R0, R0));
+  });
+  it("the column thins with the stretch, capped", () => {
+    expect(neckPinch(0)).toBe(0);
+    expect(neckPinch(0.06)).toBeGreaterThan(0.15); expect(neckPinch(0.06)).toBeLessThan(PINCH);
+    expect(neckPinch(0.14)).toBeGreaterThan(neckPinch(0.06));
+    expect(neckPinch(1)).toBe(PINCH);
+  });
+  it("the upper neck on the head takes a share of the stretch, the lower column the rest", () => {
+    expect(UPPER_SHARE).toBeGreaterThan(0.2); expect(UPPER_SHARE).toBeLessThan(0.5);
   });
 });
