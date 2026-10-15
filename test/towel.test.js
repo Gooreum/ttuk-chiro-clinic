@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, SPINE_GAIN,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -67,6 +67,10 @@ describe("an over-pull's long hold and the therapist's fall", () => {
 });
 
 describe("the x-ray spine stretch", () => {
+  it("opens the gaps by a share of the slide, so a good tug spreads 2-4 cm inside the sliding patient", () => {
+    expect(SPINE_GAIN).toBeGreaterThan(0); expect(SPINE_GAIN).toBeLessThan(1);
+    expect(0.09*SPINE_GAIN).toBeGreaterThan(0.02); expect(0.09*SPINE_GAIN).toBeLessThan(0.04);
+  });
   it("C1 moves 7/8, C7 1/8, decreasing down the neck", () => {
     const o = spineOffsets(0.08);
     expect(o).toHaveLength(7);
