@@ -18,12 +18,12 @@ import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
 import { updateTowel } from "../scene/towel.js";
-import { updateTherapist } from "../scene/therapist.js";
+import { updateTherapist, therapistShoulder } from "../scene/therapist.js";
 import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
-import { stretchProfile, STRETCH_LEN, STRETCH_HOLD, PREPULL, towelLine } from "../core/towel.js";
+import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, towelLine, fallProfile } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -45,6 +45,8 @@ let fz = 0, tv = 0;
 /* Towel mode camera (user's reference video, 2026-10-15): third person, from above the patient's left hip looking up
    the table at the head, the therapist bent over it at the head end. The pull (toward the therapist, -z) runs up the
    screen on a diagonal, so the long neck and the stretching spine read. Eased in over ~1.2 s; the clinic stays first person. */
+// over-pull: up and out to the patient's left, looking down past the head end at the floor behind the stool
+const _fallPos = new THREE.Vector3(-1.05, 2.0, 0.55), _fallLook = new THREE.Vector3(0, 0.55, -0.85);
 const TV_POS = new THREE.Vector3(-0.34, 1.62, 0.74), TV_LOOK = new THREE.Vector3(0, 1.06, -0.1), _tvFace = new THREE.Vector3(-0.22, 0.3, 0.3);
 const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head tips back on the pillow)
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
@@ -102,8 +104,11 @@ export function frame(now){
   // there is no turning; a tug shoots the head out toward the camera and the neck stretches with it
   const towel = S.game === "towel";
   if(towel) S.input.rot = 0;
-  if(S.stretchAt && now - S.stretchAt > STRETCH_LEN*1000) S.stretchAt = 0;
-  const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak) : 0;
+  const hold = S.stretchHold || STRETCH_HOLD;
+  if(S.stretchAt && now - S.stretchAt > stretchLen(hold)*1000) S.stretchAt = 0;
+  const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak, hold) : 0;
+  // an over-pull: the therapist goes over backwards (0 sitting .. 1 flat on his back), core/towel.js
+  const fall = towel && S.overAt ? fallProfile((now - S.overAt)/1000) : 0;
   // the towel's tension already draws the head a little toward the therapist while aiming
   const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? 0 : (cur.bend + thrustBend)*DEG,
@@ -165,7 +170,7 @@ export function frame(now){
   // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
   if(S.xrayIn > 0){
     S.xrayIn -= rdt;
-    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = 2.4; S.crackT = 0; }
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = S.overAt ? 2.9 : 2.4; S.crackT = 0; S.xrayAt = now; }
   }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
@@ -190,7 +195,7 @@ export function frame(now){
   // towel mode: the spine stretches live with the neck; the stuck disc lets go only when the neck snaps back
   // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
   const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
-  const traction = towel ? {s: stretch, over, back: tSince >= STRETCH_HOLD && !over ? tSince - STRETCH_HOLD : (S.stretchAt ? -1 : 1)} : null;
+  const traction = towel ? {s: stretch, over, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
   const crackT = S.xray > 0.001 ? (towel ? (over || tSince < STRETCH_HOLD - XRAY_PRE ? -1 : tSince - STRETCH_HOLD + XRAY_PRE) : S.crackT) : -1;
   if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the
@@ -223,6 +228,9 @@ export function frame(now){
   qElbow.identity().slerp(pivot.quaternion, ELBOW_FOLLOW);
   forearms.forEach(f => f.elbowNow.copy(f.elbow).sub(pivot.position).applyQuaternion(qElbow).add(pivot.position));
 
+  // towel mode: the seated therapist leans back with the tension, and further as the neck shoots out on the tug
+  // (0.09 m: a good tug, game/flow.js STRETCH_OK; capped on an over-pull). Before the arms: their shoulders ride on him
+  updateTherapist(towel && S.phase === "play" && tv > 0.02, (6*towelTension(cur.bend) + Math.min(10, 8*stretch/0.09))*DEG*(1 - fall), fall);
   // realistic arms (realAssets.js): contact / support roles follow the head's turn, set up as the aim closes in,
   // push on the crack, cup the cheeks after it, palpate while a new patient settles, pat the chest after both sides
   const turn = target ? Math.sign(target.rot) : 0;
@@ -232,12 +240,12 @@ export function frame(now){
   try{
     updateRealHands({t: now/1000, dt: rdt, now, rot: cur.rot, aim: turn, setup: towel ? 0 : ease(clamp(handSetup*1.25, 0, 1)), push: snap,
       after: S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
-      towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1});
+      towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1,
+      shoulder: therapistShoulder, fall});
   }catch(err){ disableRealArms(err); }
   const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
-  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,
+  updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, fall > 0.01 ? 0 : tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,
     target && target.look ? target.look.model : "");
-  updateTherapist(towel && S.phase === "play" && tv > 0.02);
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{
@@ -264,7 +272,9 @@ export function frame(now){
   zs += (zt - zs)*(1 - Math.exp(-rdt*7));
   const z = zs;
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
-  pivot.localToWorld(neckW.set(0, -0.01, target ? XRAY_LEVEL(target.seg - 1) : -0.03));
+  // (towel mode: the bottom of the neck, so the whole stretched neck and the top of the back, where an over-pull tears
+  // it off at C7/T1, are both in frame)
+  pivot.localToWorld(neckW.set(0, -0.01, towel ? XRAY_LEVEL(6) : target ? XRAY_LEVEL(target.seg - 1) : -0.03));
   const push = S.crackT >= 0 ? ease(clamp(S.crackT/XRAY_PRE, 0, 1)) : 0;
   tv += ((towel && S.phase === "play" ? 1 : 0) - tv)*(1 - Math.exp(-rdt*3));
   camPos.copy(camBase).lerp(TV_POS, ease(tv));
@@ -277,6 +287,9 @@ export function frame(now){
   // towel mode: the head shoots out toward the camera, so the camera backs off and rises with it to keep the head
   // and the long neck in frame
   if(stretch > 0 && tv < 0.5){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
+  // an over-pull: the camera rises and looks past the head end so the therapist going over backwards is in frame
+  // (handed to the x-ray dolly when it opens)
+  if(fall > 0.001 && tv > 0.5){ const fv = ease(clamp(fall*1.4, 0, 1))*(1 - clamp(z/0.62, 0, 1)); camPos.lerp(_fallPos, fv); camTgt.lerp(_fallLook, fv); }
   // the therapist leans in over the face as the hands set up (handed over to the dolly as it takes over), and the
   // trunk drops a few cm along the line of sight on the thrust and comes back up (~0.2 s), on top of the dolly
   if(!reduce){

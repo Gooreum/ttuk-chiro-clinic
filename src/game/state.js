@@ -22,5 +22,6 @@ export const S = {
   game: "clinic",                                      // "clinic" | "towel" (the title's practice mode; S.mode is the input mode)
   towel: null,                                         // towel mode: this patient's tension band {mid, half, limit} (core/towel.js)
   stretchAt: 0, stretchPeak: 0, slipAt: 0,             // towel mode gag clocks (ms) and how far the neck goes (m)
+  stretchHold: 0, overAt: 0, xrayAt: 0,                           // the stretch's hold (s, 0 = core/towel.js STRETCH_HOLD), the over-pull's clock (ms)
   saidTense: false, saidTight: false                   // towel mode: the patient's tension lines, once each per patient
 };

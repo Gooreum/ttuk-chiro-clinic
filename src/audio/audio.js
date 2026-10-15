@@ -157,6 +157,15 @@ export function stretchSound(){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.02, t+0.05); g.gain.exponentialRampToValueAtTime(0.0001, t+0.7);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.72); lfo.start(t); lfo.stop(t+0.72);
 }
+/* The therapist landing flat on his back with his stool (towel over-pull, game/flow.js): a deep body thump, a dull
+   knock of the stool's base a beat later, a little rattle of the casters. */
+export function thud(){
+  if(!ac) return;
+  tone(110, 38, 0.38, "sine", 0.22);
+  tone(70, 30, 0.5, "triangle", 0.12, 0.01);
+  const t = ac.currentTime + 0.01;
+  pop(t + 0.09, 260, 0.5); pop(t + 0.16, 900, 0.25); pop(t + 0.2, 1400, 0.18);
+}
 export function whoosh(){
   if(!ac) return;
   tone(900, 120, 0.35, "triangle", 0.05);

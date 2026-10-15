@@ -9,10 +9,10 @@ import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
-import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, STRETCH_HOLD } from "../core/towel.js";
+import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, FALL_HIT, OVER_XRAY, OVER_HOLD } from "../core/towel.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { canvas } from "../scene/renderer.js";
-import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh } from "../audio/audio.js";
+import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
@@ -57,7 +57,7 @@ function loadPatient(){
     $("#pcc").textContent = target.cc;
     $("#pseg").textContent = S.game === "towel" ? "수건 견인 · 장력 맞추고 툭" : sideLabel(target);
     S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
-    S.stretchAt = 0; S.slipAt = 0; S.saidTense = S.saidTight = false;
+    S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.saidTense = S.saidTight = false;
     const tr = target.trait ? TRAITS[target.trait] : null;
     $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
     renderSpine(target.seg); renderDots();
@@ -303,7 +303,7 @@ function towelSuccess(d, exhale){
   crackSound(perfect ? 3 : 2); stretchSound();
   vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   const now = performance.now();
-  S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1);
+  S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1); S.stretchHold = 0;
   S.thrust = 0; S.shake = 0.6; S.slow = 0; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
   hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, null);
@@ -337,16 +337,20 @@ function towelHurt(kind){
   crackSound(kind === "over" ? 3 : 2);
   floater(kind === "over" ? "우두둑!" : "뚜둑!", 50, -r - 34);
   if(kind === "over"){
-    // the neck pulled out like taffy and the see-through x-ray shows the top of the spine coming out with the skull
-    // (user: "과하게 했을땐 목뼈가 뽑히는 엑스레이 효과", 2026-10-15); it boings back and the vertebrae clunk home
+    // the neck pulled out like taffy, and the therapist goes over backwards with his stool (core/towel.js fallProfile;
+    // user: "존나 세게 잡아 당기면 치료자도 뒤로 훌러덩 넘어지게", 2026-10-15). Then the see-through x-ray: the whole neck
+    // comes off the back at C7/T1 (scene/xray.js; "목뼈랑 척추가 분리되는... 아예 확실히 분리"). It holds long, boings
+    // back and the vertebrae clunk home; he bounces back up on his stool
     flashOuch();
     stretchSound(); vib([60, 40, 60]);
-    S.stretchAt = now; S.stretchPeak = STRETCH_OVER; S.shake = 0.6; S.jitter = 0.6; S.xrayIn = TOWEL_XRAY_DELAY;
-    faceRun([[0, "gasp"], [500, "ouch"], [STRETCH_HOLD*1000 + 400, "sulk"], [3600, "doubt"]]);
+    S.stretchAt = now; S.stretchPeak = STRETCH_OVER; S.stretchHold = OVER_HOLD; S.overAt = now;
+    S.shake = 0.6; S.jitter = 0.6; S.xrayIn = OVER_XRAY;
+    faceRun([[0, "gasp"], [500, "ouch"], [OVER_HOLD*1000 + 400, "sulk"], [OVER_HOLD*1000 + 1200, "doubt"]]);
     floater("쭈와아악", -64, -r - 10);
-    later(550, () => { const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("목뼈 탈출!", cw/2 - headScreen.x, ch*0.28 - headScreen.y, "frac", 1500); });
-    later(STRETCH_HOLD*1000, () => { boing(); crunch(1, 0.4); vib([40, 30, 40, 30, 80]); S.shake = 0.8; floater("뾰잉~", 40, -r - 30, "small"); });
-    say(towelLine(target.name, "over"), 1500, true);
+    later(FALL_HIT*1000, () => { thud(); vib([90]); S.shake = 1; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("꽈당!", cw*0.5 - headScreen.x, ch*0.22 - headScreen.y, "frac", 1100); });
+    later((OVER_XRAY + 0.3)*1000, () => { crunch(2, 0.8); vib([80, 30, 120]); S.shake = 0.9; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("목뼈 탈출!", cw/2 - headScreen.x, ch*0.28 - headScreen.y, "frac", 1500); });
+    later(OVER_HOLD*1000, () => { boing(); crunch(1, 0.4); vib([40, 30, 40, 30, 80]); S.shake = 0.8; floater("철컥!", 40, -r - 30, "small"); });
+    later(FALL_HIT*1000 + 150, () => say(towelLine(target.name, "over"), 1800, true));
   }else{
     whoosh(); vib([60]);
     S.slipAt = now; S.shake = 0.4;
@@ -354,14 +358,15 @@ function towelHurt(kind){
     floater("쏙!", r + 20, r*0.4); later(150, () => floater("…?", 0, -r - 20, "small", 1400));
     later(250, () => say(towelLine(target.name, "slip"), 1600, true));
   }
-  later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
-  later(kind === "over" ? 3600 : 600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
-  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
+  const over = kind === "over";
+  later(over ? 4300 : 2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
+  later(over ? 4600 : 600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
+  later(over ? 6400 : 4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   if(S.pain >= 3){
-    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    later(over ? 4800 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
     return;
   }
-  setTimeout(() => { S.busy = false; }, kind === "over" ? 2900 : 1100);
+  setTimeout(() => { S.busy = false; }, over ? 4600 : 1100);
 }
 
 function finish(){

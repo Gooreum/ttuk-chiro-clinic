@@ -258,6 +258,7 @@ const PALM_IN = 0.021;          // bone line -> palm skin is 0.0288 (export PALM
    hands then reach the head with the elbows bent about 95-115 deg. (0.27 m below and the elbows free to rise read as
    "squid arms" on the phone, 2026-10-15: upper arms in from the screen sides, elbows bulging up next to the head.) */
 const SHOULDER = [0.19, -0.33, -0.03];
+const _shT = new THREE.Vector3();
 /* The elbows stay below the bottom edge of the therapist's resting view (camBase -> camLook): only the forearms rise
    into the frame from the bottom / bottom corners, as in a chest-cam video. NDC y the elbow keeps under, and how hard. */
 const ELBOW_VIEW_Y = -1.12, ELBOW_VIEW_K = 25, ELBOW_VIEW_CORNER = 1.0;
@@ -720,13 +721,27 @@ export function updateRealHands(st){
       _P.lerp(_v2, w.towel);
       _qR.slerp(_qB, w.towel);
       grip += (1.2*(1 - sl) - grip)*w.towel;
+      // an over-pull: he goes over backwards (scene/therapist.js), lets go of the towel and the arms fly up, hands open
+      const fl = clamp((st.fall || 0)*1.6, 0, 1);
+      if(fl > 0.001 && st.shoulder && st.shoulder(s, _shT)){
+        const wob = 0.03*Math.sin(t*9 + s);
+        _v2.copy(_shT).add(_v.set(s*(0.16 + wob), 0.4, 0.08 + wob));
+        pairQuat(arm.F0, arm.N0, _v.set(0.25*s, 1, 0.15).normalize(), _v3.set(0, 0.1, 1).normalize(), _qB);
+        _P.lerp(_v2, fl);
+        _qR.slerp(_qB, fl);
+        grip *= 1 - fl;
+      }
     }
     arm.palm.copy(_P);
     _qh.copy(_qR).multiply(arm.Qh0);
     _W.copy(arm.palmOff).applyQuaternion(_qR).negate().add(_P);
     // shoulder and pole
     _sh.set(camBase.x + SHOULDER[0]*s, camBase.y + SHOULDER[1], camBase.z + SHOULDER[2]).add(_camF);
-    if(arm.seen) arm.shoulder.lerp(_sh, 1 - Math.exp(-dt*8)); else arm.shoulder.copy(_sh);
+    // towel mode: the shoulders of the seated body (scene/therapist.js), which leans back as he pulls
+    // (followed at once: the body can move fast, falling over, and the sleeve must stay on it)
+    const onBody = w.towel > 0.001 && st.shoulder && st.shoulder(s, _shT);
+    if(onBody) _sh.lerp(_shT, w.towel);
+    if(arm.seen && !onBody) arm.shoulder.lerp(_sh, 1 - Math.exp(-dt*8)); else arm.shoulder.copy(_sh);
     const wr = Math.max(0, 1 - w.contact - w.support);
     _pole.set(0, 0, 0);
     [["rest", wr], ["contact", w.contact], ["support", w.support]].forEach(([n, ww]) => {
