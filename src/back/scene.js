@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm} from './core.js';
-import {boingProfile,flinchProfile} from '../core/fail.js';
+import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm,impactFeel} from './core.js';
+import {flinchProfile} from '../core/fail.js';
 import {createBackXray} from "./xray.js";
 import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -476,12 +476,12 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest', targets=TARGETS, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, targets=TARGETS, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
-      reaction.update({time:faceTime,kind,forceTier,now,faceName});
+      reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
     }
-    const k = kind || "ok";
+    const k = kind || "ok",feel=impactFeel(force,forceTier);
     const film=clinicFilm(shotTime,kind,forceTier);
     xray.update({time:shotTime,step,kind,position,forceTier});
     for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
@@ -491,10 +491,11 @@ export async function createBackScene(canvas, view = {}){
     const dt = st.t == null ? 1/60 : Math.min(0.1, Math.max(0, (now - st.t)/1000));
     st.t = now;
     if (st.lastCompleted == null) st.lastCompleted = completed;
-    pressure = clamp01(pressure); impulse=THREE.MathUtils.clamp(impulse,-.5,2.5);
+    pressure = clamp01(pressure); impulse=THREE.MathUtils.clamp(impulse,-.5,3);
 
     // Original clinic profiles supply the whole thrust; do not add the old back-only spring/gag.
-    if(shotTime>=0&&shotTime<.18)st.shake=Math.max(st.shake,forceTier?forceTier>1?1.2:.8:kind==='ok'?1:feedback==='over'?.6:feedback==='finger'?.3:0);
+    if(shotTime>=0&&shotTime<.18)st.shake=Math.max(st.shake,feel.shake);
+    if(forceTier&&shotTime>=.8&&shotTime<.96)st.shake=Math.max(st.shake,forceTier===2?.8:.5);
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
       const i = Math.min(2, completed - 1), z = zAt(targets[i]);
@@ -505,9 +506,10 @@ export async function createBackScene(canvas, view = {}){
 
     // depth under the hands: preload + thrust + the cushion rebound (negative = springs above the rest)
     let depth = pressure*PRELOAD + impulse*DEPTH.ok;
-    const boing=kind==='over'&&!forceTier?boingProfile(shotTime):0;
-    patientRoot.rotation.x=boing*Math.PI/180*.35;
-    patientRoot.position.y=Math.abs(boing)*.0015;
+    const snap=Math.max(0,impulse);
+    patientRoot.rotation.x=0;
+    patientRoot.rotation.z=forceTier&&shotTime>=0?Math.sin(shotTime*(forceTier===2?32:23))*feel.settle*Math.exp(-shotTime*(forceTier===2?1.6:3)):0;
+    patientRoot.position.y=-snap*.008;
     depth=Math.max(depth,-.028);
 
     // the press point on the back follows the hands
@@ -561,6 +563,7 @@ export async function createBackScene(canvas, view = {}){
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
     camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(focus,film*.95));
+    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake};
     renderer.render(scene, camera);
   }
 
@@ -629,5 +632,5 @@ export async function createBackScene(canvas, view = {}){
   // compile now so the first frame does not hitch
   renderer.compile(scene, camera);
   renderer.compile(reaction.scene,reaction.camera);
-  return {render, resize, dispose, projectPosition, pickPosition, renderer, scene, camera};
+  return {render, resize, dispose, projectPosition, pickPosition, metrics:()=>st.metrics, renderer, scene, camera};
 }

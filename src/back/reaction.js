@@ -76,22 +76,57 @@ export async function createBackReaction(renderer){
   });
   let lastNow=null, previousTime=-1;
   const clamp=THREE.MathUtils.clamp;
-  function update({time=0,kind='ok',forceTier=0,now=time*1000,faceName='rest'}={}){
+  function update({time=0,kind='ok',forceTier=0,force=1,now=time*1000,faceName='rest'}={}){
     const t=Math.max(0,time), fresh=t<previousTime||lastNow===null;
     const dt=fresh?1/30:clamp((now-lastNow)/1000,0,.1);
     lastNow=now; previousTime=t;
-    const face=faceName, blink=(t%3.1>2.63&&t%3.1<2.75);
-    const weights=expressionWeights(face,blink,t,Math.max(0,Math.sin(t*2.1))*.22);
-    const severe=forceTier>0, mix=fresh?1:1-Math.exp(-dt*15);
-
+    const fracture=forceTier>=2, hairline=forceTier===1, success=kind==='ok'&&!forceTier;
+    const weak=kind==='weak'&&!forceTier;
+    const face=faceName, blink=!fracture&&(t%3.1>2.63&&t%3.1<2.75);
+    const breath=fracture?.65+.3*Math.sin(t*10):hairline?.25+.15*Math.sin(t*6):Math.max(0,Math.sin(t*2.1))*.22;
+    // Keep the original clinic's expression units; layer only the physical strength of the reaction.
+    const weights=expressionWeights(face,blink,t,Math.max(0,breath));
+    const mix=fresh?1:1-Math.exp(-dt*15), settle=1-Math.exp(-t*2.2);
+    if(fracture){
+      weights['mouth-open']=.65+.065*Math.sin(t*10);
+      weights['mouth-compression']=0;
+      weights['mouth-corner-puller']=0;
+      for(const side of ['left','right']){
+        if(t>=.25){weights[`eye-${side}-closure`]=1;weights[`eye-${side}-slit`]=1;weights[`eye-${side}-opened-up`]=0;}
+        weights[`eyebrows-${side}-down`]=t>=.25?1:weights[`eyebrows-${side}-down`];
+        weights[`nose-${side}-elevation`]=.7;
+      }
+    }else if(hairline){
+      const wince=Math.max(0,Math.sin(t*7))*Math.exp(-t*.8);
+      weights['mouth-open']=Math.min(weights['mouth-open'],.20+.06*wince);
+      weights['mouth-compression']=Math.max(weights['mouth-compression'],.7-.15*settle);
+      weights['mouth-corner-puller']=0;
+      for(const side of ['left','right']){
+        weights[`eye-${side}-closure`]=Math.max(weights[`eye-${side}-closure`],.7+.3*wince);
+        weights[`eyebrows-${side}-down`]=Math.max(weights[`eyebrows-${side}-down`],.65);
+      }
+    }else if(weak){
+      weights['mouth-corner-puller']=Math.min(weights['mouth-corner-puller'],.08);
+      weights['mouth-compression']=Math.max(weights['mouth-compression'],.35);
+    }else if(success&&t<.65){
+      weights['mouth-pursing']=Math.max(weights['mouth-pursing'],.36*(1-t/.65));
+    }
     for(const mesh of morphs)for(const [name,value]of Object.entries(weights)){
       const i=mesh.morphTargetDictionary[name]; if(i!==undefined)mesh.morphTargetInfluences[i]+=(value-mesh.morphTargetInfluences[i])*mix;
     }
-    const flinch=Math.exp(-t*7)*Math.sin(t*28)*(kind==='weak'?.002:.008);
-    head.position.set(severe?Math.sin(t*19)*.002*Math.exp(-t):0,-.006+Math.sin(t*2.1)*.0018,flinch);
-    head.rotation.set(-.035+flinch*.7,Math.sin(t*1.3)*.015,severe?Math.sin(t*14)*.015*Math.exp(-t):Math.sin(t*.9)*.008);
+    const strength=clamp(Number.isFinite(force)?force:1,.5,4);
+    const flinch=Math.exp(-t*7)*Math.sin(t*28)*(weak?.0015:.005+strength*.001);
+    const tremor=fracture?(Math.sin(t*29)+.35*Math.sin(t*47))*.0017:hairline?Math.sin(t*19)*.0015*Math.exp(-t*1.4):0;
+    const exhale=success?settle*.004:0;
+    head.position.set(tremor,-.006-exhale+Math.sin(t*(fracture?10:2.1))*(fracture?.0018:.0012),flinch-exhale*.6);
+    const tilt=weak?settle*.045:fracture?Math.sin(t*23)*.015:hairline?Math.sin(t*15)*.009*Math.exp(-t):Math.sin(t*.9)*.008;
+    head.rotation.set(-.035+(success?settle*.025:0)+flinch*.7,weak?settle*.025:Math.sin(t*1.3)*.01,tilt);
     cushion.position.z=-.004+flinch*.2;
-    for(const skin of skins)skin.emissiveIntensity=severe?.035*Math.exp(-t*.6):0;
+    for(const skin of skins){
+      // A mild diffuse flush rather than a glowing red mask; original skin detail stays intact.
+      skin.color.setRGB(1,fracture?.94:hairline?.98:1,fracture?.92:hairline?.97:1);
+      skin.emissiveIntensity=fracture?.014:hairline?.006*Math.exp(-t):0;
+    }
     // Slow, restrained push-in rather than a jump during the change of expression.
     const distance=camera.userData.baseDistance||.69;
     camera.position.set(.008,-.038,distance-Math.min(t,2)*.008);

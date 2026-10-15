@@ -68,7 +68,11 @@ async def main():
     before=await page.evaluate('[.25,.65].map(p=>window.__backShot.project(p))')
    await send(forward=12,ms=0)
    st=await state();assert st['phase']=='anim' and st['kind']=='ok',st
-   await page.clock.fast_forward(240)
+   await page.clock.fast_forward(140)
+   if step==0:
+    await send(forward=44,ms=0)
+    assert (await state())['tier']==0,'a new burst outside 130ms must not change the completed press'
+   await page.clock.fast_forward(100)
    if step==0:
     await page.screenshot(path=str(OUT/'04-thrust.png'))
     after=await page.evaluate('[.25,.65].map(p=>window.__backShot.project(p))')
@@ -89,17 +93,20 @@ async def main():
    if step<2:
     for _ in range(8):await send(ms=100)
   assert (await state())['phase']=='result';await page.screenshot(path=str(OUT/'07-result.png'));print('three motion successes and face/Xray sequencing passed',flush=True)
-  # A misplaced hard shove accumulates the peak during the neck mode's 130 ms window.
-  await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim(.85)
-  await send(forward=8,ms=35);assert (await state())['pending'] is not None
-  await send(forward=42,ms=140)
-  st=await state();assert st['tier']==2 and st['kind']=='miss',st
-  await page.clock.fast_forward(1800);await page.screenshot(path=str(OUT/'08-fracture-xray.png'))
-  await page.clock.fast_forward(2150);st=await state();assert st['faceVisible']
-  assert '아악' in await page.locator('#backSpeech').inner_text()
-  await page.screenshot(path=str(OUT/'09-face-fracture.png'))
-  await page.clock.fast_forward(4200);assert (await state())['phase']=='result'
-  assert '구급차' in await page.locator('#backResultTitle').inner_text();print('peak strength, fracture and ambulance passed',flush=True)
+  # Every shove, even a well-aimed one, keeps the peak: normal onset -> crack or fracture.
+  for force,tier,label in [(28,1,'crack'),(44,2,'fracture')]:
+   await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim((await state())['targets'][0])
+   await send(forward=12,ms=35);assert (await state())['pending'] is not None
+   await send(forward=force,ms=400)
+   st=await state();assert st['tier']==tier and st['kind']=='over' and st['score']==0,st
+   await page.clock.fast_forward(900);await page.screenshot(path=str(OUT/('08-'+label+'-xray.png')))
+   await page.clock.fast_forward(2000);st=await state();assert st['faceVisible'] and st['sirenPlayed'],st
+   assert await page.locator('#backEmergency').is_visible()
+   await page.screenshot(path=str(OUT/('09-face-'+label+'.png')))
+   await page.clock.fast_forward(800);await page.screenshot(path=str(OUT/('09-face-'+label+'-late.png')))
+   await page.clock.fast_forward(2400);assert (await state())['phase']=='result'
+   assert '구급차' in await page.locator('#backResultTitle').inner_text()
+  print('well-aimed rising peak, separate crack/fracture and ambulance overlay passed',flush=True)
   # No charge time or touch button is required in motion mode. A genuinely soft shove is a weak miss.
   await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim((await state())['targets'][0])
   await send(forward=7.5,ms=150)
@@ -116,7 +123,7 @@ async def main():
   assert (await state())['mistakes']==before
   await page.click('#backResume')
   # The clinic's three harmless wrong-crack scenarios retain their distinct names and faces.
-  for label,offset,pressure,expected in [('12-over',0,1.0,'over'),('13-dud',.15,.6,'dud'),('14-finger',.65,.6,'finger')]:
+  for label,offset,pressure,expected in [('12-over',0,.86,'over'),('13-dud',.15,.6,'dud'),('14-finger',.65,.6,'finger')]:
    await page.reload();await page.wait_for_selector('html[data-back-ready="true"]',state='attached',timeout=90000)
    await page.evaluate('window.requestAnimationFrame=callback=>setTimeout(()=>callback(performance.now()),200);window.cancelAnimationFrame=id=>clearTimeout(id)')
    await page.click('#backStart');pose={'lr':0.,'pt':0.};await warm()
