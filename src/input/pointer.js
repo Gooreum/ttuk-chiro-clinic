@@ -27,7 +27,7 @@ canvas.addEventListener("pointermove", e => {
   applyDelta(dx*0.32*g, -dy*0.24*g*T.bend);
 });
 canvas.addEventListener("pointerup", () => {
-  if(drag && swipePeak > 1.6 && performance.now() - drag.t < 140) adjust("swipe");
+  if(drag && swipePeak > 1.6 && performance.now() - drag.t < 140) adjust("swipe", swipePeak/1.6);
   drag = null; swipePeak = 0;
 });
 canvas.addEventListener("pointercancel", () => { drag = null; swipePeak = 0; });

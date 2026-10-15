@@ -29,7 +29,12 @@ import { loadModel, getEnv } from "./realAssets.js";
    - rot    the stuck vertebra is turned about the spine's axis and snaps back
    - facet  the stuck vertebra is tilted to one side (facet joint closed), the release pops twice as many bubbles
    - muscle tight muscles: hot haze along both sides of the segment (an overlay, not muscle anatomy) that fades
-            to mint, the vertebra only slightly turned */
+            to mint, the vertebra only slightly turned
+
+   A hard wrong crack (game/flow.js hurt, core/fail.js forceTier) opens the x-ray still pressed (crackT < 0) with
+   frac = {lvl, t}: FRAC_HIT s in, a jagged crack zips across the stuck vertebra with a white flash and the column
+   jolts (lvl 1); on lvl 2 the vertebra then splits along a slanted plane into two clipped halves that drift apart
+   and twist, a red glow between them, bone chips flying, the cord hot and pinched harder. A cartoon warning. */
 
 const SC = 1.5;                       // a little over real size so it reads on a phone
 const C1_Z = -0.125;                   // pivot z of the atlas (just under the skull base)
@@ -110,6 +115,49 @@ const bubbles = Array.from({length: 24}, () => {
 // heat on the pressed disc that bursts mint on the release (core + halo)
 const discGlow = [spriteMat(0xff7a59), spriteMat(0xff7a59)].map(m => { const s = new THREE.Sprite(m); root.add(s); return s; });
 const haze = Array.from({length: 6}, () => { const s = new THREE.Sprite(spriteMat(0xff7a59)); root.add(s); return s; });
+
+// hard wrong crack: the crack line (a dark core in a coral glow, reads on the pale bone), bone chips, the red glow in the break
+const crackTex = (() => {
+  const c = document.createElement("canvas"); c.width = 256; c.height = 96;
+  const x = c.getContext("2d"), pts = [];
+  for(let i = 0; i <= 12; i++) pts.push([10 + i*19.6, 48 + (i % 2 ? 1 : -1)*(8 + (i*37 % 11)) * (i === 0 || i === 12 ? 0.2 : 1)]);
+  const line = () => { x.beginPath(); pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.stroke(); };
+  x.lineJoin = "miter"; x.lineCap = "round";
+  x.strokeStyle = "rgba(255,122,89,.55)"; x.lineWidth = 16; x.shadowColor = "#ff7a59"; x.shadowBlur = 14; line();
+  x.shadowBlur = 0; x.strokeStyle = "#3a1a12"; x.lineWidth = 6; line();
+  // two short side cracks
+  x.lineWidth = 3; x.beginPath(); x.moveTo(pts[4][0], pts[4][1]); x.lineTo(pts[4][0] + 10, pts[4][1] + 22); x.moveTo(pts[8][0], pts[8][1]); x.lineTo(pts[8][0] - 6, pts[8][1] - 24); x.stroke();
+  return new THREE.CanvasTexture(c);
+})();
+const crackSpr = new THREE.Sprite(new THREE.SpriteMaterial({map: crackTex, transparent: true, opacity: 0, depthWrite: false, depthTest: false}));
+crackSpr.renderOrder = 1002; crackSpr.visible = false; root.add(crackSpr);
+const shardTex = (() => {
+  const c = document.createElement("canvas"); c.width = c.height = 32;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.beginPath(); x.moveTo(4, 26); x.lineTo(16, 3); x.lineTo(29, 21); x.lineTo(15, 29); x.closePath(); x.fill();
+  return new THREE.CanvasTexture(c);
+})();
+const chips = Array.from({length: 8}, (_, i) => {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: shardTex, color: 0xe6dcc4, transparent: true, opacity: 0, depthWrite: false, depthTest: false, rotation: i*0.8}));
+  s.renderOrder = 1002; s.visible = false; root.add(s);
+  const a = i/8*Math.PI*2;
+  return {s, v: new THREE.Vector3(Math.cos(a)*0.9, (Math.random() - 0.5)*0.8, Math.sin(a)*0.6 + 0.4).multiplyScalar(0.016 + (i % 3)*0.006)};
+});
+// normal blending: an additive red on the pale bone burns out to white
+const gapGlow = new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, color: 0xe8383d, transparent: true, opacity: 0, depthWrite: false, depthTest: false}));
+gapGlow.renderOrder = 1001; root.add(gapGlow);
+// the two halves of the broken vertebra: the same geometry, clipped on opposite sides of the break plane
+const halves = [0, 1].map(() => {
+  const mat = solid(COL.bone); mat.clippingPlanes = [new THREE.Plane()];
+  const m = new THREE.Mesh(new THREE.BufferGeometry(), mat); m.renderOrder = 999; m.visible = false; root.add(m);
+  return m;
+});
+/* Seconds into the fracture x-ray when the crack happens (game/loop.js plays the crunch and the label then). */
+export const FRAC_HIT = 0.35;
+const _n = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _o = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+function hideFrac(){
+  crackSpr.visible = false; gapGlow.material.opacity = 0;
+  chips.forEach(c => { c.s.visible = false; }); halves.forEach(h => { h.visible = false; });
+}
 
 // dark x-ray film: a camera-attached quad drawn after the (faded) scene. It clears the depth buffer, so the spine
 // drawn right after it is depth-tested only against itself (never hidden inside the neck or behind the hands).
@@ -207,12 +255,13 @@ const _c = new THREE.Color();
 let popped = false;
 
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
-   hurt: 0..1 recent wrong crack (coral throb). Returns true on the frame of the release (sound, rumble, wave). */
-export function updateXray(now, amount, crackT, hurt, target){
+   hurt: 0..1 recent wrong crack (coral throb). frac: {lvl 1|2, t seconds} on a hard wrong crack (see the header), else
+   null. Returns true on the frame of the release (sound, rumble, wave). */
+export function updateXray(now, amount, crackT, hurt, target, frac = null){
   film.material.opacity = Math.min(amount, 1)*0.86;
   film.visible = amount >= 0.002;
   if(amount < 0.002 || !target || !ready){
-    root.visible = false; popped = false;
+    root.visible = false; popped = false; hideFrac();
     flash.material.opacity = 0; discGlow.forEach(g => { g.material.opacity = 0; });
     return false;
   }
@@ -233,7 +282,7 @@ export function updateXray(now, amount, crackT, hurt, target){
   const all = [...V, ...D.filter(Boolean), ...R.flatMap(r => [r.L, r.R]).filter(Boolean)];
   all.forEach(p => {
     p.g.position.copy(p.home); p.g.rotation.set(0, 0, 0); p.g.scale.set(1, 1, 1);
-    p.mat.opacity = amount; p.mat.emissive.setRGB(0, 0, 0); p.mat.color.copy(p.base);
+    p.mat.opacity = amount; p.mat.emissive.setRGB(0, 0, 0); p.mat.color.copy(p.base); p.m.visible = true;
     if(p.over) p.over.material.opacity = 0;
   });
   // only the roots at the stuck level are drawn: fourteen of them read as bristles
@@ -351,7 +400,65 @@ export function updateXray(now, amount, crackT, hurt, target){
     flash.material.opacity = 0;
     bubbles.forEach(b => { b.s.material.opacity = 0; });
   }
+  if(frac) fracture(frac, sv, stuck, side, amount, throb);
+  else hideFrac();
   return released;
+}
+/* The hard wrong crack on the stuck vertebra (sv). Runs after the pressed pose is set up, so it only adds. */
+function fracture(frac, sv, stuck, side, amount, throb){
+  const ft = frac.t - FRAC_HIT;
+  if(ft < 0){ hideFrac(); sv.g.position.x += 0.0003*Math.sin(frac.t*90)*frac.t/FRAC_HIT; return; }   // trembling
+  const zip = clamp(ft/0.15, 0, 1), broke = frac.lvl > 1 ? clamp((ft - 0.1)/0.25, 0, 1) : 0;
+  const split = 1 - Math.pow(1 - broke, 3);
+  // the column above jolts once
+  const jolt = 0.0022*Math.exp(-7*ft)*Math.sin(38*ft);
+  for(let j = 0; j <= stuck; j++) V[j].g.position.y += jolt;
+  // the vertebra goes hot
+  sv.mat.emissive.copy(COL.coral).multiplyScalar(0.35 + 0.25*throb + (frac.lvl > 1 ? 0.25 : 0));
+  const body = _o.copy(sv.g.position); body.z += 0.007; body.y += 0.004;   // the front of the body, off the disc below
+  crackSpr.visible = true;
+  crackSpr.position.copy(body);
+  crackSpr.scale.set(0.052*zip, 0.02, 1);
+  // the break plane: slanted across the vertebra, mostly sideways so the halves part without running into the
+  // neighbours; the crack line lies along it as it shows on screen (the sprite faces the camera, its line is its x)
+  _n.set(side, 0.7, 0.25).normalize();
+  root.updateWorldMatrix(true, false);
+  _a.copy(body).applyMatrix4(root.matrixWorld).project(camera);
+  _b.copy(body).addScaledVector(_n, 0.01).applyMatrix4(root.matrixWorld).project(camera);
+  crackSpr.material.rotation = Math.atan2(_b.y - _a.y, (_b.x - _a.x)*camera.aspect) + Math.PI/2;
+  crackSpr.material.opacity = amount*(1 - 0.6*split);
+  flash.position.copy(body);
+  flash.material.opacity = Math.max(0, 1 - ft/0.4)*amount;
+  flash.scale.setScalar(0.012 + 0.03*Math.min(1, ft*3));
+  // cord: hot and squeezed at that level
+  const cu = cordMat.uniforms;
+  cu.uHotAmt.value = Math.max(cu.uHotAmt.value, 0.9 + 0.3*frac.lvl);
+  if(frac.lvl > 1) cu.uPinch.value = Math.min(1.2, cu.uPinch.value + 0.4*split);
+  if(frac.lvl < 2 || broke <= 0){ halves.forEach(h => { h.visible = false; }); chips.forEach(c => { c.s.visible = false; }); gapGlow.material.opacity = 0; return; }
+  // lvl 2: two halves along a slanted plane, drifting apart and twisting
+  sv.m.visible = false;
+  halves.forEach((h, i) => {
+    const s = i ? -1 : 1;
+    h.visible = true;
+    h.geometry = sv.m.geometry;
+    h.material.opacity = amount; h.material.envMap = sv.mat.envMap;
+    h.material.emissive.copy(sv.mat.emissive);
+    h.position.copy(sv.g.position).addScaledVector(_n, s*0.011*split);
+    _e.set(0, s*0.15*split, s*0.3*split*side);
+    h.quaternion.copy(sv.g.quaternion).multiply(_q.setFromEuler(_e));
+    h.updateWorldMatrix(true, false);
+    h.material.clippingPlanes[0].setFromNormalAndCoplanarPoint(_o.copy(_n).multiplyScalar(s), new THREE.Vector3()).applyMatrix4(h.matrixWorld);
+  });
+  gapGlow.position.copy(sv.g.position);
+  gapGlow.material.opacity = amount*split*(0.8 + 0.2*throb);
+  gapGlow.scale.setScalar(0.026 + 0.016*split);
+  chips.forEach(c => {
+    const t = Math.max(0, ft - 0.1);
+    c.s.visible = true;
+    c.s.position.copy(sv.g.position).addScaledVector(c.v, Math.min(t, 0.9));
+    c.s.material.opacity = amount*Math.max(0, 1 - t/1.3);
+    c.s.scale.setScalar(0.0055 + 0.002*(c.v.length() > 0.02 ? 1 : 0));
+  });
 }
 /* Pivot z of the gap under vertebra i (where the release wave rings). Rough spacing until the model is in. */
 export const XRAY_LEVEL = i => ready ? root.position.z - levelY[clamp(i, 0, 6)]*SC : -0.118 + i*0.0335 + 0.0167;

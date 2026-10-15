@@ -93,6 +93,16 @@ export function boing(){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.62); lfo.start(t); lfo.stop(t+0.62);
 }
+/* A hard wrong crack (core/fail.js forceTier): tier 1 "으그적" = four gritty low pops over a dull thud; tier 2
+   "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
+export function crunch(tier, vol = 1){
+  if(!ac) return;
+  let t = ac.currentTime + 0.01;
+  tone(tier > 1 ? 95 : 120, 38, tier > 1 ? 0.32 : 0.24, "sine", 0.2*vol);
+  const n = tier > 1 ? 7 : 4;
+  for(let i = 0; i < n; i++){ pop(t, 350 + Math.random()*700*tier, (0.55 + 0.25*tier)*vol*(1 - i*0.06)); t += 0.02 + Math.random()*0.03; }
+  if(tier > 1) pop(t + 0.015, 2600, 0.85*vol);
+}
 export function tone(f1, f2, dur, type, vol, delay=0){
   if(!ac) return;
   const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();

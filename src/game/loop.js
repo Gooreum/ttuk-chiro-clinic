@@ -11,9 +11,9 @@ import {
   torso, collar, pivot, head, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
-import { updateXray, XRAY_LEVEL, XRAY_PRE } from "../scene/xray.js";
-import { tone, vib } from "../audio/audio.js";
-import { say, headScreen, projectHead } from "../ui/hud.js";
+import { updateXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
+import { tone, vib, crunch } from "../audio/audio.js";
+import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms } from "../scene/realAssets.js";
@@ -145,7 +145,23 @@ export function frame(now){
   if(S.crackT >= 0) S.crackT += rdt;
   S.hurtX = Math.max(0, S.hurtX - rdt*1.4);
   const xray = Math.max(S.xray, S.hurtX*0.55);
-  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target)){
+  // a hard wrong crack (game/flow.js hurt): the fracture x-ray's own clock; the crack lands FRAC_HIT in, with a
+  // softer replay of the crunch and the vertebra's name; closed and done -> back to the plain x-ray
+  let frac = null;
+  if(S.fracLvl){
+    if(S.xray > 0.001){
+      S.fracT += rdt; frac = {lvl: S.fracLvl, t: S.fracT};
+      if(!S.fracFired && S.fracT >= FRAC_HIT && target){
+        S.fracFired = true;
+        crunch(S.fracLvl, 0.6); vib(S.fracLvl > 1 ? [60, 30, 90] : [50]);
+        S.shake = Math.max(S.shake, 0.5);
+        // the camera is in on the neck, so the head is off screen: put it top centre
+        const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
+        floater(`C${target.seg} ${S.fracLvl > 1 ? "골절!" : "금 감"}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
+      }
+    }else if(S.xrayHold <= 0) S.fracLvl = 0;
+  }
+  if(updateXray(now, xray, S.xray > 0.001 ? S.crackT : -1, S.hurtX, target, frac)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave
     tone(150, 55, 0.2, "sine", 0.16);
     setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60);
