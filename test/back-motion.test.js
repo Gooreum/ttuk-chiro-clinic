@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {judgePress,backDistance,reactionTiming} from '../src/back/core.js';
+import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -61,7 +61,7 @@ describe('back motion follows neck rules with a directional thrust',()=>{
 describe('same success and damage rules as neck adjustment',()=>{
   it('requires both position and preload inside the ellipse',()=>{
     expect(backDistance(.27,0,.735)).toBeGreaterThan(1);
-    expect(judgePress(.27,0,.735).kind).toBe('miss');
+    expect(judgePress(.27,0,.735).kind).toBe('over');
     expect(judgePress(.18,0,.6).kind).toBe('ok');
   });
   it('uses the same force thresholds and only damages failed attempts',()=>{
@@ -77,5 +77,42 @@ describe('same success and damage rules as neck adjustment',()=>{
   });
   it('keeps the face visible before the ambulance ends a damage run',()=>{
     const timing=reactionTiming('miss',2);expect(timing.sirenAt).toBeGreaterThan(timing.faceAt);expect(timing.end).toBeGreaterThan(timing.faceEnd);
+  });
+});
+
+describe('back feel regression fixes',()=>{
+  it('keeps camera preload through impact and separates red compression from release',()=>{
+    expect(cameraPreload(0,.6,.35)).toBe(.6);
+    expect(cameraPreload(.12,.6,-1)).toBe(.12);
+    expect(BACK_XRAY.start).toBeGreaterThanOrEqual(.6);
+    expect(BACK_XRAY.release-BACK_XRAY.full).toBeGreaterThanOrEqual(.5);
+    expect(reactionTiming('ok').faceAt).toBeGreaterThanOrEqual(BACK_XRAY.end);
+  });
+  it('asks for less pressure at an ellipse corner and distinguishes close and far misses',()=>{
+    expect(pressureHint(.27,0,.74)).toBe('release');
+    expect(pressureHint(.27,0,.46)).toBe('load');
+    expect(judgePress(.31,0,.6).feedback).toBe('dud');
+    expect(judgePress(.8,0,.6).feedback).toBe('finger');
+  });
+  it('randomises within anatomical regions and judges the generated target',()=>{
+    const targets=makeBackTargets(()=>1);
+    [.23,.55,.87].forEach((p,i)=>expect(targets[i]).toBeCloseTo(p));
+    expect(judgePress(targets[2],2,.6,1,{targets}).perfect).toBe(true);
+  });
+  it('moves toward the screen left when tilting left, regardless of screen rotation',()=>{
+    for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+      const m=new BackMotion();warm(m,{angle});
+      for(let t=720;t<=1000;t+=20)m.sample(packet({angle,lr:8}),t,angle);
+      // Increasing z is toward the feet, projected left by this camera.
+      expect(m.position).toBeGreaterThan(.5);
+    }
+  });
+  it('handles opposite signs between native linear and gravity-inclusive acceleration',()=>{
+    for(const gravitySign of [1,-1])for(const linearSign of [1,-1]){
+      const m=new BackMotion();warm(m,{sign:gravitySign});
+      const e=packet({sign:gravitySign,forward:12});
+      e.acceleration={x:0,y:12*linearSign,z:0};
+      expect(m.sample(e,800,0).type).toBe('impulse');
+    }
   });
 });

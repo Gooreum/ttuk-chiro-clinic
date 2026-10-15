@@ -1,7 +1,7 @@
 import {tiltAngles} from '../core/tilt.js';
 import {aimBefore, aimDelta, orientationSign, voteSign, signFromVotes} from '../core/motion.js';
 import {closenessOf, deltaGain} from '../core/feel.js';
-import {backDistance} from './core.js';
+import {TARGETS,backDistance} from './core.js';
 
 // Same gravity pose, iOS sign voting, 250 ms pre-flick aim and 900 ms cooldown as neck adjustment.
 // A back thrust adds directional translation: rotation on its own cannot press the patient.
@@ -28,7 +28,7 @@ export class BackMotion {
   recenter(){this.position=.5;this.pressure=.12;this.prev=null;this.hist=[];this.ready=false;this.stableAt=null;this.quietAt=null;}
   orientation(e,now){ if(Number.isFinite(e.beta)&&Number.isFinite(e.gamma))this.pose={beta:e.beta,gamma:e.gamma,t:now}; }
   cooldown(now){this.coolUntil=now+900;this.quietAt=null;}
-  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200}={}){
+  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS}={}){
     const a=e.accelerationIncludingGravity;if(!vector(a))return null;
     const rate=Math.hypot(e.rotationRate?.alpha||0,e.rotationRate?.beta||0,e.rotationRate?.gamma||0);
     if(this.lastAt!==null&&now-this.lastAt>1800)this.recenter();
@@ -40,11 +40,15 @@ export class BackMotion {
     if(!this.sign&&Math.abs(a.z)>2.5)this.sign=a.z>0?1:-1;
     const sg=this.sign||1, raw={x:a.x*sg,y:a.y*sg,z:a.z*sg};
     if(!this.gravity)this.gravity={...raw};
-    const linear=vector(e.acceleration)?{x:e.acceleration.x*sg,y:e.acceleration.y*sg,z:e.acceleration.z*sg}
-      : {x:raw.x-this.gravity.x,y:raw.y-this.gravity.y,z:raw.z-this.gravity.z};
+    const residual={x:raw.x-this.gravity.x,y:raw.y-this.gravity.y,z:raw.z-this.gravity.z};
+    // Infer linear sensor polarity from the same burst in the gravity-inclusive sensor.
+    // Do not assume iOS applies the same sign convention to both acceleration fields.
+    const native=e.acceleration;
+    const linearSign=vector(native)?Math.sign(native.x*residual.x+native.y*residual.y+native.z*residual.z)||sg:sg;
+    const linear=vector(native)?{x:native.x*linearSign,y:native.y*linearSign,z:native.z*linearSign}:residual;
     const lin=Math.hypot(linear.x,linear.y,linear.z), impact=thrustSample(linear,angle,rate,jerk,flick);
     const quiet=lin<1.6&&rate<flick*.65;
-    const out={ready:this.ready,position:this.position,pressure:this.pressure,force:impact.force,rate,linear:lin,type:'measure'};
+    const out={ready:this.ready,position:this.position,pressure:this.pressure,force:impact.force,forward:impact.forward,reverse:impact.reverse,sign:sg,linearSign,rate,linear:lin,type:'measure'};
     // Reversing the phone or shaking sideways cannot turn the returning recoil into another press.
     if(!impact.directional&&lin>jerk*.6)this.blockUntil=now+250;
     if(!active){if(quiet){const k=1-Math.exp(-dt/45);for(const axis of ['x','y','z'])this.gravity[axis]+=(raw[axis]-this.gravity[axis])*k;}this.prev=null;this.hist=[];this.quietAt=null;return out;}
@@ -59,8 +63,8 @@ export class BackMotion {
       }else if(prev&&canPush&&now>=this.coolUntil-500){
         const dlr=tilt.lr-prev.lr,dpt=tilt.pt-prev.pt;
         if(Math.abs(dlr)<25&&Math.abs(dpt)<25){
-          const d=aimDelta(dlr,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure)));
-          this.position=clamp(this.position+d.dr*.022*gain,0,1);
+          const d=aimDelta(dlr,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure,targets)));
+          this.position=clamp(this.position-d.dr*.022*gain,0,1);
           this.pressure=clamp(this.pressure+d.db*.04*gain,0,1.35);
         }
       }
