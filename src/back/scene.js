@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import {BACK_XRAY,cameraPreload,TARGETS} from './core.js';
 import {createBackXray} from "./xray.js";
 import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -473,13 +474,13 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0} = {}){
+  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, targets=TARGETS, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
       reaction.update({time:faceTime,kind,forceTier,now});
       renderer.render(reaction.scene,reaction.camera);return;
     }
     const k = kind || "ok";
-    const film = shotTime>=0?smooth(.20,.65,shotTime)*(1-smooth(2.25,2.8,shotTime)):0;
+    const film = shotTime>=0?smooth(BACK_XRAY.start,BACK_XRAY.full,shotTime)*(1-smooth(BACK_XRAY.fade,BACK_XRAY.end,shotTime)):0;
     xray.update({time:shotTime,step,kind,position,forceTier});
     for(const m of patientFade){m.opacity=1-film*.97;m.depthWrite=film<.05;}
     for(const m of therapistFade){m.opacity=1-film*.92;m.depthWrite=film<.05;}
@@ -512,7 +513,7 @@ export async function createBackScene(canvas, view = {}){
     st.lastImp = impulse;
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
-      const i = Math.min(2, completed - 1), z = zAt(RING_POS[i]);
+      const i = Math.min(2, completed - 1), z = zAt(targets[i]);
       pulse(now, 0, z, ringCol.mint, 0.85, RING_R, RING_R*3.6, 1);
       pulse(now + 140, 0, z, ringCol.mint, 0.7, RING_R, RING_R*2.4, 0.7);
     }
@@ -546,6 +547,7 @@ export async function createBackScene(canvas, view = {}){
     const breathe = 0.5 + 0.5*Math.sin(now/1000*Math.PI*1.6);
     for (let i = 0; i < 3; i++){
       const c = U.bkRingCol.value[i];
+      U.bkRing.value[i].y=zAt(targets[i]);
       if (i < completed){ c.set(ringCol.dim.r, ringCol.dim.g, ringCol.dim.b, 0.62); U.bkRingFill.value[i] = 0.9; U.bkRing.value[i].z = RING_R*0.85; }
       else if (i === step){
         const m = ringCol.mint;
@@ -553,6 +555,7 @@ export async function createBackScene(canvas, view = {}){
         U.bkRing.value[i].z = RING_R*(1 + 0.08*breathe);
       } else { const p = ringCol.paper; c.set(p.r, p.g, p.b, 0.22); U.bkRingFill.value[i] = 0; U.bkRing.value[i].z = RING_R*0.85; }
     }
+    for(let i=completed;i<3;i++){if(i>step||(!showTargets&&!revealTarget)){U.bkRingCol.value[i].w=0;U.bkRingFill.value[i]=0;}}
     st.pulses = st.pulses.filter(p => now - p.t0 < p.dur*1000);
     for (let i = 0; i < 2; i++){
       const p = st.pulses[i], v = U.bkPulse.value[i];
@@ -574,9 +577,10 @@ export async function createBackScene(canvas, view = {}){
     st.shake = Math.max(0, st.shake - dt*1.6);
     camera.position.copy(camBase);
     const handLook=new THREE.Vector3(0,1.02,zAt(clamp01(position)));
-    const leanZoom=smooth(.15,.6,pressure)*.48*(1-film);
+    const loaded=cameraPreload(pressure,peakPressure,shotTime);
+    const leanZoom=smooth(.15,.6,loaded)*.48*(1-film);
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
-    camera.position.addScaledVector(camDir,-pressure*.035-impulse*.045);
+    camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
     camera.position.lerp(new THREE.Vector3(-.26,1.23,focus.z+.035),film*.95);
     if (st.shake > 0){

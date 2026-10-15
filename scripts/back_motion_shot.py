@@ -1,5 +1,5 @@
 """Replay raw device-motion events through the real UI; no force-hit or state mutation hooks."""
-import asyncio,functools,http.server,json,pathlib,threading
+import asyncio,functools,http.server,json,pathlib,threading,os
 from playwright.async_api import async_playwright
 ROOT=pathlib.Path(__file__).resolve().parent.parent
 OUT=ROOT/'shots'/'back-motion';OUT.mkdir(parents=True,exist_ok=True)
@@ -15,7 +15,7 @@ INIT="""window.__requests=[]; for(const name of ['DeviceMotionEvent','DeviceOrie
 async def main():
  errors=[]
  async with async_playwright() as p:
-  browser=await p.chromium.launch(args=['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist'])
+  browser=await p.webkit.launch() if os.getenv('BACK_BROWSER','webkit')=='webkit' else await p.chromium.launch(args=['--use-gl=swiftshader','--enable-webgl','--ignore-gpu-blocklist'])
   context=await browser.new_context(viewport={'width':812,'height':375},has_touch=True,is_mobile=True,device_scale_factor=1)
   await context.add_init_script(INIT)
   page=await context.new_page();page.set_default_timeout(45000)
@@ -32,7 +32,7 @@ async def main():
   pose={'lr':0.,'pt':0.}
   async def send(forward=0,side=0,down=0,rate=0,ms=60):
    await page.evaluate("""({lr,pt,forward,side,down,rate})=>{
-     const a=((screen.orientation?.angle||window.orientation||0)+(innerHeight>innerWidth?90:0))*Math.PI/180;
+     const a=((screen.orientation?.angle??window.orientation??0)+(innerHeight>innerWidth?90:0))*Math.PI/180;
      const r=Math.PI/180,gx=9.81*Math.sin(lr*r),gy=9.81*Math.cos(lr*r)*Math.sin(pt*r),gz=9.81*Math.cos(lr*r)*Math.cos(pt*r),c=Math.cos(a),s=Math.sin(a);
      const lin={x:side*c+forward*s,y:-side*s+forward*c,z:-down};
      const event=new Event('devicemotion');Object.defineProperties(event,{
@@ -51,7 +51,7 @@ async def main():
     if abs(dp)<.009 and abs(df)<.016:break
     # Correct pose gradually, just as a player follows the position and pressure feedback.
     d=((dp/.12)**2+(df/.18)**2)**.5;close=max(0,min(1,1-(d-.3)/2.2));gain=1-.6*close
-    pose['lr']+=max(-4,min(4,dp/(1.5*.022*gain)*.45))
+    pose['lr']-=max(-4,min(4,dp/(1.5*.022*gain)*.45))
     pose['pt']+=max(-4,min(4,df/(1.5*.04*gain)*.45))
     await send(ms=80)
    for _ in range(6):await send(ms=70)
@@ -61,44 +61,56 @@ async def main():
   await send(side=24,ms=60);await send(forward=-16,ms=60);await send(forward=16,ms=60)
   assert (await state())['phase']=='play'
   for _ in range(6):await send(ms=70)
-  for step,target in enumerate([.18,.5,.82]):
+  for step,target in enumerate((await state())['targets']):
    await aim(target)
-   if step==0:await page.screenshot(path=str(OUT/'03-preload.png'))
+   if step==0:
+    await page.screenshot(path=str(OUT/'03-preload.png'))
+    before=await page.evaluate('[.25,.65].map(p=>window.__backShot.project(p))')
    await send(forward=12,ms=0)
    st=await state();assert st['phase']=='anim' and st['kind']=='ok',st
-   await page.clock.fast_forward(140)
-   if step==0:await page.screenshot(path=str(OUT/'04-thrust.png'))
+   await page.clock.fast_forward(240)
+   if step==0:
+    await page.screenshot(path=str(OUT/'04-thrust.png'))
+    after=await page.evaluate('[.25,.65].map(p=>window.__backShot.project(p))')
+    def span(points):return ((points[0]['x']-points[1]['x'])**2+(points[0]['y']-points[1]['y'])**2)**.5
+    assert span(after)>=span(before)*.98,(before,after)
    await page.clock.fast_forward(950)
    if step==0:
     assert await page.locator('#backSpeech').is_hidden()
+    await page.screenshot(path=str(OUT/'05-compressed-xray.png'))
+    await page.clock.fast_forward(1200)
     await page.screenshot(path=str(OUT/'05-release-xray.png'))
-   await page.clock.fast_forward(2200)
+   await page.clock.fast_forward(1500 if step==0 else 2700)
    st=await state();assert st['faceVisible'],st
    assert await page.locator('#backSpeech').is_visible()
    if step==0:await page.screenshot(path=str(OUT/'06-face-relief.png'))
-   await page.clock.fast_forward(2700)
+   await page.clock.fast_forward(3000)
    st=await state();assert len(st['results'])==step+1,st
    if step<2:
     for _ in range(8):await send(ms=100)
   assert (await state())['phase']=='result';await page.screenshot(path=str(OUT/'07-result.png'));print('three motion successes and face/Xray sequencing passed',flush=True)
   # A misplaced hard shove accumulates the peak during the neck mode's 130 ms window.
-  await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim(.82)
+  await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim(.85)
   await send(forward=8,ms=35);assert (await state())['pending'] is not None
   await send(forward=42,ms=140)
   st=await state();assert st['tier']==2 and st['kind']=='miss',st
-  await page.clock.fast_forward(1000);await page.screenshot(path=str(OUT/'08-fracture-xray.png'))
+  await page.clock.fast_forward(1800);await page.screenshot(path=str(OUT/'08-fracture-xray.png'))
   await page.clock.fast_forward(2150);st=await state();assert st['faceVisible']
   assert '아악' in await page.locator('#backSpeech').inner_text()
   await page.screenshot(path=str(OUT/'09-face-fracture.png'))
   await page.clock.fast_forward(4200);assert (await state())['phase']=='result'
   assert '구급차' in await page.locator('#backResultTitle').inner_text();print('peak strength, fracture and ambulance passed',flush=True)
   # No charge time or touch button is required in motion mode. A genuinely soft shove is a weak miss.
-  await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim(.18)
+  await page.click('#backAgain');pose={'lr':0.,'pt':0.};await warm();await aim((await state())['targets'][0])
   await send(forward=7.5,ms=150)
   assert (await state())['kind']=='weak'
-  await page.clock.fast_forward(2050);await page.screenshot(path=str(OUT/'10-face-weak.png'))
+  await page.clock.fast_forward(3700);await page.screenshot(path=str(OUT/'10-face-weak.png'))
   assert await page.locator('#backSpeech').is_visible()
   await page.clock.fast_forward(2500)
+  assert (await state())['phase']=='play'
+  assert await page.locator('#backMissMark').is_visible()
+  assert await page.locator('#backAnswer').is_visible()
+  await page.screenshot(path=str(OUT/'11-failure-answer.png'))
   # Pausing discards pending sensor impulses.
   await page.click('#backPause');before=(await state())['mistakes'];await send(forward=45,ms=200)
   assert (await state())['mistakes']==before
