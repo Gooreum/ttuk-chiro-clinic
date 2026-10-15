@@ -77,11 +77,11 @@ $G meshopt f.glb ../../public/models/therapist/therapist.glb
 ```
 (bake 크기를 `0`으로 주면 굽기 없이 자세만 빨리 확인한다. M 시리즈 CPU에서 1024 / 16샘플로 약 1분 반.)
 
-자세: 침대 머리맡에 서서 무릎을 조금 굽히고(엉덩이 3cm 내려감), 골반·척추를 앞으로 42도 숙이고, 목·머리를 22도 숙여 환자 얼굴을 내려다본다(얼굴 방향은 시선보다 18도 위). 스크립트가 무릎 굽힘·쇄골 길이(×1.09)·머리 숙임을 반복해서 풀어 두 어깨 관절(위팔 뼈 머리)이 `realAssets.js`의 팔 IK 고정점(`camBase` (0, 1.55, -0.24) + (±0.19, -0.33, -0.03) = (±0.19, 1.22, -0.27))에 오고 신발 밑창이 바닥(y 0)에 닿게 한다. 로그의 `MEASURE` 줄이 결과다. 눈은 (0, 1.27, -0.03)으로 `camBase`보다 35cm 낮고 앞이다: 그 어깨 높이에서 앞으로 숙이면 눈이 어깨 위 33cm에 올 수 없다(1인칭 카메라는 이 몸과 따로 논다).
+자세(2026-10-15 바꿈, 사용자: "치료자가 환자 얼굴이랑 너무 가까움… 뒤로 당긴다는 느낌이 잘 안살아남"): 침대 머리맡에서 진료용 스툴(좌석 위 y 0.663, 지름 36cm, 5발 받침·캐스터, Blender로 모델링한 `stool` 메시, 재질 `stool.seat`/`stool.black`/`stool.chrome`)에 앉아 몸통을 세우고 약 8도 뒤로 기댄다(`LEAN=-16`, 원래 척추가 앞으로 숙어 있어 잰 몸통선 기준 8.3도). 머리만 숙여 환자 얼굴을 본다(`EYES_DOWN=14`; 예전 코드는 부호가 반대라 머리가 70도쯤 숙었다). 다리는 앉은 자세 두 뼈 IK(`ANKLE_FWD`, `ANKLE_X`, `KNEE_OUT`). 두 어깨는 여전히 팔 IK 고정점 (±0.19, 1.22, -0.27)에 오차 0으로 맞춘다. 눈은 (0, 1.392, -0.145)로 환자 얼굴에서 0.39m(예전 42도 숙임은 0.21m). `ARM_DIR=(0.12, -0.68, 0.72)`. 마커 `mark_hip`(엉덩이 관절 중점, 당길 때 런타임이 이 축으로 뒤로 젖힌다)과 `mark_fall`(뒤쪽 캐스터 바퀴 뒤 끝 바닥점, 과하게 당기면 이 축으로 80도 넘어진다)을 더했다. 앉은 배·무릎이 테이블 머리 받침 상자와 겹쳐서 견인 모드에서는 받침을 숨긴다(`room.js` `headRest`). 넷째 인자로 폴더를 주면 미리보기 PNG를 그린다.
 
 팔은 어깨부터 뺐다: 팔 뼈 가중치 0.5 이상인 피부와, 위팔 18% 지점 평면 너머(축에서 14cm 안)를 지운다. 티셔츠는 소매 패턴 조각(UV 섬)만 그 평면에서 잘라 소매 머리를 남기고 잘린 입구를 살짝 볼록한 뚜껑으로 막는다. `arms.glb` 소매가 위팔 12%에서 시작하니 6% 겹친다. 위팔은 턱 쪽(three.js 방향 (0.45, -0.72, 0.5))으로 돌린 채 잘라서 어깨 모양이 그 방향 기준이다. 숙이면 티셔츠 밑단이 청바지 허리띠(AO 맵에서 늘 셔츠 밑이라 까만 부분)에 파묻혀 뚫고 나오므로, 허리 근처의 청바지를 셔츠 안쪽 6mm로 당겨 넣고, 옷 AO는 0.55~1로 올려 쓴다.
 
-GLB는 정적 메시(뼈 없음)이고 three.js 월드 좌표 그대로다: 회전·이동 없이 `scene.add`하면 치료사가 +z(환자 발 쪽)를 보고 선다. 빈 노드 `mark_shoulder_l`/`mark_shoulder_r`/`mark_eyes`가 잰 위치를 담고 있다. 재질 이름: `therapist.skin`(피부×AO 구움), `therapist.shirt`/`therapist.pants`(옷 AO×장면 AO 1024 맵 하나를 같이 씀, 색은 base color factor: 셔츠 `mats.coat` 0xf4f1ea, 바지 남색 0x2a3345 — 게임이 팔 소매처럼 색을 바꿀 수 있다), `therapist.shoes`, `therapist.short04`·`therapist.eyebrow001`·`therapist.eyelashes01`(알파), `therapist.eyes`. 약 2만 삼각형, 약 380KB.
+GLB는 정적 메시(뼈 없음)이고 three.js 월드 좌표 그대로다: 회전·이동 없이 `scene.add`하면 치료사가 +z(환자 발 쪽)를 보고 선다. 빈 노드 `mark_shoulder_l`/`mark_shoulder_r`/`mark_eyes`/`mark_hip`/`mark_fall`이 잰 위치를 담고 있다. 재질 이름: `therapist.skin`(피부×AO 구움), `therapist.shirt`/`therapist.pants`(옷 AO×장면 AO 1024 맵 하나를 같이 씀, 색은 base color factor: 셔츠 `mats.coat` 0xf4f1ea, 바지 남색 0x2a3345 — 게임이 팔 소매처럼 색을 바꿀 수 있다), `therapist.shoes`, `therapist.short04`·`therapist.eyebrow001`·`therapist.eyelashes01`(알파), `therapist.eyes`. 약 2만 삼각형(스툴 1,420), 약 393KB.
 
 ## 수건
 
@@ -117,3 +117,19 @@ $G meshopt a.glb ../../public/models/towel/towel_sim.glb
 - 재질 `towel.cloth`: 사진 테리 텍스처의 밝기로 만든 미색(#f2efe8) 알베도 + 노멀 맵(1024, 실제 크기로 반복: 한 장 = 0.367 m), 거칠기 0.95, sheen. 끝에서 5.5~9 cm에 조금 회색인 도비 띠와 끝단 헴을 정점 색(COLOR_0)으로 넣었다.
 - 로그: `LANDMARKS`(턱 밑 경계·목 둘레), `PATH`(목 뒤 → 주먹 길이와 남는 끝자락), `CLEAR`(피부까지 거리, 음수는 파묻힘), `END`(끝자락 끝 위치). 당긴 상태에서 주먹 옆 끝자락 몇 정점이 귀 근처에 파묻힌다(`INSIDE`, 주먹·손에 가려지는 자리).
 - 수건 길이 1.30 m, 띠 폭 7 cm(목 앞·턱선에서는 모여 3.5 cm). 이 환자 모델들은 턱 밑에서 어깨까지 목이 4~6 cm라 더 넓은 띠는 목을 다 덮어 X가 안 보인다. 짧은 수건은 X로 감고 나면 주먹 밖으로 남는 끝이 없다.
+
+
+## 척추 X-ray (`public/models/spine/cervical.glb`)
+
+C1–T8 뼈, 디스크 C2/3–T7/8, 척수·신경근 관, C5–C7 골극(`Spur_C5..7`). 2026-10-15 다시 만들었다(사용자: "목뼈 척추뼈 둘다 나오게", "메탈 시계줄 이어져 있는것 같아"). 예전 빌드는 위치는 원본과 정확히 같았지만 BodyParts3D 4.0 obj_99(99% 축소, 뼈당 약 2k 삼각형)를 그대로 써서 거칠었다. 이제 뼈 모양은 3.0 obj_95(5배 촘촘)에서 가져와 4.0 뼈에 ICP로 맞춰(RMS 0.35–0.9mm) 4.0 해부 위치를 유지한다. C1–C7·경추 디스크 원점은 이동 0. 부위마다 빈 노드(4.0 bbox 중심) 아래 `<이름>_geo` 메시라 meshopt 양자화가 원점을 옮기지 않는다. AO·cavity를 Cycles로 구워 COLOR_0(RGB 같음)에 넣었다. 골극 원점은 그 척추 원점과 같아 런타임이 척추 그룹에 그대로 붙인다. 약 10만 삼각형, 642KB.
+
+```bash
+S=<작업 폴더>; B=/Applications/Blender.app/Contents/MacOS/Blender; cd scripts/assets
+$B -b --factory-startup --python spine_build.py -- $S/src_obj $S/bp3d30_obj $S/build/bones.blend 5000 1500
+$B -b $S/build/bones.blend --python spine_cord.py  -- $S/build/cord.blend
+$B -b $S/build/cord.blend  --python spine_spurs.py -- $S/build/spurs.blend
+$B -b $S/build/spurs.blend --python spine_bake.py  -- $S/build/baked.blend $S/build/raw.glb
+npx --yes @gltf-transform/cli@4.5.1 meshopt $S/build/raw.glb ../../public/models/spine/cervical.glb
+$B -b $S/build/baked.blend --python spine_preview.py -- $S spine   # 미리보기
+```
+`src_obj`는 4.0 FJ 파일, `bp3d30_obj`는 3.0 FMA 파일(필요한 28개만 HTTP range로 받음). 번호는 `spine_build.py` 머리말과 `CREDITS.md`.
