@@ -129,7 +129,7 @@ function success(d, exhale){
   $("#score").textContent = S.score; renderCombo();
 
   crackSound(perfect ? 3 : 2);
-  vib(perfect ? [18,40,18,40,18] : [18,50,18]);
+  vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   // the neck turn and the face read first; the x-ray (the vertebra snapping home) opens XRAY_DELAY later
   S.thrust = 1; S.crackAmp = 1; S.shake = 1; S.slow = 1; S.zoom = 1; S.xrayIn = XRAY_DELAY; S.fracLvl = 0;
   sparks.forEach(s => {
@@ -221,12 +221,12 @@ function hurt(msg, kind, force = 0){
     say(target.lines.stop, 1000, true);
     later(1000, () => say(target.lines.ouch, 900, true));
   }else if(kind === "dud"){
-    fizzle(); vib([30]);
+    fizzle(); vib([60]);
     faceRun([[0, "wince"], [500, "doubt"]]);
     later(150, () => floater("…?", 0, -r - 20, "small", 1400));
     later(250, () => say(target.lines.dud, 1500, true));
   }else{
-    knuckle(); vib([20, 30, 20]);
+    knuckle(); vib([40, 30, 40]);
     S.flinchAt = now; S.jitter = 0.3;
     faceRun([[0, "startle"], [900, "doubt"]]);
     floater("뚝!", r + 30, -r*0.2); later(90, () => floater("뚝!", r + 60, -r*0.6));

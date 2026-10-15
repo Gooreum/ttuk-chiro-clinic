@@ -198,4 +198,6 @@ export function tone(f1, f2, dur, type, vol, delay=0){
   o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02);
 }
 export const chime = big => { tone(1046, 1046, 0.5, "sine", 0.06, 0.25); tone(1318, 1318, 0.6, "sine", 0.05, 0.36); if(big) tone(1568, 1568, 0.8, "sine", 0.05, 0.48); };
-export const vib = p => { try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} };
+// true if the browser took the pattern (false: no API, blocked, an in-app browser). Pulses under ~30ms barely register
+// on many Android motors (user: "우두둑 할땐 안옴", 2026-10-15)
+export const vib = p => { try{ return !!(navigator.vibrate && navigator.vibrate(p)); }catch(e){ return false; } };
