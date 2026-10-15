@@ -5,6 +5,6 @@ import { defineConfig } from "vite";
 export default defineConfig(({ mode }) => ({
   base: "./",
   define: { __FORCE_HIT__: JSON.stringify(mode === "shot") },
-  build: { outDir: mode === "shot" ? "dist-shot" : "dist", emptyOutDir: true },
+  build: { rollupOptions: { input: { main: "index.html", back: "back.html" } }, outDir: mode === "shot" ? "dist-shot" : "dist", emptyOutDir: true },
   test: { environment: "node", include: ["test/**/*.test.js"] }
 }));
