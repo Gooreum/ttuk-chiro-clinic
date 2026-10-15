@@ -55,6 +55,9 @@ export function letGoProfile(t){
 }
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
+/* The patient slides whole toward the therapist by the stretch profile (game/loop.js), the neck keeps its length; inside,
+   on the x-ray, the spine's gaps open by this share of the slide (a good tug about 3 cm, an over-pull about 7 cm). */
+export const SPINE_GAIN = 0.35;
 /* The x-ray spine follows the stretch (scene/xray.js): the head end moves by sm (model units), the body end stays, and
    the pull spreads over 8 gaps (skull-C1, C1-C2, six discs), so C(k+1) moves sm*(7-k)/8: C1 7/8, C7 1/8. */
 export const spineOffsets = sm => Array.from({length: 7}, (_, k) => sm*(7 - k)/8);

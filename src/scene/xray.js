@@ -46,6 +46,7 @@ const root = new THREE.Group();
 root.rotation.x = -Math.PI/2;          // M +y (skull) -> pivot -z (head), M +z (anterior) -> pivot +y (face)
 root.scale.setScalar(SC);
 root.position.set(0, -0.02, C1_Z + C1_Y*SC);
+const ROOT_Z = root.position.z;     // towel mode: + the patient's slide (game/loop.js traction.slide)
 root.visible = false;
 pivot.add(root);
 
@@ -361,11 +362,12 @@ function bendSpine(target, parts){
 }
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
    hurt: 0..1 recent wrong crack (coral throb). frac: {lvl 1|2, t seconds} on a hard wrong crack (see the header), else
-   null. traction: towel mode {s: neck stretch (m), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
+   null. traction: towel mode {s: spine stretch (m, core/towel.js SPINE_GAIN of the slide), slide: how far the patient slid (m), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
    stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
   film.visible = amount >= 0.002;
+  root.position.z = ROOT_Z - (traction ? traction.slide || 0 : 0);   // rides along with the sliding patient
   if(amount < 0.002 || !target || !ready){
     root.visible = false; popped = false; hideFrac();
     flash.material.opacity = 0; discGlow.forEach(g => { g.material.opacity = 0; });
