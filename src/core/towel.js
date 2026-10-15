@@ -21,7 +21,7 @@ export function towelKind(t, tg){ return t > tg.limit ? "over" : towelDist(t, tg
 /* How far the head slides toward the therapist (m) after the tug: shoots out by STRETCH_RISE, holds trembling to
    STRETCH_HOLD (long enough to see the spine stretch on the x-ray), then springs back with a damped spring (a little
    squash past zero) and is still by STRETCH_LEN. The bone crack lands at STRETCH_HOLD, as it snaps back. */
-export const STRETCH_RISE = 0.25, STRETCH_HOLD = 1.3, STRETCH_LEN = 2.3;
+export const STRETCH_RISE = 0.12, STRETCH_HOLD = 1.3, STRETCH_LEN = 2.3;
 // the end of the stretch for a given hold (the spring back always takes STRETCH_LEN - STRETCH_HOLD)
 export const stretchLen = (hold = STRETCH_HOLD) => hold + STRETCH_LEN - STRETCH_HOLD;
 export function stretchProfile(t, peak, hold = STRETCH_HOLD){
@@ -55,14 +55,37 @@ export function letGoProfile(t){
 }
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
-/* The patient slides whole toward the therapist by the stretch profile (game/loop.js), the neck keeps its length; inside,
-   on the x-ray, the spine's gaps open by this share of the slide (a good tug about 3 cm, an over-pull about 7 cm). */
-export const SPINE_GAIN = 0.35;
+/* The head snaps out by the stretch profile and the body below the neck comes along only this share of it (game/loop.js),
+   so the neck takes the rest (user: "목 아래는 거의 안움직이면서(조금은 움직여야돼) 목부터는 확 잡아 댕기는", 2026-10-16;
+   the whole patient sliding killed the yank, the neck alone stretching 9 cm read as a tongue). */
+export const BODY_SHARE = 0.15;
 /* The x-ray spine follows the stretch (scene/xray.js): the head end moves by sm (model units), the body end stays, and
    the pull spreads over 8 gaps (skull-C1, C1-C2, six discs), so C(k+1) moves sm*(7-k)/8: C1 7/8, C7 1/8. */
 export const spineOffsets = sm => Array.from({length: 7}, (_, k) => sm*(7 - k)/8);
 // a disc pulled taller by gap (its rest height h) gets thinner like taffy: same volume
 export function discStretch(gap, h){ const sy = 1 + Math.max(0, gap)/h; return {sy, sxz: 1/Math.sqrt(sy)}; }
+
+/* How a good tug feels depends on who is on the table (user: "젊고 마른 사람들은 와 시원하다 느낌인데 나이가 있거나
+   뚱뚱한 사람들은 와 시발 개 시이이밧 아 시파파학 존나를 오래 가다가 서서히 와 존나 시원햐다 느낌", 2026-10-16).
+   burn (s, patient/roster.js): how long they swear first; 0 = relief right away. Steps: [ms after the tug, face, line,
+   loud]; extra (ms): how much later than usual the rest of the reaction and the next patient come. */
+export const TOWEL_BURN = ["아 씨이이이이…!", "개 시이이이밧…!!", "아 시파파파학…!", "끄으으아 씨…", "으아 시이이…!"];
+export const TOWEL_COOL = {
+  "박대리": "와… 존나 시원하다… 연차 쓴 느낌…", "최교수": "하아… 이거… 존나 시원하군요… 학회 보고감…",
+  "김사장": "어허… 이거 존나 시원하구먼… 30년 묵은 게 내려가네", "이라이더": "와 시원하다!! 헬멧 벗은 느낌!",
+  "정작가": "와… 시원해… 마감 끝난 느낌…"
+};
+export const towelCool = name => TOWEL_COOL[name] || "와… 시원하다…";
+export const BURN_FROM = 250, COOL_AFTER = 900;
+export function towelReaction(name, burn = 0){
+  const ms = Math.max(0, burn)*1000;
+  if(!ms) return {steps: [[400, "bliss", towelCool(name), false]], extra: 0};
+  const n = Math.max(2, Math.round(burn/0.9)), gap = ms/n, steps = [];
+  for(let i = 0; i < n; i++) steps.push([Math.round(BURN_FROM + i*gap), i % 2 ? "wince" : "ouch", TOWEL_BURN[i % TOWEL_BURN.length], true]);
+  steps.push([BURN_FROM + ms, "dazed", "하아…", false]);
+  steps.push([BURN_FROM + ms + COOL_AFTER, "bliss", towelCool(name), false]);
+  return {steps, extra: ms};
+}
 
 // the big stamp on a wrong tug, and the day log chips
 export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!" };
