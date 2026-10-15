@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine, FAIL_STAMP, FAIL_TAG, failTags } from "../src/core/fail.js";
+import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine, FAIL_STAMP, FAIL_TAG, failTags, forceTier, FORCE_STAMP, FORCE_LINES, FORCE_TAG, FORCE_REVIEWS } from "../src/core/fail.js";
 import { REVIEWS, ROSTER } from "../src/patient/roster.js";
 import { eyesOpen, isBaseFace, FACE_NAMES } from "../src/core/faceRig.js";
 
@@ -93,5 +93,30 @@ describe("fail stamp and day log chips", () => {
     const m = Math.max(...Array.from({length: 200}, (_, i) => Math.abs(boingProfile(i*BOING_LEN/200))));
     expect(m).toBeGreaterThan(8);
     expect(m).toBeLessThanOrEqual(20);
+  });
+});
+
+describe("how hard the wrong crack was", () => {
+  it("tiers at 1.6 and 2.4", () => {
+    expect([0, 1.59, 1.6, 2.39, 2.4, 5].map(forceTier)).toEqual([0, 0, 1, 1, 2, 2]);
+  });
+  it("every hard tier has a stamp, lines, a chip and reviews", () => {
+    for(const t of [1, 2]){
+      expect(FORCE_STAMP[t].length).toBeGreaterThan(0);
+      expect(FORCE_TAG[t].length).toBeGreaterThan(0);
+      expect(FORCE_LINES[t].length).toBeGreaterThan(0);
+      expect(FORCE_REVIEWS[t].length).toBeGreaterThan(0);
+    }
+  });
+  it("chips add cracks and breaks after the kinds", () => {
+    expect(failTags(["dud"], [0, 2])).toEqual(["삑사리 ×1", "골절 ×1"]);
+    expect(failTags(["over", "finger"], [1, 1])).toEqual(["뾰잉 ×1", "손가락 ×1", "금 ×2"]);
+    expect(failTags(["dud"])).toEqual(["삑사리 ×1"]);
+  });
+  it("reviews: walked out > the last break / crack > the last kind", () => {
+    const lines = {quit: "산재 신청하러 갑니다"};
+    expect(reviewLine({stars: 0, fails: ["dud"], tiers: [2], lines})).toBe("산재 신청하러 갑니다");
+    expect(FORCE_REVIEWS[2]).toContain(reviewLine({stars: 2, fails: ["dud", "over"], tiers: [1, 2, 0], lines}));
+    expect(FAIL_REVIEWS.over).toContain(reviewLine({stars: 2, fails: ["dud", "over"], tiers: [0, 0], lines}));
   });
 });
