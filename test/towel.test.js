@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, spineOffsets, discStretch,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -48,6 +48,21 @@ describe("stretchProfile", () => {
       const v = stretchProfile(t, 0.09);
       expect(v).toBeGreaterThan(0.09*0.94); expect(v).toBeLessThan(0.09*1.06);
     }
+  });
+});
+
+describe("an over-pull's long hold and the therapist's fall", () => {
+  it("a longer hold keeps the stretch up and still ends at zero", () => {
+    expect(stretchProfile(OVER_HOLD - 0.05, 0.2, OVER_HOLD)).toBeGreaterThan(0.2*0.94);
+    expect(stretchProfile(stretchLen(OVER_HOLD), 0.2, OVER_HOLD)).toBe(0);
+    expect(stretchLen()).toBe(STRETCH_LEN);
+  });
+  it("tips over to the floor, stays down, gets back up", () => {
+    expect(fallProfile(0)).toBe(0);
+    expect(fallProfile(FALL_HIT - 0.01)).toBeGreaterThan(0.9);
+    for(let t = FALL_HIT; t < GETUP_AT; t += 0.1){ expect(fallProfile(t)).toBeGreaterThan(0.9); expect(fallProfile(t)).toBeLessThanOrEqual(1); }
+    expect(fallProfile(GETUP_AT + GETUP_LEN)).toBe(0);
+    expect(fallProfile(GETUP_AT + GETUP_LEN + 1)).toBe(0);
   });
 });
 

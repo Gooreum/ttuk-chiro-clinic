@@ -1,12 +1,14 @@
 import * as THREE from "three";
 import { clamp } from "../lib/math.js";
 import { spineOffsets, discStretch } from "../core/towel.js";
+import { spinePose, spineOf } from "../core/spine.js";
 import { pivot } from "./patientModel.js";
 import { scene, camera } from "./renderer.js";
 import { loadModel, getEnv } from "./realAssets.js";
 
-/* Cervical x-ray (AGENTS.md 2). The bones and discs are a real anatomical model: BodyParts3D C1-C7 and the discs
-   C2/3-C7/T1 (CC BY 4.0, CREDITS.md), built by scripts/assets/spine_*.py into public/models/spine/cervical.glb.
+/* Cervical x-ray (AGENTS.md 2). The bones and discs are a real anatomical model: BodyParts3D C1-C7, T1-T8 and the discs
+   C2/3-T7/8 (CC BY 4.0, CREDITS.md; the thoracic part is the body end and stays put), each patient's neck bent their
+   own way (core/spine.js, bendSpine), built by scripts/assets/spine_*.py into public/models/spine/cervical.glb.
    The spinal cord and nerve roots are tubes added on top of it: the cord runs through the vertebral canal centres
    measured on each vertebra, the roots leave at every disc level. Loaded in the background; until it is ready the
    x-ray shows only the film and the joint flash.
@@ -55,6 +57,22 @@ const COL = {
 };
 const solid = color => new THREE.MeshStandardMaterial({color, roughness: 0.7, metalness: 0, envMapIntensity: 0.45,
   emissive: new THREE.Color(0), transparent: true, opacity: 0});
+/* Bone on the film, not polished metal (user: "지금 메탈 시계줄 이어져 있는것 같아", 2026-10-15): matte, almost no
+   reflection, the baked occlusion (COLOR_0, scripts/assets/spine_bake.py) darkening the holes and grooves, and the dense
+   cortical rim brighter than the spongy inside, the way bone edges read on an x-ray. */
+const RIM = new THREE.Color(0xe9f4ec);
+function boneMat(){
+  const m = new THREE.MeshStandardMaterial({color: COL.bone, roughness: 0.96, metalness: 0, envMapIntensity: 0.06,
+    emissive: new THREE.Color(0), transparent: true, opacity: 0});
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uRim = {value: RIM};
+    sh.fragmentShader = "uniform vec3 uRim;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+      float rimF = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.4);
+      diffuseColor.rgb *= mix(0.72, 1.0, rimF);
+      totalEmissiveRadiance += uRim * rimF * 0.3;`);
+  };
+  return m;
+}
 
 /* Cord: two passes sharing one set of uniforms. The main pass is depth-tested, so it shows bright in the canal
    between the bones; the ghost pass ignores depth at low gain, so the cord still reads faintly through the bodies. */
@@ -63,19 +81,34 @@ const cordMat = new THREE.ShaderMaterial({
   uniforms: {
     uColor: {value: COL.nerve.clone()}, uHot: {value: COL.coral.clone()}, uPulseCol: {value: COL.mint.clone()},
     uOpacity: {value: 0}, uLevel: {value: 0}, uPinch: {value: 0}, uOff: {value: 0}, uHotAmt: {value: 0},
-    uPulseR: {value: 0}, uPulseAmt: {value: 0}, uTop: {value: 0.13}, uBot: {value: -0.02}, uGain: {value: 1}
+    uPulseR: {value: 0}, uPulseAmt: {value: 0}, uTop: {value: 0.13}, uBot: {value: -0.02}, uGain: {value: 1},
+    uSep: {value: 0}, uSepY: {value: 0},
+    uGapY: {value: new Array(6).fill(-1)}, uGapR: {value: Array.from({length: 6}, () => new THREE.Matrix3())},
+    uGapP: {value: Array.from({length: 6}, () => new THREE.Vector3())}, uGapL: {value: new Array(6).fill(0)},
+    uShear: {value: new THREE.Vector3()}, uShearY: {value: new THREE.Vector2(0, 1)}
   },
   vertexShader: `
-    uniform float uLevel, uPinch, uOff;
+    uniform float uLevel, uPinch, uOff, uSep, uSepY;
+    uniform float uGapY[6], uGapL[6]; uniform mat3 uGapR[6]; uniform vec3 uGapP[6]; uniform vec3 uShear; uniform vec2 uShearY;
     varying vec3 vN, vV; varying float vY;
     void main(){
-      vec3 p = position;
+      vec3 p = position, nrm = normal;
+      // the patient's own curve (core/spine.js): from the bottom gap up, everything above a gap turns about it
+      for(int i = 5; i >= 0; i--){
+        if(position.y > uGapY[i]){ p = uGapR[i]*(p - uGapP[i]) + uGapP[i] + vec3(0.0, uGapL[i], 0.0); nrm = uGapR[i]*nrm; }
+      }
+      p += uShear*clamp((position.y - uShearY.x)/(uShearY.y - uShearY.x), 0.0, 1.0);
       float g = exp(-pow((p.y - uLevel) / 0.007, 2.0));
-      p -= normal * ${CORD_R} * 0.75 * uPinch * g;        // squeeze toward the centreline (negative = wider)
+      p -= nrm * ${CORD_R} * 0.75 * uPinch * g;        // squeeze toward the centreline (negative = wider)
       p.x += uOff * g;
+      // an over-pull tears the neck off at C7/T1: the cord above rides up with it, the band in between stretches thin
+      float up = smoothstep(uSepY - 0.003, uSepY + 0.003, p.y);
+      float band = uSep > 0.0 ? exp(-pow((p.y - uSepY) / 0.006, 2.0)) : 0.0;
+      p -= nrm * ${CORD_R} * 0.7 * min(1.0, uSep / 0.01) * band;
+      p.y += uSep * up;
       vY = p.y;
       vec4 mv = modelViewMatrix * vec4(p, 1.0);
-      vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+      vN = normalize(normalMatrix * nrm); vV = normalize(-mv.xyz);
       gl_Position = projectionMatrix * mv;
     }`,
   fragmentShader: `
@@ -148,7 +181,7 @@ const gapGlow = new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, color: 
 gapGlow.renderOrder = 1001; root.add(gapGlow);
 // the two halves of the broken vertebra: the same geometry, clipped on opposite sides of the break plane
 const halves = [0, 1].map(() => {
-  const mat = solid(COL.bone); mat.clippingPlanes = [new THREE.Plane()];
+  const mat = boneMat(); mat.clippingPlanes = [new THREE.Plane()];
   const m = new THREE.Mesh(new THREE.BufferGeometry(), mat); m.renderOrder = 999; m.visible = false; root.add(m);
   return m;
 });
@@ -177,6 +210,9 @@ const V = [];          // vertebrae 0..6 (C1..C7): {g, mat, home}
 const D = [];          // D[i]: disc under vertebra i (1..6): {m, mat, home}
 const R = [];          // R[i]: nerve roots under vertebra i: {L, R}
 const levelY = [];     // model y of the gap under vertebra i
+const TV = [], TD = [];  // thoracic vertebrae T1.. and their discs: the body end, they stay put (scene/xray.js header)
+let torn = null;         // the C7/T1 disc's upper half: rides off with the neck on an over-pull
+const SPURS = [];        // bone spurs on the fronts of C6, C5, C7 (in the order they show up): children of the vertebra
 let cordMesh = null, ready = false, cordZ = 0.0126;
 // float copy of a (quantized) glTF mesh, in the model frame
 function bake(mesh){
@@ -198,13 +234,14 @@ function part(gltf, name, mat){
   const c = new THREE.Vector3(); gltf.scene.getObjectByName(name).getWorldPosition(c);
   const geo = bake(mesh); geo.translate(-c.x, -c.y, -c.z);
   const g = new THREE.Group(); g.position.copy(c); root.add(g);
+  if(geo.attributes.color) mat.vertexColors = true;   // baked occlusion
   const m = new THREE.Mesh(geo, mat); m.renderOrder = 999; g.add(m);
   return {g, m, mat, home: c.clone(), base: mat.color.clone()};
 }
 export function loadSpine(){
   Promise.all([loadModel("spine/cervical.glb"), getEnv()]).then(([gltf, env]) => {
     gltf.scene.updateMatrixWorld(true);
-    for(let i = 0; i < 7; i++){ const p = part(gltf, `C${i+1}`, solid(COL.bone)); p.mat.envMap = env; V.push(p); }
+    for(let i = 0; i < 7; i++){ const p = part(gltf, `C${i+1}`, boneMat()); p.mat.envMap = env; V.push(p); }
     for(let i = 1; i < 7; i++){
       const p = part(gltf, `Disc_C${i+1}_${i < 6 ? "C" + (i+2) : "T1"}`, solid(COL.disc));
       if(p){
@@ -215,6 +252,25 @@ export function loadSpine(){
           depthTest: false, depthWrite: false, toneMapped: false}));
         p.over.renderOrder = 1000; p.g.add(p.over);
       }
+    }
+    for(let i = 1; i <= 12; i++){
+      const p = part(gltf, `T${i}`, boneMat()); if(!p) break;
+      p.mat.envMap = env; TV.push(p);
+      const d = part(gltf, `Disc_T${i}_T${i+1}`, solid(COL.disc)); if(d){ d.mat.envMap = env; d.mat.roughness = 0.4; TD.push(d); }
+    }
+    // bone spurs (scripts/assets/spine_spurs.py): their origin is their vertebra's, so they hang on its group as is
+    [6, 5, 7].forEach(n => {
+      const mesh = meshIn(gltf, `Spur_C${n}`); if(!mesh) return;
+      const o = new THREE.Vector3(); gltf.scene.getObjectByName(`Spur_C${n}`).getWorldPosition(o);
+      const geo = bake(mesh); geo.translate(-o.x, -o.y, -o.z);
+      const v = V[n - 1], m = new THREE.Mesh(geo, v.mat); m.renderOrder = 999; m.visible = false;
+      v.g.add(m); SPURS.push(m);
+    });
+    if(D[6]){
+      // a second copy of the C7/T1 disc: on an over-pull the lower half stays on T1 and this upper half goes with C7
+      const d = D[6], mat = d.mat.clone(), g = new THREE.Group(), m = new THREE.Mesh(d.m.geometry, mat);
+      m.renderOrder = 999; g.add(m); g.position.copy(d.home); root.add(g); g.visible = false;
+      torn = {g, m, mat, home: d.home.clone(), base: mat.color.clone()};
     }
     for(let i = 0; i < 7; i++){
       R[i] = {};
@@ -254,11 +310,58 @@ const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
 export const XRAY_PRE = 0.55;
 const _c = new THREE.Color(), _tc = new THREE.Color();
 const DISC_H = 0.0075;     // a disc's rest height (model units; the stuck-disc lift above uses the same)
+const SEP_AT = 0.3, SEP_GAP = 0.045;   // an over-pull's x-ray: s until the neck tears off at C7/T1, how far it goes (model units, ~7 cm shown)
+const smooth01 = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
 let popped = false;
 
+/* The patient's own neck (core/spine.js): every gap C2/3..C7/T1 bends (sagittal curve, sideways lean) and its disc is
+   thinner or taller, chained from the bottom up (T1 and below stay). Then a shear takes C1 back over its rest place, so
+   the curve changes shape under the skull instead of tipping the whole neck off it. The cord's shader gets the same
+   chain. Parts are moved from their rest pose (call right after the reset). */
+const _gq = Array.from({length: 6}, () => new THREE.Quaternion()), _gp = Array.from({length: 6}, () => new THREE.Vector3());
+const _gl = new Array(6).fill(0), _gy = new Array(6).fill(0), _gm = new THREE.Matrix4(), _top = new THREE.Vector3();
+let poseFor = null, pose = null;
+function bendSpine(target, parts){
+  if(poseFor !== target.name){
+    poseFor = target.name; const prof = spineOf(target.name); pose = spinePose(prof);
+    // the degenerate neck grows its spurs: C6 first, then C5, then C7
+    SPURS.forEach((m, i) => { m.visible = i < Math.round(prof.spurs*SPURS.length); });
+  }
+  const cu = cordMat.uniforms;
+  for(let i = 0; i < 6; i++){
+    const d = D[i + 1], g = pose[i];
+    _gy[i] = d ? d.home.y : levelY[i + 1];
+    _gp[i].set(0, _gy[i], d ? d.home.z : 0);
+    _gq[i].setFromEuler(_e.set(-g.bend, 0, g.lean));
+    _gl[i] = DISC_H*(g.h - 1);
+  }
+  // pivots move with the gaps below them
+  for(let i = 5; i >= 0; i--) for(let j = i - 1; j >= 0; j--){ _gp[j].sub(_gp[i]).applyQuaternion(_gq[i]).add(_gp[i]); _gp[j].y += _gl[i]; }
+  const move = (pos, quat, y) => {
+    for(let i = 5; i >= 0; i--){
+      if(y > _gy[i] + 1e-5){ pos.sub(_gp[i]).applyQuaternion(_gq[i]).add(_gp[i]); pos.y += _gl[i]; if(quat) quat.premultiply(_gq[i]); }
+    }
+  };
+  // where C1 ends up: shear it back over its rest place, fading to nothing at the bottom gap
+  _top.copy(V[0].home); move(_top, null, V[0].home.y);
+  const y0 = _gy[5], y1 = V[0].home.y, shx = V[0].home.x - _top.x, shz = V[0].home.z - _top.z;
+  parts.forEach(p => {
+    const y = p.home.y;
+    move(p.g.position, p.g.quaternion, y);
+    const k = clamp((y - y0)/(y1 - y0), 0, 1);
+    p.g.position.x += shx*k; p.g.position.z += shz*k;
+  });
+  // the discs themselves: thinner or taller, half the turn of the gap
+  for(let i = 0; i < 6; i++){ const d = D[i + 1]; if(d) d.g.scale.y *= pose[i].h; }
+  for(let i = 0; i < 6; i++){
+    cu.uGapY.value[i] = _gy[i]; cu.uGapL.value[i] = _gl[i]; cu.uGapP.value[i].copy(_gp[i]);
+    cu.uGapR.value[i].setFromMatrix4(_gm.makeRotationFromQuaternion(_gq[i]));
+  }
+  cu.uShear.value.set(shx, 0, shz); cu.uShearY.value.set(y0, y1);
+}
 /* Per frame. amount: 0..1 visibility. crackT: seconds since the x-ray opened on a crack (< 0 = not cracked).
    hurt: 0..1 recent wrong crack (coral throb). frac: {lvl 1|2, t seconds} on a hard wrong crack (see the header), else
-   null. traction: towel mode {s: neck stretch (m), over, back: seconds since the snap back (< 0 before)}, the spine
+   null. traction: towel mode {s: neck stretch (m), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
    stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
@@ -282,12 +385,15 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   const level = levelY[stuck];
 
   // reset to the healthy pose, then bend it by symptom
-  const all = [...V, ...D.filter(Boolean), ...R.flatMap(r => [r.L, r.R]).filter(Boolean)];
+  const all = [...V, ...D.filter(Boolean), ...R.flatMap(r => [r.L, r.R]).filter(Boolean), ...TV, ...TD, ...(torn ? [torn] : [])];
   all.forEach(p => {
     p.g.position.copy(p.home); p.g.rotation.set(0, 0, 0); p.g.scale.set(1, 1, 1);
     p.mat.opacity = amount; p.mat.emissive.setRGB(0, 0, 0); p.mat.color.copy(p.base); p.m.visible = true;
     if(p.over) p.over.material.opacity = 0;
   });
+  if(torn) torn.g.visible = false;
+  cordMat.uniforms.uSep.value = 0;
+  bendSpine(target, all);
   // only the roots at the stuck level are drawn: fourteen of them read as bristles
   R.forEach((r, i) => [r.L, r.R].forEach(p => { if(p) p.g.visible = i === stuck; }));
   const sv = V[stuck];
@@ -403,30 +509,92 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     flash.material.opacity = 0;
     bubbles.forEach(b => { b.s.material.opacity = 0; });
   }
-  // towel traction (game/flow.js towelSuccess / towelHurt), live with the neck's stretch: the head end of the spine
-  // moves with the head, the body end stays, every gap opens (core/towel.js spineOffsets) and the discs pull tall and
-  // thin like taffy. A good tug: red and trembling while held, blue from the snap back (traction.back). Too hard ("over"):
-  // C1-C2 come out with the skull, the discs below go coral and stringy (a cartoon, not anatomy)
-  if(traction){
-    const sm = traction.s/SC, offs = spineOffsets(sm);
-    if(traction.over){ offs[0] += sm*0.9; offs[1] += sm*0.45; }
-    const shiver = traction.s > 0.005 ? 0.0004*Math.sin(now*0.11) : 0;
-    V.forEach((v, k) => { v.g.position.y += offs[k]; v.g.position.x += shiver*(k % 2 ? 1 : -1); });
-    const blue = traction.back < 0 ? 0 : clamp(traction.back/0.6, 0, 1), b2 = blue*blue*(3 - 2*blue);
-    _tc.copy(traction.over ? COL.coral : COL.pinched).lerp(COL.freed, traction.over ? 0 : b2);
+  // towel traction (game/flow.js towelSuccess / towelHurt), on the x-ray's own clock (traction.x, s since it opened).
+  // A good tug (user: "성공하면 엑스레이도 빨간색이 좁아져 있는 상태에서 파란색으로 넓어지도록", 2026-10-15): the discs
+  // are squashed thin and red at first, then the gaps open with the neck's stretch (core/towel.js spineOffsets) and the
+  // discs swell tall and turn blue; after the neck springs back they stay blue at a healthy height.
+  if(traction && !traction.over){
+    const x = Math.max(0, traction.x), open = smooth01((x - 0.35)/0.5);
+    const settle = traction.back < 0 ? 0 : clamp(traction.back/0.6, 0, 1);
+    const offs = spineOffsets(traction.s/SC*open);
+    const h = (0.55 + 0.75*open)*(1 - settle) + 1.08*settle;    // disc height factor: 0.55 pinched .. 1.3 .. 1.08
+    const shiver = open < 1 ? 0.0004*Math.sin(now*0.11)*(1 - open) : 0;
+    _tc.copy(COL.pinched).lerp(COL.freed, open);
+    // each vertebra rides on the gaps below it: the stretch, plus every disc under it being thinner / taller
+    // (C1 and C2 sit on all six discs C2/3..C7/T1, C3 on five, ... C7 on one)
+    V.forEach((v, k) => { v.g.position.y += offs[k] + DISC_H*(h - 1)*(7 - Math.max(k, 1)); v.g.position.x += shiver*(k % 2 ? 1 : -1); });
     for(let j = 1; j < D.length; j++){
       const d = D[j];
       if(!d) continue;
-      const below = j + 1 < V.length ? offs[j + 1] : 0;
-      const st = discStretch(offs[j] - below, DISC_H);   // D[j] sits under V[j], over V[j+1]
-      d.g.position.y += (offs[j] + below)/2;
-      d.g.scale.y *= st.sy; d.g.scale.x *= st.sxz; d.g.scale.z *= st.sxz;
-      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(traction.back < 0 ? 0.3 + 0.2*throb : 0.35);
-      d.over.material.color.copy(_tc); d.over.material.opacity = (traction.back < 0 ? 0.5 + 0.25*throb : 0.65)*amount;
+      d.g.position.y = d.home.y + (offs[j] + (j < 6 ? offs[j + 1] : 0))/2 + DISC_H*(h - 1)*(6.5 - j);
+      d.g.scale.set(1 + 0.12*(1 - h)*(h < 1 ? 1 : 0), h, 1 + 0.12*(1 - h)*(h < 1 ? 1 : 0));
+      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(open < 1 ? 0.3 + 0.2*throb*(1 - open) : 0.35);
+      d.over.material.color.copy(_tc); d.over.material.opacity = (0.6 + 0.2*throb*(1 - open))*amount;
     }
   }
+  // An over-pull (user: "존나 세게 뽑았을 때 목뼈랑 척추가 분리되는... 아예 확실히 분리 되버리는 느낌", 2026-10-15): the
+  // neck stretches like taffy and trembles at C7/T1, then at SEP_AT it snaps clean off the back: the whole cervical
+  // column (with the upper half of the torn C7/T1 disc) shoots up toward the head with a twist, a white flash, bone
+  // chips and a red glow in the gap, the cord stretched thin like a rubber band between. It dangles there, and when the
+  // neck springs back (traction.back) it clunks home. A cartoon, not anatomy.
+  if(traction && traction.over){
+    const x = Math.max(0, traction.x), sm = traction.s/SC, offs = spineOffsets(sm);
+    const home = traction.back < 0 ? 0 : smooth01(traction.back/0.22);
+    const pre = clamp(x/SEP_AT, 0, 1)*(1 - home);
+    const sep = (x < SEP_AT ? 0 : easeOutBack(clamp((x - SEP_AT)/0.22, 0, 1)))*(1 - home);
+    const gapY = levelY[6], lift = SEP_GAP*sep;
+    const tw = sep*(0.32*side + 0.06*Math.sin(x*7)), tilt = sep*(0.12 + 0.05*Math.sin(x*5.3 + 1));
+    _q.setFromEuler(_e.set(tilt, tw, 0.08*sep*side));
+    _a.set(0, gapY, 0);
+    const shake = x < SEP_AT ? 0.0007*pre*Math.sin(now*0.13) : 0;
+    const ride = p => {     // move a part of the neck block: stretch offset, then lift + twist about the gap
+      p.g.position.sub(_a).applyQuaternion(_q).add(_a);
+      p.g.position.y += lift; p.g.position.x += shake;
+      p.g.quaternion.premultiply(_q);
+    };
+    V.forEach((v, k) => { v.g.position.y += offs[k]*(1 - sep) + 0.6*offs[k]*sep; ride(v); });
+    _tc.copy(COL.coral);
+    for(let j = 1; j < D.length; j++){
+      const d = D[j];
+      if(!d) continue;
+      if(j < 6){
+        const below = offs[j + 1];
+        d.g.position.y += (offs[j] + below)/2*(1 - 0.4*sep);
+        d.g.scale.y *= 1 + 0.6*pre*(1 - sep);
+        ride(d);
+      }else{
+        // the torn disc: the lower half stays on T1 (squashed down), the upper half goes with C7
+        d.g.scale.y *= 1 - 0.5*sep; d.g.position.y -= DISC_H*0.25*sep;
+        if(torn && sep > 0){ torn.g.visible = true; torn.mat.opacity = amount; torn.g.scale.set(1, 0.5, 1); torn.g.position.y += DISC_H*0.25; ride(torn);
+          torn.mat.color.copy(_tc); torn.mat.emissive.copy(_tc).multiplyScalar(0.5); }
+      }
+      d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(0.3 + 0.3*pre + 0.2*throb);
+      d.over.material.color.copy(_tc); d.over.material.opacity = (0.5 + 0.3*pre)*amount;
+    }
+    R.forEach(r => [r.L, r.R].forEach(p => { if(p) ride(p); }));
+    // heat at the gap before it goes, then the break itself
+    V[6].mat.emissive.copy(COL.coral).multiplyScalar(0.25*pre + 0.4*sep);
+    if(TV[0]) TV[0].mat.emissive.copy(COL.coral).multiplyScalar(0.25*pre + 0.4*sep);
+    const ft = x - SEP_AT;
+    gapGlow.position.set(0, gapY + lift*0.5, 0.004);
+    gapGlow.material.opacity = amount*(x < SEP_AT ? 0.35*pre*(0.6 + 0.4*throb) : sep*(0.8 + 0.2*throb));
+    gapGlow.scale.setScalar(0.02 + 0.03*sep);
+    flash.position.set(0, gapY + lift*0.5, 0.006);
+    flash.material.opacity = ft >= 0 ? Math.max(0, 1 - ft/0.35)*amount : 0;
+    flash.scale.setScalar(0.02 + 0.05*Math.min(1, Math.max(0, ft)*3));
+    chips.forEach(c => {
+      const t = Math.max(0, ft);
+      c.s.visible = ft >= 0 && home < 1;
+      c.s.position.set(0, gapY + lift*0.5, 0.004).addScaledVector(c.v, Math.min(t, 0.9)*1.4);
+      c.s.material.opacity = amount*Math.max(0, 1 - t/1.4);
+      c.s.scale.setScalar(0.006);
+    });
+    const cu = cordMat.uniforms;
+    cu.uSepY.value = gapY; cu.uSep.value = lift;
+    cu.uHotAmt.value = Math.max(cu.uHotAmt.value, 0.5*pre + sep*(0.7 + 0.3*throb)); cu.uLevel.value = gapY;
+  }
   if(frac) fracture(frac, sv, stuck, side, amount, throb);
-  else hideFrac();
+  else if(!(traction && traction.over)) hideFrac();
   return released;
 }
 /* The hard wrong crack on the stuck vertebra (sv). Runs after the pressed pose is set up, so it only adds. */
@@ -467,6 +635,7 @@ function fracture(frac, sv, stuck, side, amount, throb){
     h.visible = true;
     h.geometry = sv.m.geometry;
     h.material.opacity = amount; h.material.envMap = sv.mat.envMap;
+    if(h.material.vertexColors !== sv.mat.vertexColors){ h.material.vertexColors = sv.mat.vertexColors; h.material.needsUpdate = true; }
     h.material.emissive.copy(sv.mat.emissive);
     h.position.copy(sv.g.position).addScaledVector(_n, s*0.011*split);
     _e.set(0, s*0.15*split, s*0.3*split*side);

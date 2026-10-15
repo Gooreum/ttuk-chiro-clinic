@@ -44,5 +44,7 @@ mesh(box(0.74,0.13,2.26), mats.vinyl, null, [0,0.775,1.07]);
 mesh(box(0.745,0.006,2.265), mats.vinylDark, null, [0,0.755,1.07], null, null, true);
 mesh(box(0.5,0.002,2.0), mats.paper, null, [0,0.842,1.2], null, null, true);
 mesh(cyl(0.05,0.05,0.56,16), mats.paper, null, [0,0.85,2.26], [0,0,Math.PI/2]);
-mesh(box(0.48,0.1,0.44), mats.vinyl, null, [0,0.83,-0.27]);
-mesh(box(0.36,0.002,0.36), mats.paper, null, [0,0.881,-0.27], null, null, true);
+// the head extension and its paper: the towel mode's seated therapist (scene/therapist.js) sits where it is, so it is
+// folded away there (headRest)
+export const headRest = [mesh(box(0.48,0.1,0.44), mats.vinyl, null, [0,0.83,-0.27]),
+  mesh(box(0.36,0.002,0.36), mats.paper, null, [0,0.881,-0.27], null, null, true)];

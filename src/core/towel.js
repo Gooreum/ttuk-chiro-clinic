@@ -22,12 +22,27 @@ export function towelKind(t, tg){ return t > tg.limit ? "over" : towelDist(t, tg
    STRETCH_HOLD (long enough to see the spine stretch on the x-ray), then springs back with a damped spring (a little
    squash past zero) and is still by STRETCH_LEN. The bone crack lands at STRETCH_HOLD, as it snaps back. */
 export const STRETCH_RISE = 0.25, STRETCH_HOLD = 1.3, STRETCH_LEN = 2.3;
-export function stretchProfile(t, peak){
-  if(t <= 0 || t >= STRETCH_LEN) return 0;
+// the end of the stretch for a given hold (the spring back always takes STRETCH_LEN - STRETCH_HOLD)
+export const stretchLen = (hold = STRETCH_HOLD) => hold + STRETCH_LEN - STRETCH_HOLD;
+export function stretchProfile(t, peak, hold = STRETCH_HOLD){
+  if(t <= 0 || t >= stretchLen(hold)) return 0;
   if(t < STRETCH_RISE){ const u = t/STRETCH_RISE; return peak*(1 - (1 - u)*(1 - u)); }
-  if(t < STRETCH_HOLD) return peak*(1 + 0.05*Math.sin(2*Math.PI*9*(t - STRETCH_RISE)));
-  const u = t - STRETCH_HOLD, len = STRETCH_LEN - STRETCH_HOLD;
+  if(t < hold) return peak*(1 + 0.05*Math.sin(2*Math.PI*9*(t - STRETCH_RISE)));
+  const u = t - hold, len = STRETCH_LEN - STRETCH_HOLD;
   return peak*Math.exp(-4*u)*Math.cos(2*Math.PI*1.8*u)*(1 - u/len);
+}
+/* An over-pull (game/flow.js towelHurt "over", user: "존나 세게 잡아 당기면 치료자도 뒤로 훌러덩 넘어지게 해줘. 그러고
+   나서 환자 목이랑 척추 분리되는 엑스레이", 2026-10-15): the therapist goes over backwards with his stool (FALL_HIT:
+   the floor, a little bounce), then the x-ray opens at OVER_XRAY and shows the neck coming off the back (scene/xray.js);
+   the long neck holds to OVER_HOLD and springs back, and he bounces back up on his stool from GETUP_AT. Seconds since
+   the tug. fallProfile: 0 = sitting, 1 = flat on his back. */
+export const FALL_START = 0.1, FALL_HIT = 0.75, OVER_XRAY = 1.0, OVER_HOLD = 3.4, GETUP_AT = 3.5, GETUP_LEN = 0.6;
+export function fallProfile(t){
+  if(t <= FALL_START) return 0;
+  if(t < FALL_HIT){ const u = (t - FALL_START)/(FALL_HIT - FALL_START); return u*u*u; }       // tipping over, faster and faster
+  if(t < GETUP_AT){ const u = t - FALL_HIT; return 1 - 0.08*Math.exp(-7*u)*Math.abs(Math.sin(2*Math.PI*2.5*u)); }   // bump, bump
+  const u = Math.min(1, (t - GETUP_AT)/GETUP_LEN);
+  return Math.max(0, (1 - u)*(1 - u)*(1 + 2*u) - 0.12*Math.sin(Math.PI*u)*u);                // springs back up, rocks past
 }
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
