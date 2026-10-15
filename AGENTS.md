@@ -37,12 +37,14 @@
 | `tuning.js` | `DEFAULTS`, `T`(localStorage `chiroTune`), `saveT`, `resetT`. 튜닝 패널과 1:1 |
 | `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·증상 쪽 회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·교정 반응 풀 `react`(`jolt`/`ahh`/`first`/`then`/`big`)·대사 `lines`(교정 뒤 `sigh`/`what`/`ahh`/`after`/`done`)), `REVIEWS`, `makePatients()`(매 판 양쪽 목표 각도 `sides`와 위험 한계 `limR/limB` 랜덤) |
 | `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`), `crack.js`(`crackProfile` 교정 순간 목의 움직임), `faceRig.js`(표정 가중치, `pickReaction`), `cue.js`(준비 시간 `PREP_MS`·준비 대사, 호흡 안내 `breathCue`), `fail.js`(잘못 꺾었을 때 연출 종류 `failKind`, 환자 실패 대사 `failLine`, 고무줄 출렁 `boingProfile`, 손 털기 `flinchProfile`, 진료 일지 후기 `reviewLine`, 실패 도장 `FAIL_STAMP`, 일지 실패 칩 `failTags`, 꺾은 세기 단계 `forceTier`), `crackPattern.js`(교정 소리 패턴 `crackPattern` 뚝/두둑/우두둑) |
+| `core/towel.js` | 수건 견인 연습(4절)의 순수 함수: 장력 `towelTension`(조준 세로축 `S.cur.bend` / 28°), 환자별 목표 구역 `makeTowelTarget`(어르신 낮고 한계 낮음, 긴장형 좁음), `towelKind`(ok/over/slip), 목 늘이기 `stretchProfile`(0.15초 쭈욱, 0.65초까지 부들부들, 1.6초에 감쇠 스프링으로 복귀), 환자별 병맛 대사 `TOWEL_LINES`, 도장·칩·후기 |
 | `scene/renderer.js` | 렌더러·씬·카메라·조명. ACES 톤매핑, 그림자는 `sun` 하나만 |
 | `scene/textures.js` | 캔버스 텍스처(나무 바닥, 러그, 경추 포스터, 자격증). 폰트 로드 후 `redraw()` |
 | `scene/materials.js` | `mats`, `M`, `mesh`, `cap/box/cyl/sph` |
 | `scene/room.js` | 진료실, 교정 테이블 |
 | `scene/patientModel.js` | 환자 몸(기본 도형, `bodyParts`), `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 링/충격파/파편. 교정 중 흐려지는 손·가운 재질 `crackFadeMats` |
 | `scene/xray.js` | 교정 X-ray: 실제 경추 모델(BodyParts3D C1–C7·추간판, `public/models/spine/cervical.glb`, `loadSpine()`으로 지연 로드)과 척추관을 따라 만든 척수·신경근 관, 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`) 아래 디스크가 빨갛게 납작 눌려 있고(0.55초 압박 `XRAY_PRE`, 위 척추가 내려앉아 떨림, 카메라가 다가감), 해방 순간 디스크가 제 높이를 넘어 부풀었다 출렁이며 위 척추를 들어 올리고 이웃 디스크로 파도가 번지며 약 1.4초에 걸쳐 파랗게 바뀐다. 척수도 그 높이에서 좁아졌다가 다시 열린다. 증상별 차이는 환자 `xr`(flat 일자목, disc 압박, rot 회전, facet 관절 잠김, muscle 근육 긴장 표시)가 정한다. X-ray 동안 카메라는 목 옆으로 돈다 |
+| `scene/towel.js` | 견인 모드의 입체 수건: 둥근 상자 단면(폭 7.2cm, 두께 2cm)을 매 프레임 곡선 위로 쓸어 만든다. 목 뒤(head-local z 0.1, 반지름 약 7cm)를 감아 양옆으로 올라와 두 주먹(`realAssets.js` `towelGrips`)으로 가고 끝자락이 주먹 밖으로 늘어진다. 목 앞은 감지 않는다(조르는 그림이 됨). 감긴 부분은 폭이 목 축 방향, 주먹 쪽은 납작하게 꼬여 위에서 천이 보인다(그냥 감으면 위에서 옆면만 보여 가는 선이 됐다). 타월 결은 범프 맵, 청록 줄무늬. slip이면 위·뒤로 날아갔다 1.3초에 돌아온다 |
 | `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
 | `scene/breathFx.js` | 호흡 글자: 들이쉬기 시작하면 "흐읍…", 내쉬기 시작하면 "후우~"(민트)가 머리 옆에 떠올랐다 사라진다(조준 중에만). 예전의 코끝 민트 김은 사용자가 "입에서 뭐가 나오라는 게 아니다"라고 해서 뺐다. 호흡 안내도 여기서 건다: 조준이 가까울 때(closeness 0.5 이상) 들숨이 시작되면 "숨 크게 들이쉬고…", 이어지는 날숨 시작에 "천천히 내쉬세요…"를 치료사 말(`hud.js` `coach`)로 쪽마다 한 번만 띄운다(`core/cue.js` `breathCue`, 호흡 보너스 옵션이 꺼져 있으면 안 띄움). 98개 실제 영상(2026-10-15)에서 치료사가 "들이쉬고… 내쉬세요" 하고 날숨 끝에 꺾었다 |
 | `scene/realAssets.js` | 사실적 glTF 에셋(환자 5명 모두, `look.model`이 `public/models/<id>`를 가리킨다. 첫 환자부터 하나씩 백그라운드 로드): 환자 머리(MakeHuman, 표정 블렌드셰이프 26개(눈 크게 뜨기·바깥 눈썹·이 드러낸 웃음·찡그림·콧볼 등), 각막 반사 셸 `.cornea`, 입 벌림을 따라가는 치아·혀, AO가 구워진 피부)와 몸(같은 캐릭터의 목 중간 아래. 두 손을 배 위에 왼손이 오른손 위로 겹치게 올리고 있다. 실제 교정 영상 98개에서 바로 누운 환자는 거의 언제나 그렇게 누워 있어서 팔을 옆으로 내린 자세에서 바꿨다(2026-10-15). 손은 호흡 모양 키를 따라 배와 함께 오르내린다. 티셔츠·청바지는 AO 맵만 남겨 가운·바지 팔레트 색으로 칠한다. 목 뼈가 pivot 회전을 그대로 따라 머리와의 이음매가 벌어지지 않고, 가슴이 2.6cm 오르고 배는 1.6cm 부드럽게 따라오며 어깨가 머리 쪽으로 3cm 들리는 호흡 모양 키 `breath`가 있다. 1배로 쓴다. 예전에 배 중심 모양을 2.2배로 키웠더니 배가 풍선처럼 부푼다는 지적을 받아 가슴 위주로 바꿨다), 치료사 팔(`public/models/hands/arms.glb`, MakeHuman 어깨 아래~손끝 팔 전체와 흰 티셔츠 반팔 소매, 소매 끝단은 `mats.cuff` 청록. 위팔·아래팔·손·손가락 뼈 리그, 구운 피부. 월드에 붙고 매 프레임 두 뼈 IK로 자세를 잡는다, 3-6 참고). 로더는 별도 청크로 지연 로드, 실패하면 기본 도형 유지(팔 GLB가 없거나 실사 머리가 아직 없으면 예전 도형 손과 원통 소매가 그대로 나온다). 환자 머리·몸은 `head` 그룹/pivot을 따라 붙어 목 pivot·카메라·판정과 무관. 머리는 기존 도형 머리의 정수리·턱·뒤통수 위치에 맞춘다. 표정은 `core/faceRig.js`가 상태를 가중치로 바꾼다(얼굴마다 작은 움직임 `live`, 들숨에 콧볼이 벌어짐) |
@@ -53,7 +55,7 @@
 | `game/feel.js` | `core/feel.js`를 현재 환자·튜닝으로 감싼 래퍼: `distAtNow`, `distNorm`(촬영용 `__FORCE_HIT__` 훅), `closeness`, `applyDelta`, `breath` |
 | `game/flow.js` | `start`(3-5) → `loadPatient` → `adjust` → `success` / `hurt` → `switchSide`(반대쪽) → … → `finish`(진료 일지, 최고 기록 localStorage `chiroBest`). `S.target`은 환자 + 지금 쪽(`aimAt`). 새 환자가 오면 `PREP_MS`(2.2초) 준비 시간: `S.prepUntil`까지 `S.busy`가 켜져 있어 조준·판정·스냅이 모두 꺼지고, 그동안 손이 목을 더듬고 머리를 살살 흔든다(`loop.js`가 `S.prepUntil`을 읽는다). 환자 첫 마디 뒤 치료사가 "힘 빼세요…"(`PREP_LINES`). 호흡 시계(`breathT0`)는 준비 시작부터, `patientStart`(긴장형 축소·재촉 대사·호흡 안내)는 준비가 끝날 때부터. 반대쪽 전환에는 준비 시간이 없다 |
 | `ui/hud.js` | 토스트, 말풍선, 치료사 말 `coach`(어두운 알약 모양, 민트 글씨. 말풍선과 같은 높이라 나중 말이 앞 말을 지운다), 떠오르는 글씨, 차트 카드, 미니 경추, 모드 문구, `projectHead` |
-| `ui/ring.js` | `#hud` 2D 캔버스에 머리 둘레 조준 링(3-6) |
+| `ui/ring.js` | `#hud` 2D 캔버스에 머리 둘레 조준 링(3-6). 견인 모드에서는 조준점 대신 머리 오른쪽 세로 "수건 장력" 게이지(목표 구역 민트 띠, 한계 산호 선)와 호흡 호 |
 | `ui/tuneSheet.js` | 튜닝 패널 |
 | `game/loop.js` | `frame`: 슬로모션(`S.slow`), 줌(`S.zoom`), X-ray(`S.xrayIn` 지연 → `S.xray`/`S.hurtX`/`S.crackT` → `updateXray`), 표정, 카메라 |
 | `style.css` | 전체 스타일 (원본 `<style>` 그대로) |
@@ -121,6 +123,13 @@
 
 튜닝 기본값(`DEFAULTS`): 감도 1.5, 위아래 1.0, 무거움 0.6, 허용 범위 1.0, 꺾는 속도 200°/s, 툭 세기 10 m/s², 배경음악 켬. 사용자가 패널에서 바꾸면 localStorage에 남으므로, 기본값을 바꿔도 기존 사용자에게는 "기본값으로"를 눌러야 반영된다.
 
+
+### 수건 견인 연습 (타이틀 "수건 견인 연습", `S.game = "towel"`)
+- 사용자 요청(2026-10-15): "수건으로 목을 감싸고 수건을 댕겨서 목 뽑는거". 별도 연습 모드로 골랐다. 진료 흐름·판정은 그대로다.
+- 환자 5명을 한 번씩 당긴다(양쪽 없음). 장력은 기존 조준 세로축(`S.cur.bend`, 폰 위쪽을 몸 쪽으로 젖힘, 드래그는 위로)을 28°로 나눈 값이라 센서 계산은 그대로다. 견인 모드에서는 좌우 입력을 0으로 두고 머리를 기울이지 않는다. 툭은 기존 스냅(센서·스와이프·스페이스)을 그대로 쓴다.
+- 판정: 목표 구역 안이면 성공(점수·PERFECT·날숨·연속은 `scoreSuccess` 그대로), 한계 초과면 `over`(목이 20cm 늘어나 뾰잉, 통증), 그보다 느슨하면 `slip`(수건만 쏙 빠져 날아감, 통증). 금·골절·구급차는 없다. 머리를 넘겨받은 0.6초 안 느슨한 툭은 토스트만.
+- 성공: 머리가 카메라 쪽으로 9cm(PERFECT 10.8cm) 쭈욱 나가고(`head.position.z`, 실사 목 뼈 `updateRealBody(fill, s)`, 기본 목 원기둥) 카메라가 뒤·위로 물러나 긴 목이 화면에 보인다. 1초 뒤 X-ray에서 모든 디스크가 눌렸다 한꺼번에 벌어지며 빨강에서 파랑으로(`updateXray(..., traction)`).
+- 결과 화면은 "수건 견인 연습 끝", 최고 기록은 `chiroTowelBest`, 등급은 한 번 당기기 평균, 칩은 엿가락/헛당김. "다시"는 마지막 모드로 시작한다.
 ---
 
 ## 5. 검증 방법
@@ -154,7 +163,8 @@
 6. **앱인토스 연동**: 화면 방향 고정(네이티브 설정으로 3-4 우회 불필요해질 수 있음 — 그래도 웹 폴백은 유지), 햅틱 API로 iOS 진동 지원.
 
 ## 7. 톤 & 디자인
-- 코믹하지만 깔끔하게. 실제 목 교정을 따라 하라는 뉘앙스는 피한다(의료 행위 오인 방지).
+- 병맛: 과장되고 엉뚱하게(목이 엿가락처럼 늘어나고, 환자들이 황당한 대사를 한다). 사용자: "전반적으로 우리 게임은 병맛 느낌으로 가야해"(2026-10-15). 예전 기준은 "코믹하지만 깔끔하게"였다. 화면 정리(가독성·팔레트·폰트)는 그대로 깔끔하게 둔다.
+- 실제 목 교정을 따라 하라는 뉘앙스는 계속 피한다(의료 행위 오인 방지). 병맛 과장은 오히려 "이건 만화"라는 신호가 된다.
 - 팔레트: 밤 진료실 청록 `--room #17312c`, 종이 `--paper #f4efe4`, 산호 `--coral #ff7a59`, 민트 `--mint #8adfbf`. 폰트: 제목 Black Han Sans, 본문 IBM Plex Sans KR.
 - 예외: X-ray의 눌린 디스크만 빨강 `#e8383d` → 파랑 `#3d8bff`. 사용자가 "찝혀있던 디스크가 빨간색이다가 점점 파란색"으로 직접 요청했다. 디스크가 뼈 위에 겹쳐 보이도록 톤매핑을 끈 일반 블렌딩으로 그린다(가산 발광은 밝은 뼈 위에서 흰색으로 타 버린다).
 - 이모지 쓰지 말 것. UI 문구는 짧고 구어체.
