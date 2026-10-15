@@ -149,6 +149,7 @@ function placeBody(gltf, env, g, model){
       if(name.endsWith(".shirt")) crackFadeMats.push(m);
     }
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+    if(!name.endsWith(".skin") && o.isSkinnedMesh) pinToBody(o);
     if(model) (model.bodyMeshes || (model.bodyMeshes = [])).push(o);
     if(o.morphTargetDictionary && o.morphTargetDictionary.breath !== undefined) morphs.push(o);
   });
@@ -159,6 +160,16 @@ function placeBody(gltf, env, g, model){
   frame.userData = {morphs, neck, parentInv: neck.parent.matrixWorld.clone().invert(), neckRest: neck.matrixWorld.clone()};
   _P0.makeTranslation(pivot.position.x, pivot.position.y, pivot.position.z).invert();
   return frame;
+}
+/* The clothes stay on the trunk: the towel mode's neck stretch (updateRealBody) moves the neck bone, and the shirt
+   collar weighted to it stretched like taffy with the skin (user: "목 살이 늘어나야 하는데 옷이 늘어나서 기괴해져버림",
+   2026-10-15). Only the skin follows the neck now; the collar's neck weights go to the trunk bone. */
+function pinToBody(o){
+  const bones = o.skeleton.bones, ni = bones.findIndex(b => b.name === "neck"), bi = bones.findIndex(b => b.name === "body");
+  if(ni < 0 || bi < 0) return;
+  const si = o.geometry.attributes.skinIndex;
+  for(let i = 0; i < si.array.length; i++) if(si.array[i] === ni) si.array[i] = bi;
+  si.needsUpdate = true;
 }
 const current = () => wantModel && real.models[wantModel];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
@@ -735,7 +746,9 @@ export function updateRealHands(st){
 function primitiveHeadParts(){
   // the primitive glasses go too: their toy frames float over the realistic face
   const models = Object.values(real.models).map(m => m.head);
-  return head.children.filter(o => !models.includes(o) && !handParts.includes(o) && !hands.includes(o));
+  // the simulated towel (scene/towel.js) hangs under head too: hiding it here lost it from the second patient on
+  // (user: "수건 사라짐", 2026-10-15)
+  return head.children.filter(o => !models.includes(o) && !handParts.includes(o) && !hands.includes(o) && !o.userData.keep);
 }
 let hiddenPrims = [];
 /* applyLook calls restorePrimitiveHead() first, sets the primitive look, then setRealHead() last,

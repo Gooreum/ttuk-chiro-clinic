@@ -282,7 +282,7 @@ function hurt(msg, kind, force = 0){
 function towelAdjust(src){
   const t = towelTension(S.cur.bend), kind = __FORCE_HIT__ ? "ok" : towelKind(t, S.towel);
   if(kind === "ok") return towelSuccess(distNorm(), T.breath && breath(performance.now()).exhale);
-  if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
+  if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ crackSound(1); toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
   towelHurt(kind);
 }
 const TOWEL_XRAY_DELAY = 0.55;  // s: the long neck in the towel reads first, then the see-through x-ray shows the spine stretched (scene/xray.js traction)
@@ -333,6 +333,9 @@ function towelHurt(kind){
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
   stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : "수건이 너무 느슨했어요", kind === "over" ? "over" : "dud", 1700);
+  // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
+  crackSound(kind === "over" ? 3 : 2);
+  floater(kind === "over" ? "우두둑!" : "뚜둑!", 50, -r - 34);
   if(kind === "over"){
     // the neck pulled out like taffy and the see-through x-ray shows the top of the spine coming out with the skull
     // (user: "과하게 했을땐 목뼈가 뽑히는 엑스레이 효과", 2026-10-15); it boings back and the vertebrae clunk home

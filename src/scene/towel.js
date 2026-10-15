@@ -49,6 +49,7 @@ function loadSim(){
       simMeshes[id] = o;
     });
     sim = new THREE.Group();
+    sim.userData.keep = true;   // not one of the primitive head parts realAssets.js hides for the realistic head
     Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
     head.add(sim);
   }).catch(err => console.warn("simulated towel not loaded, keeping the bone towel", err));
@@ -88,33 +89,34 @@ const local = (x, y, z, out) => out.set(x, y, z).applyMatrix4(head.matrixWorld);
 const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(head.matrixWorld);
 
 /* on: towel mode and playing. grips: realAssets towelGrips() or null. tension 0..1, near: 0..1 how close to the limit
-   (a fine tremble), slip: seconds since the towel slipped off (< 0 none): it flies up toward the therapist and is
-   gone, then is back in the hands by SLIP_BACK. t: seconds (the hanging ends sway). */
-const SLIP_GONE = 0.7, SLIP_BACK = 1.3;
+   (a fine tremble), slip: seconds since the towel slipped out of the fists (< 0 none): it jumps up out of them and
+   flops back down onto the neck, slack, and is back in the hands by SLIP_BACK. It never disappears (user: "수건
+   사라짐", 2026-10-15). t: seconds (the hanging ends sway). */
+const SLIP_BACK = 1.3;
+const slipArc = slip => slip >= 0 && slip < SLIP_BACK ? Math.sin(Math.PI*slip/SLIP_BACK) : 0;
 export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patient = ""){
   if(on && !sim && !simLoading) loadSim();
   const simMesh = sim && simMeshes[patient];
+  const arc = slipArc(slip);
   if(simMesh){
-    // the simulated towel: shown for this patient only, tension blends slack -> taut, a slip throws it off
-    const showSim = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
-    Object.values(simMeshes).forEach(m => { m.visible = showSim && m === simMesh; });
+    // the simulated towel: shown for this patient only, tension blends slack -> taut, a slip tosses it up and back down
+    Object.values(simMeshes).forEach(m => { m.visible = on && m === simMesh; });
     if(model) model.visible = false;
     ribbon.visible = false;
-    if(!showSim) return;
+    if(!on) return;
     const k = simMesh.morphTargetDictionary && simMesh.morphTargetDictionary.taut;
-    if(k != null) simMesh.morphTargetInfluences[k] = Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
-    const u = slip >= 0 && slip < SLIP_GONE ? slip/SLIP_GONE : 0;
-    sim.position.set(0, 0.35*u*u + 0.05*u, -0.55*u*u);
-    sim.rotation.set(-2.5*u*u, 0, 0.8*u);
+    if(k != null) simMesh.morphTargetInfluences[k] = slip >= 0 && slip < SLIP_BACK ? 0 : Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
+    sim.position.set(0, 0.12*arc, -0.06*arc);
+    sim.rotation.set(-0.5*arc, 0, 0.2*arc);
     return;
   }
   if(on && !model && !loading) load();
-  const show = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
+  const show = on;
   if(model) model.visible = show;
   ribbon.visible = show && !model;
   if(!show) return;
   head.updateMatrixWorld(true);
-  const hold = grips ? grips.hold : 0, slack = 1 - Math.min(1, Math.max(0, tension));
+  const hold = grips ? grips.hold : 0, slack = arc > 0 ? 1 : 1 - Math.min(1, Math.max(0, tension));
   const tremble = 0.0015*near*Math.sin(t*70);
   sides.forEach(sd => {
     const s = sd.s, P = sd.pts;
@@ -138,8 +140,8 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patie
     const L = sd.curve.getLengths(100);
     sd.fist = L[60];   // arc length to the fist (control point 3 of 6)
   });
-  // the slip: the whole towel flies up and back toward the therapist, spinning out of the frame
-  const u = slip >= 0 && slip < SLIP_GONE ? slip/SLIP_GONE : 0;
+  // the slip: the whole towel jumps up out of the fists and flops back down
+  const u = arc;
   BX.forEach((x, i) => {
     const sd = sides[x < 0 ? 0 : 1], d = Math.abs(x), f = frames[i];
     const a = Math.min(1, d/sd.len);
@@ -163,7 +165,7 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patie
     const roll = (r[1] - 0.5)*(0.55*loose + 0.5*chin)*(1 - g);
     if(roll){ _t.copy(f.y).multiplyScalar(Math.cos(roll)).addScaledVector(f.z, Math.sin(roll)); f.z.multiplyScalar(Math.cos(roll)).addScaledVector(f.y, -Math.sin(roll)); f.y.copy(_t); }
     f.p.addScaledVector(f.y, (r[2] - 0.5)*0.012*loose*(1 - g));
-    if(u > 0){ _fly.set(Math.sin(i*1.7)*0.05*u, 0.35*u*u + 0.05*u, -0.55*u*u); f.p.add(_fly); }
+    if(u > 0){ _fly.set(Math.sin(i*1.7)*0.02*u, 0.1*u, -0.05*u); f.p.add(_fly); }
     _m.makeBasis(f.x, f.y, f.z); f.q.setFromRotationMatrix(_m);
   });
   if(model){
