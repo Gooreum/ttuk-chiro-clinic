@@ -29,6 +29,9 @@ async def main():
   assert await page.evaluate('window.__requests.length')==2
   assert await page.locator('#backPress').is_hidden()
   async def state():return await page.evaluate('window.__backShot.snapshot()')
+  async def advance_shot(seconds):
+   elapsed=await page.evaluate('(performance.now()-window.__backShot.snapshot().animAt)/1000')
+   await page.clock.fast_forward(max(0,round((seconds-elapsed)*1000)))
   pose={'lr':0.,'pt':0.}
   async def send(forward=0,side=0,down=0,rate=0,ms=60):
    await page.evaluate("""({lr,pt,forward,side,down,rate})=>{
@@ -99,12 +102,13 @@ async def main():
    await send(forward=12,ms=35);assert (await state())['pending'] is not None
    await send(forward=force,ms=400)
    st=await state();assert st['tier']==tier and st['kind']=='over' and st['score']==0,st
-   await page.clock.fast_forward(900);await page.screenshot(path=str(OUT/('08-'+label+'-xray.png')))
-   await page.clock.fast_forward(2000);st=await state();assert st['faceVisible'] and st['sirenPlayed'],st
+   timing=await page.evaluate('window.__backShot.timeline()')
+   await advance_shot(1.3+timing['xrayDelay']);await page.screenshot(path=str(OUT/('08-'+label+'-xray.png')))
+   await advance_shot(timing['faceAt']+.4);st=await state();assert st['faceVisible'] and st['sirenPlayed'],st
    assert await page.locator('#backEmergency').is_visible()
    await page.screenshot(path=str(OUT/('09-face-'+label+'.png')))
    await page.clock.fast_forward(800);await page.screenshot(path=str(OUT/('09-face-'+label+'-late.png')))
-   await page.clock.fast_forward(2400);assert (await state())['phase']=='result'
+   await advance_shot(timing['end']+.2);assert (await state())['phase']=='result'
    assert '구급차' in await page.locator('#backResultTitle').inner_text()
   print('well-aimed rising peak, separate crack/fracture and ambulance overlay passed',flush=True)
   # No charge time or touch button is required in motion mode. A genuinely soft shove is a weak miss.

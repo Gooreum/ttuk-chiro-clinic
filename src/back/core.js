@@ -1,3 +1,4 @@
+import {therapistStyle} from './therapistMotion.js';
 import {forceTier,failKind,FAIL_AMP,FORCE_AMP} from '../core/fail.js';
 import {crackProfile} from '../core/crack.js';
 import {scoreSuccess} from '../core/scoring.js';
@@ -5,7 +6,8 @@ import {scoreSuccess} from '../core/scoring.js';
 export const TARGETS = [0.18, 0.50, 0.82];
 export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
 // Timing from clinic flow.js (XRAY_DELAY/FRAC_AT/FRAC_HOLD) and loop.js opacity speeds.
-export function clinicFilm(time,kind,tier=0){
+export function clinicFilm(time,kind,tier=0,force=1){
+  time-=therapistStyle(force,tier).xrayDelay;
   if(time<0)return 0;
   if(kind!=='ok'&&!tier)return time<.7?0:Math.max(0,1-(time-.7)*1.4)*.55;
   const start=tier?.45:.7,hold=tier?2.3:2.4;
@@ -40,10 +42,12 @@ export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhal
   const score=scoreSuccess(Math.min(1,d),exhale,streak,pain);
   return {...score,points:score.pts,kind,perfect:score.perfect,tier:0,d};
 }
-export function reactionTiming(kind,tier=0){
-  return tier?{faceAt:3.15,faceEnd:5.65,end:5.65,sirenAt:3.15}
+export function reactionTiming(kind,tier=0,force=1){
+  const delay=therapistStyle(force,tier).xrayDelay;
+  const timing=tier?{faceAt:3.15,faceEnd:5.65,end:5.65,sirenAt:3.15}
     :kind!=='ok'?{faceAt:1.45,faceEnd:3.6,end:3.6}
     :{faceAt:3.5,faceEnd:7.25,end:7.25};
+  return Object.fromEntries(Object.entries(timing).map(([k,v])=>[k,v+delay]));
 }
 // Exactly the clinic's load-up, thrust and damped return; only the destination is the back.
 export function impactFeel(force=1,tier=0){
@@ -53,7 +57,7 @@ export function impactFeel(force=1,tier=0){
 }
 export function pressProfile(t,kind='ok',tier=0,feedback='dud',force=1){
   const feel=impactFeel(force,tier),amp=tier?feel.gain:feel.gain*(kind==='ok'?1:FAIL_AMP[kind==='over'?'over':feedback]);
-  return crackProfile(t*feel.rate).rot/15*amp;
+  return crackProfile((t-(therapistStyle(force,tier).impactAt-.15))*feel.rate).rot/15*amp;
 }
 export function formatRank(score, mistakes){
   return mistakes >= 3 ? '침대도 쉬고 싶대요' : score >= 330 ? '손끝에서 오케스트라' : score >= 250 ? '허리까지 시원한 원장님' : '오늘도 한 뚝 배웠어요';
