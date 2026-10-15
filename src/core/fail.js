@@ -4,7 +4,7 @@ import { REVIEWS } from "../patient/roster.js";
    kind: "over" past the danger limit (rubber-band boing, "잠깐잠깐!"), "dud" just off (a half crack that fizzles),
    "finger" way off (the therapist's own knuckle cracks and the hand shakes out). */
 export function failKind(over, d){ return over ? "over" : d < 2 ? "dud" : "finger"; }
-export const DUD_AMP = 0.3;          // a dud: the neck's crack motion at 30%
+export const DUD_AMP = 0.4;          // a dud: the neck's crack motion at 40%
 // the patient's line for the n-th wrong crack on them (1-based); the last one repeats
 export function failLine(lines, n){
   const a = (lines && lines.fail) || [];
@@ -15,7 +15,7 @@ export const BOING_LEN = 1.1;
 export function boingProfile(t){
   if(t <= 0 || t >= BOING_LEN) return 0;
   const e = 1 - t/BOING_LEN;
-  return -12*Math.exp(-3.2*t)*Math.sin(2*Math.PI*3.4*t)*e;
+  return -20*Math.exp(-2.6*t)*Math.sin(2*Math.PI*3.0*t)*e;
 }
 // "finger": the contact hand jumps off the neck (away 0..1) and the wrist shakes out (radians), back by FLINCH_LEN
 export const FLINCH_LEN = 1.0;
@@ -24,6 +24,14 @@ export function flinchProfile(t){
   const away = t < 0.08 ? Math.sin(Math.PI/2*t/0.08) : t < 0.7 ? 1 : 0.5 + 0.5*Math.cos(Math.PI*(t - 0.7)/(FLINCH_LEN - 0.7));
   const shake = t > 0.15 && t < 0.7 ? 0.8*Math.sin(2*Math.PI*7*(t - 0.15))*(1 - (t - 0.15)/0.55) : 0;
   return {away, shake};
+}
+// the big tilted stamp on a wrong crack (ui/hud.js stamp), the old toast line rides under it
+export const FAIL_STAMP = { over: "뾰잉~", dud: "뚜…륵?", finger: "손가락 뚝!" };
+// day log chips: how many of each kind, in over / dud / finger order
+export const FAIL_TAG = { over: "뾰잉", dud: "삑사리", finger: "손가락" };
+export function failTags(fails){
+  const n = {}; (fails || []).forEach(k => { n[k] = (n[k] || 0) + 1; });
+  return Object.keys(FAIL_TAG).filter(k => n[k]).map(k => `${FAIL_TAG[k]} ×${n[k]}`);
 }
 // day log lines for a patient who got wrong cracks but was finished, by the last kind
 export const FAIL_REVIEWS = {

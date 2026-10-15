@@ -7,11 +7,11 @@ import { TRAITS, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
-import { failKind, failLine, reviewLine, DUD_AMP } from "../core/fail.js";
+import { failKind, failLine, reviewLine, DUD_AMP, FAIL_STAMP, failTags } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing } from "../audio/audio.js";
-import { toast, say, coach, hideCoach, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
+import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 
@@ -160,6 +160,12 @@ function success(d, exhale){
    finger way off: the therapist's own knuckle cracks, the contact hand jumps off and shakes out
    Then the patient's own line (sharper with each wrong crack on them), a wary squint ("doubt") held while the
    player tries again with a "this time for real?" line, and the right spot flashes on the ring. */
+const DOUBT_AT = { over: 3200, dud: 600, finger: 1000 };   // ms: when the faceRun reaches "doubt"
+let ouchTimer = 0;
+function flashOuch(){   // a coral flash at the screen edges (style.css #app.ouch)
+  const a = $("#app"); a.classList.remove("ouch"); void a.offsetWidth; a.classList.add("ouch");
+  clearTimeout(ouchTimer); ouchTimer = setTimeout(() => a.classList.remove("ouch"), 650);
+}
 function hurt(msg, kind){
   const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx;
   S.busy = true;
@@ -168,33 +174,40 @@ function hurt(msg, kind){
   hideCoach();
   // timed lines only while the same patient and side are still up (a new side / patient / the day log cancels them)
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx && S.sideIdx === side) fn(); }, ms);
-  const now = performance.now();
-  S.ghostFrom = now + 300; S.ghostUntil = now + 1900;
+  const now = performance.now(), r = headScreen.r;
+  S.ghostFrom = now + 300; S.ghostUntil = now + 2800; S.missRot = S.cur.rot; S.missBend = S.cur.bend;
+  // the old toast line rides under a big stamp, away from the patient's bubble (they used to overlap)
+  stamp(FAIL_STAMP[kind], msg, kind, 1700);
+  if(kind !== "dud") flashOuch();
   if(kind === "over"){
     boing(); vib([60, 40, 60]);
     S.boingAt = now; S.shake = 0.6; S.jitter = 1;
     faceRun([[0, "gasp"], [500, "ouch"], [1500, "sulk"], [3200, "doubt"]]);
-    say(target.lines.stop, 800);
-    later(800, () => say(target.lines.ouch, 900));
+    floater("뾰잉", -60, -r - 10); later(220, () => floater("잉~", 40, -r - 30, "small"));
+    say(target.lines.stop, 1000, true);
+    later(1000, () => say(target.lines.ouch, 900, true));
   }else if(kind === "dud"){
     fizzle(); vib([30]);
     S.thrust = 1; S.crackAmp = DUD_AMP;
     faceRun([[0, "wince"], [500, "doubt"]]);
-    later(250, () => say(target.lines.dud, 1100));
+    later(150, () => floater("…?", 0, -r - 20, "small", 1400));
+    later(250, () => say(target.lines.dud, 1500, true));
   }else{
     knuckle(); vib([20, 30, 20]);
     S.flinchAt = now; S.jitter = 0.3;
     faceRun([[0, "startle"], [900, "doubt"]]);
+    floater("뚝!", r + 30, -r*0.2); later(90, () => floater("뚝!", r + 60, -r*0.6));
     coach("으, 손가락…", 750);
-    later(800, () => say(target.lines.finger, 1100));
+    later(800, () => say(target.lines.finger, 1500, true));
   }
+  // the squint is small on a phone: a "흠…" by the head when the doubt face sets in
+  later(DOUBT_AT[kind], () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
   later(XRAY_DELAY*1000, () => { S.hurtX = 1; });
-  later(2000, () => say(failLine(target.lines, S.fails.length), 1800));
-  later(4000, () => { if(!S.busy) say(target.lines.doubt, 1500); });
-  toast(msg, 1100);
+  later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
+  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   // the third one ends the day, a beat later so the gag and the patient's line still land
   if(S.pain >= 3){
-    later(2400, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
       fails: [...S.fails], lines: target.lines}); finish(); });
     return;
   }
@@ -220,7 +233,14 @@ function finish(){
     const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
     rev.textContent = "“" + reviewLine(r) + "”";
-    li.append(who, pts, st, rev);
+    li.append(who, pts, st);
+    const tags = failTags(r.fails);
+    if(tags.length){
+      const tg = document.createElement("span"); tg.className = "tags";
+      tags.forEach(t => { const i = document.createElement("i"); i.textContent = t; tg.appendChild(i); });
+      li.appendChild(tg);
+    }
+    li.appendChild(rev);
     list.appendChild(li);
   });
   $("#result").hidden = false;

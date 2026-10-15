@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine } from "../src/core/fail.js";
+import { failKind, failLine, boingProfile, BOING_LEN, flinchProfile, FLINCH_LEN, FAIL_REVIEWS, reviewLine, FAIL_STAMP, FAIL_TAG, failTags } from "../src/core/fail.js";
 import { REVIEWS, ROSTER } from "../src/patient/roster.js";
 import { eyesOpen, isBaseFace, FACE_NAMES } from "../src/core/faceRig.js";
 
@@ -73,5 +73,25 @@ describe("fail lines and face", () => {
     expect(FACE_NAMES).toContain("doubt");
     expect(eyesOpen("doubt")).toBe(true);
     expect(isBaseFace("doubt")).toBe(false);
+  });
+});
+
+describe("fail stamp and day log chips", () => {
+  it("every kind has a stamp word and a chip name", () => {
+    for(const k of ["over", "dud", "finger"]){
+      expect(typeof FAIL_STAMP[k]).toBe("string"); expect(FAIL_STAMP[k].length).toBeGreaterThan(0);
+      expect(typeof FAIL_TAG[k]).toBe("string"); expect(FAIL_TAG[k].length).toBeGreaterThan(0);
+    }
+  });
+  it("chips count each kind in over / dud / finger order", () => {
+    expect(failTags([])).toEqual([]);
+    expect(failTags(undefined)).toEqual([]);
+    expect(failTags(["dud", "over", "dud"])).toEqual(["뾰잉 ×1", "삑사리 ×2"]);
+    expect(failTags(["finger"])).toEqual(["손가락 ×1"]);
+  });
+  it("the boing is big enough to read but bounded", () => {
+    const m = Math.max(...Array.from({length: 200}, (_, i) => Math.abs(boingProfile(i*BOING_LEN/200))));
+    expect(m).toBeGreaterThan(8);
+    expect(m).toBeLessThanOrEqual(20);
   });
 });

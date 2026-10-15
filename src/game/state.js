@@ -14,6 +14,7 @@ export const S = {
   crackT: -1, xrayIn: 0, hurtX: 0,                     // x-ray: seconds since it opened, delay before it opens, wrong-crack throb
   crackAmp: 1,                                         // scale of the neck's crack motion (a dud wrong crack: core/fail.js DUD_AMP)
   fails: [], boingAt: 0, flinchAt: 0, ghostFrom: 0, ghostUntil: 0,   // wrong-crack kinds on this patient; gag clocks (ms)
+  missRot: 0, missBend: 0,        // where the wrong crack was aimed (the coral X on the ring)
   viewRot: 0,                                          // self-rotation of #app: 0 / 90 / 270
   sideIdx: 0, sidePts: [], sideStars: []               // both-side adjustment: 0 = complaint side, 1 = opposite
 };
