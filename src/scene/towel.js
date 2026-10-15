@@ -1,91 +1,122 @@
 import * as THREE from "three";
 import { scene } from "./renderer.js";
 import { head, crackFadeMats } from "./patientModel.js";
+import { loadModel, getEnv } from "./realAssets.js";
 
-/* Towel mode (core/towel.js): a thick folded towel wrapped snug round the back of the neck (under the skull), up both
-   sides of the neck past the jaw to the therapist's fists, with the loose ends hanging out of them. Never round the
-   front of the throat. Swept every frame along a curve with a rounded-box cross section (width along the neck's axis
-   where it wraps, twisting flat toward the fists so the camera above sees the cloth, not its edge). Plain white.
-   Without the realistic arms the ends rest beside the head. */
-const W = 0.075, TH = 0.024, SEG = 56, NS = 16;
-// a plain white towel (user: "흰수건으로", 2026-10-15; the striped, bump-noised one read as creepy): soft white
-// cloth with a sheen on the grazing edges, no texture
-const mat = new THREE.MeshPhysicalMaterial({color: 0xfbf9f4, roughness: 1, metalness: 0, sheen: 1, sheenRoughness: 0.7,
-  sheenColor: new THREE.Color(0xffffff), side: THREE.DoubleSide});
-crackFadeMats.push(mat);
-// cross section: a rounded box, NS points round it (u across the width, v through the thickness)
-const SECT = Array.from({length: NS}, (_, k) => {
-  const a = k/NS*Math.PI*2, c = Math.cos(a), s = Math.sin(a);
-  const p = 3.2;   // superellipse: soft, plump folded edges
-  return [Math.sign(c)*Math.pow(Math.abs(c), 2/p)*W/2, Math.sign(s)*Math.pow(Math.abs(s), 2/p)*TH/2, k/NS];
-});
-const geo = new THREE.BufferGeometry();
-const pos = new Float32Array((SEG + 1)*(NS + 1)*3), idx = [];
-for(let i = 0; i <= SEG; i++) for(let k = 0; k <= NS; k++){
-  if(i < SEG && k < NS){ const a = i*(NS + 1) + k, b = a + NS + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+/* Towel mode (core/towel.js): a folded white bath towel (public/models/towel/towel.glb, scripts/assets/towel_build.py)
+   slung under the patient's chin, up along the jaw to the therapist's fists beside it, the loose ends hanging out of
+   the fists toward the therapist (the user's reference video, 2026-10-15). It never goes round the front of the throat.
+   The GLB is modelled straight along +x (-0.475..0.475 m) with 25 bones towel_00..24 straight under towel_root (flat,
+   rest rotation identity): each frame every bone is put on the path at arc length |x| from the middle under the chin,
+   its x along the path and its y the towel's outer face (away from the head). The cloth's folds ride along with the
+   skin. Until the GLB is in, a flat ribbon follows the same frames. */
+const N = 25, HALF = 0.475;
+const BX = Array.from({length: N}, (_, i) => -HALF + i*(2*HALF/(N - 1)));
+
+// the path, head-local (x mirrored, s = +1 the therapist's left hand), from the middle under the chin outward
+const CHIN = [0, 0.05, 0.168];            // under the chin tip, toward the feet
+const UNDER = [0.05, 0.025, 0.155];       // under the jaw
+const JAW = [0.088, 0.012, 0.11];         // up along the jaw toward the ear
+const TAIL = [0.02, -0.07, -0.11];        // from the fist: the loose end hangs toward the therapist and down
+const _v = new THREE.Vector3(), _t = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+const _m = new THREE.Matrix4(), _fly = new THREE.Vector3(), _p = new THREE.Vector3();
+const sides = [1, -1].map(s => ({s, pts: Array.from({length: 6}, () => new THREE.Vector3()), out: Array.from({length: 6}, () => new THREE.Vector3()),
+  curve: null}));
+sides.forEach(sd => { sd.curve = new THREE.CatmullRomCurve3(sd.pts, false, "centripetal"); });
+const frames = Array.from({length: N}, () => ({p: new THREE.Vector3(), q: new THREE.Quaternion(), x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3()}));
+
+let model = null, bones = null, loading = false;
+function load(){
+  loading = true;
+  Promise.all([loadModel("towel/towel.glb"), getEnv()]).then(([g, env]) => {
+    model = g.scene;
+    bones = BX.map((_, i) => model.getObjectByName(`towel_${String(i).padStart(2, "0")}`));
+    if(bones.some(b => !b)){ console.warn("towel bones missing"); model = null; return; }
+    model.traverse(o => {
+      if(!o.isMesh) return;
+      o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
+      o.material.envMap = env; o.material.envMapIntensity = 0.2;
+      if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
+    });
+    model.visible = false;
+    scene.add(model);
+  }).catch(err => console.warn("towel model not loaded, keeping the ribbon", err));
 }
-geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-geo.setIndex(idx);
-const towel = new THREE.Mesh(geo, mat);
-towel.frustumCulled = false; towel.castShadow = true; towel.receiveShadow = true; towel.visible = false;
-scene.add(towel);
 
-/* Head-local path, x mirrored (one side listed, from the fist down to the back of the neck). The upper neck sits at
-   head-local z ~0.1, centre y ~-0.045, radius ~0.065 (patientModel neck); the wrap hugs it at that radius plus half
-   the towel's thickness, from the side of the neck round to the middle at the back. */
-const NECK_Z = 0.1, NECK_Y = -0.045, NECK_R = 0.066 + TH/2;
-const ring = deg => [Math.cos(deg*Math.PI/180)*NECK_R, NECK_Y + Math.sin(deg*Math.PI/180)*NECK_R, NECK_Z];
-const SIDE = [[0.1, 0.0, 0.04], ring(10), ring(-35), ring(-70)];   // past the jaw, then round the neck
-const MID = ring(-90);
-const REST = [0.14, -0.06, -0.06];      // an end lying beside the head when no hand holds it
-const TAIL = [0.035, -0.045, -0.06];    // the loose end out of the fist (from the fist, head-local direction)
-const _v = new THREE.Vector3(), _a = new THREE.Vector3(), _t = new THREE.Vector3(), _z = new THREE.Vector3(), _x = new THREE.Vector3();
-const _w = new THREE.Vector3(), _n = new THREE.Vector3(), _fly = new THREE.Vector3(), _hz = new THREE.Vector3();
-const N_PTS = 2*(2 + SIDE.length) + 1;
-const pts = Array.from({length: N_PTS}, () => new THREE.Vector3());
-const curve = new THREE.CatmullRomCurve3(pts, false, "centripetal");
-const local = (x, y, z) => _v.set(x, y, z).applyMatrix4(head.matrixWorld);
+// the fallback ribbon: a flat band through the same frames
+const W = 0.1;
+const rPos = new Float32Array(N*2*3), rIdx = [];
+for(let i = 0; i < N - 1; i++){ const a = i*2; rIdx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+const rGeo = new THREE.BufferGeometry();
+rGeo.setAttribute("position", new THREE.BufferAttribute(rPos, 3)); rGeo.setIndex(rIdx);
+const rMat = new THREE.MeshStandardMaterial({color: 0xf6f3ec, roughness: 1, side: THREE.DoubleSide});
+crackFadeMats.push(rMat);
+const ribbon = new THREE.Mesh(rGeo, rMat);
+ribbon.frustumCulled = false; ribbon.visible = false;
+scene.add(ribbon);
 
-/* on: towel mode and playing. grips: realAssets towelGrips() or null. slip: seconds since the towel slipped off
-   (< 0 none): it flies up toward the therapist and is gone, then is back in the hands by SLIP_BACK. */
+const local = (x, y, z, out) => out.set(x, y, z).applyMatrix4(head.matrixWorld);
+// outward from the head's long axis (head-local z), for the towel's outer face
+const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(head.matrixWorld);
+
+/* on: towel mode and playing. grips: realAssets towelGrips() or null. tension 0..1, near: 0..1 how close to the limit
+   (a fine tremble), slip: seconds since the towel slipped off (< 0 none): it flies up toward the therapist and is
+   gone, then is back in the hands by SLIP_BACK. t: seconds (the hanging ends sway). */
 const SLIP_GONE = 0.7, SLIP_BACK = 1.3;
-export function updateTowel(on, grips, slip){
-  towel.visible = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
-  if(!towel.visible) return;
+export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0){
+  if(on && !model && !loading) load();
+  const show = on && !(slip >= SLIP_GONE && slip < SLIP_BACK);
+  if(model) model.visible = show;
+  ribbon.visible = show && !model;
+  if(!show) return;
   head.updateMatrixWorld(true);
-  const hold = grips ? grips.hold : 0;
-  _hz.set(0, 0, 1).transformDirection(head.matrixWorld);
-  // per side: tail, fist, past the jaw, round the neck; then the middle at the back
-  const side = (s, palm, out) => {
-    const fist = local(s*REST[0], REST[1], REST[2]).clone();
-    if(palm) fist.lerp(palm, hold);
-    out.push(fist.clone().add(_a.set(s*TAIL[0], TAIL[1], TAIL[2]).transformDirection(head.matrixWorld).multiplyScalar(Math.hypot(...TAIL))), fist);
-    SIDE.forEach(p => out.push(local(s*p[0], p[1], p[2]).clone()));
-    return out;
-  };
-  const L = side(1, grips && grips.l, []), R = side(-1, grips && grips.r, []);
-  const seq = [...L, local(MID[0], MID[1], MID[2]).clone(), ...R.reverse()];
-  seq.forEach((p, i) => pts[i].copy(p));
+  const hold = grips ? grips.hold : 0, slack = 1 - Math.min(1, Math.max(0, tension));
+  const tremble = 0.0015*near*Math.sin(t*70);
+  sides.forEach(sd => {
+    const s = sd.s, P = sd.pts;
+    // slack: the sling drops away from under the chin (toward the feet and down); taut: snug on the jaw
+    local(0, CHIN[1] - 0.025*slack, CHIN[2] + 0.03*slack + tremble, P[0]);
+    local(s*UNDER[0], UNDER[1] - 0.02*slack, UNDER[2] + 0.025*slack, P[1]);
+    local(s*JAW[0], JAW[1], JAW[2] + 0.01*slack, P[2]);
+    // the fist: the hand's palm, or a rest point beside the jaw without the realistic arms
+    local(s*0.12, 0.02, 0.04, P[3]);
+    const palm = grips && (s > 0 ? grips.l : grips.r);
+    if(palm) P[3].lerp(palm, hold);
+    // the loose end out of the fist, swaying a little
+    const sw = 0.012*Math.sin(t*1.7 + s);
+    _v.set(s*TAIL[0] + sw, TAIL[1], TAIL[2]).transformDirection(head.matrixWorld).multiplyScalar(Math.hypot(...TAIL));
+    P[4].copy(P[3]).addScaledVector(_v, 0.6);
+    P[5].copy(P[3]).addScaledVector(_v, 1.6); P[5].y -= 0.05;
+    outward(0, 1, sd.out[0]); outward(s*0.6, 0.8, sd.out[1]); outward(s, 0.3, sd.out[2]);
+    outward(s, 0.1, sd.out[3]); outward(s, 0, sd.out[4]); outward(s, 0, sd.out[5]);
+    sd.curve.updateArcLengths();
+    sd.len = sd.curve.getLength();
+  });
   // the slip: the whole towel flies up and back toward the therapist, spinning out of the frame
   const u = slip >= 0 && slip < SLIP_GONE ? slip/SLIP_GONE : 0;
-  if(u > 0) pts.forEach((p, i) => { _fly.set(Math.sin(i*1.7)*0.05*u, 0.35*u*u + 0.05*u, -0.55*u*u); p.add(_fly); });
-  curve.updateArcLengths();
-  _x.set(1, 0, 0).transformDirection(head.matrixWorld);
-  for(let i = 0; i <= SEG; i++){
-    const t = i/SEG;
-    curve.getPointAt(t, _a); curve.getTangentAt(t, _t);
-    // width: along the neck's axis round the neck, flat (out to the side) toward the fists and the tails
-    const f = Math.min(1, Math.max(0, 1 - Math.min(t, 1 - t)*6));
-    _w.copy(_hz).multiplyScalar(1 - f).addScaledVector(_x, f*(t < 0.5 ? 1 : -1));
-    _w.addScaledVector(_t, -_w.dot(_t)).normalize();
-    _n.crossVectors(_t, _w).normalize();
-    for(let k = 0; k <= NS; k++){
-      const sec = SECT[k % NS], o = (i*(NS + 1) + k)*3;
-      pos[o] = _a.x + _w.x*sec[0] + _n.x*sec[1];
-      pos[o + 1] = _a.y + _w.y*sec[0] + _n.y*sec[1];
-      pos[o + 2] = _a.z + _w.z*sec[0] + _n.z*sec[1];
-    }
+  BX.forEach((x, i) => {
+    const sd = sides[x < 0 ? 0 : 1], d = Math.abs(x), f = frames[i];
+    const a = Math.min(1, d/sd.len);
+    sd.curve.getPointAt(a, f.p);
+    sd.curve.getTangentAt(a, _t);
+    if(d > sd.len) f.p.addScaledVector(_t, d - sd.len);
+    // bone +x runs from towel_00 to towel_24: toward the middle on the x < 0 side
+    f.x.copy(_t).multiplyScalar(x < 0 ? -1 : 1);
+    // outer face: the side's outward directions blended along the path
+    const k = a*5, k0 = Math.min(4, Math.floor(k));
+    _y.copy(sd.out[k0]).lerp(sd.out[k0 + 1], k - k0);
+    f.y.copy(_y).addScaledVector(f.x, -_y.dot(f.x)).normalize();
+    f.z.crossVectors(f.x, f.y);
+    if(u > 0){ _fly.set(Math.sin(i*1.7)*0.05*u, 0.35*u*u + 0.05*u, -0.55*u*u); f.p.add(_fly); }
+    _m.makeBasis(f.x, f.y, f.z); f.q.setFromRotationMatrix(_m);
+  });
+  if(model){
+    bones.forEach((b, i) => { b.position.copy(frames[i].p); b.quaternion.copy(frames[i].q); });
+  }else{
+    frames.forEach((f, i) => {
+      _p.copy(f.p).addScaledVector(f.z, -W/2); rPos.set([_p.x, _p.y, _p.z], i*6);
+      _p.copy(f.p).addScaledVector(f.z, W/2); rPos.set([_p.x, _p.y, _p.z], i*6 + 3);
+    });
+    rGeo.attributes.position.needsUpdate = true; rGeo.computeVertexNormals();
   }
-  geo.attributes.position.needsUpdate = true;
-  geo.computeVertexNormals();
 }

@@ -206,6 +206,13 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .lead p{margin:0;color:var(--muted);line-height:1.6;font-size:13.5px}
 .hours{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;font-variant-numeric:tabular-nums}
 .hours b{color:var(--mint);font-weight:600}
+.legal{margin:-6px 0 0;font-size:10px;color:var(--muted)}
+.linkbtn{font:inherit;color:var(--mint);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+.card.credits{max-width:560px;gap:10px;font-size:12px;line-height:1.5}
+.card.credits h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;color:var(--paper)}
+.card.credits p{margin:0}
+.card.credits ul{margin:0;padding-left:18px;color:var(--ink)}
+.card.credits .sub{color:var(--muted)}
 .how{display:grid;gap:10px;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.5}
 .how li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
 .how svg{width:34px;height:34px;color:var(--coral)}
@@ -214,7 +221,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 .tip{font-size:12px;color:var(--ink);background:rgba(138,223,191,.1);border:1px solid rgba(138,223,191,.35);border-radius:8px;padding:8px 10px;line-height:1.5}
 .btn{font-family:var(--display);font-size:22px;border:0;border-radius:10px;padding:13px;background:var(--coral);color:var(--room-deep);cursor:pointer;box-shadow:0 4px 0 var(--coral-deep)}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--coral-deep)}
-.btn.ghost{font-size:18px;padding:10px;background:transparent;color:var(--mint);border:2px solid var(--mint);box-shadow:none}
+.starts{display:grid;grid-template-columns:1.25fr 1fr;gap:8px}
+.btn.ghost{font-size:16px;padding:10px 6px;background:transparent;color:var(--mint);border:2px solid var(--mint);box-shadow:none}
 .btn.ghost:active{transform:translateY(2px);box-shadow:none}
 .best{font-size:11px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 

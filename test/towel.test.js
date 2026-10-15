@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, spineOffsets, discStretch,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -40,19 +40,34 @@ describe("makeTowelTarget", () => {
 });
 
 describe("stretchProfile", () => {
-  it("starts and ends at zero, peaks near the peak", () => {
+  it("starts and ends at zero, holds near the peak long enough to see", () => {
     expect(stretchProfile(0, 0.09)).toBe(0);
     expect(stretchProfile(STRETCH_LEN, 0.09)).toBe(0);
-    const v = Array.from({length: 160}, (_, i) => stretchProfile(i*STRETCH_LEN/160, 0.09));
-    expect(Math.max(...v)).toBeGreaterThan(0.09*0.95);
-    expect(Math.max(...v)).toBeLessThan(0.09*1.1);
     expect(Math.abs(stretchProfile(STRETCH_LEN - 0.02, 0.09))).toBeLessThan(0.005);
+    for(let t = STRETCH_RISE; t < STRETCH_HOLD; t += 0.05){
+      const v = stretchProfile(t, 0.09);
+      expect(v).toBeGreaterThan(0.09*0.94); expect(v).toBeLessThan(0.09*1.06);
+    }
+  });
+});
+
+describe("the x-ray spine stretch", () => {
+  it("C1 moves 7/8, C7 1/8, decreasing down the neck", () => {
+    const o = spineOffsets(0.08);
+    expect(o).toHaveLength(7);
+    expect(o[0]).toBeCloseTo(0.07); expect(o[6]).toBeCloseTo(0.01);
+    o.slice(1).forEach((v, i) => expect(v).toBeLessThan(o[i]));
+  });
+  it("a pulled disc gets taller and thinner", () => {
+    expect(discStretch(0, 0.01)).toEqual({sy: 1, sxz: 1});
+    const d = discStretch(0.01, 0.01);
+    expect(d.sy).toBeCloseTo(2); expect(d.sxz).toBeCloseTo(1/Math.SQRT2);
   });
 });
 
 describe("towel lines and chips", () => {
   it("every patient has ok / over / slip lines, kinds have a stamp and a chip", () => {
-    ROSTER.forEach(p => ["ok", "over", "slip"].forEach(k => expect(towelLine(p.name, k).length).toBeGreaterThan(3)));
+    ROSTER.forEach(p => ["tense", "tight", "ok", "over", "slip"].forEach(k => expect(towelLine(p.name, k).length).toBeGreaterThan(3)));
     expect(towelLine("누구", "ok").length).toBeGreaterThan(3);
     ["over", "slip"].forEach(k => { expect(TOWEL_STAMP[k].length).toBeGreaterThan(0); expect(TOWEL_TAG[k].length).toBeGreaterThan(0); });
   });

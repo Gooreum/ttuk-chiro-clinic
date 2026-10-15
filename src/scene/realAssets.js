@@ -273,9 +273,9 @@ const POSE_NAMES = Object.keys(HAND_POSES);
 // therapist's body; the support elbow lowest (forearm low and flat), the contact elbow a little higher and further
 // out (its forearm rises steeper onto the up-side neck)
 const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -0.7, -0.25], pat: [0.6, -1, -0.4], away: [0.6, -1, -0.2], towel: [1, -0.55, -0.4]};
-/* Towel mode (core/towel.js): a fist on each towel end just past the crown (head-local, x mirrored), pulled toward the
+/* Towel mode (core/towel.js): a fist on each towel end beside the jaw (head-local, x mirrored), pulled toward the
    therapist (-z) by the tension, up to TOWEL_PULL. scene/towel.js runs the towel from here around the back of the neck. */
-export const TOWEL_GRIP = [0.12, 0.04, -0.09], TOWEL_PULL = 0.06;   // beside the crown, toward the therapist (further is off screen)
+export const TOWEL_GRIP = [0.118, 0.03, 0.035], TOWEL_PULL = 0.06;   // beside the jaw, where the chin sling's ends come up (reference video)
 
 /* Finger pose, rebuilt from the rest skeleton every frame. Every joint turns about an axis fixed in the hand frame,
    converted once into that bone's own rest frame: curl about fingers x normal (tips move toward the palm), spread
@@ -623,6 +623,7 @@ export function updateRealHands(st){
   head.getWorldQuaternion(_qH);
   // shoulders: the therapist's trunk, i.e. the camera's base position, following the camera's lean a little
   _camF.copy(camera.position).sub(camBase);
+  if(st.towel) _camF.set(0, 0, 0);   // towel mode: the camera is a third-person one, the trunk stays put
   if(_camF.length() > SHOULDER_FOLLOW_MAX) _camF.setLength(SHOULDER_FOLLOW_MAX);
   _camF.multiplyScalar(SHOULDER_FOLLOW);
   view.eye.copy(camBase).add(_camF);
@@ -690,7 +691,7 @@ export function updateRealHands(st){
       _P.lerp(_v2, w.pat);
       _qR.slerp(_qB, w.pat);
     }
-    // towel mode: both fists on the towel ends past the crown, knuckles toward the feet, palms in; pulled toward the
+    // towel mode: both fists on the towel ends beside the jaw, knuckles toward the feet, palms in; pulled toward the
     // therapist with the tension. A slip throws both hands up and back for a moment (the towel flew off)
     w.towel += ((st.towel && !cupOn && !awayOn ? 1 : 0) - w.towel)*(1 - Math.exp(-dt*6));
     if(!arm.seen) w.towel = st.towel && !cupOn && !awayOn ? 1 : 0;

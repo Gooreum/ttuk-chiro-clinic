@@ -21,5 +21,6 @@ export const S = {
   sideIdx: 0, sidePts: [], sideStars: [],             // both-side adjustment: 0 = complaint side, 1 = opposite
   game: "clinic",                                      // "clinic" | "towel" (the title's practice mode; S.mode is the input mode)
   towel: null,                                         // towel mode: this patient's tension band {mid, half, limit} (core/towel.js)
-  stretchAt: 0, stretchPeak: 0, slipAt: 0              // towel mode gag clocks (ms) and how far the neck goes (m)
+  stretchAt: 0, stretchPeak: 0, slipAt: 0,             // towel mode gag clocks (ms) and how far the neck goes (m)
+  saidTense: false, saidTight: false                   // towel mode: the patient's tension lines, once each per patient
 };
