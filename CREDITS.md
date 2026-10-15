@@ -1,5 +1,16 @@
 # Credits
 
+## Sounds
+
+| 파일 | 출처 | 라이선스 |
+|---|---|---|
+| `public/audio/crack.wav` | "neck_crack_pure.aif" by Halleck, https://freesound.org/s/21915/ | **CC BY 4.0** (https://creativecommons.org/licenses/by/4.0/). 수정: 모노 44.1kHz 16bit로 변환, 앞뒤 무음 자르기, 음량 정규화 |
+| `public/audio/crack-hard.wav` | "Breaking Bones.mp3" by MonkeyFacebook532, https://freesound.org/s/265351/ | CC0. 같은 방식으로 변환 |
+| `public/audio/break.wav` | "genickbruch.wav" by huluvu42, https://freesound.org/s/87570/ | CC0. 같은 방식으로 변환 |
+| `public/audio/bgm.m4a` | "Spacious Stillness" — 사용자 제공(2026-10-15) | 출처·라이선스 미확인. 앱인토스 출시 전 상업 이용 가능 여부 확인 필요. AAC 96kbps로 다시 인코딩 |
+
+사이렌·차임·틱·고무줄·손가락 소리와 녹음 로드 전 폴백 뚝 소리는 WebAudio 합성(`src/audio/audio.js`)이다.
+
 ## 3D assets
 
 | 파일 | 출처 | 라이선스 |
