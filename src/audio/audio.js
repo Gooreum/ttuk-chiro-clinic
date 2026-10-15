@@ -2,8 +2,41 @@ import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { crackPattern } from "../core/crackPattern.js";
 
-/* WebAudio synthesis only (no sample files): 3-layer crack, chime, tick, siren, room tone. */
+/* Bone sounds are recorded samples the user picked (public/audio, CREDITS.md; 2026-10-15). The synth pop stays as the
+   fallback until they decode. Chime, tick, siren, boing, knuckle and the room tone are synthesis; the background music
+   is public/audio/bgm.m4a. */
 let ac = null, noiseBuf = null, master = null, ambGain = null;
+const AUDIO = import.meta.env.BASE_URL + "audio/";
+const SAMPLES = { crack: "crack.wav", crackHard: "crack-hard.wav", break: "break.wav" };
+const sbuf = {};                                       // decoded AudioBuffers, kept across a context rebuild
+function loadSamples(){
+  for(const [k, f] of Object.entries(SAMPLES)) if(!sbuf[k])
+    fetch(AUDIO + f).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => ac.decodeAudioData(a, ok, no))).then(b => { sbuf[k] = b; }).catch(() => {});
+}
+// false when not decoded yet: the caller plays the synth instead
+function sample(key, vol, rate = 1, delay = 0){
+  if(!sbuf[key]) return false;
+  const s = ac.createBufferSource(), g = ac.createGain();
+  s.buffer = sbuf[key]; s.playbackRate.value = rate; g.gain.value = vol;
+  s.connect(g); g.connect(master); s.start(ac.currentTime + 0.005 + delay);
+  return true;
+}
+/* Background music: streamed through an <audio> element (a 3-minute track decoded whole would be tens of MB on a
+   phone) into a gain node (iOS ignores audio.volume). An element binds to one context for good, so a rebuilt context
+   gets a new element that picks up where the old one was. */
+let music = null, musicGain = null, musicAt = 0;
+const MUSIC_PLAY = 0.22, MUSIC_REST = 0.14, MUSIC_DUCK = 0.06;
+function ensureMusic(){
+  if(music || !ac) return;
+  try{
+    music = new Audio(AUDIO + "bgm.m4a"); music.loop = true; music.preload = "auto";
+    if(musicAt) music.currentTime = musicAt;
+    musicGain = ac.createGain(); musicGain.gain.value = 0;
+    ac.createMediaElementSource(music).connect(musicGain); musicGain.connect(master);
+  }catch(e){ music = null; musicGain = null; }
+}
+const wantMusic = () => T.sound && document.visibilityState === "visible";
+function playMusic(){ if(music && music.paused && wantMusic()) music.play().catch(() => {}); }
 /* stale: the page was hidden. iOS Safari leaves the context "interrupted" (not "suspended") after a trip to
    another app, and sometimes "running" but silent, so the first tap after coming back rebuilds it. */
 let stale = false;
@@ -25,6 +58,7 @@ export function ensureAudio(){
       src.connect(lp); lp.connect(ambGain); ambGain.connect(master); src.start();
       const hum = ac.createOscillator(); hum.frequency.value = 60; const hg = ac.createGain(); hg.gain.value = 0.006;
       hum.connect(hg); hg.connect(ambGain); hum.start();
+      loadSamples(); ensureMusic();
     }
     if(ac.state !== "running") ac.resume().catch(() => {});
     setAmbient();
@@ -32,20 +66,27 @@ export function ensureAudio(){
 }
 function rebuild(){
   const old = ac; ac = null; stale = false;
+  if(music){ musicAt = music.currentTime || 0; music.pause(); music = null; musicGain = null; }
   try{ old && old.close().catch(() => {}); }catch(e){}
   ensureAudio();
 }
 // leaving: suspend it ourselves so coming back is a plain resume
-function sleep(){ stale = true; try{ ac && ac.state === "running" && ac.suspend().catch(() => {}); }catch(e){} }
+function sleep(){ stale = true; if(music) music.pause(); try{ ac && ac.state === "running" && ac.suspend().catch(() => {}); }catch(e){} }
 // back (no tap yet): try a resume; it may need the tap below on iOS
-function wake(){ if(ac && document.visibilityState === "visible" && ac.state !== "running") ac.resume().catch(() => {}); }
+function wake(){ if(ac && document.visibilityState === "visible"){ if(ac.state !== "running") ac.resume().catch(() => {}); playMusic(); } }
 // any tap: rebuild a context that went through a hide, or one that still isn't running
-function tapWake(){ if(ac && (stale || ac.state !== "running")) rebuild(); }
+// (and retry the music: iOS may refuse play() outside some of these events)
+function tapWake(){ if(ac && (stale || ac.state !== "running")) rebuild(); playMusic(); }
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" ? sleep() : wake());
 window.addEventListener("pagehide", sleep);
 window.addEventListener("pageshow", wake);
 for(const ev of ["pointerdown", "touchend", "click", "keydown"]) document.addEventListener(ev, tapWake, true);
-export function setAmbient(){ if(ac && ambGain) ambGain.gain.setTargetAtTime(T.sound && S.phase === "play" ? 0.05 : 0, ac.currentTime, 0.4); }
+export function setAmbient(){
+  if(!ac) return;
+  if(ambGain) ambGain.gain.setTargetAtTime(T.sound && S.phase === "play" ? 0.05 : 0, ac.currentTime, 0.4);
+  if(musicGain) musicGain.gain.setTargetAtTime(T.sound ? (S.phase === "play" ? MUSIC_PLAY : MUSIC_REST) : 0, ac.currentTime, 0.6);
+  if(music && !T.sound) music.pause(); else playMusic();
+}
 function pop(t, f, vol){
   // transient click
   const src = ac.createBufferSource(); src.buffer = noiseBuf;
@@ -69,8 +110,15 @@ function pop(t, f, vol){
 /* n: 3 on a PERFECT (always 우두둑), else 2. The pattern (뚝 / 두둑 / 우두둑) and spacing change every time
    (core/crackPattern.js); each hit is the same pop as before. A click-cluster rewrite of pop sounded less natural
    (user: "원래 소리가 제일 자연스럽다", 2026-10-15), so pop stays. */
+/* The recorded neck crack, its pitch shaken ±8% each time; a PERFECT is a touch lower and louder with a small second
+   crack 0.09 s on. Before the sample decodes: the synth pattern below. */
 export function crackSound(n){
   if(!ac) return;
+  const perfect = n >= 3;
+  if(sample("crack", perfect ? 1 : 0.85, (perfect ? 0.94 : 1)*(0.92 + Math.random()*0.16))){
+    if(perfect) sample("crack", 0.45, 1.1 + Math.random()*0.1, 0.09);
+    return;
+  }
   let t = ac.currentTime + 0.01;
   for(const h of crackPattern(Math.random, n >= 3).hits){ t += h.dt; pop(t, h.freq, h.gain*0.85); }
 }
@@ -101,6 +149,7 @@ export function boing(){
    "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
 export function crunch(tier, vol = 1){
   if(!ac) return;
+  if(sample(tier > 1 ? "break" : "crackHard", vol, 0.95 + Math.random()*0.1)) return;   // recorded; synth below until decoded
   let t = ac.currentTime + 0.01;
   tone(tier > 1 ? 95 : 120, 38, tier > 1 ? 0.32 : 0.24, "sine", 0.2*vol);
   const n = tier > 1 ? 7 : 4;
@@ -114,6 +163,7 @@ let sirenOut = null;
 export function siren(dur = 3.4){
   if(!ac) return;
   stopSiren();
+  if(musicGain && T.sound) musicGain.gain.setTargetAtTime(MUSIC_DUCK, ac.currentTime, 0.3);   // the day log's setAmbient brings it back
   const t = ac.currentTime + 0.02, end = t + dur;
   const out = ac.createGain(); out.connect(master);
   out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.4, t + 0.9);
