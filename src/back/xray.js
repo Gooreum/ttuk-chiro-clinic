@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import {therapistStyle} from './therapistMotion.js';
 import {clinicFilm} from './core.js';
 import {createClinicXray} from 'virtual:clinic-xray';
 
@@ -62,9 +63,10 @@ export async function createBackXray({scene,camera,env,renderer}){
   // The original engine bakes its own geometry/materials. Keep source resources
   // alive until disposal so async model initialization remains safe.
   const target={name:'박대리',seg:3,side:1,xr:'disc'};
-  function update({time=-1,step=0,kind='ok',position,forceTier=0}={}){
+  function update({time=-1,step=0,kind='ok',position,forceTier=0,force=1}={}){
     const tier=Math.max(0,Math.min(2,Math.round(forceTier))),fracture=tier>0,success=kind==='ok'&&!fracture;
-    const amount=clinicFilm(time,kind,tier);
+    const amount=clinicFilm(time,kind,tier,force);
+    time-=therapistStyle(force,tier).xrayDelay;
     target.seg=[3,4,5][Math.max(0,Math.min(2,step))];
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));

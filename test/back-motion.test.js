@@ -124,8 +124,8 @@ it('uses the clinic film timings for success, injury and a harmless wrong crack'
   expect(clinicFilm(.69,'ok')).toBe(0);
   expect(clinicFilm(.9,'ok')).toBe(1);
   expect(clinicFilm(3.5,'ok')).toBeCloseTo(0);
-  expect(clinicFilm(.65,'miss',2)).toBe(1);
-  expect(clinicFilm(3.15,'miss',2)).toBeCloseTo(0);
+  expect(clinicFilm(1.75,'miss',2)).toBeCloseTo(1);
+  expect(clinicFilm(4.25,'miss',2)).toBeCloseTo(0);
   expect(clinicFilm(.7,'weak')).toBe(.55);
   expect(clinicFilm(1.45,'weak')).toBe(0);
 });

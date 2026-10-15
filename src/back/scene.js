@@ -1,3 +1,4 @@
+import {therapistMotion} from './therapistMotion.js';
 import * as THREE from "three";
 import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm,impactFeel} from './core.js';
 import {flinchProfile} from '../core/fail.js';
@@ -406,13 +407,18 @@ export async function createBackScene(canvas, view = {}){
     worldRotate(bone, new THREE.Quaternion().setFromUnitVectors(cur, want));
   }
   const ZAXIS = new THREE.Vector3(0, 0, 1);
-  function poseTherapist(contact, lean){
+  function poseTherapist(contact, lean, move){
     for (const [n, b] of Object.entries(bones)) b.quaternion.copy(REST[n]);
     ther.updateMatrixWorld(true);
     // the body weight drops onto the hands: hip hinge + rounded upper back (+ about z = forward, toward -x)
-    const r = THREE.MathUtils.degToRad(lean);
+    const r = THREE.MathUtils.degToRad(lean),hip=r*.3*move.power;
+    if(bones.pelvis)worldRotate(bones.pelvis,new THREE.Quaternion().setFromAxisAngle(ZAXIS,hip));
+    const knee=THREE.MathUtils.degToRad(move.knee);
+    for(const sd of ['l','r'])for(const [name,angle] of [['thigh_',-hip-knee*.5],['calf_',knee],['foot_',-knee*.5]]){
+      if(bones[name+sd])worldRotate(bones[name+sd],new THREE.Quaternion().setFromAxisAngle(ZAXIS,angle));
+    }
     for (const [n, s] of [["spine_01", 0.45], ["spine_02", 0.3], ["spine_03", 0.25]])
-      if (bones[n]) worldRotate(bones[n], new THREE.Quaternion().setFromAxisAngle(ZAXIS, r*s));
+      if (bones[n]) worldRotate(bones[n], new THREE.Quaternion().setFromAxisAngle(ZAXIS, r*s*(1-.3*move.power)));
     if (bones.head) worldRotate(bones.head, new THREE.Quaternion().setFromAxisAngle(ZAXIS, -r*0.4));
     // arms: two-bone IK to the stacked hands; hands keep their bind orientation
     const shift = contact.clone().sub(C0);
@@ -481,9 +487,9 @@ export async function createBackScene(canvas, view = {}){
       reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
     }
-    const k = kind || "ok",feel=impactFeel(force,forceTier);
-    const film=clinicFilm(shotTime,kind,forceTier);
-    xray.update({time:shotTime,step,kind,position,forceTier});
+    const k = kind || "ok",feel=impactFeel(force,forceTier),move=therapistMotion(shotTime,force,forceTier);
+    const film=clinicFilm(shotTime,kind,forceTier,force);
+    xray.update({time:shotTime,step,kind,position,forceTier,force});
     for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
     for(const m of therapistFade){m.opacity=1-film*.8;m.depthWrite=film<.05;}
     renderer.toneMappingExposure=1-film*.35;
@@ -494,8 +500,8 @@ export async function createBackScene(canvas, view = {}){
     pressure = clamp01(pressure); impulse=THREE.MathUtils.clamp(impulse,-.5,3);
 
     // Original clinic profiles supply the whole thrust; do not add the old back-only spring/gag.
-    if(shotTime>=0&&shotTime<.18)st.shake=Math.max(st.shake,feel.shake);
-    if(forceTier&&shotTime>=.8&&shotTime<.96)st.shake=Math.max(st.shake,forceTier===2?.8:.5);
+    if(shotTime>=0&&shotTime>=move.impactAt-.10&&shotTime<move.impactAt+.03)st.shake=Math.max(st.shake,feel.shake);
+    if(forceTier&&shotTime>=.8+move.xrayDelay&&shotTime<.96+move.xrayDelay)st.shake=Math.max(st.shake,forceTier===2?.8:.5);
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
       const i = Math.min(2, completed - 1), z = zAt(targets[i]);
@@ -543,10 +549,12 @@ export async function createBackScene(canvas, view = {}){
     // therapist: the body follows the hands along the table (a step behind), leans in with the press
     const kk = 1 - Math.exp(-dt*5);
     st.rootZ += (contact.z - st.rootZ)*kk;
-    theRoot.position.z = st.rootZ - C0.z;
-    const lean = pressure*LEAN.pre + impulse*LEAN.ok + Math.max(0, -depth)*-40;
+    theRoot.position.set(move.x,move.y,st.rootZ-C0.z+move.handAway*.35);
+    theRoot.rotation.set(0,move.yaw,move.roll);
+    const lean=pressure*LEAN.pre+impulse*LEAN.ok+move.lean+Math.max(0,-depth)*-40;
     theRoot.updateMatrixWorld(true);
-    poseTherapist(contact, lean);
+    const handContact=contact.clone();handContact.y+=move.handLift;handContact.x+=move.handAway;
+    poseTherapist(handContact,lean,move);
 
     // camera: a small dip with the thrust, a shake on "over"
     st.shake = Math.max(0, st.shake - dt*1.6);
@@ -557,13 +565,15 @@ export async function createBackScene(canvas, view = {}){
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
+    const wideLook=new THREE.Vector3(.18,1.05,zAt(clamp01(position)));
+    camera.position.lerp(wideLook.clone().add(new THREE.Vector3(1.75,1.4,2.85)),move.wide);
     camera.position.lerp(new THREE.Vector3(-.20,.96+.07,focus.z),film*.92);
     if (st.shake > 0){
       const s = st.shake*st.shake*0.012, t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
-    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(focus,film*.95));
-    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake};
+    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*.95));
+    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move}};
     renderer.render(scene, camera);
   }
 

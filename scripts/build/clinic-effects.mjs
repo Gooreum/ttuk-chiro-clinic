@@ -21,7 +21,7 @@ export function clinicEffects(){
         source=source.replace('function loadSpine(){\n  Promise.all','function loadSpine(){\n  return Promise.all');
         return imports.join('\n')+'\nexport function createClinicXray({pivot,scene,camera,loadModel,getEnv}){\n'+source+'\nreturn {loadSpine,updateXray,XRAY_LEVEL,XRAY_PRE,FRAC_HIT,root,film};\n}';
       }
-      return imports.join('\n')+'\nexport function createClinicAudio({S,T}){\n'+source+'\nreturn {ensureAudio,crackSound,fizzle,knuckle,boing,crunch,siren,stopSiren,tone,chime,vib,setAmbient,suspend:sleep,resume:wake};\n}';
+      return imports.join('\n')+'\nexport function createClinicAudio({S,T}){\n'+source+'\nreturn {ensureAudio,crackSound,fizzle,knuckle,boing,crunch,siren,stopSiren,tone,chime,vib,thud,whoosh,setAmbient,suspend:sleep,resume:wake};\n}';
     }
   };
 }
