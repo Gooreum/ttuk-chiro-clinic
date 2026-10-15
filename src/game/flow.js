@@ -80,7 +80,12 @@ function loadPatient(){
     // the patient complains, then the therapist answers (one line at a time: hud.js say / coach replace each other)
     setTimeout(() => { if(tok === loadTok) say(S.target.lines.start, 1300); }, 300);
     setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
-    setTimeout(() => { if(tok !== loadTok || S.phase !== "play") return; S.busy = false; S.patientStart = performance.now(); closeChart(); }, PREP_MS);
+    setTimeout(() => {
+      if(tok !== loadTok || S.phase !== "play") return;
+      S.busy = false; S.patientStart = performance.now(); closeChart();
+      // towel practice: how to play, on the first patients
+      if(S.game === "towel" && S.idx < SHOW_ZONE_UNTIL) coach(S.mode === "tilt" ? "폰 위쪽을 몸 쪽으로 젖혀 초록에 맞추고, 숨 내쉴 때 툭!" : "위로 드래그해 초록에 맞추고, 휙 쓸어 당겨요", 2800);
+    }, PREP_MS);
   }, 280);
 }
 

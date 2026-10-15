@@ -6,6 +6,7 @@ import { curTolMul } from "../game/feel.js";
 import { SHOW_ZONE_UNTIL } from "../patient/roster.js";
 import { headScreen } from "./hud.js";
 import { aimHist } from "../input/motion.js";
+import { towelTension } from "../core/towel.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
@@ -34,6 +35,7 @@ export function drawRing(now, c, zone, br){
   const R = clamp(headScreen.r * 1.65, 62, Math.min(hud.width, hud.height)/hudDpr * 0.25);
   const ax = R*0.78/70, ay = R*0.62/30;
   const T0 = -Math.PI/2;
+  if(S.game === "towel" && S.towel){ drawTowel(ctx, now, zone, br, fade, cx, cy, R); return; }
 
   // field
   ctx.lineWidth = 1;
@@ -78,24 +80,8 @@ export function drawRing(now, c, zone, br){
     ctx.strokeStyle = grd;
     ctx.beginPath(); ctx.arc(cx, cy, R + 9, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
-  // breath arc (top: the head sits low in the head-side view, so the bottom of the ring runs off screen): how full the
-  // lungs are; on the out-breath it pulses mint. With the breath bonus on, a line over it says what it means (user:
-  // "들숨 날숨 게이지가… 뭘 뜻하는지 파악이 안됨", 2026-10-15): a crack on the out-breath scores +15 (core/scoring.js)
-  ctx.lineWidth = 7;
-  ctx.strokeStyle = "rgba(241,234,220,.12)";
-  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.7); ctx.stroke();
-  ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
-  if(br.exhale) ctx.globalAlpha = fade*(0.75 + 0.25*Math.sin(now*0.008));
-  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
-  ctx.globalAlpha = fade;
-  ctx.lineCap = "butt";
-  if(T.breath){
-    const label = br.exhale ? "내쉬는 중 · 지금 꺾으면 +15" : "숨 들이쉬는 중…";
-    ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
-    // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
-    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
-    ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.85)"; ctx.fillText(label, cx, cy - R + 20);
-  }
+  breathArc(ctx, now, br, fade, cx, cy, R);
+  breathLabel(ctx, br, cx, cy, R, "꺾으면");
 
   // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
   // ripple and a dashed line between them, ~2.5 s
@@ -143,5 +129,73 @@ export function drawRing(now, c, zone, br){
   ctx.fillStyle = zone ? C_CORAL : C_BONE;
   const H = hud.height/hudDpr;
   ctx.fillText(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "", cx, Math.min(cy + R + 44, H - 52));
+  ctx.globalAlpha = 1;
+}
+
+// breath arc (top: the head sits low in the head-side view, so the bottom of the ring runs off screen): how full the
+// lungs are; on the out-breath it pulses mint. With the breath bonus on, a line over it says what it means (user:
+// "들숨 날숨 게이지가… 뭘 뜻하는지 파악이 안됨", 2026-10-15): a crack on the out-breath scores +15 (core/scoring.js)
+function breathArc(ctx, now, br, fade, cx, cy, R){
+  ctx.lineCap = "round";
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = "rgba(241,234,220,.12)";
+  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.7); ctx.stroke();
+  ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
+  if(br.exhale) ctx.globalAlpha = fade*(0.75 + 0.25*Math.sin(now*0.008));
+  ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
+  ctx.globalAlpha = fade;
+  ctx.lineCap = "butt";
+}
+function breathLabel(ctx, br, cx, cy, R, verb){
+  if(!T.breath) return;
+  const label = br.exhale ? `내쉬는 중 · 지금 ${verb} +15` : "숨 들이쉬는 중…";
+  ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
+  // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
+  ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.85)"; ctx.fillText(label, cx, cy - R + 20);
+}
+/* Towel mode (core/towel.js): no aim dot, a tall tension gauge right of the head instead. Filled from the bottom by
+   the towel's tension (mint -> coral), the band to hit in mint, the limit as a coral line; the breath arc as usual. */
+function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
+  const tg = S.towel, t = towelTension(S.cur.bend), H = hud.height/hudDpr, Wd = hud.width/hudDpr;
+  const h = clamp(R*1.7, 110, H*0.62), w = 16;
+  const x = Math.min(cx + R*1.4, Wd - 70), top = clamp(cy - h*0.55, 70, H - h - 20), bot = top + h;
+  const yAt = v => bot - v*h;
+  ctx.lineJoin = "round";
+  // the tube
+  ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x - w/2 - 3, top - 3, w + 6, h + 6, 10); ctx.fill(); ctx.stroke();
+  // the band to hit
+  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h);
+  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+  ctx.strokeRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h); ctx.setLineDash([]);
+  // the fill
+  const grd = ctx.createLinearGradient(0, bot, 0, top);
+  grd.addColorStop(0, C_MINT); grd.addColorStop(1, C_CORAL);
+  ctx.fillStyle = grd;
+  if(t > 0.005){ ctx.beginPath(); ctx.roundRect(x - w/2, yAt(t), w, t*h, 6); ctx.fill(); }
+  // the limit
+  const over = t > tg.limit;
+  ctx.strokeStyle = C_CORAL; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x - w/2 - 8, yAt(tg.limit)); ctx.lineTo(x + w/2 + 8, yAt(tg.limit)); ctx.stroke();
+  // the level knob
+  ctx.beginPath(); ctx.arc(x, yAt(t), 8, 0, Math.PI*2);
+  ctx.fillStyle = zone ? C_CORAL : over ? C_CORAL : C_BONE; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
+  // labels
+  ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("수건 장력", x, top - 10);
+  ctx.fillStyle = C_BONE; ctx.fillText("수건 장력", x, top - 10);
+  ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
+  ctx.strokeText("과해요", x + w/2 + 10, yAt(tg.limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(tg.limit) + 4);
+  breathArc(ctx, now, br, fade, cx, cy, R);
+  breathLabel(ctx, br, cx, cy, R, "당기면");
+  // under the head: what to do
+  const msg = zone ? "지금! 툭 당겨요" : over ? "너무 팽팽해요!" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
+  if(msg){
+    ctx.textAlign = "center"; ctx.font = "15px 'Black Han Sans', sans-serif";
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(msg, cx, Math.min(cy + R + 44, H - 52));
+    ctx.fillStyle = zone || over ? C_CORAL : C_BONE; ctx.fillText(msg, cx, Math.min(cy + R + 44, H - 52));
+  }
   ctx.globalAlpha = 1;
 }
