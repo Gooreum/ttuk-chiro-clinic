@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -99,5 +99,19 @@ describe("towelReview", () => {
     expect(TOWEL_REVIEWS.slip).toContain(towelReview({stars: 2, fails: ["over", "slip"]}, () => 0.5));
     expect(TOWEL_REVIEWS.over).toContain(towelReview({stars: 1, fails: ["over"]}, () => 0.5));
     expect(REVIEWS[3]).toContain(towelReview({stars: 3, fails: []}, () => 0));
+  });
+});
+
+describe("letGoProfile", () => {
+  it("lets go of the towel at once as he tips, holds off while down, takes it again as he gets up", () => {
+    expect(letGoProfile(0)).toBe(0);
+    expect(letGoProfile(FALL_START)).toBe(0);
+    expect(letGoProfile(0.25)).toBe(1);
+    expect(letGoProfile(3)).toBe(1);
+    expect(letGoProfile(GETUP_AT + GETUP_LEN)).toBe(0);
+    expect(letGoProfile(10)).toBe(0);
+    let prev = 0;
+    for(let t = 0; t < GETUP_AT; t += 0.01){ const v = letGoProfile(t); expect(v).toBeGreaterThanOrEqual(prev - 1e-9); prev = v; }
+    for(let t = GETUP_AT; t < GETUP_AT + GETUP_LEN; t += 0.01){ const v = letGoProfile(t); expect(v).toBeLessThanOrEqual(prev + 1e-9); prev = v; }
   });
 });
