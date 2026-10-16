@@ -23,11 +23,14 @@ export const AIM_TOL = 7, AIM_SPREAD = 8;
 // how far off centre, in tolerances (|x| <= 1 is on centre)
 export const aimOff = (rot, tg) => (rot - (tg.aim || 0)) / (tg.aimTol || AIM_TOL);
 export const towelDist = (t, tg) => Math.abs(t - tg.mid) / tg.half;
-/* "over": past the limit (the neck goes giraffe), "slip": too slack (only the towel comes off), "skew": tension right
+/* "over": past the limit (the neck goes giraffe), "taut": over the band but not past the limit (a vertebra cracks; user:
+   "수건 장력이 정상과 과해요 사이에 있으면 뼈금가는 소리 ... 뼈 금가는 엑스레이로", 2026-10-16; it was a slip),
+   "slip": too slack (only the towel comes off), "skew": tension right
    but off centre (the neck wrenches to that side and cracks), "ok": in the band and on centre. rot defaults to the
    centre, so a call without it judges the tension alone. */
 export function towelKind(t, tg, rot = tg.aim || 0){
   if(t > tg.limit) return "over";
+  if(t > tg.mid + tg.half) return "taut";
   if(towelDist(t, tg) > 1) return "slip";
   return Math.abs(aimOff(rot, tg)) > 1 ? "skew" : "ok";
 }
@@ -127,8 +130,8 @@ export function towelReaction(name, burn = 0){
 }
 
 // the big stamp on a wrong tug, and the day log chips
-export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!", skew: "삐끗?!" };
-export const TOWEL_TAG = { over: "엿가락", slip: "헛당김", skew: "삐끗" };
+export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!", skew: "삐끗?!", taut: "빠직?!" };
+export const TOWEL_TAG = { over: "엿가락", slip: "헛당김", skew: "삐끗", taut: "금" };
 export function towelTags(fails){
   const n = {}; (fails || []).forEach(k => { n[k] = (n[k] || 0) + 1; });
   return Object.keys(TOWEL_TAG).filter(k => n[k]).map(k => `${TOWEL_TAG[k]} ×${n[k]}`);
@@ -136,23 +139,24 @@ export function towelTags(fails){
 // each patient's lines: tense as the tension reaches the band, tight past the limit (once each while aiming), ok after a good tug, over when the neck goes too long, slip when the towel comes off
 export const TOWEL_LINES = {
   "박대리":   {tense: "어… 목이 늘어나는 느낌인데요? 야근 수당 나오나요?", tight: "저기요 목 끊어져요?! 저 아직 할부 남았어요!",
-    ok: "키 2cm 큰 것 같아요… 인사고과에 반영되나요?", over: "목이 엿가락이 됐어요! 모니터가 발밑에 있어요!", slip: "수건만 빠졌는데요…? 저 아직 거북이예요", skew: "목이 옆으로 접혔어요! 산재 처리 되나요?!"},
+    ok: "키 2cm 큰 것 같아요… 인사고과에 반영되나요?", over: "목이 엿가락이 됐어요! 모니터가 발밑에 있어요!", slip: "수건만 빠졌는데요…? 저 아직 거북이예요", skew: "목이 옆으로 접혔어요! 산재 처리 되나요?!", taut: "빠직 소리 났어요! 이거 연차 써야 돼요?!"},
   "최교수":   {tense: "흠… 경추가 늘어나는 게 느껴지는군요", tight: "잠깐! 이건 윤리위원회 통과 안 돼요!",
-    ok: "경추 간격이… 논문 하나 나오겠네요", over: "목이 늘어나는 건 학계에 보고된 적이 없는데요?!", slip: "방금 건 대조군인가요?", skew: "이 각도는 교과서에 없어요!"},
+    ok: "경추 간격이… 논문 하나 나오겠네요", over: "목이 늘어나는 건 학계에 보고된 적이 없는데요?!", slip: "방금 건 대조군인가요?", skew: "이 각도는 교과서에 없어요!", taut: "방금 그 소리… 골밀도 학회에 보고하겠습니다!"},
   "이라이더": {tense: "오 뭔가 쭉 펴지는데요", tight: "아 잠깐잠깐 목 배송 사고 나요!",
-    ok: "오 헬멧 사이즈 바꿔야겠다", over: "목이 기린이에요 기린! 신호등이 보여요!", slip: "수건 배달 완료요? 목은요?", skew: "목이 커브 돌았어요! 역주행이에요!"},
+    ok: "오 헬멧 사이즈 바꿔야겠다", over: "목이 기린이에요 기린! 신호등이 보여요!", slip: "수건 배달 완료요? 목은요?", skew: "목이 커브 돌았어요! 역주행이에요!", taut: "목에서 금 갔어요! 반품 되나요?!"},
   "정작가":   {tense: "…목이 한 컷 늘어나는 느낌", tight: "선생님 그거 목이에요, 고무줄 아니에요!",
-    ok: "목이 3컷은 길어졌어요… 하아…", over: "작화 붕괴! 목 작화 붕괴예요!", slip: "…수건만 퇴고하셨네요", skew: "목 작화가 옆으로 틀어졌어요!"},
+    ok: "목이 3컷은 길어졌어요… 하아…", over: "작화 붕괴! 목 작화 붕괴예요!", slip: "…수건만 퇴고하셨네요", skew: "목 작화가 옆으로 틀어졌어요!", taut: "목에 금 그어졌어요… 펜선 아니죠?"},
   "김사장":   {tense: "어허, 쭉 늘어나는구먼", tight: "어허허 이 사람아 목 뽑히겠어!",
-    ok: "허허, 키가 커서 드라이버가 짧아 보이네", over: "어허허허 내 목! 내 목 어디 갔어!", slip: "자네 수건이랑 싸우나?", skew: "어허허 목이 옆으로 갔어 이 사람아!"}
+    ok: "허허, 키가 커서 드라이버가 짧아 보이네", over: "어허허허 내 목! 내 목 어디 갔어!", slip: "자네 수건이랑 싸우나?", skew: "어허허 목이 옆으로 갔어 이 사람아!", taut: "어허 빠직? 내 목 금 갔어 이 사람아!"}
 };
-const TOWEL_LINE_FALLBACK = {tense: "어… 목이 늘어나는 느낌이에요", tight: "저기요 목 끊어져요?!", ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?", skew: "목이 옆으로 꺾였어요!"};
+const TOWEL_LINE_FALLBACK = {tense: "어… 목이 늘어나는 느낌이에요", tight: "저기요 목 끊어져요?!", ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?", skew: "목이 옆으로 꺾였어요!", taut: "목에서 빠직 했어요!"};
 export const towelLine = (name, kind) => (TOWEL_LINES[name] || TOWEL_LINE_FALLBACK)[kind] || TOWEL_LINE_FALLBACK[kind] || "";
 // day log reviews: walked out -> the patient's parting line, a wrong tug -> the last kind's pool, else the star reviews
 export const TOWEL_REVIEWS = {
   over:  ["30초 동안 기린이었어요", "목도리 사이즈가 바뀌었어요", "목이 고무줄 체험판이었어요"],
   slip:  ["수건만 세탁하고 왔어요", "수건이 저보다 먼저 퇴근했어요", "수건 마술쇼인 줄 알았어요"],
-  skew:  ["목이 옆으로 접혀서 구급차 탔어요", "삐끗 한 번에 응급실 직행", "수건 하나로 깁스까지 했어요"]
+  skew:  ["목이 옆으로 접혀서 구급차 탔어요", "삐끗 한 번에 응급실 직행", "수건 하나로 깁스까지 했어요"],
+  taut:  ["빠직 소리 듣고 구급차 탔어요", "목에 금 가서 깁스 렌탈 중", "조금만 덜 당겼어도 됐을 텐데요"]
 };
 export function towelReview(r, rand = Math.random){
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
