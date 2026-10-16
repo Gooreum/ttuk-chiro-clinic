@@ -242,7 +242,7 @@ function hurt(msg, kind, force = 0){
     const pool = FORCE_LINES[tier];
     say(pool[Math.floor(Math.random()*pool.length)], 1300, true);
     S.ghostFrom = S.ghostUntil = 0;   // no "여기였어요": the day ends on an ambulance
-    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; S.shatterFired = false; });
   }else if(kind === "over"){
     boing(); vib([60, 40, 60]);
     S.boingAt = now; S.shake = 0.6; S.jitter = 1;
@@ -383,7 +383,7 @@ function towelHurt(kind){
     faceRun([[0, "gasp"], [350, "ouch"], [SIREN_AT + 400, "dazed"]]);
     floater(tier > 1 ? "아그작" : "으그적", -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
     later(250, () => say(towelLine(target.name, "skew"), 1500, true));
-    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; S.shatterFired = false; });
     callAmbulance(later, SIREN_AT, target, 0);
     return;
   }
@@ -398,7 +398,7 @@ function towelHurt(kind){
     faceRun([[0, "gasp"], [350, "ouch"], [SIREN_AT + 400, "dazed"]]);
     floater("빠직", -64, -r - 10); later(140, () => floater("금…", 44, -r - 34, "small"));
     later(250, () => say(towelLine(target.name, "taut"), 1500, true));
-    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = 1; S.fracT = 0; S.fracFired = false; });
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = 1; S.fracT = 0; S.fracFired = false; S.shatterFired = false; });
     callAmbulance(later, SIREN_AT, target, 0);
     return;
   }
