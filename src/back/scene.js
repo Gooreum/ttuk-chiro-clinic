@@ -425,14 +425,14 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, targets=TARGETS, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
       reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
     }
     const k = kind || "ok",feel=impactFeel(force,forceTier),move=therapistMotion(shotTime,force,forceTier);
     const film=clinicFilm(shotTime,kind,forceTier,force);
-    xray.update({time:shotTime,step,kind,position,forceTier,force});
+    xray.update({time:shotTime,step,kind,position,forceTier,force,organs});
     for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
     for(const m of therapistFade){m.opacity=1-film*.8;m.depthWrite=film<.05;}
     renderer.toneMappingExposure=1-film*.35;
@@ -510,13 +510,26 @@ export async function createBackScene(canvas, view = {}){
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
     const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(position)));
     camera.position.lerp(wideLook.clone().add(camDir.clone().multiplyScalar(3.2)),move.wide);
-    camera.position.lerp(new THREE.Vector3(-.24,1.06,focus.z+.06),film*.92);
+    let filmCamera=new THREE.Vector3(-.24,1.06,focus.z+.06);
+    if(organs.length){
+      const box=xray.organFraming(organs,focus.z),centre=box.getCenter(new THREE.Vector3());
+      focus.x=centre.x*.3;focus.z=focus.z*.65+centre.z*.35;
+      const dir=new THREE.Vector3(-.32,.94,.13).normalize();
+      const right=new THREE.Vector3().crossVectors(camera.up,dir).normalize(),up=new THREE.Vector3().crossVectors(dir,right);
+      const tan=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));let distance=.52;
+      for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+        const v=new THREE.Vector3(x,y,z).sub(focus),near=v.dot(dir);
+        distance=Math.max(distance,near+Math.abs(v.dot(up))/(tan*.78),near+Math.abs(v.dot(right))/(tan*camera.aspect*.82));
+      }
+      filmCamera=focus.clone().addScaledVector(dir,distance);
+    }
+    camera.position.lerp(filmCamera,film*.92);
     if (st.shake > 0){
       const s = st.shake*st.shake*0.012, t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
     camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*.95));
-    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move}};
+    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move},...(import.meta.env.MODE==='shot'?{organOpacity:xray.organOpacity()}: {})};
     renderer.render(scene, camera);
   }
 
