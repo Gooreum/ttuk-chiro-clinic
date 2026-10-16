@@ -3,6 +3,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import {therapistStyle} from './therapistMotion.js';
 import {clinicFilm,pressedSegment,TARGETS} from './core.js';
+import {organTagName} from './organs.js';
 import {createClinicXray} from 'virtual:clinic-xray';
 
 /* Adapter only. Rendering, film, disc release, bubbles and fracture animation run
@@ -12,82 +13,81 @@ import {createClinicXray} from 'virtual:clinic-xray';
 const clamp=v=>Math.max(0,Math.min(1,v));
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
 
-/* Soft-tissue density reference: PA chest/abdominal radiographs, Radiology Assistant
-   https://radiologyassistant.nl/chest/chest-x-ray/basic-interpretation
-   Surfaces below are real BodyParts3D meshes; only the rupture overlay is stylized. */
-function organMaterial(id,centre,size){
+// Actual BodyParts3D surfaces: smooth transmitted density and broad paper rims.
+function organMaterial(id,centre,size,bleed=false){
   const lung=id.startsWith('lung'),bowel=id==='bowel';
   const U={organCentre:{value:centre},organSize:{value:size},organTime:{value:0},organDamage:{value:0},
-    organAir:{value:lung?1:bowel?.5:0},organDense:{value:id==='heart'?1:0},
+    organAmount:{value:0},organFill:{value:lung?.05:bowel?.06:id==='stomach'?.10:id==='heart'?.18:.15},
+    organPower:{value:bleed?(id.startsWith('kidney')?.2:.5):1.35},organBleed:{value:bleed?1:0},
+    organColor:{value:new THREE.Color(0xf4efe4).convertSRGBToLinear()},
     organCoral:{value:new THREE.Color(0xff7a59).convertSRGBToLinear()}};
-  const mat=new THREE.MeshBasicMaterial({color:lung?0x17312c:0xf4efe4,transparent:true,opacity:0,depthWrite:false,depthTest:false,side:THREE.FrontSide,toneMapped:false});
-  mat.onBeforeCompile=shader=>{
-    Object.assign(shader.uniforms,U);
-    shader.vertexShader=shader.vertexShader.replace('#include <common>',`#include <common>
-      uniform vec3 organCentre,organSize; varying vec3 vOrgan,vOrganNormal,vOrganView;`)
-      .replace('#include <begin_vertex>',`#include <begin_vertex>
+  const mat=new THREE.ShaderMaterial({transparent:true,opacity:0,blending:THREE.NormalBlending,
+    depthWrite:false,depthTest:!bleed,side:THREE.DoubleSide,toneMapped:false,uniforms:U,
+    vertexShader:`uniform vec3 organCentre,organSize; varying vec3 vOrgan,vOrganNormal,vOrganView;
+      void main(){
         vOrgan=(position-organCentre)/organSize;
-        vOrganNormal=normalize(normalMatrix*normal);`)
-      .replace('#include <project_vertex>',`#include <project_vertex>
-        vOrganView=-mvPosition.xyz;`);
-    shader.fragmentShader=shader.fragmentShader.replace('#include <common>',`#include <common>
-      uniform float organTime,organDamage,organAir,organDense; uniform vec3 organCoral;
-      varying vec3 vOrgan,vOrganNormal,vOrganView;`)
-      .replace('#include <tonemapping_fragment>',`
-        float rim=pow(1.0-abs(dot(normalize(vOrganNormal),normalize(vOrganView))),2.0);
-        float gas=sin(vOrgan.x*87.0+sin(vOrgan.z*73.0)*1.2)*sin(vOrgan.z*101.0+vOrgan.x*12.0);
-        float density=organAir>.75?.12+rim*.26:organAir>.25?.15+.025*gas:.28+rim*.12;
-        vec3 tissue=organAir>.75?mix(vec3(.012,.04,.032),vec3(.20,.39,.32),rim*.4):gl_FragColor.rgb;
-        if(organAir>.25&&organAir<.75)tissue*=.78+.025*gas;
-        float pulse=.88+.12*sin(organTime*11.0);
-        // Filled silhouettes, with a denser heart on the patient's left.
-        vec3 injured=organCoral*(.88+.32*rim)*pulse*(1.0-organDense*.45);
-        float injuredDensity=(organAir>.75?.64:.76)+rim*.16+organDense*.12;
-        gl_FragColor.rgb=mix(tissue,injured,organDamage);
-        gl_FragColor.a*=mix(density,injuredDensity*(.94+.06*pulse),organDamage);
-        #include <tonemapping_fragment>`);
-  };
-  mat.customProgramCacheKey=()=>`back-organ-density-v2`;
+        // Undo the AP depth compression for shading; it must not crush every rim
+        // down to a subpixel line. Geometry remains registered to the spine.
+        vOrganNormal=normalize(normalMatrix*vec3(normal.x,normal.y*.16,normal.z));
+        vec4 mv=modelViewMatrix*vec4(position,1.0);vOrganView=-mv.xyz;
+        gl_Position=projectionMatrix*mv;
+      }`,
+    fragmentShader:`uniform float organTime,organDamage,organAmount,organFill,organPower,organBleed;
+      uniform vec3 organColor,organCoral; varying vec3 vOrgan,vOrganNormal,vOrganView;
+      float segment(vec2 p,vec2 a,vec2 b){vec2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/dot(ab,ab),0.0,1.0));}
+      void main(){
+        float edge=1.0-abs(dot(normalize(vOrganNormal),normalize(vOrganView)));
+        float rim=pow(edge,mix(organPower,1.2,organDamage));
+        rim=mix(rim,smoothstep(.02,.50,rim),organDamage);
+        float pulse=.94+.06*sin(organTime*9.0);
+        if(organBleed>.5){
+          gl_FragColor=vec4(organCoral,organAmount*organDamage*pow(edge,organPower)*.78*pulse);
+        }else{
+          float fill=mix(organFill,.28+.07*pow(edge,.7),organDamage);
+          float alpha=fill+(1.0-fill)*rim;
+          vec2 p=vOrgan.xz;
+          float d=segment(p,vec2(-.42,-.12),vec2(-.23,.04));
+          d=min(d,segment(p,vec2(-.23,.04),vec2(-.10,-.06)));
+          d=min(d,segment(p,vec2(-.10,-.06),vec2(.08,.10)));
+          d=min(d,segment(p,vec2(.08,.10),vec2(.23,-.03)));
+          d=min(d,segment(p,vec2(.23,-.03),vec2(.42,.14)));
+          d=min(d,segment(p,vec2(-.10,-.06),vec2(-.16,-.27)));
+          d=min(d,segment(p,vec2(.08,.10),vec2(.17,.30)));
+          float fissure=(1.0-smoothstep(.012,.032,d))*organDamage;
+          float glow=exp(-d*26.0)*organDamage*.20;
+          vec3 color=mix(organColor,organCoral,organDamage);
+          color=mix(color,organCoral,fissure);
+          alpha=max(alpha+glow,fissure);
+          gl_FragColor=vec4(color,organAmount*min(1.0,alpha)*mix(1.0,pulse,organDamage));
+        }
+        #include <encodings_fragment>
+      }`});
   return {mat,U};
 }
 
-// Camera-facing damage decal: closed organ surfaces contain overlapping walls.
-// Projecting the fissure onto those walls makes several competing zigzags. One
-// small billboard per organ keeps the branching crack and pooled bleed legible.
-function ruptureMaterial(){
-  return new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:false,toneMapped:false,
-    uniforms:{amount:{value:0},time:{value:0},coral:{value:new THREE.Color(0xff7a59).convertSRGBToLinear()},dark:{value:new THREE.Color(0x17312c).convertSRGBToLinear()}},
-    vertexShader:`varying vec2 vUv;
-      void main(){
-        vUv=uv;
-        vec4 centre=modelViewMatrix*vec4(0.0,0.0,0.0,1.0);
-        centre.xy+=position.xy*vec2(length(modelMatrix[0].xyz),length(modelMatrix[1].xyz));
-        gl_Position=projectionMatrix*centre;
-      }`,
-    fragmentShader:`uniform float amount,time; uniform vec3 coral,dark; varying vec2 vUv;
-      float segment(vec2 p,vec2 a,vec2 b){vec2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/dot(ab,ab),0.0,1.0));}
-      void main(){
-        vec2 p=vUv-.5;
-        float d=segment(p,vec2(-.44,-.08),vec2(-.22,.07));
-        d=min(d,segment(p,vec2(-.22,.07),vec2(-.09,-.04)));
-        d=min(d,segment(p,vec2(-.09,-.04),vec2(.07,.08)));
-        d=min(d,segment(p,vec2(.07,.08),vec2(.24,-.04)));
-        d=min(d,segment(p,vec2(.24,-.04),vec2(.44,.10)));
-        d=min(d,segment(p,vec2(-.09,-.04),vec2(-.14,-.24)));
-        d=min(d,segment(p,vec2(.07,.08),vec2(.19,.30)));
-        float grow=1.0-exp(-time*5.0);
-        float r=length((p-vec2(.015,.015))/vec2(.23,.18));
-        float pool=(1.0-smoothstep(.55,1.0,r+.11*sin(p.x*38.0)*sin(p.y*32.0)))*grow;
-        float glow=exp(-dot(p,p)*19.0)*grow;
-        float halo=1.0-smoothstep(.022,.045,d);
-        float crack=1.0-smoothstep(.008,.016,d);
-        vec3 color=mix(coral,dark,pool*.72);
-        color=mix(color,coral,halo);
-        color=mix(color,dark,crack*.96);
-        float pulse=.88+.12*sin(time*11.0);
-        gl_FragColor=vec4(color,amount*pulse*max(glow*.48,max(pool*.94,halo*.96)));
-        #include <encodings_fragment>
-      }`});
+function organTag(id){
+  const text=organTagName(id),canvas=document.createElement('canvas'),g=canvas.getContext('2d');
+  const font='34px "Black Han Sans", sans-serif';g.font=font;
+  const width=Math.ceil(g.measureText(text).width/2)+24,height=32;
+  canvas.width=width*2;canvas.height=height*2;
+  const texture=new THREE.CanvasTexture(canvas);texture.encoding=THREE.sRGBEncoding;
+  let alive=true;texture.addEventListener('dispose',()=>{alive=false;});
+  function draw(){
+    if(!alive)return;
+    g.clearRect(0,0,canvas.width,canvas.height);g.fillStyle='#17312c';g.strokeStyle='#ff7a59';g.lineWidth=2;
+    const w=canvas.width,h=canvas.height,r=14;
+    g.beginPath();g.moveTo(r,1);g.arcTo(w-1,1,w-1,h-1,r);g.arcTo(w-1,h-1,1,h-1,r);
+    g.arcTo(1,h-1,1,1,r);g.arcTo(1,1,w-1,1,r);g.closePath();g.fill();g.stroke();
+    g.font=font;g.textAlign='center';g.textBaseline='middle';g.fillStyle='#f4efe4';g.fillText(text,w/2,h/2+2);
+    texture.needsUpdate=true;
+  }
+  draw();document.fonts?.ready.then(draw);
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
+  sprite.name=id+'_tag';sprite.renderOrder=1003;sprite.frustumCulled=false;sprite.visible=false;
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(),new THREE.Vector3()]),
+    new THREE.LineBasicMaterial({color:0xff7a59,transparent:true,opacity:0,depthWrite:false,depthTest:false,toneMapped:false}));
+  line.renderOrder=1002.5;line.frustumCulled=false;line.visible=false;
+  return {sprite,line,text,width,height};
 }
 
 function createOrgans(source,scene){
@@ -96,10 +96,13 @@ function createOrgans(source,scene){
   const t1=source.scene.getObjectByName('ref_T1').getWorldPosition(new THREE.Vector3());
   const l5=source.scene.getObjectByName('ref_L5').getWorldPosition(new THREE.Vector3());
   const length=t1.y-l5.y,scale=.6/length;
-  const entries=[];
-  const markGeometry=new THREE.PlaneGeometry(1,1);
-  source.scene.traverse(o=>{
-    if(!o.isMesh)return;
+  const entries=[];let hitIds=[];
+  // Posterior film layers: retain the heart over the left lung and the kidneys
+  // over the bowel, instead of relying on the GLB's arbitrary object order.
+  const layerOrder=['lungL','lungR','bowel','liver','kidneyL','kidneyR','stomach','spleen','heart'];
+  const surfaces=[];source.scene.traverse(o=>{if(o.isMesh)surfaces.push(o);});
+  surfaces.sort((a,b)=>layerOrder.indexOf(a.name)-layerOrder.indexOf(b.name));
+  for(const o of surfaces){
     const geometry=o.geometry.clone();
     const raw=geometry.attributes.position,float=new Float32Array(raw.count*3);
     for(let i=0;i<raw.count;i++){float[i*3]=raw.getX(i);float[i*3+1]=raw.getY(i);float[i*3+2]=raw.getZ(i);}
@@ -117,36 +120,91 @@ function createOrgans(source,scene){
     geometry.deleteAttribute('normal');geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
     const centre=geometry.boundingBox.getCenter(new THREE.Vector3()),size=geometry.boundingBox.getSize(new THREE.Vector3());
     const {mat,U}=organMaterial(o.name,centre,size);
-    const mesh=new THREE.Mesh(geometry,mat);mesh.name=o.name;mesh.renderOrder=998.5;mesh.frustumCulled=false;group.add(mesh);
-    const mark=new THREE.Mesh(markGeometry,ruptureMaterial());mark.name=o.name+'_rupture';
-    mark.position.copy(centre);mark.renderOrder=o.name==='heart'?1000.95:1000.85;mark.frustumCulled=false;mesh.add(mark);
-    const markSize=Math.min(.13,Math.min(size.x,size.z)*.82);mark.scale.setScalar(markSize);
-    entries.push({id:o.name,mesh,mat,U,mark,box:geometry.boundingBox.clone()});
-  });
-  function update(ids,amount,fractureTime,worldZ){
+    // Film clears depth at 998; the engine's bones start at 999.
+    // A per-organ depth pass selects just its visible skin. In particular the
+    // bowel's overlapping internal walls must not accumulate into green static.
+    const order=998.3+entries.length*.025;
+    const depth=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:true,depthTest:true,transparent:true,side:THREE.DoubleSide,
+      stencilWrite:true,stencilRef:1,stencilFunc:THREE.AlwaysStencilFunc,stencilZPass:THREE.ReplaceStencilOp}));
+    depth.renderOrder=order;depth.frustumCulled=false;
+    depth.onBeforeRender=r=>{
+      r.state.buffers.depth.setMask(true);r.state.buffers.stencil.setMask(0xff);
+      r.clear(false,true,true);
+    };group.add(depth);
+    const mesh=new THREE.Mesh(geometry,mat);mesh.name=o.name;mesh.renderOrder=order+.01;mesh.frustumCulled=false;group.add(mesh);
+    const bleedMat=organMaterial(o.name,centre,size,true),bleed=new THREE.Mesh(geometry,bleedMat.mat);
+    // Bleed stays outside the actual silhouette. Otherwise it accumulates under
+    // the .28–.35 interior and turns translucent ruptures into solid red blobs.
+    Object.assign(bleed.material,{stencilWrite:true,stencilWriteMask:0,stencilRef:1,stencilFunc:THREE.NotEqualStencilFunc});
+    bleed.name=o.name+'_bleed';bleed.renderOrder=order+.005;bleed.frustumCulled=false;group.add(bleed);
+    const tag=organTag(o.name);group.add(tag.sprite,tag.line);
+    const side=['lungR','liver','kidneyR','bowel'].includes(o.name)?-1:1;
+    entries.push({id:o.name,order,mesh,depth,mat,U,bleed,bleedU:bleedMat.U,tag,side,box:geometry.boundingBox.clone(),hit:false});
+  }
+  function update(ids,amount,fractureTime){
     group.visible=ids.length>0&&amount>0;
+    hitIds=ids.filter(id=>entries.some(e=>e.id===id));
     const damage=smooth(0,.12,fractureTime-.35);
     for(const e of entries){
-      const hit=ids.includes(e.id);
-      // Only faint nearby context; it must never paint over a ruptured organ.
-      const near=Math.abs(e.U.organCentre.value.z-worldZ)<=.12;
-      e.mesh.visible=group.visible&&(near||hit);
-      e.mat.opacity=e.mesh.visible?amount*(hit?.94:e.id==='bowel'?.045:.14):0;
-      // Above context and bone surfaces, below the existing fracture flashes.
-      // Heart last: its denser silhouette stays on the patient's left lung.
-      e.mesh.renderOrder=hit?(e.id==='heart'?1000.7:1000.5):998.5;
+      const hit=e.hit=ids.includes(e.id);
+      // Injured anatomy must remain visible through healthy overlapping organs.
+      const order=e.order+(hit?.3:0);
+      e.bleed.renderOrder=order+.005;e.depth.renderOrder=order;e.mesh.renderOrder=order+.01;
+      e.mesh.visible=e.depth.visible=group.visible;
+      e.mat.opacity=group.visible?amount:0;
+      e.U.organAmount.value=e.mat.opacity;
       e.U.organDamage.value=hit?damage:0;e.U.organTime.value=Math.max(0,fractureTime-.35);
-      e.mark.visible=e.mesh.visible&&hit&&damage>0;
-      e.mark.material.uniforms.amount.value=hit?amount*damage:0;
-      e.mark.material.uniforms.time.value=e.U.organTime.value;
+      e.bleed.visible=group.visible&&hit&&damage>0;
+      const halo=e.id.startsWith('kidney')?1.45:.22;
+      const spread=1+halo*damage*(1-Math.exp(-e.U.organTime.value*4))*(1+.15*Math.sin(e.U.organTime.value*9));
+      e.bleed.scale.setScalar(spread);e.bleed.position.copy(e.U.organCentre.value).multiplyScalar(1-spread);
+      e.bleedU.organDamage.value=hit?damage:0;e.bleedU.organAmount.value=e.mat.opacity;e.bleedU.organTime.value=e.U.organTime.value;
+      e.tag.sprite.visible=e.tag.line.visible=group.visible&&hit&&damage>0;
+      e.tag.sprite.material.opacity=amount*damage;e.tag.line.material.opacity=amount*damage*.7;
     }
   }
-  function framing(ids,worldZ){
-    const box=new THREE.Box3(new THREE.Vector3(-.075,.90,worldZ-.12),new THREE.Vector3(.075,.96,worldZ+.12));
-    for(const e of entries)if(ids.includes(e.id))box.union(e.box);
+  function framing(){
+    // Fit the organ union, without padding for the long spinal cord or target.
+    const box=new THREE.Box3();
+    for(const e of entries)box.union(e.box);
     return box;
   }
-  return {group,update,framing,opacity:()=>Math.max(0,...entries.map(e=>e.mat.opacity))};
+  function layout(camera,width,height){
+    if(!group.visible)return;
+    camera.updateMatrixWorld(true);
+    const project=p=>{const q=p.clone().project(camera);return new THREE.Vector3((q.x+1)*width/2,(1-q.y)*height/2,q.z);};
+    const unproject=(x,y,z)=>new THREE.Vector3(x/width*2-1,1-y/height*2,z).unproject(camera);
+    const bounds={left:width,right:0};
+    for(const e of entries)for(const x of [e.box.min.x,e.box.max.x])for(const z of [e.box.min.z,e.box.max.z]){
+      const p=project(new THREE.Vector3(x,e.U.organCentre.value.y,z));bounds.left=Math.min(bounds.left,p.x);bounds.right=Math.max(bounds.right,p.x);
+    }
+    for(const side of [-1,1]){
+      const tags=entries.filter(e=>e.side===side&&e.tag.sprite.visible).map(e=>{
+        const anchor=e.U.organCentre.value.clone();anchor.x+=side*e.box.getSize(new THREE.Vector3()).x*.32;
+        return {e,anchor,p:project(anchor)};
+      }).sort((a,b)=>a.p.y-b.p.y);
+      const top=Math.min(100,height*.25),bottom=height-24,gap=42;
+      for(let i=0;i<tags.length;i++)tags[i].y=Math.max(top,Math.min(bottom,tags[i].p.y),i?tags[i-1].y+gap:top);
+      if(tags.length&&tags.at(-1).y>bottom){
+        tags.at(-1).y=bottom;
+        for(let i=tags.length-2;i>=0;i--)tags[i].y=Math.min(tags[i].y,tags[i+1].y-gap);
+      }
+      for(const {e,anchor,p,y} of tags){
+        const tag=e.tag,half=tag.width/2;
+        const x=THREE.MathUtils.clamp((side<0?bounds.left:bounds.right)+side*(half+22),half+12,width-half-12);
+        tag.sprite.position.copy(unproject(x,y,p.z));
+        const depth=-tag.sprite.position.clone().applyMatrix4(camera.matrixWorldInverse).z;
+        const pixel=2*depth*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/height;
+        tag.sprite.scale.set(tag.width*pixel,tag.height*pixel,1);
+        const end=unproject(x-side*half,y,p.z),elbow=unproject(x-side*(half+10),y,p.z);
+        const points=tag.line.geometry.attributes.position;
+        [anchor,elbow,end].forEach((v,i)=>points.setXYZ(i,v.x,v.y,v.z));points.needsUpdate=true;
+      }
+    }
+  }
+  const state=()=>({visible:group.visible?entries.filter(e=>e.mesh.visible).length:0,
+    hit:group.visible?[...hitIds]:[],tags:group.visible?entries.filter(e=>e.tag.sprite.visible).map(e=>e.tag.text):[]});
+  return {group,update,framing,layout,state,opacity:()=>Math.max(0,...entries.map(e=>e.mat.opacity))};
 }
 
 export async function createBackXray({scene,camera,env,renderer}){
@@ -209,9 +267,10 @@ export async function createBackXray({scene,camera,env,renderer}){
     target.seg=pressedSegment(Number.isFinite(position)?position:TARGETS[Math.max(0,Math.min(2,step))]);
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
-    organLayer.update(organs,amount,time-.45,worldZ);
+    organLayer.update(organs,amount,time-.45);
     const crackT=success?time-.7:-1;
     engine.updateXray(Math.max(0,time)*1000,amount,crackT,success?0:Math.max(0,1-Math.max(0,time-.7)*1.4),target,fracture?{lvl:tier,t:time-.45}:null,null);
+    if(organs.length)engine.film.material.opacity=amount;
   }
   function dispose(){
     const allGeometry=new Set(geometries),allMaterials=new Set(),allTextures=new Set();
@@ -221,5 +280,5 @@ export async function createBackXray({scene,camera,env,renderer}){
     for(const g of allGeometry)g.dispose();for(const m of allMaterials)m.dispose();for(const t of allTextures)t.dispose();pivot.clear();
   }
   pivot.userData.anatomy='Actual T1–T8 and T2/3–T7/8 discs; original clinic x-ray engine';
-  return {group:pivot,update,dispose,organFraming:organLayer.framing,organOpacity:organLayer.opacity};
+  return {group:pivot,update,dispose,organFraming:organLayer.framing,layoutOrgans:organLayer.layout,organState:organLayer.state,organOpacity:organLayer.opacity};
 }
