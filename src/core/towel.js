@@ -12,11 +12,27 @@ export function makeTowelTarget(p, rand = Math.random){
   const old = p.trait === "elder", tense = p.trait === "nervous";
   const mid = old ? 0.36 + 0.1*rand() : 0.5 + 0.18*rand();
   const half = tense ? 0.07 : 0.1;
-  return {mid, half, limit: Math.min(0.97, mid + half + (old ? 0.12 : 0.18))};
+  const limit = Math.min(0.97, mid + half + (old ? 0.12 : 0.18));
+  // the left / right focus (user: "좌우 중심 초점이 안 맞으면 목이 그쪽으로 꺾이면서 빠지고 골절되던가 금이 가는",
+  // 2026-10-16): the aim's horizontal axis (S.cur.rot, degrees) has to sit on this patient's centre, a little off zero
+  // as the head lies. Drawn after the tension band so the band's draws stay as they were.
+  return {mid, half, limit, aim: (rand()*2 - 1)*AIM_SPREAD, aimTol: tense ? AIM_TOL*0.7 : AIM_TOL};
 }
+// degrees: half the width of the centre, how far the centre lies off zero (estimates before phone play)
+export const AIM_TOL = 7, AIM_SPREAD = 8;
+// how far off centre, in tolerances (|x| <= 1 is on centre)
+export const aimOff = (rot, tg) => (rot - (tg.aim || 0)) / (tg.aimTol || AIM_TOL);
 export const towelDist = (t, tg) => Math.abs(t - tg.mid) / tg.half;
-// "over": past the limit (the neck goes giraffe), "ok": in the band, "slip": too slack (only the towel comes off)
-export function towelKind(t, tg){ return t > tg.limit ? "over" : towelDist(t, tg) <= 1 ? "ok" : "slip"; }
+/* "over": past the limit (the neck goes giraffe), "slip": too slack (only the towel comes off), "skew": tension right
+   but off centre (the neck wrenches to that side and cracks), "ok": in the band and on centre. rot defaults to the
+   centre, so a call without it judges the tension alone. */
+export function towelKind(t, tg, rot = tg.aim || 0){
+  if(t > tg.limit) return "over";
+  if(towelDist(t, tg) > 1) return "slip";
+  return Math.abs(aimOff(rot, tg)) > 1 ? "skew" : "ok";
+}
+// a skewed tug: up to twice the tolerance off cracks the vertebra (1), further breaks it (2)
+export const skewTier = (rot, tg) => Math.abs(aimOff(rot, tg)) > 2 ? 2 : 1;
 
 /* How far the head slides toward the therapist (m) after the tug: shoots out by STRETCH_RISE, holds trembling to
    STRETCH_HOLD (long enough to see the spine stretch on the x-ray), then springs back with a damped spring (a little
@@ -37,22 +53,26 @@ export function stretchProfile(t, peak, hold = STRETCH_HOLD){
    the long neck holds to OVER_HOLD and springs back, and he bounces back up on his stool from GETUP_AT. Seconds since
    the tug. fallProfile: 0 = sitting, 1 = flat on his back. */
 export const FALL_START = 0.1, FALL_HIT = 0.75, OVER_XRAY = 1.0, OVER_HOLD = 3.4, GETUP_AT = 3.5, GETUP_LEN = 0.6;
-export function fallProfile(t){
+export function fallProfile(t, getup = GETUP_AT){
   if(t <= FALL_START) return 0;
   if(t < FALL_HIT){ const u = (t - FALL_START)/(FALL_HIT - FALL_START); return u*u*u; }       // tipping over, faster and faster
-  if(t < GETUP_AT){ const u = t - FALL_HIT; return 1 - 0.08*Math.exp(-7*u)*Math.abs(Math.sin(2*Math.PI*2.5*u)); }   // bump, bump
-  const u = Math.min(1, (t - GETUP_AT)/GETUP_LEN);
+  if(t < getup){ const u = t - FALL_HIT; return 1 - 0.08*Math.exp(-7*u)*Math.abs(Math.sin(2*Math.PI*2.5*u)); }   // bump, bump
+  const u = Math.min(1, (t - getup)/GETUP_LEN);
   return Math.max(0, (1 - u)*(1 - u)*(1 + 2*u) - 0.12*Math.sin(Math.PI*u)*u);                // springs back up, rocks past
 }
 /* The fists let go of the towel the moment he tips (well before the body has moved, so the arms go over with him
    instead of staying on the towel; user: "몸은 뒹구는데 팔은 수건에 붙어 있음", 2026-10-15) and take it again as he
    gets back up. 0 = holding .. 1 = let go. */
 export const LETGO_LEN = 0.15;
-export function letGoProfile(t){
+export function letGoProfile(t, getup = GETUP_AT){
   if(t <= FALL_START) return 0;
-  if(t < GETUP_AT){ const u = Math.min(1, (t - FALL_START)/LETGO_LEN); return u*u*(3 - 2*u); }
-  const u = Math.min(1, (t - GETUP_AT)/GETUP_LEN); return 1 - u*u*(3 - 2*u);
+  if(t < getup){ const u = Math.min(1, (t - FALL_START)/LETGO_LEN); return u*u*(3 - 2*u); }
+  const u = Math.min(1, (t - getup)/GETUP_LEN); return 1 - u*u*(3 - 2*u);
 }
+/* Since 2026-10-16 an over-pull ends the day (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스 불러야"): the neck stays
+   off the back, the therapist stays on the floor (getup = Infinity), and once the x-ray (OVER_XRAY, held OVER_XRAY_HOLD)
+   has closed the ambulance is called at OVER_SIREN (s since the tug). */
+export const OVER_XRAY_HOLD = 2.9, OVER_SIREN = OVER_XRAY + OVER_XRAY_HOLD + 0.3;
 // while aiming, the towel's tension already draws the head this far toward the therapist (m, at full tension)
 export const PREPULL = 0.015;
 /* The head snaps out by the stretch profile and the body below the neck comes along only this share of it (game/loop.js),
@@ -107,8 +127,8 @@ export function towelReaction(name, burn = 0){
 }
 
 // the big stamp on a wrong tug, and the day log chips
-export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!" };
-export const TOWEL_TAG = { over: "엿가락", slip: "헛당김" };
+export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!", skew: "삐끗?!" };
+export const TOWEL_TAG = { over: "엿가락", slip: "헛당김", skew: "삐끗" };
 export function towelTags(fails){
   const n = {}; (fails || []).forEach(k => { n[k] = (n[k] || 0) + 1; });
   return Object.keys(TOWEL_TAG).filter(k => n[k]).map(k => `${TOWEL_TAG[k]} ×${n[k]}`);
@@ -116,22 +136,23 @@ export function towelTags(fails){
 // each patient's lines: tense as the tension reaches the band, tight past the limit (once each while aiming), ok after a good tug, over when the neck goes too long, slip when the towel comes off
 export const TOWEL_LINES = {
   "박대리":   {tense: "어… 목이 늘어나는 느낌인데요? 야근 수당 나오나요?", tight: "저기요 목 끊어져요?! 저 아직 할부 남았어요!",
-    ok: "키 2cm 큰 것 같아요… 인사고과에 반영되나요?", over: "목이 엿가락이 됐어요! 모니터가 발밑에 있어요!", slip: "수건만 빠졌는데요…? 저 아직 거북이예요"},
+    ok: "키 2cm 큰 것 같아요… 인사고과에 반영되나요?", over: "목이 엿가락이 됐어요! 모니터가 발밑에 있어요!", slip: "수건만 빠졌는데요…? 저 아직 거북이예요", skew: "목이 옆으로 접혔어요! 산재 처리 되나요?!"},
   "최교수":   {tense: "흠… 경추가 늘어나는 게 느껴지는군요", tight: "잠깐! 이건 윤리위원회 통과 안 돼요!",
-    ok: "경추 간격이… 논문 하나 나오겠네요", over: "목이 늘어나는 건 학계에 보고된 적이 없는데요?!", slip: "방금 건 대조군인가요?"},
+    ok: "경추 간격이… 논문 하나 나오겠네요", over: "목이 늘어나는 건 학계에 보고된 적이 없는데요?!", slip: "방금 건 대조군인가요?", skew: "이 각도는 교과서에 없어요!"},
   "이라이더": {tense: "오 뭔가 쭉 펴지는데요", tight: "아 잠깐잠깐 목 배송 사고 나요!",
-    ok: "오 헬멧 사이즈 바꿔야겠다", over: "목이 기린이에요 기린! 신호등이 보여요!", slip: "수건 배달 완료요? 목은요?"},
+    ok: "오 헬멧 사이즈 바꿔야겠다", over: "목이 기린이에요 기린! 신호등이 보여요!", slip: "수건 배달 완료요? 목은요?", skew: "목이 커브 돌았어요! 역주행이에요!"},
   "정작가":   {tense: "…목이 한 컷 늘어나는 느낌", tight: "선생님 그거 목이에요, 고무줄 아니에요!",
-    ok: "목이 3컷은 길어졌어요… 하아…", over: "작화 붕괴! 목 작화 붕괴예요!", slip: "…수건만 퇴고하셨네요"},
+    ok: "목이 3컷은 길어졌어요… 하아…", over: "작화 붕괴! 목 작화 붕괴예요!", slip: "…수건만 퇴고하셨네요", skew: "목 작화가 옆으로 틀어졌어요!"},
   "김사장":   {tense: "어허, 쭉 늘어나는구먼", tight: "어허허 이 사람아 목 뽑히겠어!",
-    ok: "허허, 키가 커서 드라이버가 짧아 보이네", over: "어허허허 내 목! 내 목 어디 갔어!", slip: "자네 수건이랑 싸우나?"}
+    ok: "허허, 키가 커서 드라이버가 짧아 보이네", over: "어허허허 내 목! 내 목 어디 갔어!", slip: "자네 수건이랑 싸우나?", skew: "어허허 목이 옆으로 갔어 이 사람아!"}
 };
-const TOWEL_LINE_FALLBACK = {tense: "어… 목이 늘어나는 느낌이에요", tight: "저기요 목 끊어져요?!", ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?"};
+const TOWEL_LINE_FALLBACK = {tense: "어… 목이 늘어나는 느낌이에요", tight: "저기요 목 끊어져요?!", ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?", skew: "목이 옆으로 꺾였어요!"};
 export const towelLine = (name, kind) => (TOWEL_LINES[name] || TOWEL_LINE_FALLBACK)[kind] || TOWEL_LINE_FALLBACK[kind] || "";
 // day log reviews: walked out -> the patient's parting line, a wrong tug -> the last kind's pool, else the star reviews
 export const TOWEL_REVIEWS = {
   over:  ["30초 동안 기린이었어요", "목도리 사이즈가 바뀌었어요", "목이 고무줄 체험판이었어요"],
-  slip:  ["수건만 세탁하고 왔어요", "수건이 저보다 먼저 퇴근했어요", "수건 마술쇼인 줄 알았어요"]
+  slip:  ["수건만 세탁하고 왔어요", "수건이 저보다 먼저 퇴근했어요", "수건 마술쇼인 줄 알았어요"],
+  skew:  ["목이 옆으로 접혀서 구급차 탔어요", "삐끗 한 번에 응급실 직행", "수건 하나로 깁스까지 했어요"]
 };
 export function towelReview(r, rand = Math.random){
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];

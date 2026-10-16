@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, neckWeight, neckPinch, NECK_OUT, PINCH, UPPER_SHARE, towelReaction, TOWEL_BURN, towelCool,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, neckWeight, neckPinch, NECK_OUT, PINCH, UPPER_SHARE, towelReaction, TOWEL_BURN, towelCool, aimOff, skewTier, AIM_TOL, AIM_SPREAD, OVER_SIREN, OVER_XRAY, OVER_XRAY_HOLD,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -169,5 +169,61 @@ describe("neckWeight: only the thin neck column follows the head", () => {
   });
   it("the upper neck on the head takes a share of the stretch, the lower column the rest", () => {
     expect(UPPER_SHARE).toBeGreaterThan(0.2); expect(UPPER_SHARE).toBeLessThan(0.5);
+  });
+});
+
+describe("the left / right focus", () => {
+  const tg = {mid: 0.6, half: 0.1, limit: 0.88, aim: 4, aimTol: 7};
+  it("on centre and in the band is ok, off centre is a skew", () => {
+    expect(towelKind(0.6, tg, 4)).toBe("ok");
+    expect(towelKind(0.6, tg, 10.9)).toBe("ok");
+    expect(towelKind(0.6, tg, 11.5)).toBe("skew");
+    expect(towelKind(0.6, tg, -3.5)).toBe("skew");
+  });
+  it("tension faults come first: over and slip win over a skew", () => {
+    expect(towelKind(0.95, tg, 40)).toBe("over");
+    expect(towelKind(0.2, tg, 40)).toBe("slip");
+  });
+  it("without a rot only the tension is judged (the old call)", () => {
+    expect(towelKind(0.6, tg)).toBe("ok");
+    expect(towelKind(0.6, {mid: 0.6, half: 0.1, limit: 0.88})).toBe("ok");
+  });
+  it("aimOff in tolerances, skewTier 1 up to twice the tolerance, then 2", () => {
+    expect(aimOff(11, tg)).toBeCloseTo(1);
+    expect(aimOff(-3, {mid: 0, half: 1, limit: 1})).toBeCloseTo(-3/AIM_TOL);
+    expect(skewTier(4 + 7*1.5, tg)).toBe(1);
+    expect(skewTier(4 - 7*2.5, tg)).toBe(2);
+  });
+  it("each patient's centre lies within the spread, the nervous one narrower, tension draws unchanged", () => {
+    for(const r of [0, 0.5, 0.999]){
+      for(const p of ROSTER){
+        const tg2 = makeTowelTarget(p, () => r);
+        expect(Math.abs(tg2.aim)).toBeLessThanOrEqual(AIM_SPREAD);
+        expect(tg2.aimTol).toBeGreaterThan(0);
+      }
+    }
+    const nervous = ROSTER.find(p => p.trait === "nervous"), plain = ROSTER.find(p => !p.trait);
+    expect(makeTowelTarget(nervous, () => 0.5).aimTol).toBeLessThan(makeTowelTarget(plain, () => 0.5).aimTol);
+    const seq = [0.3, 0.9], it2 = (a => () => a.shift())([...seq]);
+    expect(makeTowelTarget(plain, it2).mid).toBeCloseTo(0.5 + 0.18*0.3);
+  });
+});
+
+describe("an over-pull ends on an ambulance", () => {
+  it("with getup = Infinity the therapist stays down and the fists stay off the towel", () => {
+    for(const t of [GETUP_AT + 0.1, GETUP_AT + GETUP_LEN + 1, 9]){
+      expect(fallProfile(t, Infinity)).toBeGreaterThan(0.9);
+      expect(letGoProfile(t, Infinity)).toBe(1);
+    }
+    expect(fallProfile(9)).toBe(0);
+  });
+  it("the siren comes after the x-ray has closed", () => {
+    expect(OVER_SIREN).toBeGreaterThan(OVER_XRAY + OVER_XRAY_HOLD);
+  });
+  it("skew has a stamp, a chip, lines and reviews", () => {
+    expect(TOWEL_STAMP.skew).toBeTruthy();
+    expect(towelTags(["skew", "skew"])).toEqual(["삐끗 ×2"]);
+    for(const p of ROSTER) expect(towelLine(p.name, "skew")).toBeTruthy();
+    expect(towelReview({stars: 2, fails: ["skew"]}, () => 0)).toBe(TOWEL_REVIEWS.skew[0]);
   });
 });
