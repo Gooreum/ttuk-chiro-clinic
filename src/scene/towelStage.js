@@ -1,11 +1,14 @@
 import * as THREE from "three";
 import { scene } from "./renderer.js";
-import { roomMeshes } from "./room.js";
+import { roomMeshes, headRest } from "./room.js";
 import { loadModel, getEnv } from "./realAssets.js";
 import { withVisualIds } from "./visualBuild.js";
+import { S } from "../game/state.js";
 
-// No suite GLB, textures or material allocations until the towel stage starts.
+// No suite GLB, textures or material allocations until a clinic or towel stage starts.
 let suite = null, loading = false, enabled = false, saved = null;
+let signCanvas = null, signTexture = null, signMode = null;
+const suiteMaterials = new Map();
 const surface = (m, kind) => {
   m.onBeforeCompile = shader => {
     shader.vertexShader = "varying vec3 vSuitePosition;\n" + shader.vertexShader.replace(
@@ -18,17 +21,23 @@ const surface = (m, kind) => {
   };
   m.customProgramCacheKey = () => "towel-suite-" + kind + "-v1";
 };
-function signage(){
-  const canvas = document.createElement("canvas"); canvas.width = 1024; canvas.height = 512;
-  const x = canvas.getContext("2d");
+function paintSign(){
+  if(!signCanvas || signMode === S.game) return;
+  const clinic = S.game === "clinic", x = signCanvas.getContext("2d");
   x.fillStyle = "#f4efe4"; x.fillRect(0, 0, 1024, 512);
   x.strokeStyle = "#17312c"; x.lineWidth = 5; x.strokeRect(22, 22, 980, 468);
-  x.fillStyle = "#17312c"; x.font = '86px "Black Han Sans"'; x.fillText("견인실", 66, 175);
+  x.fillStyle = "#17312c"; x.font = '86px "Black Han Sans"'; x.fillText(clinic ? "진료실" : "견인실", 66, 175);
   x.font = '500 32px "IBM Plex Sans KR"'; x.fillText("뚝 카이로 클리닉", 70, 245);
   x.fillStyle = "#ff7a59"; x.fillRect(70, 298, 110, 12);
-  x.fillStyle = "#17312c"; x.font = '128px "Black Han Sans"'; x.fillText("02", 700, 384);
-  const tex = new THREE.CanvasTexture(canvas); tex.encoding = THREE.sRGBEncoding;
-  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(.57, .285), new THREE.MeshStandardMaterial({map: tex, roughness: .84}));
+  x.fillStyle = "#17312c"; x.font = '128px "Black Han Sans"'; x.fillText(clinic ? "01" : "02", 700, 384);
+  signMode = S.game;
+  if(signTexture) signTexture.needsUpdate = true;
+}
+function signage(){
+  signCanvas = document.createElement("canvas"); signCanvas.width = 1024; signCanvas.height = 512;
+  paintSign();
+  signTexture = new THREE.CanvasTexture(signCanvas); signTexture.encoding = THREE.sRGBEncoding;
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(.57, .285), new THREE.MeshStandardMaterial({map: signTexture, roughness: .84}));
   plaque.position.set(.08, 1.91, -2.289); return plaque;
 }
 function prepare(g, env){
@@ -37,6 +46,7 @@ function prepare(g, env){
     if(!o.isMesh) return;
     o.castShadow = true; o.receiveShadow = true;
     const m = o.material; m.envMap = env; m.envMapIntensity = .16;
+    suiteMaterials.set(m.name, m);
     if(m.name === "suite.leather") surface(m, "leather");
     if(m.name === "suite.paper") surface(m, "paper");
   });
@@ -48,6 +58,7 @@ function activate(){
   const lights = scene.children.filter(o => o.isLight);
   saved = {
     visibility: roomMeshes.map(o => o.visible),
+    headRestMaterials: headRest.map(o => o.material),
     background: scene.background, fog: scene.fog,
     lights: lights.map(o => ({o, color: o.color.clone(), ground: o.groundColor?.clone(), intensity: o.intensity}))
   };
@@ -75,10 +86,17 @@ export function updateTowelStage(on){
   if(on && !enabled) activate();
   if(!on && enabled){
     roomMeshes.forEach((o, i) => { o.visible = saved.visibility[i]; });
+    headRest.forEach((o, i) => { o.material = saved.headRestMaterials[i]; });
     scene.background = saved.background; scene.fog = saved.fog;
     for(const s of saved.lights){ s.o.color.copy(s.color); s.o.intensity = s.intensity; if(s.ground) s.o.groundColor.copy(s.ground); }
     saved = null; enabled = false;
   }
-  if(enabled) roomMeshes.forEach(o => { o.visible = false; });
+  if(enabled){
+    paintSign();
+    // The first-person clinic still uses its original head extension. Match its
+    // upholstery to the suite; the third-person towel stage keeps it folded away.
+    headRest.forEach((o, i) => { o.material = S.game === "clinic" ? suiteMaterials.get(i ? "suite.paper" : "suite.leather") || saved.headRestMaterials[i] : saved.headRestMaterials[i]; });
+    roomMeshes.forEach(o => { o.visible = false; });
+  }
   suite.visible = enabled;
 }

@@ -128,13 +128,13 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 #zero{pointer-events:auto;flex:none;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--mint);background:var(--panel);color:var(--mint);font:700 13px var(--body);letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .08s}
 #zero:active{transform:scale(.94)}
 
-/* Towel stage only: quieter paper labels leave the stretched anatomy readable. */
-.towel-look #bubble{font-size:14px;border-radius:12px;box-shadow:0 3px 0 rgba(23,49,44,.18),0 8px 20px rgba(23,49,44,.2)}
-.towel-look #bubble.loud{font-size:17px}
-.towel-look .mode{border-left:3px solid var(--mint);background:rgba(23,49,44,.92);border-radius:4px 10px 10px 4px;padding:8px 10px;max-width:252px}
+/* Shared suite: quieter paper labels, mint controls and room-colour cards. */
+.suite-look #bubble{font-size:14px;border-radius:12px;box-shadow:0 3px 0 rgba(23,49,44,.18),0 8px 20px rgba(23,49,44,.2)}
+.suite-look #bubble.loud{font-size:17px}
+.suite-look .mode{border-left:3px solid var(--mint);background:rgba(23,49,44,.92);border-radius:4px 10px 10px 4px;padding:8px 10px;max-width:252px}
 .towel-look .towel-key{white-space:nowrap}
-.towel-look #zero{border-width:1px;background:rgba(23,49,44,.92);box-shadow:inset 0 0 0 3px rgba(138,223,191,.08),0 4px 12px rgba(23,49,44,.25)}
-.towel-look .float:not(.big):not(.small):not(.breath):not(.frac){font-size:30px;text-shadow:0 2px 0 var(--coral),0 5px 12px rgba(23,49,44,.5)}
+.suite-look #zero{border-width:1px;background:rgba(23,49,44,.92);box-shadow:inset 0 0 0 3px rgba(138,223,191,.08),0 4px 12px rgba(23,49,44,.25)}
+.suite-look .float:not(.big):not(.small):not(.breath):not(.frac){font-size:30px;text-shadow:0 2px 0 var(--coral),0 5px 12px rgba(23,49,44,.5)}
 
 /* ---------- floating text ---------- */
 #toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);font-family:var(--display);font-size:24px;text-align:center;color:var(--ink);text-shadow:0 2px 12px rgba(0,0,0,.7);pointer-events:none;opacity:0;transition:opacity .25s;max-width:56%;text-wrap:balance}

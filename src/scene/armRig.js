@@ -13,10 +13,18 @@ export function wristAngles(frame, handQ, elbow, wrist, out = {}){
   return out;
 }
 const angles = {};
-export function limitWrist(frame, handQ, elbow, wrist){
+export function limitWrist(frame, handQ, elbow, wrist, brace = null){
   wristAngles(frame, handQ, elbow, wrist, angles);
-  const ext = THREE.MathUtils.clamp(angles.extension, -WRIST_LIMIT.flexion, WRIST_LIMIT.extension);
-  const dev = THREE.MathUtils.clamp(angles.deviation, -WRIST_LIMIT.deviation, WRIST_LIMIT.deviation);
+  // A clinic thrust holds the preloaded wrist; the arm/trunk carries the impulse. The default anatomical envelope
+  // is unchanged, including all towel grips/falls. Bracing only narrows that envelope, never expands it.
+  const heldExt = brace ? THREE.MathUtils.clamp(brace.extension, -WRIST_LIMIT.flexion, WRIST_LIMIT.extension) : 0;
+  const heldDev = brace ? THREE.MathUtils.clamp(brace.deviation, -WRIST_LIMIT.deviation, WRIST_LIMIT.deviation) : 0;
+  const ext = THREE.MathUtils.clamp(angles.extension,
+    Math.max(-WRIST_LIMIT.flexion, brace ? heldExt - brace.range : -Infinity),
+    Math.min(WRIST_LIMIT.extension, brace ? heldExt + brace.range : Infinity));
+  const dev = THREE.MathUtils.clamp(angles.deviation,
+    Math.max(-WRIST_LIMIT.deviation, brace ? heldDev - brace.range : -Infinity),
+    Math.min(WRIST_LIMIT.deviation, brace ? heldDev + brace.range : Infinity));
   if(Math.abs(ext - angles.extension) < 1e-7 && Math.abs(dev - angles.deviation) < 1e-7) return false;
   // Minimal swing of the hand, about its palm contact. No extra wrist axial twist is introduced.
   limited.copy(frame.fore).addScaledVector(frame.back, Math.tan(ext)).addScaledVector(frame.side, Math.tan(dev)).normalize();

@@ -67,7 +67,7 @@ export function therapistShoulder(s, out){
   return m && root && root.visible ? m.getWorldPosition(out) : null;
 }
 export function updateTherapist(on, lean = 0, fall = 0){
-  updateTowelStage(S.game === "towel");
+  updateTowelStage(S.game === "towel" || S.game === "clinic");
   if(on && !root && !loading){
     loading = true;
     Promise.all([loadModel("towel-stage/therapist/therapist.glb"), getEnv()]).then(([g, env]) => withVisualIds(() => prepare(g, env)))

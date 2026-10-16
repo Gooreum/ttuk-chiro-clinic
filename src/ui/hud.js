@@ -119,6 +119,7 @@ $("#chartSheet").addEventListener("click", closeChart);
 export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return `오후 ${h}:${mm}`; };
 export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? `연속 성공 ×${S.streak}` : ""; }
 export function setModeText(){
+  $("#app").classList.toggle("suite-look", S.game === "clinic" || S.game === "towel");
   $("#app").classList.toggle("towel-look", S.game === "towel");
   if(S.game === "towel"){
     $("#mode").innerHTML = S.mode === "tilt" ? "<b>위쪽을 몸 쪽으로 젖혀</b> 수건 장력 · <b>툭 당겨</b> 견인"
