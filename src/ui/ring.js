@@ -167,8 +167,9 @@ function breathArc(ctx, now, br, fade, cx, cy, R){
   ctx.lineCap = "butt";
 }
 function breathLabel(ctx, br, cx, cy, R, verb){
-  if(!T.breath) return;
-  const label = br.exhale ? `내쉬는 중 · 지금 ${verb} +15` : "숨 들이쉬는 중…";
+  // only when it asks for something: the in-breath already shows as the patient's "흐읍…" (scene/breathFx.js), one place per fact
+  if(!T.breath || !br.exhale) return;
+  const label = `내쉬는 중 · 지금 ${verb} +15`;
   ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
   // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
   ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
