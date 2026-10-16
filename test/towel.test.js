@@ -18,8 +18,15 @@ describe("towel judging", () => {
   });
   it("past the limit goes over, too slack slips", () => {
     expect(towelKind(0.9, tg)).toBe("over");
-    expect(towelKind(0.75, tg)).toBe("slip");
+    expect(towelKind(0.75, tg)).toBe("taut");
     expect(towelKind(0, tg)).toBe("slip");
+  });
+  it("over the band but not past the limit cracks (taut)", () => {
+    expect(towelKind(0.7, tg)).toBe("ok");
+    expect(towelKind(0.71, tg)).toBe("taut");
+    expect(towelKind(0.88, tg)).toBe("taut");
+    expect(towelKind(0.89, tg)).toBe("over");
+    expect(towelKind(0.75, tg, 40)).toBe("taut");
   });
 });
 
@@ -85,9 +92,9 @@ describe("the x-ray spine stretch", () => {
 
 describe("towel lines and chips", () => {
   it("every patient has ok / over / slip lines, kinds have a stamp and a chip", () => {
-    ROSTER.forEach(p => ["tense", "tight", "ok", "over", "slip"].forEach(k => expect(towelLine(p.name, k).length).toBeGreaterThan(3)));
+    ROSTER.forEach(p => ["tense", "tight", "ok", "over", "slip", "skew", "taut"].forEach(k => expect(towelLine(p.name, k).length).toBeGreaterThan(3)));
     expect(towelLine("누구", "ok").length).toBeGreaterThan(3);
-    ["over", "slip"].forEach(k => { expect(TOWEL_STAMP[k].length).toBeGreaterThan(0); expect(TOWEL_TAG[k].length).toBeGreaterThan(0); });
+    ["over", "slip", "skew", "taut"].forEach(k => { expect(TOWEL_STAMP[k].length).toBeGreaterThan(0); expect(TOWEL_TAG[k].length).toBeGreaterThan(0); });
   });
   it("chips count each kind in over / slip order", () => {
     expect(towelTags(["slip", "over", "slip"])).toEqual(["엿가락 ×1", "헛당김 ×2"]);

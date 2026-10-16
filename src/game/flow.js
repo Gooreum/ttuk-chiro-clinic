@@ -294,7 +294,7 @@ function towelAdjust(src){
    (scene/xray.js traction); the neck holds out until OK_HOLD so the x-ray still sees it long (user: "당기고 나서 환자 얼굴
    보이는 시간이 조금 더 길어야함. 그러고 나서 엑스레이가 나와야함", 2026-10-16; it was 0.55 s and the 1.3 s hold) */
 const TOWEL_XRAY_DELAY = 1.6, OK_HOLD = 2.7;
-const STRETCH_OK = 0.07, STRETCH_OVER = 0.16;   // m the head snaps out (the neck takes 85%, core/towel.js BODY_SHARE): a good tug, past the limit (core/towel.js stretchProfile)
+const STRETCH_OK = 0.07, STRETCH_OVER = 0.16, STRETCH_TAUT = 0.1;   // m the head snaps out (the neck takes 85%, core/towel.js BODY_SHARE): a good tug, past the limit, between them (taut) (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;
   S.busy = true;
@@ -337,11 +337,11 @@ function towelSuccess(d, exhale){
 }
 /* A wrong tug: "over" the neck goes giraffe and tears off the back, "skew" (off the left / right centre) the neck
    wrenches to that side and a vertebra cracks or breaks, "slip" only the towel comes off. Over and skew end the day on
-   an ambulance like a clinic crack / break (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스", "좌우 중심 초점이 안 맞으면
+   an ambulance like a clinic crack / break, and so does "taut" (over the band, short of the limit: a crack) (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스", "좌우 중심 초점이 안 맞으면
    목이 그쪽으로 꺾이면서 빠지고 골절되던가 금이 가는", 2026-10-16); a slip costs a pain and the third ends the day. */
 function towelHurt(kind){
   const target = S.target, tok = ++hurtTok, idx = S.idx;
-  const tier = kind === "skew" ? skewTier(S.cur.rot, S.towel) : 0;
+  const tier = kind === "skew" ? skewTier(S.cur.rot, S.towel) : kind === "taut" ? 1 : 0;
   S.busy = true;
   S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(tier);
   renderPain(); renderCombo();
@@ -349,8 +349,8 @@ function towelHurt(kind){
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
   const cw = () => canvas.clientWidth || innerWidth, ch = () => canvas.clientHeight || innerHeight;
-  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : "수건이 너무 느슨했어요",
-    kind === "over" ? "over" : kind === "skew" ? (tier > 1 ? "break" : "crack") : "dud", kind === "slip" ? 1700 : 950);   // over / skew: gone before the x-ray
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "조금 너무 팽팽했어요!" : "수건이 너무 느슨했어요",
+    kind === "over" ? "over" : tier ? (tier > 1 ? "break" : "crack") : "dud", kind === "slip" ? 1700 : 950);   // over / skew / taut: gone before the x-ray
   // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
   crackSound(kind === "slip" ? 2 : 3);
   floater(kind === "slip" ? "뚜둑!" : "우두둑!", 50, -r - 34);
@@ -383,6 +383,21 @@ function towelHurt(kind){
     floater(tier > 1 ? "아그작" : "으그적", -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
     later(250, () => say(towelLine(target.name, "skew"), 1500, true));
     later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
+    callAmbulance(later, SIREN_AT, target, 0);
+    return;
+  }
+  if(kind === "taut"){
+    // over the band but short of the limit (user: "정상과 과해요 사이에 있으면 뼈금가는 소리 우리 목꺾기에서 사용했던거
+    // 쓰고 뼈 금가는 엑스레이로", 2026-10-16): the neck goes out straight between a good tug and an over-pull and stays
+    // there, the clinic's crack crunch (audio.js crunch tier 1), then the clinic's crack x-ray (scene/xray.js frac 1)
+    flashOuch();
+    crunch(1); vib([80, 30, 120]);
+    S.stretchAt = now; S.stretchPeak = STRETCH_TAUT; S.stretchHold = 99; S.xrayIn = 0;
+    S.shake = 0.8; S.jitter = 0.8;
+    faceRun([[0, "gasp"], [350, "ouch"], [SIREN_AT + 400, "dazed"]]);
+    floater("빠직", -64, -r - 10); later(140, () => floater("금…", 44, -r - 34, "small"));
+    later(250, () => say(towelLine(target.name, "taut"), 1500, true));
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = 1; S.fracT = 0; S.fracFired = false; });
     callAmbulance(later, SIREN_AT, target, 0);
     return;
   }
