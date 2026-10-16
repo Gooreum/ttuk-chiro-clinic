@@ -9,6 +9,8 @@ import { clamp } from "../lib/math.js";
 import { S } from "../game/state.js";
 import { prepareTowelNeck, showTowelNeck } from "./towelNeck.js";
 import { withVisualIds } from "./visualBuild.js";
+import { addArmRollRig, poseArmRollRig, wristAngles, limitWrist } from "./armRig.js";
+import { finishTowelCharacter } from "./towelCharacterLook.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
    built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
@@ -50,6 +52,7 @@ export const loadModel = path => load(BASE + path);
 const FINGERS = ["index", "middle", "ring", "pinky"];
 const CURL = [0.28, 0.36, 0.22];     // _01, _02, _03 (radians) at grip 0
 const SPREAD = [-0.08, -0.02, 0.04, 0.11];
+const POWER_CURL = [1.02, 1.38, 0.8], POWER_THUMB = [-0.45, 0.25, 0.35];
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 function turn(bone, axis, angle){ bone.quaternion.multiply(_q.setFromAxisAngle(axis, angle)); }
 
@@ -117,6 +120,7 @@ function placeHead(gltf, env, g, model){
     }
     else if(name.includes("tongue")){ m.roughness = 0.5; m.color = new THREE.Color(0xb0a0a0); }
     else { m.transparent = true; m.depthWrite = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }   // soft brows/lashes
+    if(model.towelStage) finishTowelCharacter(m, src);
     o.material = m;
     const face = name.endsWith(".high-poly") || name.endsWith(".cornea") || /eyebrow|eyelash/.test(name) || /teeth|tongue/.test(name);
     o.castShadow = !face; o.receiveShadow = !face;          // eyeballs sit inside the skull: no self-shadow on them
@@ -159,6 +163,7 @@ function placeBody(gltf, env, g, model){
       if(model.towelStage) m.normalScale.copy(src.normalScale);     // shared: follows the patient's gown colour
       if(name.endsWith(".shirt")) crackFadeMats.push(m);
     }
+    if(model.towelStage) finishTowelCharacter(m, src);
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if(!name.endsWith(".skin") && o.isSkinnedMesh) pinToBody(o);
     if(name.endsWith(".skin") && o.isSkinnedMesh) neckColumn(o, m, model);
@@ -375,7 +380,7 @@ function loadTowelCharacters(){
     withVisualIds(() => {
       const made = {}, matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env, true));
       scene.add(g.scene);
-      real.towelArms = [placeArm(g.scene.getObjectByName("therapist_arm_r"), -1, matFor), placeArm(g.scene.getObjectByName("therapist_arm_l"), 1, matFor)];
+      real.towelArms = [placeArm(g.scene.getObjectByName("therapist_arm_r"), -1, matFor, true), placeArm(g.scene.getObjectByName("therapist_arm_l"), 1, matFor, true)];
       real.towelArms.forEach(a => { a.root.visible = false; });
       Object.values(made).forEach(m => crackFadeMats.push(m));
       syncArms();
@@ -418,14 +423,17 @@ export function loadRealAssets(){
    occlusion as base colour and are tinted with the palette's coat (white) and cuff (teal) colours. */
 function armMaterial(src, env, towelStage = false){
   const name = src.name || "";
-  if(name.endsWith(".skin")) return new THREE.MeshPhysicalMaterial({map: src.map, normalMap: towelStage ? src.normalMap : null, normalScale: towelStage ? src.normalScale : new THREE.Vector2(1, 1), roughness: towelStage ? 0.64 : 0.55, metalness: 0,
+  if(name.endsWith(".skin")){
+    const skin = new THREE.MeshPhysicalMaterial({map: src.map, normalMap: towelStage ? src.normalMap : null, normalScale: towelStage ? src.normalScale : new THREE.Vector2(1, 1), roughness: towelStage ? 0.64 : 0.55, metalness: 0,
     sheen: 0.4, sheenColor: new THREE.Color(0xb04030), sheenRoughness: 0.6, specularIntensity: 0.45,
-    envMap: env, envMapIntensity: 0.25});
+      envMap: env, envMapIntensity: 0.25});
+    return towelStage ? finishTowelCharacter(skin, src) : skin;
+  }
   const m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.85, metalness: 0,
     envMap: env, envMapIntensity: 0.15, side: THREE.DoubleSide});      // the sleeve is an open tube: its inside shows
   m.color = towelStage ? src.color.clone() : (name.endsWith(".hem") ? mats.cuff : mats.coat).color;
   if(towelStage) m.normalScale.copy(src.normalScale);     // shared: follows the palette
-  return m;
+  return towelStage ? finishTowelCharacter(m, src) : m;
 }
 
 /* ---- therapist arms ----
@@ -487,23 +495,29 @@ export const TOWEL_GRIP = [0.118, 0.03, 0.035], TOWEL_PULL = 0.06;   // beside t
    about fingers x across (toward the pinky side).
    grip: 0 loose .. 1 firm. t: seconds, small independent drifts so fingers never freeze. probe: 0..1 fingertips
    palpating (prep). phase: per-hand offset so the two hands don't move in step. */
-function poseFingers(h, grip, spread, t, probe){
+function poseFingers(h, grip, spread, t, probe, towel = 0){
   const {joints, fingerRest, phase} = h;
+  const power = towel*clamp(grip/1.2, 0, 1);
   fingerRest.forEach(([b, q]) => b.quaternion.copy(q));
   FINGERS.forEach((f, fi) => {
     const drift = 0.05*Math.sin(t*1.1 + phase + fi*1.7) + 0.025*Math.sin(t*2.9 + phase*2 + fi*0.9);
     // palpating: index / middle tips press and release in turn, ring / pinky follow a little
     const pr = probe*(fi < 2 ? 0.32 : 0.14)*(0.5 + 0.5*Math.sin(t*7.5 + phase + fi*1.9));
     joints[f].forEach((j, i) => {
-      if(i === 0) turn(j.bone, j.spread, SPREAD[fi]*spread);
-      turn(j.bone, j.curl, CURL[i]*(1 + 0.9*grip) + drift*(1 - i*0.3) + pr*(i === 0 ? 0.6 : 1));
+      if(i === 0) turn(j.bone, j.spread, SPREAD[fi]*spread*(1 - 0.8*power));
+      // A towel needs a cylindrical power grip: MCP, PIP and DIP all wrap, with the thumb closing over them.
+      // The clinic's broad supporting hand retains its original finger pose.
+      const loose = CURL[i]*(1 + 0.9*grip), curled = POWER_CURL[i] + fi*0.025;
+      turn(j.bone, j.curl, loose + (curled - loose)*power + drift*(1 - i*0.3)*(1 - 0.65*power) + pr*(i === 0 ? 0.6 : 1));
     });
   });
   const thumbDrift = 0.04*Math.sin(t*1.4 + phase*1.3);
   const th = joints.thumb;
-  turn(th[0].bone, th[0].curl, 0.1 + 0.15*grip + thumbDrift);
-  turn(th[1].bone, th[1].curl, 0.1 + 0.2*grip);
-  turn(th[2].bone, th[2].curl, 0.08 + 0.15*grip);
+  const thumbLoose = [0.1 + 0.15*grip + thumbDrift, 0.1 + 0.2*grip, 0.08 + 0.15*grip];
+  // Opposition sweeps the thumb across the folded fingers. Flexing it only toward the palm left a straight
+  // digit pointing into the cheek, even with all four fingers curled.
+  if(power) turn(th[0].bone, th[0].opposition, 1.40*power);
+  th.forEach((j, i) => turn(j.bone, j.curl, thumbLoose[i] + (POWER_THUMB[i] - thumbLoose[i])*power));
 }
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _m3 = new THREE.Matrix4(), _m4 = new THREE.Matrix4();
@@ -522,7 +536,7 @@ function pairQuat(a1, a2, b1, b2, out){
 /* One side of arms.glb. Everything is measured on the rest skeleton in GLB space (= world: the GLB scene is added to
    the world scene untransformed): the hand frame (fingers = wrist -> middle knuckle, across = index -> pinky knuckle,
    normal = out of the palm), the palm centre, the elbow hinge axis, and each finger joint's curl / spread axes. */
-function placeArm(root, s, matFor){
+function placeArm(root, s, matFor, towelStage = false){
   root.traverse(o => {
     if(!o.isMesh) return;
     o.material = matFor(o.material);
@@ -559,10 +573,11 @@ function placeArm(root, s, matFor){
       if(f !== "thumb") return {bone: b, curl: local(q, curlW), spread: local(q, spreadW)};
       // the thumb curls across the palm: about its own direction x the palm normal
       const dir = i < 3 ? at(`thumb_0${i + 1}`).sub(at(`thumb_0${i}`)).normalize() : F0.clone();
-      return {bone: b, curl: local(q, dir.cross(N0).normalize())};
+      return {bone: b, curl: local(q, dir.cross(N0).normalize()), opposition: local(q, F0.clone().cross(A0).normalize())};
     });
   });
-  return {root, s, upper, lower, hand, joints, fingerRest, phase: s > 0 ? 0 : 2.1,
+  const rollRig = withVisualIds(() => addArmRollRig(root, lower, hand, W0, F0, towelStage));
+  return {root, s, upper, lower, hand, joints, fingerRest, rollRig, phase: s > 0 ? 0 : 2.1,
     F0, N0, Qh0, palmOff: palm0.clone().sub(W0), hingeU: local(Qu0, hinge), hingeL: local(Ql0, hinge),
     handRestL: hand.quaternion.clone(), fore, back, side,
     w: {contact: 0, support: 0, cup: 0, away: 0, pat: 0, towel: 0}, phi: null, shoulder: new THREE.Vector3(), seen: false, palm: new THREE.Vector3()};
@@ -649,8 +664,8 @@ function measureChest(model){
    Shoulder S, wrist W (from the palm target and the hand's orientation Qh). The elbow sits on the circle of points
    ARM_A from S and ARM_B from W; the point taken is the one that keeps the wrist nearest a natural, slightly extended
    position (a real wrist bends ~1 rad back, less forward, little sideways) while leaning to the role's side (pole).
-   The hinge (upper arm x forearm) keeps the elbow a pure hinge; the forearm then takes 60 % of the hand's twist
-   (pronation happens along the forearm), the wrist the rest. Out of reach: the shoulder leans toward the hand. */
+   The hinge (upper arm x forearm) keeps the elbow a pure hinge; roll helpers distribute pronation along the forearm,
+   and a wrist bridge splits the hand's swing. Out of reach: the shoulder leans toward the hand in clinic mode. */
 const UPV = new THREE.Vector3(0, 1, 0), YAX = new THREE.Vector3(0, 1, 0);
 const _S = new THREE.Vector3(), _W = new THREE.Vector3(), _E = new THREE.Vector3(), _C = new THREE.Vector3();
 const _u = new THREE.Vector3(), _e1 = new THREE.Vector3(), _e2 = new THREE.Vector3(), _d = new THREE.Vector3();
@@ -670,14 +685,11 @@ function inView(p){
   return Math.max(0, ny - ELBOW_VIEW_Y - ELBOW_VIEW_CORNER*Math.max(0, nx - 0.5));
 }
 function wristCost(arm, Qh, E, W){
-  _d.copy(E).sub(W).normalize().applyQuaternion(_qi.copy(Qh).invert());       // forearm direction in hand space
-  const a = _d.dot(arm.fore);
-  if(a < 0.05) return 50;
-  const ext = Math.atan2(_d.dot(arm.back), a), dev = Math.atan2(_d.dot(arm.side), a);
-  // neutral = 0.25 rad extended; beyond ~1.0 back / 0.5 forward / 0.35 sideways it gets steep
-  const e = ext - 0.25;
-  return (e > 0 ? (e/0.6)**2 : (e/0.45)**2) + (dev/0.3)**2 + (ext > 1.1 || ext < -0.6 || Math.abs(dev) > 0.5 ? 6 : 0);
+  const {extension: ext, deviation: dev} = wristAngles(arm, Qh, E, W, _wristAngles);
+  const e = ext - 0.18;
+  return (e/0.55)**2 + (dev/0.24)**2 + 100*(Math.max(0, ext - 1.15, -ext - 1.32)**2 + Math.max(0, Math.abs(dev) - 0.40)**2);
 }
+const _wristAngles = {};
 /* The forearm's turn (pronation / supination, radians) the hand's orientation asks for with the elbow at E: the hand
    frame against the forearm's hinge frame, about the forearm axis, from the rest pose (T-pose, palm down, elbow crease
    forward = the forearm's neutral, thumb ahead). A real forearm turns ~80 deg either way and is at ease within ~45. */
@@ -699,7 +711,7 @@ function solveArm(arm, S, W, Qh, pole, dt){
   _S.copy(S);
   let d = _d.copy(W).sub(_S).length();
   if(d > ARM_MAX){ _S.sub(W).setLength(ARM_MAX).add(W); d = ARM_MAX; }
-  if(d < 0.16){ _S.sub(W).setLength(0.16).add(W); d = 0.16; }
+  if(d < 0.04){ _S.sub(W).setLength(0.04).add(W); d = 0.04; }
   _u.copy(W).sub(_S).divideScalar(d);
   const x = (ARM_A*ARM_A - ARM_B*ARM_B + d*d)/(2*d), r = Math.sqrt(Math.max(0, ARM_A*ARM_A - x*x));
   _C.copy(_S).addScaledVector(_u, x);
@@ -707,15 +719,19 @@ function solveArm(arm, S, W, Qh, pole, dt){
   _e2.crossVectors(_u, _e1);
   let best = 0, bestC = Infinity;
   const pd = _v3.copy(pole).addScaledVector(_u, -pole.dot(_u)).normalize();
-  for(let i = 0; i < SAMPLES; i++){
+  for(let i = 0; (dt > 0 || arm.phi === null) && i < SAMPLES; i++){
     const phi = i/SAMPLES*Math.PI*2;
     _E.copy(_C).addScaledVector(_e1, r*Math.cos(phi)).addScaledVector(_e2, r*Math.sin(phi));
     _v.copy(_E).sub(_C).normalize();
-    let c = 0.5*wristCost(arm, Qh, _E, W) + 2.2*(1 - _v.dot(pd));
+    const low = arm.lowElbow || 0;
+    // The seated pull starts with the upper arms hanging beside the ribs. Wrist comfort must not buy a raised,
+    // flared elbow: the palm frame is free to settle after the elbow has been chosen.
+    let c = (3*(1 - low) + 0.02*low)*wristCost(arm, Qh, _E, W) + (2.2 + 12*low)*(1 - _v.dot(pd));
+    c += low*(1200*Math.max(0, _E.y - (_S.y - 0.16))**2 + 1500*Math.max(0, Math.abs(_E.x) - Math.abs(_S.x) - 0.055)**2);
     if(_E.y < 1.02) c += 40*(1.02 - _E.y);                          // never into the table / the patient
     if(_E.x*arm.s < 0.16) c += 80*(0.16 - _E.x*arm.s);               // never across the face (out beside the head)
     c += ELBOW_VIEW_K*inView(_E);                                      // elbow under the frame, not in the middle of it
-    c += 2*twistCost(twistAt(arm, _S, _E, W, Qh));                     // forearm near its neutral turn (no candy wrapper)
+    c += (2*(1 - low) + 0.02*low)*twistCost(twistAt(arm, _S, _E, W, Qh));
     if(c < bestC){ bestC = c; best = phi; }
   }
   // ease toward the best elbow (no popping between samples)
@@ -733,14 +749,18 @@ function solveArm(arm, S, W, Qh, pole, dt){
   arm.lastHinge = (arm.lastHinge || new THREE.Vector3()).copy(_hg);
   pairQuat(YAX, arm.hingeU, _du, _hg, _qu);
   pairQuat(YAX, arm.hingeL, _dl, _hg, _ql);
-  // forearm twist: 60 % of the hand's twist about the forearm axis, relative to the rest wrist
+  // The entire axial turn belongs to pronation/supination. Four roll bones distribute it along the forearm;
+  // the wrist bridge carries only the hand's swing. Leaving 40% here used to wring the wrist like a wrapper.
   _qt.copy(_ql).invert().multiply(Qh).multiply(_qi.copy(arm.handRestL).invert());
   const tw = 2*Math.atan2(_qt.y, _qt.w);
-  _ql.multiply(_qt.setFromAxisAngle(YAX, Math.atan2(Math.sin(tw), Math.cos(tw))*0.6));
+  const twist = Math.atan2(Math.sin(tw), Math.cos(tw));
+  poseArmRollRig(arm.rollRig, twist, _ql, Qh, arm.handRestL);
   arm.upper.position.copy(_S);
   arm.upper.quaternion.copy(_qu);
   arm.lower.quaternion.copy(_qi.copy(_qu).invert().multiply(_ql));
   arm.hand.quaternion.copy(_qi.copy(_ql).invert().multiply(Qh));
+  arm.metrics = wristAngles(arm, Qh, _E, W, arm.metrics || {});
+  arm.metrics.twist = twist;
 }
 
 /* Called from applyLook: realistic arms while a realistic patient is on the table (they need its measured poses). */
@@ -911,9 +931,10 @@ export function updateRealHands(st){
       _v2.y += 0.07*sl; _v2.z -= 0.08*sl; _v2.x += s*0.03*sl;
       // a fist round the towel end (user: "진짜 사람이 잡고 있는것처럼", 2026-10-15): the band runs through the palm, the
       // fingers point across it toward the table and curl round it, the thumb on top; the palm faces the head; the
-      // wrist cocks back toward the therapist as the pull builds
+      // forearm and metacarpals form a pulling line. Curl the fingers around the band, rather than folding the
+      // entire hand down at the wrist (the old downward finger frame produced a near-right-angle wrist).
       const pl = clamp(st.pull || 0, 0, 1);
-      _v.set(0, -1, 0.3 - 0.55*pl).normalize().transformDirection(head.matrixWorld);
+      _v.set(-0.35*s, 0.20 + 0.04*pl, 0.91).normalize().transformDirection(head.matrixWorld);
       _v3.set(-s, 0.2, 0).normalize().transformDirection(head.matrixWorld);
       pairQuat(arm.F0, arm.N0, _v, _v3, _qB);
       _P.lerp(_v2, w.towel);
@@ -954,10 +975,28 @@ export function updateRealHands(st){
     });
     _pole.lerp(_v.set(POLES.away[0]*s, POLES.away[1], POLES.away[2]), w.away);
     _pole.lerp(_v.set(POLES.pat[0]*s, POLES.pat[1], POLES.pat[2]), w.pat);
-    _pole.lerp(_v.set(POLES.towel[0]*s, POLES.towel[1], POLES.towel[2]), w.towel).normalize();
+    arm.lowElbow = w.towel*(1 - clamp(st.drop || 0, 0, 1));
+    _pole.lerp(_v.set(0.18*s, -1, 0.2), arm.lowElbow).normalize();
     solveArm(arm, arm.shoulder, _W, _qh, _pole, arm.seen ? dt : 1);
+    // Project the hand frame into its wrist envelope about the PALM, then solve the shifted wrist again. The towel
+    // end still sits at arm.palm, including transitions into the fall. Re-solving only the orientation at a fixed
+    // wrist would displace the palm by several centimetres.
+    for(let pass = 0; pass < 12; pass++){
+      const limited = limitWrist(arm, _qh, _E, _W);
+      const twist = twistAt(arm, _S, _E, _W, _qh), maxTwist = 78*Math.PI/180;
+      const untwist = clamp(twist, -maxTwist, maxTwist) - twist;
+      if(Math.abs(untwist) > 1e-6) _qh.premultiply(_qB.setFromAxisAngle(_dl, untwist));
+      if(!limited && Math.abs(untwist) <= 1e-6) break;
+      _qR.copy(_qh).multiply(_qB.copy(arm.Qh0).invert());
+      _W.copy(arm.palmOff).applyQuaternion(_qR).negate().add(arm.palm);
+      if(onBody && _W.distanceTo(arm.shoulder) > ARM_MAX){
+        _v.copy(_W); _W.sub(arm.shoulder).setLength(ARM_MAX).add(arm.shoulder);
+        arm.palm.add(_v.subVectors(_W, _v));
+      }
+      solveArm(arm, arm.shoulder, _W, _qh, _pole, 0);
+    }
     grip *= 1 - 0.6*w.away;
-    poseFingers(arm, grip*(1 - w.pat) + 0.1*w.pat, 1 - 0.5*Math.min(1, grip), t, st.prep ? w.cup : 0);
+    poseFingers(arm, grip*(1 - w.pat) + 0.1*w.pat, 1 - 0.5*Math.min(1, grip), t, st.prep ? w.cup : 0, w.towel);
     arm.seen = true;
   });
 }
