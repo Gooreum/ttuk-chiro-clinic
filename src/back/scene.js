@@ -12,7 +12,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
    Patient01 (박대리) lies prone on the treatment table, face in the face-hole headpiece, arms along the sides
    (public/models/back/patient.glb, scripts/assets/back_patient.py). The therapist stands at the patient's left side
    (+x), leans over and presses with stacked hands on the spine (therapist.glb, back_therapist.py: skinned, bind pose =
-   that working pose). The camera looks over the therapist's left shoulder, 42 degrees down.
+   that working pose). The camera looks across the table at the therapist's face, 40 degrees down.
 
    Coordinates (three.js world, metres): +y up, the patient's head at -z, feet at +z, the pad top at y 0.82. The back
    zone runs z -0.05 (T1, base of the neck) .. 0.55 (L5): position 0..1 maps to z = -0.05 + position*0.6.
@@ -33,7 +33,7 @@ export const BACK_Z0 = -0.05, BACK_LEN = 0.6;
 export const RING_POS = [0.18, 0.50, 0.82];
 const zAt = p => BACK_Z0 + p*BACK_LEN;
 const TABLE_TOP = 0.82;
-const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x8adfbf, gown: 0x8f86c4, pants: 0x34405a};
+const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x8adfbf, gown: 0xf4efe4, pants: 0x17312c};
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
 
 /* how far the tissue under the hands goes in at impulse 1 (m), and how the rebound overshoots */
@@ -41,7 +41,7 @@ const DEPTH = {ok: 0.034, weak: 0.013, miss: 0.026, over: 0.055};
 const PRELOAD = 0.012;
 const LEAN = {pre: 2.5, ok: 6, weak: 3, miss: 5, over: 11};    // trunk flex (degrees) at pressure 1 / impulse 1
 const RING_R = 0.045, RING_W = 0.0065;
-const CAM_ELEV = 65, CAM_AZ = 58;            // degrees down; degrees from +x toward +z (over the left shoulder)
+const CAM_ELEV = 40, CAM_AZ = 128;            // opposite side (-x), facing the therapist
 const CAM_FOV = 38;
 
 const clamp01 = v => Math.min(1, Math.max(0, v));
@@ -148,48 +148,12 @@ function heightField(S){
   return {y, palm};
 }
 
-/* ---------- procedural room ---------- */
+/* ---------- clinic suite and prone face cradle ---------- */
 function canvasTex(w, h, draw){
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
   return t;
-}
-function rand(seed){ let s = seed >>> 0; return () => ((s = (s*1664525 + 1013904223) >>> 0)/4294967296); }
-function floorTex(){
-  const r = rand(7);
-  const t = canvasTex(512, 512, (g, w, h) => {
-    const rows = 8;
-    for (let i = 0; i < rows; i++){
-      let x = -r()*200;
-      while (x < w){
-        const len = 160 + r()*200, l = 22 + r()*7;
-        g.fillStyle = `hsl(${24 + r()*6}, ${30 + r()*8}%, ${l}%)`;
-        g.fillRect(x, i*h/rows, len, h/rows);
-        g.globalAlpha = 0.08;
-        for (let k = 0; k < 6; k++){ g.fillStyle = r() < 0.5 ? "#000" : "#fff"; g.fillRect(x, i*h/rows + r()*h/rows, len, 1); }
-        g.globalAlpha = 1;
-        g.fillStyle = "rgba(0,0,0,0.45)"; g.fillRect(x, i*h/rows, 2, h/rows);
-        x += len;
-      }
-      g.fillStyle = "rgba(0,0,0,0.5)"; g.fillRect(0, i*h/rows, w, 2);
-    }
-  });
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 3);
-  return t;
-}
-function posterTex(){
-  return canvasTex(256, 360, (g, w, h) => {
-    g.fillStyle = "#f4efe4"; g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#17312c"; g.lineWidth = 6; g.strokeRect(10, 10, w - 20, h - 20);
-    // a side-view spine: stacked rounded vertebrae on a gentle S curve, one coral
-    for (let i = 0; i < 17; i++){
-      const t = i/16, y = 48 + t*270, x = w/2 + Math.sin(t*Math.PI*2)*22;
-      g.fillStyle = i === 9 ? "#ff7a59" : "#2f5c55";
-      g.beginPath(); g.ellipse(x, y, 26 - t*2 + i*0.6, 6.5 + t*2.5, Math.cos(t*Math.PI*2)*0.25, 0, Math.PI*2); g.fill();
-    }
-    g.fillStyle = "#8adfbf"; g.fillRect(28, h - 34, w - 56, 6);
-  });
 }
 function roundedRect(w, d, r, hole){
   const s = new THREE.Shape(), x = -w/2, y = -d/2;
@@ -212,68 +176,46 @@ function padGeo(w, d, h, r, bevel, hole){
   g.translate(0, -bevel, 0);
   return g;
 }
-function buildRoom(scene, track){
-  const M = (o) => track(new THREE.MeshStandardMaterial({envMapIntensity: 0.12, ...o}));   // the room env lights the people, not the walls
-  const room = new THREE.Group(); scene.add(room);
-  const add = (geo, mat, x, y, z, cast = false, recv = true) => {
-    const m = new THREE.Mesh(track(geo), mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = recv; room.add(m); return m;
-  };
-  // floor, walls (night clinic teal), a paper-coloured wainscot rail
-  const floor = add(new THREE.PlaneGeometry(9, 9), M({map: track(floorTex()), roughness: 0.78, metalness: 0}), 0, 0, 0.3);
-  floor.rotation.x = -Math.PI/2;
-  const wallM = M({color: COL.room, roughness: 0.92});
-  const back = add(new THREE.PlaneGeometry(9, 3.2), wallM, 0, 1.6, 0.3); back.position.x = -1.55; back.rotation.y = Math.PI/2;
-  const head = add(new THREE.PlaneGeometry(9, 3.2), wallM, 0.5, 1.6, -1.45);
-  const railM = M({color: COL.paper, roughness: 0.6});
-  add(new THREE.BoxGeometry(0.03, 0.05, 9), railM, -1.535, 0.95, 0.3);
-  add(new THREE.BoxGeometry(9, 0.05, 0.03), railM, 0.5, 0.95, -1.435);
-  const lowM = M({color: 0x10241f, roughness: 0.95});
-  add(new THREE.BoxGeometry(0.02, 0.92, 9), lowM, -1.54, 0.46, 0.3);
-  add(new THREE.BoxGeometry(9, 0.92, 0.02), lowM, 0.5, 0.46, -1.44);
-  // spine poster and a small window glow on the far wall
-  const poster = add(new THREE.PlaneGeometry(0.42, 0.59), M({map: track(posterTex()), roughness: 0.7}), -1.535, 1.62, 0.55);
-  poster.rotation.y = Math.PI/2;
-  const win = add(new THREE.PlaneGeometry(0.9, 0.7), track(new THREE.MeshBasicMaterial({color: lin(0x2d5f6e).multiplyScalar(0.9)})), -1.535, 1.75, -0.55, false, false);
-  win.rotation.y = Math.PI/2;
-  const frameM = M({color: COL.paper, roughness: 0.5});
-  for (const [dy, dz, sy, sz] of [[0.36, 0, 0.03, 0.96], [-0.36, 0, 0.03, 0.96], [0, 0.465, 0.75, 0.03], [0, -0.465, 0.75, 0.03], [0, 0, 0.72, 0.018]])
-    add(new THREE.BoxGeometry(0.03, sy, sz), frameM, -1.53, 1.75 + dy, -0.55 + dz);
-
-  // treatment table: paper-covered pad, a face-hole headpiece, steel frame, teal vinyl base
-  const vinyl = M({color: 0x2c5650, roughness: 0.48, metalness: 0.0});
-  const paper = M({color: COL.paper, roughness: 0.88});
-  const steel = M({color: 0xb9c3c2, roughness: 0.3, metalness: 0.85});
-  const PAD = {z0: -0.075, z1: 1.32, w: 0.68, h: 0.09};
-  const pad = add(padGeo(PAD.w, PAD.z1 - PAD.z0, PAD.h, 0.05, 0.025), vinyl, 0, TABLE_TOP - 0.004, (PAD.z0 + PAD.z1)/2, true, true);
-  const sheet = add(new THREE.PlaneGeometry(0.5, PAD.z1 - PAD.z0 - 0.04), paper, 0, TABLE_TOP - 0.0035, (PAD.z0 + PAD.z1)/2 + 0.01);
-  sheet.rotation.x = -Math.PI/2;
-  // headpiece: the face hole under the face (x +-0.065, z -0.27..-0.11), the forehead and cheeks rest on its rim
-  const HP = {z0: -0.43, z1: -0.085, w: 0.36, h: 0.085};
-  const hole = {x: 0, y: -0.19 - (HP.z0 + HP.z1)/2, rx: 0.068, ry: 0.085};
-  add(padGeo(HP.w, HP.z1 - HP.z0, HP.h, 0.07, 0.03, hole), vinyl, 0, TABLE_TOP - 0.005, (HP.z0 + HP.z1)/2, true, true);
-  // a paper face cover with the same hole
-  const cover = add(new THREE.ShapeGeometry(roundedRect(0.27, 0.3, 0.06, {x: 0, y: -hole.y, rx: 0.072, ry: 0.09}), 24), paper, 0, TABLE_TOP - 0.004, (HP.z0 + HP.z1)/2);
-  cover.rotation.x = -Math.PI/2;
-  // dark inside the hole (so the face reads against it from above)
-  const well = add(new THREE.CylinderGeometry(0.066, 0.05, 0.08, 24, 1, true), track(new THREE.MeshStandardMaterial({color: 0x0b1714, roughness: 1, side: THREE.BackSide})), 0, TABLE_TOP - 0.05, -0.19);
-  well.scale.z = 1.25;
-  add(new THREE.BoxGeometry(0.22, 0.03, 0.05), steel, 0, TABLE_TOP - 0.11, -0.23, true);
-  add(new THREE.BoxGeometry(0.05, 0.03, 0.2), steel, 0, TABLE_TOP - 0.11, -0.12, true);
-  // frame and base
-  add(new THREE.BoxGeometry(0.62, 0.05, 1.32), steel, 0, TABLE_TOP - 0.12, 0.62, true);
-  add(new THREE.BoxGeometry(0.44, 0.52, 1.0), vinyl, 0, 0.42, 0.66, true, true).material = M({color: 0x1d3a35, roughness: 0.6});
-  add(new THREE.BoxGeometry(0.56, 0.06, 1.2), steel, 0, 0.1, 0.66, true);
-  for (const z of [0.12, 1.2]) add(new THREE.BoxGeometry(0.5, 0.1, 0.06), steel, 0, 0.04, z, true);
-  // pendant exam lamp over the table (the key light hangs in it)
-  const shadeM = M({color: 0x1f3d37, roughness: 0.5, metalness: 0.3, side: THREE.DoubleSide});
-  add(new THREE.CylinderGeometry(0.09, 0.2, 0.16, 32, 1, true), shadeM, 0.15, 2.45, 0.2);
-  add(new THREE.CylinderGeometry(0.005, 0.005, 0.7, 6), steel, 0.15, 2.88, 0.2);
-  add(new THREE.SphereGeometry(0.055, 20, 12), track(new THREE.MeshBasicMaterial({color: lin(0xfff1d8).multiplyScalar(2.2)})), 0.15, 2.4, 0.2, false, false);
-  // a wheeled stool parked by the far wall
-  add(new THREE.CylinderGeometry(0.17, 0.17, 0.06, 28), vinyl, -1.05, 0.55, 1.9, true);
-  add(new THREE.CylinderGeometry(0.025, 0.025, 0.5, 10), steel, -1.05, 0.28, 1.9, true);
-  add(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 5), steel, -1.05, 0.04, 1.9, true);
-  return room;
+// The same traction suite and stitched bed as the neck/towel modes. Only the
+// prone face cradle is specific to this table; its aperture stays under the face.
+function buildRoom(scene, track, suite){
+  suite.position.y = -.022; scene.add(suite);
+  const materials = new Map();
+  suite.traverse(o => {
+    if(!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    const m = o.material; m.envMapIntensity = .16; materials.set(m.name,m);
+    if(m.name === "suite.mint"){
+      // The shared bed's square Catmull-Rom welt overshoots its corners. Keep
+      // this scene's stitching on the upholstery instead of loose arcs in space.
+      o.geometry = track(o.geometry.clone());
+      const p = o.geometry.attributes.position;
+      for(let i=0;i<p.count;i++)if(Math.abs(p.getY(i)-.78)<.005 && Math.abs(p.getX(i))<.7 && p.getZ(i)>-.2 && p.getZ(i)<2.4)
+        {
+          p.setX(i,THREE.MathUtils.clamp(p.getX(i),-.355,.355));
+          if(p.getZ(i)<.43)p.setZ(i,THREE.MathUtils.clamp(p.getZ(i),-.0275,.3875));
+        }
+      p.needsUpdate=true; o.geometry.computeVertexNormals();
+    }
+  });
+  const vinyl = materials.get("suite.leather"), paper = materials.get("suite.paper");
+  const cradle = new THREE.Group(); scene.add(cradle);
+  const add = (geo,mat,y,z) => {const m = new THREE.Mesh(track(geo),mat);m.position.set(0,y,z);m.castShadow=m.receiveShadow=true;cradle.add(m);return m;};
+  add(padGeo(.36,.345,.085,.07,.03,{x:0,y:.0675,rx:.068,ry:.085}),vinyl,TABLE_TOP-.005,-.2575);
+  const cover=add(new THREE.ShapeGeometry(roundedRect(.27,.3,.06,{x:0,y:-.0675,rx:.072,ry:.09}),24),paper,TABLE_TOP-.004,-.2575);
+  cover.rotation.x=-Math.PI/2;
+  const rail=track(new THREE.MeshStandardMaterial({color:COL.mint,roughness:.5,metalness:.6}));
+  add(new THREE.BoxGeometry(.22,.03,.05),rail,TABLE_TOP-.11,-.23);
+  add(new THREE.BoxGeometry(.05,.03,.2),rail,TABLE_TOP-.11,-.12);
+  // Match the clinic's paper plaque typography; wait for the actual Korean fonts.
+  const sign=track(canvasTex(1024,512,(g,w,h)=>{
+    g.fillStyle="#f4efe4";g.fillRect(0,0,w,h);g.strokeStyle="#17312c";g.lineWidth=5;g.strokeRect(22,22,980,468);
+    g.fillStyle="#17312c";g.font='80px "Black Han Sans"';g.fillText("물리치료실",66,175);
+    g.font='500 32px "IBM Plex Sans KR"';g.fillText("뚝 카이로 클리닉",70,245);
+    g.fillStyle="#ff7a59";g.fillRect(70,298,110,12);g.fillStyle="#17312c";g.font='128px "Black Han Sans"';g.fillText("03",700,384);
+  }));
+  const plaque=new THREE.Mesh(track(new THREE.PlaneGeometry(.57,.285)),track(new THREE.MeshStandardMaterial({map:sign,roughness:.84})));
+  plaque.position.set(.08,1.91,-2.289);scene.add(plaque);
 }
 
 /* ---------- glTF ---------- */
@@ -295,8 +237,8 @@ export async function createBackScene(canvas, view = {}){
   const owned = new Set();
   const track = x => { owned.add(x); return x; };
   const scene = new THREE.Scene();
-  scene.background = lin(0x0e211d);
-  scene.fog = new THREE.Fog(lin(0x0e211d), 4.5, 9);
+  scene.background = new THREE.Color(COL.room);
+  scene.fog = new THREE.Fog(COL.room, 5, 11);
   const camera = new THREE.PerspectiveCamera(CAM_FOV, 16/9, 0.03, 20);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -304,29 +246,31 @@ export async function createBackScene(canvas, view = {}){
   pmrem.dispose();
   scene.environment = env;
 
-  // lights: warm exam lamp (the only soft shadow), cool teal fill from the window side, a mint-ish rim from behind
-  scene.add(new THREE.HemisphereLight(lin(0x9cc9c0), lin(0x2a1d16), 0.24));
-  const key = new THREE.SpotLight(lin(0xffe3c4), 2.6, 0, 0.58, 0.9, 1);
-  key.position.set(0.15, 2.38, 0.2); key.target.position.set(0, 0.95, 0.3);
+  // Clinic palette: a paper key (the only soft shadow), restrained fill and mint rim.
+  scene.add(new THREE.HemisphereLight(COL.paper, COL.room, .43));
+  const key = new THREE.SpotLight(COL.paper, 1.9, 0, 0.58, 0.9, 1);
+  key.position.set(-1.2, 3.1, .4); key.target.position.set(0, 0.95, 0.3);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.bias = -0.0003; key.shadow.normalBias = 0.015;
   key.shadow.camera.near = 0.8; key.shadow.camera.far = 3.2;
   key.shadow.radius = 4;
   scene.add(key, key.target);
-  const fill = new THREE.DirectionalLight(lin(0x86b7c7), 0.26);
+  const fill = new THREE.DirectionalLight(COL.paper, .19);
   fill.position.set(-1.6, 1.8, -0.6); scene.add(fill);
-  const rim = new THREE.DirectionalLight(lin(0xbfe9da), 0.3);
+  const rim = new THREE.DirectionalLight(COL.mint, .16);
   rim.position.set(-0.8, 1.4, 1.8); scene.add(rim);
 
-  buildRoom(scene, track);
 
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const [pg, tg, surf] = await Promise.all([
+  const [pg, tg, surf, room] = await Promise.all([
     loadGLB(loader, BASE + "patient.glb"),
     loadGLB(loader, BASE + "therapist.glb"),
-    fetch(BASE + "back_surface.json").then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); })
+    fetch(BASE + "back_surface.json").then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); }),
+    loadGLB(loader, import.meta.env.BASE_URL + "models/towel-stage/room.glb"),
+    document.fonts.ready
   ]);
+  buildRoom(scene, track, room.scene);
   const hf = heightField(surf);
   const [xray, reaction] = await Promise.all([createBackXray({scene,camera,env,renderer}),createBackReaction(renderer)]);
   scene.add(xray.group);
@@ -343,8 +287,8 @@ export async function createBackScene(canvas, view = {}){
     m.envMapIntensity = 0.28;
     const n = m.name || "";
     if (/short02/.test(n)){ m.transparent = false; m.alphaTest = 0.02; m.side = THREE.DoubleSide; m.roughness = 0.55; m.color.copy(lin(0x4a3a30)); hairOver(m); return; }
-    if (/shirt/.test(n)){ m.color.copy(lin(COL.gown)); m.roughness = 0.9; }
-    else if (/pants/.test(n)){ m.color.copy(lin(COL.pants)); m.roughness = 0.88; }
+    if (/shirt/.test(n)){ m.roughness = 0.9; }
+    else if (/pants/.test(n)){ m.roughness = 0.88; }
     else if (/skin/.test(n)){ m.roughness = 0.58; }
     m.transparent=true; m.depthWrite=true; patientFade.push(m);
     patchBack(m, U, true);
@@ -453,12 +397,11 @@ export async function createBackScene(canvas, view = {}){
   // ---- camera fit ----
   let cssW = 1, cssH = 1;
   // (view: optional {elev, az, fov} overrides for tuning in scripts/assets/back_preview.html)
-  const camTarget = new THREE.Vector3(...(view.target || [0.0, 0.98, 0.24]));
+  const camTarget = new THREE.Vector3(...(view.target || [0.12, 1.10, 0.24]));
   const EL = THREE.MathUtils.degToRad(view.elev ?? CAM_ELEV), AZ = THREE.MathUtils.degToRad(view.az ?? CAM_AZ);
   const camDir = new THREE.Vector3(Math.cos(EL)*Math.cos(AZ), Math.sin(EL), Math.cos(EL)*Math.sin(AZ));
-  // keep the back zone (with a margin), the patient's head and the table's width in view; the therapist's near shoulder
-  // may run off the edge (an over-the-shoulder shot)
-  const FIT = [[0, 1.0, -0.36], [0, 1.0, 0.8], [-0.34, 0.86, 0.25], [0.34, 0.86, 0.25]].map(p => new THREE.Vector3(...p));
+  // Frame the patient's back, the face cradle and the therapist's face from across the table.
+  const FIT = [[0, .94, -.40], [0, .90, .88], [-.34, .86, .25], [.72, 1.72, .25]].map(p => new THREE.Vector3(...p));
   const camBase = new THREE.Vector3();
   function fitCamera(){
     camera.aspect = cssW/cssH;
@@ -559,15 +502,15 @@ export async function createBackScene(canvas, view = {}){
     // camera: a small dip with the thrust, a shake on "over"
     st.shake = Math.max(0, st.shake - dt*1.6);
     camera.position.copy(camBase);
-    const handLook=new THREE.Vector3(0,1.02,zAt(clamp01(position)));
+    const handLook=new THREE.Vector3(.08,1.11,zAt(clamp01(position)));
     const loaded=cameraPreload(pressure,peakPressure,shotTime);
     const leanZoom=smooth(.15,.6,loaded)*.48*(1-film);
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
-    const wideLook=new THREE.Vector3(.18,1.05,zAt(clamp01(position)));
-    camera.position.lerp(wideLook.clone().add(new THREE.Vector3(1.75,1.4,2.85)),move.wide);
-    camera.position.lerp(new THREE.Vector3(-.20,.96+.07,focus.z),film*.92);
+    const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(position)));
+    camera.position.lerp(wideLook.clone().add(camDir.clone().multiplyScalar(3.2)),move.wide);
+    camera.position.lerp(new THREE.Vector3(-.24,1.06,focus.z+.06),film*.92);
     if (st.shake > 0){
       const s = st.shake*st.shake*0.012, t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
@@ -642,5 +585,5 @@ export async function createBackScene(canvas, view = {}){
   // compile now so the first frame does not hitch
   renderer.compile(scene, camera);
   renderer.compile(reaction.scene,reaction.camera);
-  return {render, resize, dispose, projectPosition, pickPosition, metrics:()=>st.metrics, renderer, scene, camera};
+  return {screenAxis: 1, render, resize, dispose, projectPosition, pickPosition, metrics:()=>st.metrics, renderer, scene, camera};
 }

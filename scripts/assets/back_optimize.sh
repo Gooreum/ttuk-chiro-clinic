@@ -2,6 +2,8 @@
 # Back-press mode assets: build (Blender + MPFB) and optimize into public/models/back.
 #   bash scripts/assets/back_optimize.sh <work dir> [bake_size=1024] [cycles_samples=16]
 # M-series CPU: about 2 minutes for both bakes at 1024 / 16 samples.
+# Set GLTF_MODULES to the glTF-Transform toolchain node_modules and ASSET_PYTHON
+# to a Python with numpy/Pillow to append the shared clinic character detail.
 set -euo pipefail
 W=${1:?work dir}; BAKE=${2:-1024}; SAMP=${3:-16}
 HERE=$(cd "$(dirname "$0")" && pwd); OUT="$HERE/../../public/models/back"
@@ -27,4 +29,7 @@ $G webp "$W/t5.glb" "$W/t6.glb" --quality 85
 $G meshopt "$W/t6.glb" "$OUT/therapist.glb"
 
 cp "$W/back_surface.json" "$OUT/back_surface.json"
+if [[ -n "${GLTF_MODULES:-}" ]]; then
+  (cd "$HERE/../.." && node scripts/assets/back_detail.mjs "$W/detail" "$OUT")
+fi
 ls -la "$OUT"

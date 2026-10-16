@@ -46,7 +46,7 @@ export async function createBackReaction(renderer){
   const key=new THREE.DirectionalLight(0xffe8d0,.9); key.position.set(-.45,.5,1.1); scene.add(key);
   const fill=new THREE.DirectionalLight(0xb9f3e0,.3); fill.position.set(.5,-.05,.5); scene.add(fill);
   const head=new THREE.Group(); scene.add(head);
-  const model=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(import.meta.env.BASE_URL+'models/patient01/patient01.glb');
+  const model=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(import.meta.env.BASE_URL+'models/towel-stage/patient01/patient01.glb');
   model.scene.position.y=-(1.625+1.358)/2;
   head.add(model.scene);
   const skins=[];
