@@ -27,6 +27,8 @@
 | `index.html` | 마크업만. `src/main.js`를 module로 불러온다 |
 | `src/` | 게임 코드 (아래 2절) |
 | `test/*.test.js` | vitest 단위 테스트 (`src/core` 순수 함수) |
+| `e2e/*.spec.js`, `playwright.config.js` | Playwright e2e(`npm run e2e`): 촬영 빌드(`dist-shot`)를 `vite preview`로 띄워 세 모드를 끝까지 돌린다 |
+| `.claude/ai-bouncer/workflow.yaml` | ai-bouncer 작업 단계 설정(검증: 유닛·빌드·e2e·선택 스크린샷, 마무리: 문서·브랜치·커밋·push 확인) |
 | `public/models/` | glTF 에셋(빌드 시 그대로 복사). 출처·라이선스는 `CREDITS.md`, 머리 재생성은 `scripts/assets/README.md` |
 | `legacy/index.html` | 모듈 분리 전 단일 파일 원본. 회귀 비교 기준이며 수정하지 않는다 |
 | `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간·교정 후 반응·반대쪽 전환 스크린샷 5장 |
@@ -171,7 +173,8 @@
 ## 5. 검증 방법
 
 1. **단위 테스트** (필수, 로직 변경 후마다): `npm test`. 센서·판정·점수는 `src/core`의 순수 함수로 두고 가상 자세 값으로 테스트한다(예: 45° 들고 시계 방향 20° → `lr ≈ −14`, 위쪽을 뒤로 10° 젖힘 → `pt` 10 감소. `test/tilt.test.js`).
-2. **헤드리스 스크린샷** (필수, 시각 변경 후마다):
+2. **e2e** (필수, 로직·흐름 변경 후마다): `npm run e2e`. 촬영 빌드(`__FORCE_HIT__`로 판정 강제 성공)를 띄워 목꺾기 3명 양쪽→진료 일지, 목뽑기 3명→일지, 허리펴기 3구역→결과 카드, 클리닉 메뉴(열린 동안 꺾기 막힘, 허리펴기로 이동)를 확인하고 콘솔 에러가 있으면 실패한다. 상태는 촬영 빌드에서만 노출되는 `window.__game.S`·`window.__backShot`으로 읽는다(일반 빌드에는 없다). 약 4분. 사용자: "e2e 부터하자 ai bouncer config부터만들고", "적절한걸로 검증이랑 finalization 단계 추가하고"(2026-10-16). 이 검증·마무리 단계는 `.claude/ai-bouncer/workflow.yaml`이 강제한다.
+3. **헤드리스 스크린샷** (필수, 시각 변경 후마다):
    ```bash
    python3 -m venv .venv && .venv/bin/pip install playwright pillow && .venv/bin/python -m playwright install chromium
    npm run build:shot                                         # dist-shot/ (판정 강제 성공 빌드)
@@ -182,8 +185,8 @@
    - `3-crack.png`는 판정 강제 성공 상태의 교정 순간(X-ray, 줌, 말풍선)이다. `npm run build:shot`에서만 `__FORCE_HIT__`가 켜지고, 일반 빌드(`dist/`)에서는 코드째 빠진다. legacy 모드는 임시 사본에서 문자열을 바꿔 찍으며 원본은 건드리지 않는다.
    - `Math.random` 시드와 페이지 시계를 고정하므로 같은 빌드는 같은 프레임이 나온다. CSS 애니메이션(떠오르는 글씨)만 실제 시간으로 돌아서 조금 차이 날 수 있다.
    - 시각 변경 전후 비교는 변경 전 빌드를 `--label before`로 찍어 두고 `compare.py`로 나란히 본다. 콘솔/페이지 에러가 있으면 shot.py가 출력하고 exit 1.
-3. **실기기**: main에 push하면 GitHub Actions가 테스트 → 빌드 → Pages 배포를 한다. 폰에서 https://gooreum.github.io/ttuk-chiro-clinic/ 열기(HTTPS라 센서 동작). 아이폰은 세로 화면 고정 켜기. `dist/`는 정적 파일만이라 Netlify Drop에 끌어다 놓아도 된다. module 스크립트라 `dist/index.html`을 file://로 직접 열면 안 되고, 로컬 확인은 `npm run dev` 또는 `npm run preview`.
-4. 튜닝 패널의 "지금 폰 자세 · 좌우/앞뒤" 숫자와 "최근 최고 꺾는 속도/툭 세기", "지난 꺾기 세기"(금·골절 기준과 함께)가 센서 디버깅용이다.
+4. **실기기**: main에 push하면 GitHub Actions가 테스트 → 빌드 → Pages 배포를 한다. 폰에서 https://gooreum.github.io/ttuk-chiro-clinic/ 열기(HTTPS라 센서 동작). 아이폰은 세로 화면 고정 켜기. `dist/`는 정적 파일만이라 Netlify Drop에 끌어다 놓아도 된다. module 스크립트라 `dist/index.html`을 file://로 직접 열면 안 되고, 로컬 확인은 `npm run dev` 또는 `npm run preview`.
+5. 튜닝 패널의 "지금 폰 자세 · 좌우/앞뒤" 숫자와 "최근 최고 꺾는 속도/툭 세기", "지난 꺾기 세기"(금·골절 기준과 함께)가 센서 디버깅용이다.
 
 헤드리스 환경에는 센서가 없어 드래그 모드로 동작한다. 센서·손맛 변경은 헤드리스 결과만으로 완료 처리하지 말고 실기기 확인 체크리스트를 함께 남긴다.
 

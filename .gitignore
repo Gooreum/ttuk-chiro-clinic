@@ -8,3 +8,5 @@ dist-shot/
 
 # ai-bouncer 런타임 상태
 .ai-bouncer/
+test-results/
+playwright-report/
