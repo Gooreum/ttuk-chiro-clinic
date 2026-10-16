@@ -6,6 +6,8 @@ import { expressionWeights } from "../core/faceRig.js";
 import { flinchProfile } from "../core/fail.js";
 import { neckWeight, neckPinch, NECK_LEN, HEAD_NECK_LEN, UPPER_SHARE } from "../core/towel.js";
 import { clamp } from "../lib/math.js";
+import { S } from "../game/state.js";
+import { prepareTowelNeck, showTowelNeck } from "./towelNeck.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
    built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
@@ -256,6 +258,11 @@ function neckHead(model){
   model.body.updateWorldMatrix(true, true); ho.updateWorldMatrix(true, false);
   const BP = bo.geometry.attributes.position, SI = bo.geometry.attributes.skinIndex.array, SW = bo.geometry.attributes.skinWeight;
   const full = SW.normalized ? 255 : 1, inv = new THREE.Matrix4().copy(ho.matrixWorld).invert();
+  // Rest-space correspondence across the actual (uneven) export cut, using the
+  // same manual skin transform as the seam probe, rather than boneTransform.
+  const bi = bo.skeleton.bones.findIndex(b => b.name === "body");
+  model.neckBodyFrame = new THREE.Matrix4().multiplyMatrices(bo.skeleton.bones[bi].matrixWorld, bo.skeleton.boneInverses[bi])
+    .multiply(bo.bindMatrix).invert().multiply(ho.matrixWorld);
   let top = -Infinity;
   for(let i = 0; i < BP.count; i++) top = Math.max(top, BP.getY(i));
   const ring = [];
@@ -292,6 +299,8 @@ function neckHead(model){
   mat.customProgramCacheKey = () => "neckHead";
   mat.needsUpdate = true;
   model.neckLag = uLag; model.headUnit = _hs.x;     // world metres per head geometry unit
+  // Separate geometry/materials: clinic keeps its original skinning and shader byte for byte.
+  model.towelNeckFrame = {center: c, radius: R0};
 }
 const current = () => wantModel && real.models[wantModel];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
@@ -305,6 +314,11 @@ const BREATH_GAIN = 1;
 export function updateRealBody(fill, s = 0, body = s){
   const cur = current();
   if(!cur || !cur.body.visible) return;
+  if(S.game === "towel" && !cur.towelNeck && cur.towelNeckFrame){
+    const f = cur.towelNeckFrame;
+    xrayMats.push(...prepareTowelNeck(cur, f.center, f.radius));
+  }
+  showTowelNeck(cur, S.game === "towel");
   const {morphs, neck, parentInv, neckRest, z0} = cur.body.userData;
   cur.body.position.z = z0 - body;
   // the upper neck on the head takes UPPER_SHARE of the stretch, so the seam and the neck bone lag the head by that much
