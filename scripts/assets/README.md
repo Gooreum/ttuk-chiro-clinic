@@ -378,3 +378,44 @@ node scripts/assets/back_detail.mjs /private/tmp/back-detail-work /path/to/origi
 | `back/therapist.glb` | 526,920 → 810,960 | 29,270 → 32,814 |
 
 Meshopt와 WebP를 사용한다. 환자/옷 color·ORM은 512, 피부/상의 normal은 1024, 바지 normal은 512다. 치료사 피부 color/normal/ORM은 1024다. `metrics.json`에는 최종 용량/삼각형 수가 기록된다.
+
+## 허리 X-ray 장기 레이어 (2026-10-16)
+
+`organs_build.py`는 [BodyParts3D](https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html) (© DBCLS, CC BY 4.0)의 실제 분할 OBJ를 감축해 `public/models/back/organs.glb`를 만든다. 장기 외곽을 직접 그리지 않는다. 원본 ZIP 전체를 받지 않고 HTTP Range로 중앙 디렉터리와 필요한 OBJ 엔트리만 받는다. 다운로드·중간 GLB·가상환경은 저장소 밖 작업 폴더에 둔다.
+
+형상은 `20110915/BodyParts3D_3.0_obj_95.zip`, 복합 장기 정의는 같은 폴더의 `composite_parts.txt`/`parts_list_e.txt`다. 4.0 `partof_element_parts.txt`에는 폐와 심장의 내부 혈관까지 여러 FJ 부품으로 나뉘어 있어, 이번에는 3.0의 실제 폐엽·심장 외벽과 장 표면을 사용했다.
+
+| 출력 노드 | 개념 / 실제 OBJ 파일 ID | 최종 삼각형 |
+|---|---|---:|
+| `lungL` | FMA7310 / FMA7370, FMA7371 | 2,999 |
+| `lungR` | FMA7309 / FMA7333, FMA7337, FMA7383 | 2,999 |
+| `heart` | FMA7088 / FMA7274 (심장벽) | 3,340 |
+| `liver` | FMA7197 | 2,999 |
+| `stomach` | FMA7148 | 3,000 |
+| `spleen` | FMA7196 | 2,999 |
+| `kidneyL` | FMA7205 | 3,000 |
+| `kidneyR` | FMA7204 | 3,000 |
+| `bowel` | FMA7200+FMA7201 / FMA7206, FMA7207, FMA7208, FMA14543nsn | 2,999 |
+| **합계** | 9개 메시 + 기준 마커 2개 | **27,335** |
+
+좌표는 `spine_build.py`와 동일하다. mm→m, 4.0 C1–C7 합친 경계 상자의 x/y 중심과 C7 최하단을 원점으로 쓴다. 기준 OBJ는 FJ3176/3177/3161/3164/3167/3170/3172이며 원점 이동량(m)은 `(-0.00056695, -0.05646870, 1.36471000)`이다. Blender +Z 머리·-Y 앞·+X 환자 왼쪽 → glTF +y 머리·+z 앞·+x 환자 왼쪽이다. `ref_T1`(FMA9165), `ref_L5`(FMA13076)는 장기와 같은 3.0 등록 좌표를 보존한다. 런타임은 두 마커 높이를 position 0..1, 월드 z -0.05..0.55에 선형 대응하고 폭은 척추와 같은 1.5배로 그린다. 엎드린 후면 투영의 환자 왼쪽은 +x이며 깊이는 얕게 눌러 방사선 필름처럼 겹친다. 해부 메시를 반사한 뒤 면 순서와 법선을 다시 맞춘다.
+
+저장소 루트에서 재생성:
+
+```sh
+ORG_WORK=/private/tmp/back-organ-build
+python3 scripts/assets/organs_build.py --fetch "$ORG_WORK/raw"
+/opt/homebrew/bin/blender -b --factory-startup --python scripts/assets/organs_build.py -- "$ORG_WORK/raw" "$ORG_WORK/raw.glb" 3000
+npm_config_cache=/private/tmp/codex-npm npx --yes @gltf-transform/cli@4.5.1 meshopt "$ORG_WORK/raw.glb" public/models/back/organs.glb
+```
+
+이 샌드박스의 Blender 5.2.2는 Python 실행 전 Metal 장치 탐색에서 충돌했다. 최종 에셋은 동일 스크립트의 CPU 경로로 생성했다. 실제 OBJ·좌표·감축 목표는 같으며, 심장벽 감축 후 남은 16면 미만의 고립 조각만 제거한다. smooth normal은 면적 가중 평균으로 계산한다. CPU 경로의 재생성 명령:
+
+```sh
+python3 -m venv "$ORG_WORK/env"
+"$ORG_WORK/env/bin/pip" install numpy trimesh fast-simplification
+"$ORG_WORK/env/bin/python" scripts/assets/organs_build.py --cpu "$ORG_WORK/raw" "$ORG_WORK/raw.glb" 3000
+npm_config_cache=/private/tmp/codex-npm npx --yes @gltf-transform/cli@4.5.1 meshopt "$ORG_WORK/raw.glb" public/models/back/organs.glb
+```
+
+최종 Meshopt GLB는 **150,596 B (150.6 KB)**다. 두 생성 경로의 감축 알고리즘은 다르므로 위 삼각형 수는 CPU 경로의 실제 결과다. 기존 척추 GLB는 변경하지 않는다. 밀도 레퍼런스는 [Radiology Assistant의 실제 PA 흉부 필름](https://radiologyassistant.nl/chest/chest-x-ray/basic-interpretation)이며, 원본 사진을 에셋으로 복제하지 않는다. 폐는 어두운 공기 공간과 약한 윤곽, 고형 장기는 중간 밀도의 반투명 조직, 장은 희미한 가스 얼룩으로 표시한다. 파열 목록이 있을 때만 장기 레이어를 표시하며, 기존 골절 시점(`xrayDelay + .45 + .35초`)에 coral 균열·번짐·맥동을 시작한다.
