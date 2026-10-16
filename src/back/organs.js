@@ -16,5 +16,8 @@ export function organHit(position,step,tier,targets=TARGETS){
   return Math.abs(position-targets[step])>POSITION_TOL?organsAt(position):[];
 }
 export const organLabel=ids=>[...new Set(ids.map(id=>ORGANS.find(o=>o.id===id)?.name).filter(Boolean))].join('·');
+// X-ray name tag: the two lungs and kidneys are told apart there.
+const SIDES={lungL:'왼쪽 ',lungR:'오른쪽 ',kidneyL:'왼쪽 ',kidneyR:'오른쪽 '};
+export const organTagName=id=>{const o=ORGANS.find(o=>o.id===id);return o?(SIDES[id]||'')+o.name:'';};
 // Subject particle for the last syllable: 간이 / 폐가.
 export const subject=w=>w+(w&&(w.charCodeAt(w.length-1)-0xac00)%28?'이':'가');

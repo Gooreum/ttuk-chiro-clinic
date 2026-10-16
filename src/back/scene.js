@@ -403,7 +403,9 @@ export async function createBackScene(canvas, view = {}){
   // Frame the patient's back, the face cradle and the therapist's face from across the table.
   const FIT = [[0, .94, -.40], [0, .90, .88], [-.34, .86, .25], [.72, 1.72, .25]].map(p => new THREE.Vector3(...p));
   const camBase = new THREE.Vector3();
+  const clinicUp=camera.up.clone(),organUp=new THREE.Vector3(0,0,-1);
   function fitCamera(){
+    camera.up.copy(clinicUp);
     camera.aspect = cssW/cssH;
     const portrait = cssW < cssH;
     camera.fov = view.fov ?? (portrait ? 50 : CAM_FOV);
@@ -433,10 +435,10 @@ export async function createBackScene(canvas, view = {}){
     const k = kind || "ok",feel=impactFeel(force,forceTier),move=therapistMotion(shotTime,force,forceTier);
     const film=clinicFilm(shotTime,kind,forceTier,force);
     xray.update({time:shotTime,step,kind,position,forceTier,force,organs});
-    for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
-    for(const m of therapistFade){m.opacity=1-film*.8;m.depthWrite=film<.05;}
+    for(const m of patientFade){m.opacity=1-film*(organs.length?.95:.78);m.depthWrite=film<.05;}
+    for(const m of therapistFade){m.opacity=1-film*(organs.length?.95:.8);m.depthWrite=film<.05;}
     renderer.toneMappingExposure=1-film*.35;
-    scene.background.copy(roomBackground).lerp(xrayBackground,film*.8);
+    scene.background.copy(roomBackground).lerp(xrayBackground,film*(organs.length?1:.8));
     const dt = st.t == null ? 1/60 : Math.min(0.1, Math.max(0, (now - st.t)/1000));
     st.t = now;
     if (st.lastCompleted == null) st.lastCompleted = completed;
@@ -501,6 +503,8 @@ export async function createBackScene(canvas, view = {}){
 
     // camera: a small dip with the thrust, a shake on "over"
     st.shake = Math.max(0, st.shake - dt*1.6);
+    const organFilm=organs.length?film:0;
+    camera.up.copy(clinicUp).lerp(organUp,organFilm).normalize();
     camera.position.copy(camBase);
     const handLook=new THREE.Vector3(.08,1.11,zAt(clamp01(position)));
     const loaded=cameraPreload(pressure,peakPressure,shotTime);
@@ -513,23 +517,24 @@ export async function createBackScene(canvas, view = {}){
     let filmCamera=new THREE.Vector3(-.24,1.06,focus.z+.06);
     if(organs.length){
       const box=xray.organFraming(organs,focus.z),centre=box.getCenter(new THREE.Vector3());
-      focus.x=centre.x*.3;focus.z=focus.z*.65+centre.z*.35;
-      const dir=new THREE.Vector3(-.32,.94,.13).normalize();
-      const right=new THREE.Vector3().crossVectors(camera.up,dir).normalize(),up=new THREE.Vector3().crossVectors(dir,right);
-      const tan=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));let distance=.52;
+      focus.copy(centre);
+      const dir=new THREE.Vector3(0,1,0),right=new THREE.Vector3(1,0,0),up=organUp;
+      const tan=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));let distance=camera.near*2;
+      const horizontal=.92;
       for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
         const v=new THREE.Vector3(x,y,z).sub(focus),near=v.dot(dir);
-        distance=Math.max(distance,near+Math.abs(v.dot(up))/(tan*.78),near+Math.abs(v.dot(right))/(tan*camera.aspect*.82));
+        distance=Math.max(distance,near+Math.abs(v.dot(up))/(tan*.88),near+Math.abs(v.dot(right))/(tan*camera.aspect*horizontal));
       }
       filmCamera=focus.clone().addScaledVector(dir,distance);
     }
-    camera.position.lerp(filmCamera,film*.92);
+    camera.position.lerp(filmCamera,film*(organs.length?1:.92));
     if (st.shake > 0){
-      const s = st.shake*st.shake*0.012, t = now/1000;
+      const s = st.shake*st.shake*0.012*(1-organFilm), t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
-    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*.95));
-    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move},...(import.meta.env.MODE==='shot'?{organOpacity:xray.organOpacity()}: {})};
+    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*(organs.length?1:.95)));
+    xray.layoutOrgans(camera,cssW,cssH);
+    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move},...(import.meta.env.MODE==='shot'?{organOpacity:xray.organOpacity(),organState:xray.organState()}: {})};
     renderer.render(scene, camera);
   }
 

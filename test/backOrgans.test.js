@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {ORGANS,organsAt,organHit,organLabel,subject} from '../src/back/organs.js';
+import {ORGANS,organsAt,organHit,organLabel,organTagName,subject} from '../src/back/organs.js';
 import {TARGETS} from '../src/back/core.js';
 
 describe('back organ map',()=>{
@@ -24,5 +24,12 @@ describe('back organ map',()=>{
     expect(organLabel(['lungL','lungR','heart'])).toBe('폐·심장');
     expect(subject('폐·심장')).toBe('폐·심장이');
     expect(subject('폐')).toBe('폐가');
+  });
+  it('names each organ for its x-ray tag, sides included',()=>{
+    expect(organTagName('lungL')).toBe('왼쪽 폐');
+    expect(organTagName('kidneyR')).toBe('오른쪽 신장');
+    expect(organTagName('liver')).toBe('간');
+    expect(organTagName('heart')).toBe('심장');
+    expect(organTagName('nope')).toBe('');
   });
 });
