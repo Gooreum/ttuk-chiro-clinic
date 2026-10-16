@@ -80,9 +80,14 @@ function updateImpact(){
   S.kind=S.outcome.kind;S.tier=S.outcome.tier;
   $('backImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과압박!':FAIL_STAMP[S.outcome.feedback];
 }
+// The bone sound lands with the shove (when its 130 ms peak window settles), like the neck crack, not when the animated hands land.
+function impactSound(){
+  if(S.kind==='ok'){if(S.sound){clinicAudio.crackSound(S.outcome.perfect?3:2);clinicAudio.chime(S.outcome.perfect);}clinicAudio.vib(S.outcome.perfect?[45,40,45,40,80]:[45,50,45]);}
+  else{if(S.tier)damageSound(S.tier);else if(S.sound){if(S.outcome.feedback==='finger')clinicAudio.knuckle();else clinicAudio.fizzle();}clinicAudio.vib(S.tier?S.tier>1?[120,40,200]:[80,30,120]:[60]);}
+}
 function settleImpact(){
   if(!S.pending)return;
-  updateImpact();S.pending=null;
+  updateImpact();S.pending=null;impactSound();
   S.reaction=pickReaction(patient.react,S.outcome.perfect,Math.random,S.previousReaction);
   if(S.kind==='ok'){
     S.score+=S.outcome.points;S.streak=S.outcome.streak;
@@ -104,8 +109,7 @@ function applyPress(position,pressure,force=1){
   S.previousReaction=S.reaction;S.reaction=pickReaction(patient.react,false,Math.random,S.previousReaction);
   S.holdAt=null;S.pointer=null;S.sirenPlayed=false;S.impactSoundPlayed=false;S.jumpSoundPlayed=false;S.recoilSoundPlayed=false;S.releaseSoundPlayed=false;S.xraySoundPlayed=false;S.fracSoundPlayed=false;S.speechStage=-1;
   updateImpact();
-  // Move and sound immediately, but keep the next 130 ms of the same shove for its true peak.
-
+  // Move immediately; the next 130 ms of the same shove settle its true peak, then the bone sound (settleImpact).
   sync();
 }
 // Touch follows the neck mode's pointer rules: slow drags aim (sideways = hands along the back, up = more weight),
@@ -268,8 +272,6 @@ function frame(now){
     if(style.power>.3&&shotTime>=.10&&!S.jumpSoundPlayed){S.jumpSoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
     if(!S.pending&&shotTime>=style.impactAt&&!S.impactSoundPlayed){
       S.impactSoundPlayed=true;
-      if(S.kind==='ok'){if(S.sound){clinicAudio.crackSound(S.outcome.perfect?3:2);clinicAudio.chime(S.outcome.perfect);}clinicAudio.vib(S.outcome.perfect?[45,40,45,40,80]:[45,50,45]);}
-      else{if(S.tier)damageSound(S.tier);else if(S.sound){if(S.outcome.feedback==='finger')clinicAudio.knuckle();else clinicAudio.fizzle();}clinicAudio.vib(S.tier?S.tier>1?[120,40,200]:[80,30,120]:[60]);}
       if(style.power>.5&&S.sound)clinicAudio.thud();
     }
     if(style.power>.5&&shotTime>=style.impactAt+.14&&!S.recoilSoundPlayed){S.recoilSoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
