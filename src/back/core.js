@@ -13,6 +13,10 @@ export function clinicFilm(time,kind,tier=0,force=1){
   const start=tier?.45:.7,hold=tier?2.3:2.4;
   return Math.max(0,Math.min(1,(time-start)*5,1-Math.max(0,time-start-hold)*2.5));
 }
+// The bone under the hands, as the x-ray engine's segment: a crack or break shows where the shove landed, not the
+// zone that was asked for (user request 2026-10-16). The three targets keep their old segments 3/4/5.
+export const pressedSegment=position=>Math.max(2,Math.min(6,Math.round(3+(Math.min(1,Math.max(0,Number.isFinite(position)?position:TARGETS[0]))-TARGETS[0])/(TARGETS[1]-TARGETS[0]))));
+export const pressedZone=position=>{const s=pressedSegment(position);return s<=2?'목 밑':s===3?'등 위쪽':s===4?'등 가운데':s===5?'허리':'골반 쪽';};
 export const makeBackTargets=(random=Math.random)=>TARGETS.map(p=>p+(random()-.5)*.10);
 // Keep the camera loaded until the radiograph takes over, independent of tissue rebound.
 export const cameraPreload=(pressure,peak,time)=>time>=0&&time<BACK_XRAY.end?peak:pressure;

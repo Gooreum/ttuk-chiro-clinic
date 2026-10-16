@@ -355,3 +355,26 @@ python3 scripts/assets/patient_hand_collision.py "$DETAIL_WORK"
 수건 스테이지 다운로드는 **1,391,796 B(+1.39 MB)** 증가하여 추가 8 MB 목표 안이다. 삼각형은 전체 캐시 에셋 합계로 4,806개(+1.57%) 늘며 다섯 환자와 다섯 수건을 한 프레임에 모두 그리는 수치가 아니다. 30% 이상 커진 팔·환자 몸·치료사·공간 파일의 전후 수치는 위에 명시했다. 공간 증가는 침대 가죽 맵이며 방/침대 형상·삼각형 수는 유지한다.
 
 별도 진료 팔은 495,396 → 516,652 B(+4.29%), 9,130 triangles 유지다. 새 의상·표면 디테일은 수건 복사본에만 적용한다. 임베디드 텍스처의 RGBA8+전체 mip 체인 추정 합계는 약 214.67 → 247.00 MiB이며 환경 맵·렌더 타깃·드라이버 비용은 제외한다. 디코딩·캐시 상한을 비교한 값으로 실기기 FPS 측정값은 아니다. 새 렌더 패스나 그림자 광원은 없으며 기존 주광 1개만 그림자를 만든다.
+
+## 허리 누르기 전용 캐릭터 디테일 (2026-10-16)
+
+`back_detail.mjs`는 `back_patient.py`의 엎드린 patient01과 `back_therapist.py`의 선 채 두 손을 겹친 치료사에 수건과 같은 직접 제작 디테일을 적용한다. 기존 MakeHuman CC0 피부·옷·헤어/MPFB 출력만 사용한다. 추가 외부 에셋은 없다. `patient_detail_maps.py`/`towel_surface_detail.py`를 공유해 직물 접힘·봉제·피부·손 관절의 color/normal/AO/roughness를 굽고, 치료사의 같은 얼굴 조형·옆가르마·안경·V넥·포켓·명찰과 손목/전완의 해부 형태를 더한다. 목/수건 원본 GLB는 수정하지 않는다.
+
+저장소 루트에서 실행한다. 이 환경에서 확인한 실제 도구 경로의 예:
+
+```sh
+export GLTF_MODULES=/private/tmp/codex-npm/_npx/39bd747c6932aaf5/node_modules
+export ASSET_PYTHON=python3  # numpy/Pillow 필요. 이 머신의 .venv에는 numpy가 없다.
+node scripts/assets/back_detail.mjs /private/tmp/back-detail-work /path/to/original-back-assets
+```
+
+원본 폴더는 `patient.glb`, `therapist.glb`, `back_surface.json`을 포함한다. 세 번째 인수를 생략하면 현재 `public/models/back`이 입력이다. **최초 실행 시 `<작업폴더>/source`에 입력을 보존하며, 같은 작업폴더의 재실행은 항상 그 입력을 사용한다. 최종 디테일 GLB를 새 작업폴더의 원본으로 다시 넣으면 조형이 누적되므로 피한다.** 전체 재생성은 위 환경 변수를 설정하고 `bash scripts/assets/back_optimize.sh <새 작업폴더> 1024 16`을 실행하면 Blender 원본/최적화 뒤 디테일까지 적용한다.
+
+이번 샌드박스에서는 Blender 5.2.2가 스크립트 평가 전 시작 단계에서 크래시했다. 따라서 기존에 올바르게 구운 자세/리그 GLB를 보존 입력으로 쓰는 glTF 경로로 완료했다. 표면은 완성 메시에서 다시 레이캐스트하여 69×149, 1cm 간격의 `back_surface.json`으로 저장한다. 조준 영역(x ±5cm, z -5..55cm)의 표면 변화 최댓값은 1.2mm이며 기존 치료사 뼈/마커 54개의 월드 행렬 차이는 정확히 0이다. 원래 리그와 누르기·점프 동작 계약은 유지한다.
+
+| 허리 전용 에셋 | 이전 B → 이후 B | 이전 삼각형 → 이후 삼각형 |
+|---|---:|---:|
+| `back/patient.glb` | 358,772 → 566,044 | 32,296 → 33,736 |
+| `back/therapist.glb` | 526,920 → 810,960 | 29,270 → 32,814 |
+
+Meshopt와 WebP를 사용한다. 환자/옷 color·ORM은 512, 피부/상의 normal은 1024, 바지 normal은 512다. 치료사 피부 color/normal/ORM은 1024다. `metrics.json`에는 최종 용량/삼각형 수가 기록된다.

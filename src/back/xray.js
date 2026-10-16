@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import {therapistStyle} from './therapistMotion.js';
-import {clinicFilm} from './core.js';
+import {clinicFilm,pressedSegment,TARGETS} from './core.js';
 import {createClinicXray} from 'virtual:clinic-xray';
 
 /* Adapter only. Rendering, film, disc release, bubbles and fracture animation run
@@ -67,7 +67,7 @@ export async function createBackXray({scene,camera,env,renderer}){
     const tier=Math.max(0,Math.min(2,Math.round(forceTier))),fracture=tier>0,success=kind==='ok'&&!fracture;
     const amount=clinicFilm(time,kind,tier,force);
     time-=therapistStyle(force,tier).xrayDelay;
-    target.seg=[3,4,5][Math.max(0,Math.min(2,step))];
+    target.seg=pressedSegment(Number.isFinite(position)?position:TARGETS[Math.max(0,Math.min(2,step))]);
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
     const crackT=success?time-.7:-1;

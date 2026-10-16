@@ -2,7 +2,7 @@
 
 ## Towel-stage redesign (2026-10-16)
 
-The following assets load only after entering the towel stage. Original clinic/back assets are retained unchanged.
+The following derivatives are shared by the clinic, towel and back modes. The original source assets are retained separately.
 
 | 파일 | 출처·변경 | 라이선스 |
 |---|---|---|
@@ -15,6 +15,8 @@ The following assets load only after entering the towel stage. Original clinic/b
 손 자세·해부 형태 보정(`hand_anatomy.mjs`, `patient_rest_hands.mjs`)과 후속 수건 캐릭터의 소매/커프·옷 주름·봉제·피부 결·AO/거칠기 맵(`patient_detail.mjs`, `patient_detail_maps.py`, `towel_therapist_detail.mjs`, `towel_surface_detail.py`)도 기존 CC0 메시/피부 아틀라스에서 직접 제작한 파생 작업이다. 테이블 가죽의 결·마모 맵은 직접 작성했고, 수건은 기존 Poly Haven 사진과 천 모프를 유지한다. 새 외부 에셋은 추가하지 않았다.
 
 새로 작성한 형상과 텍스처에는 별도 표시가 없는 한 게임의 `LICENSE`가 적용된다. 원본 CC0 소스의 권리는 바뀌지 않는다. 척추는 아래 BodyParts3D 파일을 그대로 사용하며, 수건 모드에만 피질골 미세 음영·추간판 섬유륜·관절면 재질을 더한다. 새 해부학 소스를 추가하지 않았다.
+
+허리 누르기의 `public/models/back/patient.glb`와 `therapist.glb`도 위와 동일한 MakeHuman 시스템 CC0 에셋/MPFB 출력의 patient01·치료사를 엎드린/선 자세로 만든 파생본이다(`back_patient.py`, `back_therapist.py`). `back_detail.mjs`가 같은 직접 제작 얼굴/손 조형·안경·유니폼 봉제/포켓/명찰과 공유 피부·직물 맵을 적용한다. 원래 누르기 리그는 유지하며 새 외부 소스나 라이선스는 추가하지 않았다.
 
 ## Sounds
 
