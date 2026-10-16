@@ -12,6 +12,8 @@ The following assets load only after entering the towel stage. Original clinic/b
 | `public/models/towel-stage/towel/towel_sim.glb` | 기존 천 시뮬레이션의 X자 감김과 `taut` 모프 보존, 같은 모프를 따르는 실제 봉제 가장자리 추가. 사진 텍스처는 기존 Poly Haven "Terry Cloth", 사진 colormass / 처리 Rico Cilliers | 텍스처 CC0 ([Terry Cloth](https://polyhaven.com/a/terry_cloth), [라이선스](https://polyhaven.com/license)). 천·봉제 형상 직접 제작 |
 | `public/models/towel-stage/room.glb` | 직접 제작한 테라조 타일/광물 조각, 플루트 벽, 반투명 리브 문, 수납장·린넨·펌프 병·이동식 트레이·라디에이터, 분할 가죽 테이블·봉제선·레일·육각 볼트·조절 레버 (`towel_stage_room.mjs`). 새 외부 에셋/사진 없음 | 직접 제작. 게임의 `LICENSE` 적용 |
 
+손 자세·해부 형태 보정(`hand_anatomy.mjs`, `patient_rest_hands.mjs`)과 후속 수건 캐릭터의 소매/커프·옷 주름·봉제·피부 결·AO/거칠기 맵(`patient_detail.mjs`, `patient_detail_maps.py`, `towel_therapist_detail.mjs`, `towel_surface_detail.py`)도 기존 CC0 메시/피부 아틀라스에서 직접 제작한 파생 작업이다. 테이블 가죽의 결·마모 맵은 직접 작성했고, 수건은 기존 Poly Haven 사진과 천 모프를 유지한다. 새 외부 에셋은 추가하지 않았다.
+
 새로 작성한 형상과 텍스처에는 별도 표시가 없는 한 게임의 `LICENSE`가 적용된다. 원본 CC0 소스의 권리는 바뀌지 않는다. 척추는 아래 BodyParts3D 파일을 그대로 사용하며, 수건 모드에만 피질골 미세 음영·추간판 섬유륜·관절면 재질을 더한다. 새 해부학 소스를 추가하지 않았다.
 
 ## Sounds

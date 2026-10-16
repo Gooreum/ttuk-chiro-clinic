@@ -56,10 +56,12 @@ function activate(){
     scene.fog = new THREE.Fog(col, 5, 11);
   });
   for(const s of saved.lights){
-    if(s.o.isHemisphereLight){ s.o.color.setHex(0xf4efe4); s.o.groundColor.setHex(0x17312c); s.o.intensity = .68; }
-    else if(s.o.isDirectionalLight){ s.o.color.setHex(0xf4efe4); s.o.intensity = 1.05; }
-    else if(s.o.position.z > 2){ s.o.color.setHex(0x8adfbf); s.o.intensity = .35; }
-    else { s.o.color.setHex(0xf4efe4); s.o.intensity = .48; }
+    // One shadow-casting key models the forms; restrained soft fill leaves the
+    // elbow/knuckle planes legible. Reuse the same four lights and shadow map.
+    if(s.o.isHemisphereLight){ s.o.color.setHex(0xf4efe4); s.o.groundColor.setHex(0x17312c); s.o.intensity = .43; }
+    else if(s.o.isDirectionalLight){ s.o.color.setHex(0xf4efe4); s.o.intensity = 1.24; }
+    else if(s.o.position.z > 2){ s.o.color.setHex(0x8adfbf); s.o.intensity = .16; }
+    else { s.o.color.setHex(0xf4efe4); s.o.intensity = .19; }
   }
   enabled = true;
 }

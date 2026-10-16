@@ -6,6 +6,7 @@ import { headRest } from "./room.js";
 import { S } from "../game/state.js";
 import { updateTowelStage } from "./towelStage.js";
 import { withVisualIds } from "./visualBuild.js";
+import { finishTowelCharacter, finishTowelShoulders } from "./towelCharacterLook.js";
 
 /* The therapist's body (public/models/therapist/therapist.glb, scripts/assets/therapist_build.py): sitting upright
    on a clinic stool at the head end of the table (the head extension is folded away for him, room.js headRest),
@@ -20,12 +21,14 @@ let root = null, loading = false, hip = null, fallPt = null, markL = null, markR
 const REF_BASE = new THREE.Vector3(0, 1.55, -0.24);
 function prepare(g, env){
   root = g.scene;
+  finishTowelShoulders(root);
   root.traverse(o => {
     if(!o.isMesh) return;
     o.castShadow = o.receiveShadow = true;
     const m = o.material, name = (m && m.name) || "";
     if(m){
       m.envMap = env; m.envMapIntensity = 0.15;
+      finishTowelCharacter(m, m);
       // The towel-stage scrub and sleeve assets share a dark green palette.
       // the opaque ones fade under the x-ray with the hands; the alpha hair / brows / lashes keep their own blending
       if(!m.transparent && m.alphaTest === 0 && !crackFadeMats.includes(m)) crackFadeMats.push(m);
