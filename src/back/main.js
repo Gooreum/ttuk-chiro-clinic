@@ -11,6 +11,7 @@ import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
 import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint} from './core.js';
 import {BackMotion} from './motion.js';
+import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
@@ -27,7 +28,7 @@ const coarse=matchMedia('(pointer: coarse)').matches;
 const preferMotion=coarse&&'DeviceMotionEvent' in window;
 const motion=new BackMotion();
 const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,
-  targets:[...TARGETS],results:[],fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,sound:true,music:store.get("chiroBackMusic",true),
+  targets:[...TARGETS],results:[],fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,sound:true,music:store.get("chiroBackMusic",true),
   motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,nearSaid:false,missAt:0,missPosition:.5,
   cue:'',pausedAt:0,previousPhase:null,sirenPlayed:false,faceVisible:false,speechStage:-1};
 let scene,width=innerWidth,height=innerHeight,rotated=false,raf=0,wasNear=false,nextPulse=0;
@@ -35,7 +36,10 @@ const names=['등 위쪽','등 가운데','허리'];
 const patient=ROSTER.find(p=>p.name==='박대리');
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-zone shove names where it actually landed.
-function injuryLabel(tier,position,step){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';return seg===[3,4,5][step]?`T${seg} ${hurt}`:`${pressedZone(position)} ${hurt} 엉뚱한 데를 눌렀어요`;}
+// An overload that also missed the ring bursts the organs at that height too (user, 2026-10-16).
+function injuryLabel(tier,position,step){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';
+  if(S.organs.length)return `${pressedZone(position)} ${hurt} + ${organLabel(S.organs)} 파열!`;
+  return seg===[3,4,5][step]?`T${seg} ${hurt}`:`${pressedZone(position)} ${hurt} 엉뚱한 데를 눌렀어요`;}
 function ensureSound(){if(S.sound||S.music)clinicAudio.ensureAudio();}
 function stopSound(){clinicAudio.stopSiren();}
 function tone(from,to,length,volume,delay=0){if(S.sound)clinicAudio.tone(from,to,length,'sine',volume,delay);}
@@ -77,7 +81,7 @@ function updateImpact(){
   const p=S.pending;if(!p)return;
   S.force=p.force;
   S.outcome=judgePress(p.position,S.step,p.pressure,p.force,{streak:S.streak,pain:S.painHere,exhale:p.exhale,targets:S.targets});
-  S.kind=S.outcome.kind;S.tier=S.outcome.tier;
+  S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.organs=organHit(p.position,S.step,S.tier,S.targets);
   $('backImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과압박!':FAIL_STAMP[S.outcome.feedback];
 }
 // The bone sound lands with the shove, not when the animated hands land (they land up to 0.55 s later).
@@ -143,7 +147,7 @@ async function start(useMotion=preferMotion){
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeBackTargets(),results:[],fails:[],
-    holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
+    holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
   $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;
   $('backMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
@@ -229,6 +233,7 @@ addEventListener('devicemotion',e=>{
   if(active&&sample.type==='aim'){S.position=sample.position;S.pressure=sample.pressure;}
 });
 function speechFor(kind,tier,t){
+  if(tier&&S.organs.length&&t>=1.7)return `${subject(organLabel(S.organs))} 방금 터진 것 같은데요…?`;
   if(tier)return t<.9?FORCE_LINES[tier][0].replaceAll('목','허리'):tier===2?t<1.7?FORCE_LINES[2][1].replaceAll('목','허리'):'움직이지 마세요… 구급차 불렀어요.':t<1.7?FORCE_LINES[1][1].replaceAll('목','허리'):'허리에 금이 갔다고요…?';
   if(kind==='ok')return t<1.8?patient.lines.what:patient.lines.ahh;
   const f=S.outcome.feedback;
@@ -336,7 +341,7 @@ function frame(now){
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
   if(S.phase!=='paused')scene.render({now,position:S.position,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
-    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:shotTime):'rest',targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
+    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
   // Read-only DOM diagnostics for browser extensions that isolate the page's JS globals.
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,targets:S.targets,points:[.18,.5,.82].map(p=>scene.projectPosition(p))});
   if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
