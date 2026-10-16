@@ -156,7 +156,7 @@ export const TOWEL_REVIEWS = {
 };
 export function towelReview(r, rand = Math.random){
   const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
-  if(!r.stars) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
+  if(!r.stars && !r.ambulance) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
   const last = r.fails && r.fails[r.fails.length - 1];
   if(last && TOWEL_REVIEWS[last]) return pick(TOWEL_REVIEWS[last]);
   return pick(REVIEWS[r.stars] || ["다음에 다시 올게요…"]);

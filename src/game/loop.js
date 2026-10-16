@@ -23,7 +23,7 @@ import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 import { boingProfile, FORCE_CRACK, FORCE_BREAK } from "../core/fail.js";
-import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, BODY_SHARE, towelLine, fallProfile, letGoProfile } from "../core/towel.js";
+import { stretchProfile, stretchLen, STRETCH_HOLD, PREPULL, BODY_SHARE, towelLine, fallProfile, letGoProfile, OVER_XRAY_HOLD } from "../core/towel.js";
 import { eyesOpen as faceEyesOpen, primitiveFace, isBaseFace } from "../core/faceRig.js";
 
 /* Frame loop: slow motion (slow), dolly zoom (zoom), x-ray (xray, crackT), face, camera. */
@@ -53,6 +53,7 @@ const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head ti
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 // visual-only head pose on top of the aim (never read by judging: distAt / S.input / S.cur stay as they are)
 const SETUP_EXT = 4*DEG;    // the therapist tips the chin up a little while setting up (slight extension)
+const TOWEL_TURN = 0.35, SKEW_BEND = 0.6;   // towel mode: the head turns this share of the left / right aim; a skew bends the neck sideways this share of the wrench
 const ROCK = 14;            // degrees: the head is rocked side to side twice while the patient settles (S.prepUntil)
 let prepFrom = 0, prepTo = 0;
 // the therapist's trunk = the camera: leans in over the face during the set-up, drops a few cm on the thrust
@@ -94,26 +95,28 @@ export function frame(now){
   // (a dud wrong crack plays it at S.crackAmp; past the limit, a rubber-band boing wobbles the head: core/fail.js)
   // the way the head is turned; from the middle, toward this side's target (a wrong crack with the head still centred)
   const cp = crackProfile(S.thrust > 0 ? (1 - S.thrust)*CRACK_LEN : 0), amp = S.crackAmp;
-  const dir = Math.abs(cur.rot) > 2 ? Math.sign(cur.rot) : (target ? target.side : 1);
+  const dir = S.game === "towel" && S.towel ? (Math.sign(cur.rot - S.towel.aim) || 1)   // towel: the side the tug was off centre
+    : Math.abs(cur.rot) > 2 ? Math.sign(cur.rot) : (target ? target.side : 1);
   const snap = cp.push*amp, thrustDeg = cp.rot*dir*amp, thrustBend = cp.bend*Math.sign(cur.bend || -dir)*amp;
   const boingDeg = S.boingAt ? boingProfile((now - S.boingAt)/1000)*dir : 0;
   const jit = S.jitter > 0 ? Math.sin(now*0.06)*S.jitter*3 : 0;
   // breathing: the chest rises and the shoulders lift (primitive torso, or the realistic body's breath shape), the chin
   // tips up a touch, the nostrils flare; mist on the out-breath
   const br = breath(now);
-  // towel mode (core/towel.js): the aim's vertical axis is the towel's tension, so the head does not tilt with it and
-  // there is no turning; a tug snaps the head out toward the camera, the neck stretches and the body barely follows
+  // towel mode (core/towel.js): the aim's vertical axis is the towel's tension, so the head does not tilt with it; the
+  // horizontal axis is the left / right focus and turns the head a little (TOWEL_TURN of it, looks only); a tug snaps the
+  // head out toward the camera, the neck stretches and the body barely follows; a skewed tug wrenches it to the side
   const towel = S.game === "towel";
-  if(towel) S.input.rot = 0;
   const hold = S.stretchHold || STRETCH_HOLD;
   if(S.stretchAt && now - S.stretchAt > stretchLen(hold)*1000) S.stretchAt = 0;
   const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak, hold) : 0;
   // an over-pull: the therapist goes over backwards (0 sitting .. 1 flat on his back), core/towel.js
-  const fall = towel && S.overAt ? fallProfile((now - S.overAt)/1000) : 0;
+  // (since an over-pull calls the ambulance he stays down: getup = Infinity)
+  const fall = towel && S.overAt ? fallProfile((now - S.overAt)/1000, S.ambulance ? Infinity : undefined) : 0;
   // the towel's tension already draws the head a little toward the therapist while aiming
   const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
-  pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? 0 : (cur.bend + thrustBend)*DEG,
-    (cur.rot + thrustDeg + jit + boingDeg + headRock(now))*DEG);
+  pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? thrustDeg*SKEW_BEND*DEG : (cur.bend + thrustBend)*DEG,
+    ((towel ? cur.rot*TOWEL_TURN : cur.rot) + thrustDeg + jit + boingDeg + headRock(now))*DEG);
   // the head goes, the body below the neck comes along only a little (core/towel.js BODY_SHARE), the neck takes the rest
   const pull = stretch + pre, body = pull*BODY_SHARE;
   head.position.z = HEAD_Z - pull;
@@ -175,7 +178,7 @@ export function frame(now){
   // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
   if(S.xrayIn > 0){
     S.xrayIn -= rdt;
-    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = S.overAt ? 2.9 : 2.4; S.crackT = 0; S.xrayAt = now; }
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = S.overAt ? OVER_XRAY_HOLD : 2.4; S.crackT = 0; S.xrayAt = now; }
   }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
@@ -202,7 +205,7 @@ export function frame(now){
   // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
   const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
   const traction = towel ? {s: stretch*(1 - BODY_SHARE), slide: body, over, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
-  const crackT = S.xray > 0.001 ? (towel ? (over || tSince < STRETCH_HOLD - XRAY_PRE ? -1 : tSince - STRETCH_HOLD + XRAY_PRE) : S.crackT) : -1;
+  const crackT = S.xray > 0.001 ? (towel ? (over || tSince < hold - XRAY_PRE ? -1 : tSince - hold + XRAY_PRE) : S.crackT) : -1;
   if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the
     // recorded crack is already playing, no synth on top)
@@ -249,7 +252,7 @@ export function frame(now){
       // x-ray's clock kept running after an over-pull, and the next try found the hands open in the air, 2026-10-15)
       after: towel ? -1 : S.crackT, prep: now < (S.prepUntil || 0), results: S.results, flinch: S.flinchAt ? (now - S.flinchAt)/1000 : -1,
       towel: towel && S.phase === "play", pull: towelTension(cur.bend), slip: S.slipAt ? (now - S.slipAt)/1000 : -1,
-      shoulder: therapistShoulder, fall, drop: towel && S.overAt ? letGoProfile((now - S.overAt)/1000) : 0});
+      shoulder: therapistShoulder, fall, drop: towel && S.overAt ? letGoProfile((now - S.overAt)/1000, S.ambulance ? Infinity : undefined) : 0});
   }catch(err){ disableRealArms(err); }
   const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
   updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, fall > 0.01 ? 0 : tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,
