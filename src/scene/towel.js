@@ -36,6 +36,22 @@ let model = null, bones = null, loading = false;
    in, the bone towel below stays hidden. */
 let sim = null, simLoading = false;
 const simMeshes = {};
+const clothPull = {value: 0};
+function finishCloth(m, env){
+  m.color.set(0xf4efe4);
+  m.envMap = env; m.envMapIntensity = 0.16;
+  m.roughness = 0.94;
+  if(m.normalScale) m.normalScale.set(1.35, 1.35);
+  if(m.isMeshPhysicalMaterial){ m.sheen = 0.28; m.sheenColor.set(0xf4efe4); m.sheenRoughness = 0.88; m.specularIntensity = 0.24; }
+  for(const tex of [m.map, m.normalMap]) if(tex) tex.anisotropy = 4;
+  // Flatten the pile slightly under load. The simulated folds and jaw wrap stay intact.
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uClothPull = clothPull;
+    sh.fragmentShader = "uniform float uClothPull;\n" + sh.fragmentShader.replace("#include <roughnessmap_fragment>",
+      "#include <roughnessmap_fragment>\n roughnessFactor = max(0.82, roughnessFactor - 0.06*uClothPull);");
+  };
+  m.customProgramCacheKey = () => "towel-terry-v1";
+}
 function loadSim(){
   simLoading = true;
   Promise.all([loadModel("towel/towel_sim.glb"), getEnv()]).then(([g, env]) => {
@@ -44,7 +60,7 @@ function loadSim(){
       const id = (o.name.match(/patient0\d/) || [])[0];
       if(!id) return;
       o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
-      o.material.envMap = env; o.material.envMapIntensity = 0.2;
+      finishCloth(o.material, env);
       if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
       simMeshes[id] = o;
     });
@@ -63,8 +79,7 @@ function load(){
     model.traverse(o => {
       if(!o.isMesh) return;
       o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
-      o.material.envMap = env; o.material.envMapIntensity = 0.2;
-      if(o.material.normalScale) o.material.normalScale.set(1.8, 1.8);   // the terry pile reads on a phone
+      finishCloth(o.material, env);
       if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
     });
     model.visible = false;
@@ -95,6 +110,7 @@ const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(h
 const SLIP_BACK = 1.3;
 const slipArc = slip => slip >= 0 && slip < SLIP_BACK ? Math.sin(Math.PI*slip/SLIP_BACK) : 0;
 export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patient = ""){
+  clothPull.value = Math.min(1, Math.max(0, tension));
   if(on && !sim && !simLoading) loadSim();
   const simMesh = sim && simMeshes[patient];
   const arc = slipArc(slip);

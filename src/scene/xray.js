@@ -5,6 +5,7 @@ import { spinePose, spineOf } from "../core/spine.js";
 import { pivot } from "./patientModel.js";
 import { scene, camera } from "./renderer.js";
 import { loadModel, getEnv } from "./realAssets.js";
+import { withVisualIds } from "./visualBuild.js";
 
 /* Cervical x-ray (AGENTS.md 2). The bones and discs are a real anatomical model: BodyParts3D C1-C7, T1-T8 and the discs
    C2/3-T7/8 (CC BY 4.0, CREDITS.md; the thoracic part is the body end and stays put), each patient's neck bent their
@@ -198,8 +199,25 @@ function hideFrac(){
 // drawn right after it is depth-tested only against itself (never hidden inside the neck or behind the hands).
 const film = new THREE.Mesh(new THREE.PlaneGeometry(4, 4),
   new THREE.MeshBasicMaterial({color: 0x0f231f, transparent: true, opacity: 0, depthTest: false, depthWrite: false}));
+const clinicFilmMaterial = film.material, filmSize = {value: new THREE.Vector2()};
+let towelFilmMaterial = null;
+function tractionFilm(){
+  if(towelFilmMaterial) return towelFilmMaterial;
+  towelFilmMaterial = withVisualIds(() => clinicFilmMaterial.clone());
+  towelFilmMaterial.onBeforeCompile = sh => {
+    sh.uniforms.uFilmSize = filmSize;
+    sh.fragmentShader = "uniform vec2 uFilmSize;\n" + sh.fragmentShader.replace("#include <dithering_fragment>", `#include <dithering_fragment>
+      vec2 filmUV = gl_FragCoord.xy/uFilmSize;
+      float edge = smoothstep(0.12, 0.72, length((filmUV - 0.5)*vec2(1.0, 0.75)));
+      gl_FragColor.a *= 0.78 + 0.38*edge;
+      gl_FragColor.rgb *= 0.99 + 0.01*sin(gl_FragCoord.y*2.094395);
+    `);
+  };
+  towelFilmMaterial.customProgramCacheKey = () => "towel-film-v1";
+  return towelFilmMaterial;
+}
 film.position.z = -0.05; film.renderOrder = 998; film.frustumCulled = false;
-film.onBeforeRender = r => r.clearDepth();
+film.onBeforeRender = r => { if(film.material === towelFilmMaterial) r.getDrawingBufferSize(filmSize.value); r.clearDepth(); };
 camera.add(film);
 scene.add(camera);
 // a soft key light that only matters while the room is dimmed
@@ -365,6 +383,7 @@ function bendSpine(target, parts){
    null. traction: towel mode {s: neck stretch (m), slide: how far the body slid (m, core/towel.js BODY_SHARE), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
    stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
+  film.material = traction ? tractionFilm() : clinicFilmMaterial;
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
   film.visible = amount >= 0.002;
   root.position.z = ROOT_Z - (traction ? traction.slide || 0 : 0);   // rides along with the sliding patient
