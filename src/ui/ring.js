@@ -1,3 +1,4 @@
+import { drawVGauge, drawHBar, drawHint } from "./gauge.js";
 import { $, css } from "../lib/dom.js";
 import { clamp } from "../lib/math.js";
 import { T } from "../tuning.js";
@@ -185,44 +186,11 @@ function boxIn(el){
    the towel's tension (mint -> coral), the band to hit in mint, the limit as a coral line; the breath arc as usual. */
 function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const tg = S.towel, t = towelTension(S.cur.bend), H = hud.height/hudDpr, Wd = hud.width/hudDpr;
-  const h = clamp(R*1.7, 110, H*0.62), w = 16;
-  const x = Math.min(cx + Math.max(R*1.7, 136), Wd - 76), top = clamp(cy - h*0.55, 82, H - h - 28), bot = top + h;
-  const yAt = v => bot - v*h;
-  ctx.lineJoin = "round";
-  // Both instruments use the room / paper card, with the same mint target brackets.
-  ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x-35,top-34,90,h+53,12); ctx.fill(); ctx.stroke();
-  // the tube
-  ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(x - w/2 - 3, top - 3, w + 6, h + 6, 10); ctx.fill(); ctx.stroke();
-  // the band to hit
-  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h);
-  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
-  ctx.strokeRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h); ctx.setLineDash([]);
-  // over the band up to the limit: the crack zone (core/towel.js towelKind "taut")
-  ctx.fillStyle = "rgba(255,122,89,.2)"; ctx.fillRect(x - w/2 - 3, yAt(tg.limit), w + 6, yAt(tg.mid + tg.half) - yAt(tg.limit));
-  // the fill
-  const grd = ctx.createLinearGradient(0, bot, 0, top);
-  grd.addColorStop(0, C_MINT); grd.addColorStop(1, C_CORAL);
-  ctx.fillStyle = grd;
-  if(t > 0.005){ ctx.beginPath(); ctx.roundRect(x - w/2, yAt(t), w, t*h, 6); ctx.fill(); }
-  // the limit
+  const h = clamp(R*1.7, 110, H*0.62);
+  const x = Math.min(cx + Math.max(R*1.7, 136), Wd - 76), top = clamp(cy - h*0.55, 82, H - h - 28);
   const over = t > tg.limit, taut = !over && t > tg.mid + tg.half;
-  ctx.strokeStyle = C_CORAL; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(x - w/2 - 8, yAt(tg.limit)); ctx.lineTo(x + w/2 + 8, yAt(tg.limit)); ctx.stroke();
-  // the level knob
-  ctx.beginPath(); ctx.arc(x, yAt(t), 8, 0, Math.PI*2);
-  ctx.fillStyle = zone || over || taut ? C_CORAL : C_BONE; ctx.fill();
-  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
-  // labels
-  ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
-  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("수건 장력", x, top - 10);
-  ctx.fillStyle = C_BONE; ctx.fillText("수건 장력", x, top - 10);
-  ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
-  ctx.fillStyle = over || taut ? C_CORAL : C_MINT;
-  ctx.fillText(`${Math.round(t*100)}%`, x, bot+15);
-  ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
-  ctx.strokeText("과해요", x + w/2 + 10, yAt(tg.limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(tg.limit) + 4);
+  const colors = {bone:C_BONE,coral:C_CORAL,mint:C_MINT};
+  drawVGauge(ctx,{x,top,h,value:t,band:[tg.mid-tg.half,tg.mid+tg.half],limit:tg.limit,title:"수건 장력",hot:zone||over||taut,colors});
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
@@ -232,25 +200,10 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const mR = boxIn(modeEl), zR = boxIn(zeroEl);
   const gapL = mR.w ? mR.right : 20, gapR = zR.w ? zR.left : Wd - 20;
   const bw = clamp(gapR - gapL - 40, 110, 180), bx = clamp((gapL + gapR - bw)/2, 10, Wd - bw - 10), mx = bx + bw/2;
-  const by = clamp((zR.w ? zR.bottom : H - 12) - 19, 40, H - 20), xAt = o => mx + clamp(o/3, -1, 1)*(bw/2-12);
-  ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(bx-10,by-29,bw+20,48,12); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(bx + 5, by - 7, bw - 10, 14, 7); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(xAt(-1), by - 7, xAt(1) - xAt(-1), 14);
-  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(xAt(-1), by - 7, xAt(1) - xAt(-1), 14); ctx.setLineDash([]);
-  ctx.beginPath(); ctx.arc(xAt(off), by, 7, 0, Math.PI*2);
-  ctx.fillStyle = offC ? C_CORAL : C_BONE; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
-  ctx.textAlign = "left"; ctx.font = "12px 'Black Han Sans', sans-serif";
-  ctx.fillStyle = C_BONE; ctx.fillText("좌우 중심", bx+2, by-14);
-  ctx.textAlign = "right"; ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif"; ctx.fillStyle = offC ? C_CORAL : C_MINT;
-  ctx.fillText(offC ? "중심 밖" : "맞아요", bx+bw-2, by-14);
+  const by = clamp((zR.w ? zR.bottom : H - 12) - 19, 40, H - 20);
+  drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:"좌우 중심",colors});
   // over the card: what to do
   const msg = over || taut ? "너무 팽팽해요!" : zone ? "지금! 툭 당겨요" : offC && towelTension(S.cur.bend) > tg.mid - tg.half - 0.2 ? "좌우 중심을 맞춰요" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
-  if(msg){
-    ctx.textAlign = "center"; ctx.font = "15px 'Black Han Sans', sans-serif";
-    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(msg, mx, by - 40);
-    ctx.fillStyle = zone || over || offC ? C_CORAL : C_BONE; ctx.fillText(msg, mx, by - 40);
-  }
+  drawHint(ctx,{x:mx,y:by-40,text:msg,hot:zone||over||offC,colors});
   ctx.globalAlpha = 1;
 }

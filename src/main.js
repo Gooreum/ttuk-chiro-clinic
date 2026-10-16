@@ -1,3 +1,4 @@
+import "./ui/clinic-hud.css";
 /* Boot. Import order matters: the scene is built by module side effects, and room meshes must be added
    before the patient so the scene graph matches the single-file prototype. */
 import "./tuning.js";

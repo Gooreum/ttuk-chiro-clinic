@@ -1,0 +1,211 @@
+/* Shared clinic HUD. Keep component rules here for all three modes. */
+*{box-sizing:border-box}html,body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}
+/* Layout: landscape-first, patient-centred. The 3D treatment room fills the screen with the patient's head at centre;
+   the aim ring is drawn around the head itself. Chart clipboard top-left, score top-right, mode line bottom-left,
+   교정 button bottom-right under the right thumb. Single warm night-clinic look. */
+:root, .clinic-app{
+  --room:#17312c;
+  --room-deep:#0f231f;
+  --bone:#f1eadc;
+  --ink:#f7f3eb;
+  --muted:#a9c0b9;
+  --coral:#ff7a59;
+  --coral-deep:#b4482f;
+  --mint:#8adfbf;
+  --paper:#f4efe4;
+  --paper-ink:#24302d;
+  --panel:rgba(15,35,31,.82);
+  --line:rgba(241,234,220,.16);
+  --display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --gl:calc(16px + env(safe-area-inset-left, 0px));
+  --gr:calc(16px + env(safe-area-inset-right, 0px));
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+
+:where(.clinic-app) .top{position:absolute;top:10px;left:var(--gl);right:var(--gr);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+:where(.clinic-app) .chart{background:var(--paper);color:var(--paper-ink);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);width:min(300px,46%);min-width:0;overflow:hidden;transform:rotate(-1deg);transform-origin:top left}
+/* folded while aiming (game/flow.js loadPatient): the strip and one line, name · segment · trait */
+:where(.clinic-app) .chart.compact{width:auto;max-width:min(320px,50%)}
+:where(.clinic-app) .chart.compact .chip-trait{display:none}
+:where(.clinic-app) .chart.compact .chips{min-width:0}
+:where(.clinic-app) .chart.compact .chip-seg{overflow:hidden;text-overflow:ellipsis}
+:where(.clinic-app) .chart.compact .cc,:where(.clinic-app) .chart.compact .spine{display:none}
+:where(.clinic-app) .chart.compact .chartbody{display:flex;align-items:center;gap:8px;padding:5px 9px 6px}
+:where(.clinic-app) .chart.compact .chartbody > div:first-child{display:flex;align-items:center;gap:8px;min-width:0}
+:where(.clinic-app) .chart.compact .name{font-size:15px;white-space:nowrap}
+:where(.clinic-app) .chart.compact .chips{margin-top:0;flex-wrap:nowrap}
+:where(.clinic-app) .chart.compact .clip{padding:3px 9px;font-size:9px}
+:where(.clinic-app) .clip{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2c4842;color:var(--bone);padding:5px 10px;font-size:10px;letter-spacing:.06em;font-variant-numeric:tabular-nums;position:relative}
+:where(.clinic-app) .clip::before{content:"";position:absolute;left:50%;top:-1px;width:44px;height:7px;margin-left:-22px;border-radius:0 0 5px 5px;background:#c9c2b2}
+:where(.clinic-app) .dots{display:flex;gap:4px}
+:where(.clinic-app) .dots i{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--bone);opacity:.55}
+:where(.clinic-app) .dots i.done{background:var(--mint);border-color:var(--mint);opacity:1}
+:where(.clinic-app) .dots i.now{background:var(--coral);border-color:var(--coral);opacity:1}
+:where(.clinic-app) .chartbody{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 10px 9px}
+:where(.clinic-app) .name{font-family:var(--display);font-size:20px;line-height:1.1;display:flex;align-items:baseline;gap:6px}
+:where(.clinic-app) .name small{font-family:var(--body);font-size:11px;color:#5d6b67;font-weight:600}
+:where(.clinic-app) .cc{font-size:11.5px;line-height:1.4;color:#45524e;margin-top:3px}
+:where(.clinic-app) .chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+:where(.clinic-app) .chip-seg,:where(.clinic-app) .chip-trait{font-size:10.5px;font-weight:700;border-radius:4px;padding:2px 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+:where(.clinic-app) .chip-seg{background:#2c4842;color:var(--bone)}
+:where(.clinic-app) .chip-trait{border:1.5px solid var(--coral-deep);color:var(--coral-deep)}
+:where(.clinic-app) .spine{display:grid;gap:2px;justify-items:center;align-content:center;padding-left:8px;border-left:1px dashed #c9c2b2}
+:where(.clinic-app) .spine b{display:block;height:5px;border-radius:3px;background:#c9c2b2}
+:where(.clinic-app) .spine b.hit{background:var(--coral)}
+:where(.clinic-app) .spine span{font-size:8px;color:#7b8783;letter-spacing:.04em}
+
+/* ---------- score ---------- */
+/* top right: a tight score panel, the rarely used tuning / music chips small under it (user: "쓸데 없이 큼", 2026-10-15) */
+:where(.clinic-app) .side{display:grid;gap:5px;justify-items:end}
+:where(.clinic-app) .stat{text-align:right;display:grid;gap:4px;justify-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 9px;backdrop-filter:blur(6px)}
+:where(.clinic-app) .score{display:flex;align-items:baseline;gap:6px;font-family:var(--display);font-size:26px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.4)}
+:where(.clinic-app) .score small{font-family:var(--body);font-size:10px;color:var(--muted);letter-spacing:.08em}
+:where(.clinic-app) .combo{font-size:11px;font-weight:700;color:var(--mint)}
+:where(.clinic-app) .combo:empty{display:none}
+:where(.clinic-app) .pain{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--muted);letter-spacing:.06em}
+:where(.clinic-app) .pain i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--coral);display:inline-block}
+:where(.clinic-app) .pain i.on{background:var(--coral)}
+:where(.clinic-app) .tools{display:flex;gap:6px;pointer-events:auto}
+:where(.clinic-app) .chip{font:600 11px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer}
+:where(.clinic-app) .chip.off{opacity:.55;text-decoration:line-through}
+:where(.clinic-app) .chip.mini{font-size:10px;padding:3px 7px;border-radius:5px}
+:where(.clinic-app) .chip:focus-visible,:where(.clinic-app) .btn:focus-visible,:where(.clinic-app) .zero-btn:focus-visible,:where(.clinic-app) input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
+
+/* ---------- bottom ---------- */
+:where(.clinic-app) .bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
+:where(.clinic-app) .mode{font-size:11px;color:var(--muted);line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+:where(.clinic-app) .mode b{color:var(--ink);font-weight:600}
+/* "중앙으로" where the thumb rests: the crack is a flick / swipe / space, no button (user request, 2026-10-15) */
+:where(.clinic-app) .zero-btn{pointer-events:auto;flex:none;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--mint);background:var(--panel);color:var(--mint);font:700 13px var(--body);letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .08s}
+:where(.clinic-app) .zero-btn:active{transform:scale(.94)}
+
+/* Shared suite: quieter paper labels, mint controls and room-colour cards. */
+
+/* ---------- floating text ---------- */
+:where(.clinic-app) .toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);font-family:var(--display);font-size:24px;text-align:center;color:var(--ink);text-shadow:0 2px 12px rgba(0,0,0,.7);pointer-events:none;opacity:0;transition:opacity .25s;max-width:56%;text-wrap:balance}
+:where(.clinic-app) .toast.show{opacity:1}
+:where(.clinic-app) .float{position:absolute;font-family:var(--display);color:var(--bone);font-size:38px;pointer-events:none;text-shadow:0 3px 0 var(--coral),0 6px 18px rgba(0,0,0,.5);animation:up .95s ease-out forwards;white-space:nowrap;z-index:3}
+:where(.clinic-app) .float.big{font-size:22px;color:var(--mint);text-shadow:0 2px 10px rgba(0,0,0,.7)}
+:where(.clinic-app) .float.small{font-size:15px;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.7)}
+:where(.clinic-app) .float.breath{font-family:var(--body);font-weight:700;font-size:17px;color:var(--bone);text-shadow:0 2px 8px rgba(0,0,0,.65);animation:breathe 1.7s ease-out forwards}
+:where(.clinic-app) .float.breath.out{color:var(--mint)}
+/* a hard wrong crack: the vertebra's name on the fracture x-ray ("C5 골절!") */
+:where(.clinic-app) .float.frac{font-size:30px;color:var(--coral);text-shadow:0 3px 0 var(--room-deep),0 0 14px rgba(0,0,0,.6);animation:breathe 1.9s ease-out forwards}
+@keyframes breathe{0%{opacity:0;transform:translate(-50%,4px)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
+@keyframes up{from{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-14px) scale(1.15);opacity:1}to{transform:translate(-50%,-70px) scale(1);opacity:0}}
+:where(.clinic-app) .bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:var(--paper);color:var(--paper-ink);font-size:16px;font-weight:700;padding:9px 14px;border-radius:14px;white-space:normal;width:max-content;max-width:46vw;text-wrap:balance;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:2}
+:where(.clinic-app) .bubble::after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;border:8px solid transparent;border-bottom:0;border-top-color:var(--paper)}
+:where(.clinic-app) .bubble.show{opacity:1}
+/* a wrong-crack line (ui/hud.js say loud): bigger, a coral rim, a shake */
+:where(.clinic-app) .bubble.loud{font-size:19px;padding:10px 16px;border:2px solid var(--coral);animation:shake .35s}
+@keyframes shake{0%,100%{translate:0}25%{translate:-5px}50%{translate:5px}75%{translate:-2px}}
+/* a wrong crack (ui/hud.js stamp): a tilted stamp on the empty floor left of the patient */
+:where(.clinic-app) .stamp-card{position:absolute;left:24%;top:50%;transform:translate(-50%,-50%) rotate(-9deg);display:grid;justify-items:center;gap:4px;padding:10px 18px 9px;border:3px solid var(--coral);border-radius:14px;background:rgba(15,35,31,.8);pointer-events:none;opacity:0;transition:opacity .3s;z-index:3;max-width:40%}
+:where(.clinic-app) .stamp-card b{font-family:var(--display);font-weight:400;font-size:46px;line-height:1;color:var(--coral);text-shadow:0 3px 0 var(--room-deep);white-space:nowrap}
+:where(.clinic-app) .stamp-card small{font-size:13px;font-weight:700;color:var(--ink);text-align:center;text-wrap:balance}
+:where(.clinic-app) .stamp-card.show{opacity:1;animation:stampIn .32s cubic-bezier(.2,1.6,.4,1)}
+:where(.clinic-app) .stamp-card.over.show b{animation:wob .9s ease-out}
+:where(.clinic-app) .stamp-card.dud{border-color:var(--bone)}
+:where(.clinic-app) .stamp-card.dud b{color:var(--bone)}
+:where(.clinic-app) .stamp-card.break b{font-size:54px}
+:where(.clinic-app) .stamp-card.break.show b{animation:shake .4s 2}
+@keyframes stampIn{from{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(1.9)}to{opacity:1;transform:translate(-50%,-50%) rotate(-9deg) scale(1)}}
+@keyframes wob{0%,100%{transform:none}20%{transform:skewX(-16deg)}40%{transform:skewX(12deg)}60%{transform:skewX(-7deg)}80%{transform:skewX(3deg)}}
+:where(.clinic-app) .stamp-card.siren{border-color:#e8383d}
+:where(.clinic-app) .stamp-card.siren b{color:#e8383d}
+:where(.clinic-app) .stamp-card.siren.show b{animation:sirenWord .55s steps(1) infinite}
+@keyframes sirenWord{50%{color:#3d8bff}}
+/* therapist talk (prep "힘 빼세요", breath cue): the doctor's side, so dark panel + mint, not the patient's paper bubble */
+:where(.clinic-app) .coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:15px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
+:where(.clinic-app) .coach small{color:var(--muted);font-size:11px;font-weight:600;margin-right:6px}
+:where(.clinic-app) .coach.show{opacity:1}
+:where(.clinic-app).suite-look .bubble{font-size:14px;border-radius:12px;box-shadow:0 3px 0 rgba(23,49,44,.18),0 8px 20px rgba(23,49,44,.2)}
+:where(.clinic-app).suite-look .bubble.loud{font-size:17px}
+:where(.clinic-app).suite-look .mode{border-left:3px solid var(--mint);background:rgba(23,49,44,.92);border-radius:4px 10px 10px 4px;padding:8px 10px;max-width:252px}
+:where(.clinic-app).suite-look .zero-btn{border-width:1px;background:rgba(23,49,44,.92);box-shadow:inset 0 0 0 3px rgba(138,223,191,.08),0 4px 12px rgba(23,49,44,.25)}
+:where(.clinic-app).suite-look .float:not(.big):not(.small):not(.breath):not(.frac){font-size:30px;text-shadow:0 2px 0 var(--coral),0 5px 12px rgba(23,49,44,.5)}
+/* ---------- tuning sheet ---------- */
+:where(.clinic-app) .sheet{position:absolute;right:var(--gr);top:10px;bottom:10px;width:min(360px,calc(100% - 32px));overflow:auto;background:var(--room-deep);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;align-content:start;gap:12px;z-index:5;touch-action:pan-y}
+:where(.clinic-app) .sheethead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+:where(.clinic-app) .sheethead b{font-family:var(--display);font-weight:400;font-size:20px}
+:where(.clinic-app) .row{display:grid;gap:4px;font-size:13px}
+:where(.clinic-app) .row .lbl{display:flex;justify-content:space-between;gap:8px}
+:where(.clinic-app) .row .lbl span{color:var(--muted);font-variant-numeric:tabular-nums}
+:where(.clinic-app) .row .hint{font-size:11px;color:var(--muted);line-height:1.4}
+:where(.clinic-app) .row input[type=range]{width:100%;accent-color:var(--coral)}
+:where(.clinic-app) .chk{display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.4}
+:where(.clinic-app) .chk input{accent-color:var(--coral);width:18px;height:18px;flex:none}
+:where(.clinic-app) .live{font-size:12px;color:var(--muted);background:rgba(241,234,220,.06);border-radius:8px;padding:8px 10px;line-height:1.5;font-variant-numeric:tabular-nums}
+:where(.clinic-app) .live b{color:var(--ink)}
+
+/* ---------- overlays ---------- */
+:where(.clinic-app) .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:14px var(--gr) 14px var(--gl);background:rgba(10,24,21,.74);backdrop-filter:blur(5px);z-index:6}
+:where(.clinic-app) .card{background:var(--room-deep);border:1px solid var(--line);border-radius:16px;padding:20px 22px;max-width:680px;width:100%;display:grid;gap:14px;max-height:100%;overflow:auto}
+:where(.clinic-app) .card.wide{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:26px;align-items:center}
+:where(.clinic-app) .logo{display:flex;align-items:center;gap:12px}
+:where(.clinic-app) .stamp{flex:none;width:74px;height:74px;border-radius:50%;background:var(--coral);color:var(--room-deep);display:grid;place-items:center;font-family:var(--display);font-size:40px;transform:rotate(-10deg);box-shadow:inset 0 0 0 4px var(--room-deep),inset 0 0 0 6px var(--coral)}
+:where(.clinic-app) .logo h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1;margin:0}
+:where(.clinic-app) .logo h1 small{display:block;font-family:var(--body);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-top:6px;font-weight:600}
+:where(.clinic-app) .lead{display:grid;gap:14px;align-content:start}
+:where(.clinic-app) .lead p{margin:0;color:var(--muted);line-height:1.6;font-size:13.5px}
+:where(.clinic-app) .hours{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;font-variant-numeric:tabular-nums}
+:where(.clinic-app) .hours b{color:var(--mint);font-weight:600}
+:where(.clinic-app) .legal{margin:-6px 0 0;font-size:10px;color:var(--muted)}
+:where(.clinic-app) .linkbtn{font:inherit;color:var(--mint);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+:where(.clinic-app) .card.credits{max-width:560px;gap:10px;font-size:12px;line-height:1.5}
+:where(.clinic-app) .card.credits h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;color:var(--paper)}
+:where(.clinic-app) .card.credits p{margin:0}
+:where(.clinic-app) .card.credits ul{margin:0;padding-left:18px;color:var(--ink)}
+:where(.clinic-app) .card.credits .sub{color:var(--muted)}
+:where(.clinic-app) .how{display:grid;gap:10px;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.5}
+:where(.clinic-app) .how li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+:where(.clinic-app) .how svg{width:34px;height:34px;color:var(--coral)}
+:where(.clinic-app) .how b{color:var(--ink)}
+:where(.clinic-app) .how div{color:var(--muted)}
+:where(.clinic-app) .tip{font-size:12px;color:var(--ink);background:rgba(138,223,191,.1);border:1px solid rgba(138,223,191,.35);border-radius:8px;padding:8px 10px;line-height:1.5}
+:where(.clinic-app) .btn{font-family:var(--display);font-size:22px;border:0;border-radius:10px;padding:13px;background:var(--coral);color:var(--room-deep);cursor:pointer;box-shadow:0 4px 0 var(--coral-deep)}
+:where(.clinic-app) .btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--coral-deep)}
+:where(.clinic-app) .starts{display:grid;grid-template-columns:1.25fr 1fr;gap:8px}
+:where(.clinic-app) .btn.ghost{font-size:16px;padding:10px 6px;background:transparent;color:var(--mint);border:2px solid var(--mint);box-shadow:none}
+:where(.clinic-app) .btn.ghost:active{transform:translateY(2px);box-shadow:none}
+:where(.clinic-app) .best{font-size:11px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+
+:where(.clinic-app) .log{background:var(--paper);color:var(--paper-ink);max-width:460px;gap:12px}
+:where(.clinic-app) .log h2{font-family:var(--display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
+:where(.clinic-app) .log .sub{font-size:11px;letter-spacing:.1em;color:#6b7774}
+:where(.clinic-app) .log ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+:where(.clinic-app) .log li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;border-bottom:1px dashed #cfc7b6;padding-bottom:7px;font-size:13px}
+:where(.clinic-app) .log li .who{font-weight:700}
+:where(.clinic-app) .log li .stars{color:var(--coral-deep);letter-spacing:2px;font-size:14px}
+:where(.clinic-app) .log li .rev{grid-column:1 / -1;font-size:12.5px;color:#56635f}
+:where(.clinic-app) .log li .tags{grid-column:1 / -1;display:flex;gap:4px;flex-wrap:wrap}
+:where(.clinic-app) .log li .tags i{font-style:normal;font-size:11px;font-weight:700;color:var(--coral-deep);border:1px solid var(--coral-deep);border-radius:999px;padding:1px 7px}
+:where(.clinic-app) .log li .pts{font-variant-numeric:tabular-nums;font-weight:700}
+:where(.clinic-app) .total{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+:where(.clinic-app) .total b{font-family:var(--display);font-weight:400;font-size:30px;font-variant-numeric:tabular-nums}
+:where(.clinic-app) .total span{font-size:12px;color:#56635f}
+:where(.clinic-app) .rank{font-family:var(--display);font-size:22px;color:var(--coral-deep)}
+:where(.clinic-app) .newbest{font-size:11px;font-weight:700;color:#2c7a5e}
+
+@media (orientation:portrait){
+  :where(.clinic-app) .card.wide{grid-template-columns:1fr}
+  :where(.clinic-app) .chart{width:min(260px,62%)}
+  :where(.clinic-app) .sheet{left:var(--gl);right:var(--gr);width:auto;top:auto;max-height:72%}
+  :where(.clinic-app) .mode{max-width:58%}
+}
+@media (orientation:landscape) and (max-height:430px){
+  :where(.clinic-app) .name{font-size:17px}
+  :where(.clinic-app) .cc{font-size:10.5px}
+  :where(.clinic-app) .score{font-size:26px}
+  :where(.clinic-app) .card{padding:16px 18px}
+  :where(.clinic-app) .logo h1{font-size:28px}
+  :where(.clinic-app) .stamp{width:60px;height:60px;font-size:32px}
+  :where(.clinic-app) .how{gap:6px;font-size:12px}
+  :where(.clinic-app) .how svg{width:28px;height:28px}
+  :where(.clinic-app) .how li{grid-template-columns:28px 1fr}
+  :where(.clinic-app) .lead{gap:10px}
+}
+@media (prefers-reduced-motion:reduce){:where(.clinic-app) .float{animation-duration:.01s}:where(.clinic-app) .float.breath{animation-duration:1.7s}:where(.clinic-app) .stamp-card.siren.show b{animation-duration:1.4s}}

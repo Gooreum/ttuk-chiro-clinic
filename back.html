@@ -6,36 +6,69 @@
 <meta name="theme-color" content="#17312c">
 <title>허리 두루룩 · 뚝 카이로 클리닉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="/src/back/style.css">
 </head>
 <body>
-<main id="backApp" class="suite-look">
+<main id="backApp" class="clinic-app suite-look">
   <canvas id="backCanvas" aria-label="엎드린 환자와 허리를 누르는 치료사"></canvas>
-  <header class="back-top">
-    <div class="brand"><a href="./index.html" aria-label="클리닉으로 돌아가기">뚝</a><div><small>뚝 카이로 클리닉</small><h1>허리 두루룩</h1></div><span class="practice">연습 진료</span></div>
-    <div class="top-actions"><button id="backSound" class="quiet" aria-pressed="true">소리 켬</button><button id="backMusic" class="quiet" aria-pressed="true">음악 켬</button><button id="backPause" class="quiet" hidden>잠깐 쉬기</button></div>
-  </header>
-  <section class="patient-card" aria-label="환자 정보"><span class="eyebrow">진료 차트 <b>No.03</b></span><h2>박대리 <small>32세</small></h2><p>앉아 있었을 뿐인데<br>허리가 접이식이 됐어요.</p><div class="step-pills" aria-label="진행"><span class="active">01 등 위쪽</span><span>02 등 가운데</span><span>03 허리</span></div></section>
-  <aside class="score-card"><span class="eyebrow">오늘의 손맛</span><strong id="backScore">000</strong><div id="backMistakes" aria-label="통증 0회 / 3회"><span>통증</span><i></i><i></i><i></i></div></aside>
+  <canvas id="backHud" class="hud-canvas" aria-hidden="true"></canvas>
+  <div class="top">
+    <div class="chart compact" aria-label="환자 정보">
+      <div class="clip"><span>진료 차트 No.03</span><span id="backDots" class="dots" aria-label="진행"><i class="now"></i><i></i><i></i></span></div>
+      <div class="chartbody"><div><div class="name">박대리<small>32세</small></div><div class="chips"><span id="backZone" class="chip-seg">등 위쪽 1/3</span></div></div></div>
+    </div>
+    <div class="side">
+      <div class="stat"><div class="score"><small>점수</small><span id="backScore">0</span></div><div id="backMistakes" class="pain" aria-label="통증 0회 / 3회">통증 <i></i><i></i><i></i></div></div>
+      <div class="tools"><button id="backTune" class="chip mini" type="button">튜닝</button><button id="backMusic" class="chip mini" type="button" aria-pressed="true">음악</button></div>
+    </div>
+  </div>
+  <div class="bottom" id="backControls" hidden><div id="backMode" class="mode"></div><button id="backPress" class="zero-btn" type="button" aria-label="손 위치와 힘을 가운데로">중앙으로</button></div>
+  <div class="toast" role="status"></div><div id="backSpeech" class="bubble" role="status" aria-live="polite"></div>
+  <div class="coach"></div><div class="stamp-card"></div>
   <span id="backMissMark" class="miss-mark" hidden>×</span><span id="backAnswer" class="answer-mark" hidden>여기였어요</span>
   <output id="backDebug" class="motion-debug" hidden></output>
   <div id="backEmergency" class="emergency" hidden role="status"><span>삐용삐용!</span><strong>구급차 불러요!</strong></div>
   <div id="backHurt" class="hurt-flash" hidden></div><div id="backImpactTail" class="back-impact-echo" hidden></div>
-  <div id="backImpact" class="back-impact" hidden></div><div id="backCutLabel" class="cut-label" hidden></div><div id="backSpeech" class="patient-speech" role="status" aria-live="polite" hidden></div>
-  <div id="backCue" class="cue" role="status" aria-live="polite">손을 첫 번째 구역으로 옮겨 주세요</div>
-  <div id="backMotionNotice" class="motion-notice" hidden><span id="backMotionStatus"></span><button id="backSensorRetry" class="quiet" hidden>센서 다시 연결</button><button id="backTouchFallback" class="text-button">터치로 연습</button></div>
-  <section class="back-controls" id="backControls" hidden>
-    <div class="motion-guide"><b>허리 누르기</b><span>좌우로 기울여 위치 · 앞쪽을 낮춰 힘</span><strong>앞뒤로 툭</strong></div>
-    <div class="touch-guide"><b>허리 누르기</b><span>좌우 드래그로 손 위치 · 위아래 드래그로 힘</span><strong>민트에서 휙 튕기면 툭</strong></div>
-    <div class="position-control"><div class="control-heading"><label for="backPosition">좌우 중심</label><span id="backPositionHint">손 위치</span></div><div class="position-track"><span id="backPositionDot"></span><input id="backPosition" type="range" min="0" max="1" step="0.002" value="0.5" aria-label="등에서 허리까지 손 위치"><div class="position-target" id="positionTarget"></div></div><div class="track-labels"><span>등 위쪽</span><span>허리</span></div></div>
-    <div class="pressure-block"><div class="control-heading"><span>누르는 힘</span><b id="backPressureValue">0%</b></div><div class="pressure-body"><div class="pressure-track"><span class="sweet-zone"></span><span id="backPressureFill"></span><i id="backPressureNeedle"></i><span class="pressure-limit"></span></div><div class="pressure-ticks"><span>과해요</span><strong>민트에서 툭</strong><span>가볍게</span></div></div><b id="backPressureLabel">손을 얹어 주세요</b></div>
-    <button id="backPress" class="press-button" aria-label="손 위치와 힘을 가운데로">중앙으로</button>
-  </section>
-  <div class="veil" id="backWelcome"><section class="welcome-card"><span class="eyebrow">새로운 손맛</span><h2>이번엔,<br>허리까지 두루룩.</h2><p>가로로 쥔 폰이 환자를 누르는 두 손이에요.<br>위치를 잡고 앞뒤로 툭 밀어 우두둑 풀어 주세요.</p><ol><li><b>01</b><span>폰을 좌우로 기울여 손 위치를 맞춰요</span></li><li><b>02</b><span>폰 앞쪽을 천천히 낮춰 무게를 실어요</span></li><li><b>03</b><span>그 자리에서 폰을 <em>앞이나 뒤로 짧게 툭!</em> 밀어요</span></li></ol><button id="backStart" class="primary" disabled>진료실 준비 중…</button><button id="backTouchStart" class="touch-start" disabled>센서 없이 마우스·터치로 연습</button><div class="welcome-foot"><span>폰 모션 · 앞뒤로 툭</span><span>한 환자 / 세 번의 손맛</span></div><p class="safety-note">이건 만화예요. 실제 교정을 따라 하지 마세요.</p><p class="load-note" id="backLoadNote" role="status"></p></section></div>
-  <div class="veil" id="backResult" hidden><section class="result-card"><span class="eyebrow">오늘의 진료 일지</span><h2 id="backResultTitle">허리까지 시원하게.</h2><p id="backReview"></p><div class="result-score"><small>총점</small><strong id="backTotal">0</strong><span>점</span></div><div class="result-steps" id="backResultSteps"></div><div class="result-rank" id="backRank"></div><p id="backBest"></p><button id="backAgain" class="primary">한 번 더 두루룩</button><a class="return-link" href="./index.html">클리닉으로 돌아가기</a></section></div>
-  <div class="veil" id="backPaused" hidden><section class="pause-card"><span class="eyebrow">잠깐 쉬어가요</span><h2>손에 힘 빼고.</h2><p>돌아오면 같은 구역부터 이어가요.</p><button id="backResume" class="primary">이어서 진료하기</button><a class="return-link" href="./index.html">클리닉으로 돌아가기</a></section></div>
-  <footer class="back-footer"><span>이건 만화예요. 실제 교정을 따라 하지 마세요.</span><span id="backBreath"></span><span id="backBestSmall"></span></footer>
+  <div id="backImpact" class="back-impact" hidden></div><div id="backCutLabel" class="cut-label" hidden></div>
+  <div id="backMotionNotice" class="coach show" hidden role="status"><span id="backMotionStatus"></span> <button id="backSensorRetry" class="chip mini" type="button" hidden>센서 다시 연결</button> <button id="backTouchFallback" class="chip mini" type="button">터치로 연습</button></div>
+  <div class="overlay" id="backWelcome">
+    <section class="card wide">
+      <div class="lead">
+        <div class="logo"><div class="stamp" aria-hidden="true">뚝</div><h1>카이로 클리닉<small>허리 두루룩 · 연습 진료</small></h1></div>
+        <p>박대리, 32세. 앉아 있었을 뿐인데 허리가 접이식이 됐어요.<br>가로로 쥔 폰이 환자를 누르는 두 손이에요.</p>
+        <div class="starts"><button id="backStart" class="btn" type="button" disabled>진료실 준비 중…</button><button id="backTouchStart" class="btn ghost" type="button" disabled>마우스·터치로 연습</button></div>
+        <div class="hours"><span>한 환자 / 세 번의 손맛</span><a class="linkbtn" href="./index.html">클리닉으로</a></div>
+        <p class="legal">이건 만화예요. 실제 교정을 따라 하지 마세요.</p>
+        <p id="backLoadNote" class="legal" role="status"></p>
+      </div>
+      <ol class="how">
+        <li><b>01</b><div>폰을 <b>좌우로 기울여</b> 손 위치를 맞춰요.</div></li>
+        <li><b>02</b><div>폰 <b>앞쪽을 천천히 낮춰</b> 무게를 실어요.</div></li>
+        <li><b>03</b><div>그 자리에서 <b>앞이나 뒤로 짧게 툭!</b> 밀어요.</div></li>
+        <li><b>+15</b><div>환자가 <b>숨을 내쉴 때</b> 하면 보너스.</div></li>
+      </ol>
+    </section>
+  </div>
+  <div class="overlay" id="backResult" hidden>
+    <section class="card log">
+      <div><div class="sub">오늘의 진료 일지</div><h2 id="backResultTitle">허리까지 시원하게.</h2></div>
+      <p id="backReview"></p><div class="total"><span>합계</span><b id="backTotal">0</b></div>
+      <ul id="backResultSteps"></ul><div class="rank" id="backRank"></div><div class="newbest" id="backBest"></div>
+      <button id="backAgain" class="btn" type="button">한 번 더 두루룩</button><a class="linkbtn" href="./index.html">클리닉으로 돌아가기</a>
+    </section>
+  </div>
+  <div class="sheet" id="backPaused" hidden role="dialog" aria-label="손맛 튜닝">
+    <div class="sheethead"><b>손맛 튜닝</b><button id="backTuneClose" class="chip" type="button">닫기</button></div>
+    <div class="live">손에 힘 빼고 잠깐 쉬어요.<br>돌아오면 같은 구역부터 이어가요.</div>
+    <label class="chk"><input id="backSound" type="checkbox" checked> 진료실 소리</label>
+    <label class="chk"><input id="backTuneMusic" type="checkbox" checked> 배경음악</label>
+    <label class="chk"><input id="backTuneBreath" type="checkbox"> 날숨에 누르면 +15 보너스</label>
+    <label class="chk"><input id="backTuneTick" type="checkbox"> 목표 근처 틱 소리</label>
+    <button id="backPause" class="chip" type="button">잠깐 쉬기</button>
+    <button id="backResume" class="chip" type="button">이어서 진료하기</button>
+    <a class="linkbtn" href="./index.html">클리닉으로 돌아가기</a>
+  </div>
 </main>
 <script type="module" src="/src/back/main.js"></script>
 </body>
