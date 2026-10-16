@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile} from '../src/back/core.js';
+import {pressedSegment,pressedZone,TARGETS,judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -18,13 +18,25 @@ describe('back motion follows neck rules with a directional thrust',()=>{
   it('accepts a short downward press but ignores rotation alone and sideways shaking',()=>{
     expect(thrustSample({x:0,y:0,z:-12},0,0).force).toBeCloseTo(1.2);
     expect(thrustSample({x:0,y:0,z:0},0,900).force).toBe(0);
-    for(const p of [{side:20},{forward:-20},{down:-20},{rate:900}]){
+    for(const p of [{side:20},{rate:900}]){
       const m=new BackMotion();warm(m);expect(m.sample(packet(p),800,0).type).not.toBe('impulse');
     }
   });
-  it('does not count the positive recoil after a backwards pull',()=>{
+  // User request 2026-10-16: pushing the phone back toward you presses too.
+  it.each([0,90,180,270])('recognises backward translation at screen angle %i',degrees=>{
+    const angle=rad(degrees),m=new BackMotion();warm(m,{angle});
+    const hit=m.sample(packet({angle,forward:-12}),800,angle);
+    expect(hit.type).toBe('impulse');expect(hit.force).toBeCloseTo(1.2);
+  });
+  it('accepts a backward pull or lift as a press',()=>{
+    expect(thrustSample({x:0,y:0,z:12},0,0).force).toBeCloseTo(1.2);
+    for(const p of [{forward:-20},{down:-20}]){
+      const m=new BackMotion();warm(m);expect(m.sample(packet(p),800,0).type).toBe('impulse');
+    }
+  });
+  it('counts a backwards pull once and not the recoil after it',()=>{
     const m=new BackMotion();warm(m);
-    m.sample(packet({forward:-15}),800,0);
+    expect(m.sample(packet({forward:-15}),800,0).type).toBe('impulse');
     expect(m.sample(packet({forward:15}),850,0).type).not.toBe('impulse');
   });
   it('blocks double triggers for the same 900 ms cooldown as neck adjustment',()=>{
@@ -135,4 +147,19 @@ it('scales actual pressure movement continuously and keeps crack and break disti
   expect(impactFeel(3.8,1).gain).toBeGreaterThan(impactFeel(2.6,1).gain);
   expect(impactFeel(4.2,2).gain).toBeGreaterThan(impactFeel(3.8,1).gain);
   expect(pressProfile(.15,'weak',0,'dud',.75)).toBeLessThan(pressProfile(.15,'ok',0,'dud',1.2));
+});
+describe('the injured bone is the one under the hands',()=>{
+  it('keeps the old segments on the three targets',()=>{
+    expect(TARGETS.map(pressedSegment)).toEqual([3,4,5]);
+    expect(makeBackTargets(()=>0).map(pressedSegment)).toEqual([3,4,5]);
+    expect(makeBackTargets(()=>.999).map(pressedSegment)).toEqual([3,4,5]);
+  });
+  it('maps the ends of the back to the neck base and the pelvis',()=>{
+    expect(pressedSegment(0)).toBe(2);expect(pressedSegment(1)).toBe(6);
+    expect(pressedSegment(NaN)).toBe(3);expect(pressedZone(1)).toBe('골반 쪽');
+  });
+  it('breaks the pelvis-side bone when the upper back was the target',()=>{
+    const hit=judgePress(.95,0,1.25,1);
+    expect(hit.tier).toBe(2);expect(pressedSegment(.95)).not.toBe(pressedSegment(TARGETS[0]));
+  });
 });

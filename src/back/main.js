@@ -4,7 +4,7 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {TARGETS,SWEET,pressureAt,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,clinicFilm} from './core.js';
+import {pressedSegment,pressedZone,TARGETS,SWEET,pressureAt,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,clinicFilm} from './core.js';
 import {BackMotion} from './motion.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
@@ -26,6 +26,8 @@ let scene,width=innerWidth,height=innerHeight,rotated=false,raf=0,wasNear=false,
 const names=['등 위쪽','등 가운데','허리'];
 const patient=ROSTER.find(p=>p.name==='박대리');
 const clinicAudio=createClinicAudio({S,T:new Proxy(T,{get:(t,k)=>k==='music'?false:k==='sound'?S.sound:t[k]})});
+// The injured bone is the one under the hands; a wrong-zone shove names where it actually landed.
+function injuryLabel(tier,position,step){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';return seg===[3,4,5][step]?`T${seg} ${hurt}`:`${pressedZone(position)} ${hurt} 엉뚱한 데를 눌렀어요`;}
 function ensureSound(){if(S.sound)clinicAudio.ensureAudio();}
 function stopSound(){clinicAudio.stopSiren();}
 function tone(from,to,length,volume,delay=0){if(S.sound)clinicAudio.tone(from,to,length,'sine',volume,delay);}
@@ -211,7 +213,7 @@ function frame(now){
     pressure=S.peakPressure*Math.max(0,1-shotTime/.35);
     face=shotTime>=timing.faceAt&&shotTime<timing.faceEnd;
     if(face){const faceTime=shotTime-timing.faceAt;$('backSpeech').textContent=speechFor(S.kind,S.tier,faceTime);}
-    $('backCutLabel').textContent=face?'':S.tier===2?`T${[3,4,5][S.step]} 골절!`:S.tier===1?`T${[3,4,5][S.step]} 금 감`:S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
@@ -243,7 +245,7 @@ function frame(now){
     if(now<S.prepUntil)label='힘 빼세요. 손을 얹고 있어요…';
     else if(S.control==='motion'&&!S.motionReady)label='폰을 편하게 들고 잠깐 멈춰 주세요';
     else if(pressure>SWEET.max)label='너무 깊어요. 폰 앞쪽을 조금 들어 주세요';
-    else if(near)label=S.control==='motion'?'그 자리! 폰을 앞으로 짧게 툭 밀어요':'그 자리! 민트에서 손을 떼요';
+    else if(near)label=S.control==='motion'?'그 자리! 폰을 앞이나 뒤로 짧게 툭 밀어요':'그 자리! 민트에서 손을 떼요';
     else if(pressureHint(S.position,S.step,pressure,S.targets)==='position')label=S.control==='motion'?(S.step===2&&S.painHere===0?'천천히 훑어요. 틱 소리가 빨라지는 자리를 찾아요':'좌우로 기울여 민트 링에 손을 맞춰요'):`${names[S.step]} 민트 링에 손을 맞춰 주세요`;
     else if(pressureHint(S.position,S.step,pressure,S.targets)==='release')label=S.control==='motion'?'조금 깊어요. 폰 앞쪽을 살짝 들어요':'압박을 조금 빼 주세요';
     else label=S.control==='motion'?'폰 앞쪽을 천천히 낮춰 압박을 실어요':'조금만 더 꾹 눌러요';

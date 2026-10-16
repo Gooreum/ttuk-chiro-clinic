@@ -13,10 +13,11 @@ export function screenVector(a, angle){
 }
 export function thrustSample(linear, angle, rate, jerk=10, flick=200){
   const v=screenVector(linear,angle);
-  const forward=Math.max(v.y,-v.z), reverse=Math.max(-v.y,v.z);
-  const directional=forward>0 && forward>=Math.abs(v.x)*1.15 && forward>=reverse*.8;
-  return {forward,reverse,side:Math.abs(v.x),directional,
-    force: directional ? Math.max(forward/jerk, forward>=jerk*.4 ? rate/flick : 0) : 0};
+  // A shove away from or back toward the player both press (user request 2026-10-16); sideways shaking does not.
+  const forward=Math.max(v.y,-v.z), reverse=Math.max(-v.y,v.z), thrust=Math.max(forward,reverse);
+  const directional=thrust>0 && thrust>=Math.abs(v.x)*1.15;
+  return {forward,reverse,thrust,side:Math.abs(v.x),directional,
+    force: directional ? Math.max(thrust/jerk, thrust>=jerk*.4 ? rate/flick : 0) : 0};
 }
 export class BackMotion {
   constructor(){ this.reset(); }
@@ -28,7 +29,7 @@ export class BackMotion {
   recenter(){this.position=.5;this.pressure=.12;this.prev=null;this.hist=[];this.ready=false;this.stableAt=null;this.quietAt=null;}
   orientation(e,now){ if(Number.isFinite(e.beta)&&Number.isFinite(e.gamma))this.pose={beta:e.beta,gamma:e.gamma,t:now}; }
   cooldown(now){this.coolUntil=now+900;this.quietAt=null;}
-  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS}={}){
+  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS,axis=-1}={}){
     const a=e.accelerationIncludingGravity;if(!vector(a))return null;
     const rate=Math.hypot(e.rotationRate?.alpha||0,e.rotationRate?.beta||0,e.rotationRate?.gamma||0);
     if(this.lastAt!==null&&now-this.lastAt>1800)this.recenter();
@@ -49,7 +50,7 @@ export class BackMotion {
     const lin=Math.hypot(linear.x,linear.y,linear.z), impact=thrustSample(linear,angle,rate,jerk,flick);
     const quiet=lin<1.6&&rate<flick*.65;
     const out={ready:this.ready,position:this.position,pressure:this.pressure,force:impact.force,forward:impact.forward,reverse:impact.reverse,sign:sg,linearSign,rate,linear:lin,type:'measure'};
-    // Reversing the phone or shaking sideways cannot turn the returning recoil into another press.
+    // Shaking sideways cannot press; the recoil of a shove is held off by the 900 ms cooldown.
     if(!impact.directional&&lin>jerk*.6)this.blockUntil=now+250;
     if(!active){if(quiet){const k=1-Math.exp(-dt/45);for(const axis of ['x','y','z'])this.gravity[axis]+=(raw[axis]-this.gravity[axis])*k;}this.prev=null;this.hist=[];this.quietAt=null;return out;}
     if(quiet){
@@ -64,7 +65,7 @@ export class BackMotion {
         const dlr=tilt.lr-prev.lr,dpt=tilt.pt-prev.pt;
         if(Math.abs(dlr)<25&&Math.abs(dpt)<25){
           const d=aimDelta(dlr,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure,targets)));
-          this.position=clamp(this.position-d.dr*.022*gain,0,1);
+          this.position=clamp(this.position+axis*d.dr*.022*gain,0,1);
           this.pressure=clamp(this.pressure+d.db*.04*gain,0,1.35);
         }
       }
