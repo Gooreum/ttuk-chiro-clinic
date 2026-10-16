@@ -133,3 +133,77 @@ npx --yes @gltf-transform/cli@4.5.1 meshopt $S/build/raw.glb ../../public/models
 $B -b $S/build/baked.blend --python spine_preview.py -- $S spine   # 미리보기
 ```
 `src_obj`는 4.0 FJ 파일, `bp3d30_obj`는 3.0 FMA 파일(필요한 28개만 HTTP range로 받음). 번호는 `spine_build.py` 머리말과 `CREDITS.md`.
+
+
+## 수건 모드 전용 아트 세트 (`public/models/towel-stage/`)
+
+2026-10-16: 사용자 "환자, 치료자, 침대, 수건, 공간 디자인 다 갈아 엎어" / "수건 모드만". 기존 MPFB CC0 사람 메시를 파생해 실사 피부와 의상을 새로 제작했다. 새 사람을 통째로 재생성하지 않아 목 절단선·뼈·표정·호흡·그립 호환성을 보존한다. 원본 `public/models/patient*`, `hands`, `therapist`, `towel`, `spine` 파일은 덮어쓰지 않는다.
+
+- 박대리: 종이색 세로 조직 셔츠, 단추 앞단, 피곤한 눈 밑, 부드러운 옆가르마.
+- 최교수: 회색 머리와 실물 테 안경, 낮은 대비 체크 직물/아이보리 앞판.
+- 이라이더: 산호색 스포츠 패널, 진한 청록 어깨·소매, 흐트러진 머리.
+- 정작가: 민트 저지, 짙은 목 바인딩, 산호색 머리핀, 기존 보브 헤어.
+- 김사장: 흰 골프 폴로의 청록 가슴 띠·민트 가장자리, 기존 대머리·노년 체형.
+- 치료사: 새 얼굴·윗머리 조형, 안경, 청록 스크럽의 실제 V넥/포켓/명찰/봉제, 일치하는 팔 소매·손 피부; 산호색 스툴·발걸이.
+- 수건: 원래 사진 테리·천 시뮬레이션의 X자 감김과 `taut` 모프에 실제 봉제 가장자리를 더했다. 봉제도 같은 모프를 따른다.
+- 공간/테이블: 테라조 타일·플루트 벽·리브 문·린넨장·트레이·펌프 병·라디에이터, 분할 가죽 쿠션·파이핑·레일·볼트·조절 레버. 벽과 부착 가구는 원래 넘어짐 궤적 밖으로 물렸다. 원래 테이블 지지면 y=.842m 유지.
+- 척추: BodyParts3D GLB의 102,347 triangles는 그대로다. `xray.js`의 수건 전용 복제 재질에 피질골 미세 음영·섬유륜·관절면 가장자리만 더한다. 모드가 끝나면 원본 재질 객체를 복원한다.
+
+### 재생성
+
+기존 빌드 도구 glTF-Transform 4.5.1과 system `python3`의 numpy/Pillow가 필요하다. 런타임 npm 의존성은 추가하지 않는다. 이 실행 환경에서는 Blender 5.2.2가 Python 실행 전 Metal 장치 초기화에서 종료되므로, 압축 해제한 glTF 버퍼를 직접 가공했다. 아래 스크립트가 실제 사용한 재현 가능한 파이프라인이다.
+
+`GLTF_MODULES`는 기존 glTF-Transform 도구의 `node_modules` 폴더, `G`는 같은 도구의 CLI 실행 파일 경로로 지정한다. 저장소 루트에서:
+
+```bash
+export GLTF_MODULES=/path/to/existing/gltf-toolchain/node_modules
+G="$GLTF_MODULES/.bin/gltf-transform"
+W=/private/tmp/ttuk-towel-stage
+mkdir -p "$W" public/models/towel-stage/therapist public/models/towel-stage/towel
+node scripts/assets/towel_stage_characters.mjs "$W/characters"
+
+"$G" copy public/models/therapist/therapist.glb "$W/therapist-dec.glb"
+"$G" copy public/models/towel/towel_sim.glb "$W/towel-dec.glb"
+python3 scripts/assets/towel_stage_props.py therapist "$W/therapist-dec.glb" "$W/therapist-raw.glb"
+python3 scripts/assets/towel_stage_props.py towel "$W/towel-dec.glb" "$W/towel-raw.glb"
+"$G" weld "$W/therapist-raw.glb" "$W/therapist-weld.glb"
+"$G" meshopt "$W/therapist-weld.glb" public/models/towel-stage/therapist/therapist.glb
+"$G" weld "$W/towel-raw.glb" "$W/towel-weld.glb"
+"$G" meshopt "$W/towel-weld.glb" public/models/towel-stage/towel/towel_sim.glb
+
+node scripts/assets/towel_stage_room.mjs "$W/room-raw.glb"
+"$G" weld "$W/room-raw.glb" "$W/room-weld.glb"
+"$G" meshopt "$W/room-weld.glb" public/models/towel-stage/room.glb
+python3 scripts/assets/towel_stage_metrics.py
+```
+
+`copy`는 meshopt를 해제한다. Python 판독기는 남아 있는 Int16 normalized 위치·인덱스와 노드 변환을 처리한다. 재압축 시 불필요한 버퍼를 제거한다. `towel_stage_characters.mjs`는 피부·직물을 `towel_stage_textures.py`로 만들고 직접 헤어/얼굴/안경/봉제 형상을 작성한 뒤 압축한다. 도구 경로를 가져오는 과정에서 새 npm 패키지를 프로젝트에 설치하지 않는다.
+
+### 런타임 격리와 고정점
+
+`realAssets.js`는 원본과 수건 전용 환자/팔 캐시를 분리한다. 수건 모드 진입 후에만 전용 모델을 로드하며, 실패하거나 늦게 들어오면 기존 에셋이 폴백한다. 환자 배치는 저장된 정지 자세 안에서 동기적으로 수행하고 현재 머리/피벗 자세를 복원하므로, 당기는 중 로드되어도 이음매 기준이 변하지 않는다. 새 팔은 준비될 때까지 숨겨 두어 모드를 떠난 뒤 늦게 로드돼도 T자 포즈가 나오지 않는다.
+
+`room.js`는 원본 생성 순서를 바꾸지 않고 메시 참조만 내보낸다. `towelStage.js`는 전용 공간이 준비되면 원본 공간을 숨기고 조명/배경/안개를 저장·복원한다. geometry/material 생성은 동기 `withVisualIds` 범위로 격리한다. `src/game/loop.js`, 카메라, `drawTowel`, core/input/flow/state/roster/back 코드는 변경하지 않는다.
+
+### 파일 크기·삼각형 수 (전 → 후)
+
+파일 크기는 decimal KB, 삼각형 수는 GLB accessor 기준(수건은 환자 5개 메시 합계)이다. `towel_stage_metrics.py`로 다시 확인할 수 있다.
+
+| 모델 | KB 전 → 후 | triangles 전 → 후 |
+|---|---:|---:|
+| `hands/arms.glb` | 495.4 → 527.8 | 9,130 → 9,130 |
+| `patient01/body.glb` | 280.9 → 336.8 | 20,248 → 21,784 |
+| `patient01/patient01.glb` | 630.3 → 641.6 | 22,216 → 22,216 |
+| `patient02/body.glb` | 283.0 → 335.3 | 20,256 → 21,792 |
+| `patient02/patient02.glb` | 624.0 → 630.8 | 20,798 → 23,048 |
+| `patient03/body.glb` | 280.9 → 334.7 | 20,248 → 21,784 |
+| `patient03/patient03.glb` | 585.5 → 590.5 | 19,922 → 19,922 |
+| `patient04/body.glb` | 238.1 → 292.1 | 16,832 → 17,648 |
+| `patient04/patient04.glb` | 659.4 → 676.8 | 27,510 → 27,600 |
+| `patient05/body.glb` | 283.2 → 336.5 | 20,248 → 21,784 |
+| `patient05/patient05.glb` | 567.2 → 561.6 | 18,896 → 18,896 |
+| `room.glb` | GLB 없음 → 122.7 | 1,944 → 11,954 |
+| `therapist/therapist.glb` | 393.1 → 433.9 | 21,847 → 24,343 |
+| `towel/towel_sim.glb` | 893.4 → 972.2 | 34,860 → 43,500 |
+
+환자·팔·치료사·수건 각 모델의 파일/삼각형 증가는 모두 30% 이하다. 공간/침대는 예외: 원래 49개 런타임 도형 1,944 triangles에서 11,954 triangles(+515%)로 늘었고, 새 파일 122.7KB다. 첫 제작본 44,514 triangles에서 줄였으며 7개 재질 메시(+표지판 1개)로 합쳐 드로콜은 기존 49개보다 줄었다. 실물 형태의 가구·문·하드웨어를 추가한 비용으로 보고한다. 박대리 한 명의 머리/몸·팔·치료사·해당 수건·공간을 합친 에셋 예산은 약 82,357 → 98,129 triangles(+19.2%)이며, 기존 공통 효과와 X-ray는 이 합계에서 제외했다. 실기기 iPhone의 최종 GPU/메모리 성능은 별도 확인 대상이다.

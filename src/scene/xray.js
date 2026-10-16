@@ -76,6 +76,57 @@ function boneMat(){
   return m;
 }
 
+/* Towel suite: retain every BodyParts3D triangle and animation. Detail is a lazy
+   material variant; the exact original material objects return in other modes. */
+const anatomyVariants = new WeakMap();
+let anatomyTowel = false;
+function detailedAnatomy(original, disc, origin){
+  let m = anatomyVariants.get(original);
+  if(m) return m;
+  m = withVisualIds(() => original.clone());
+  const previous = original.onBeforeCompile;
+  m.onBeforeCompile = sh => {
+    previous.call(original, sh);
+    sh.uniforms.uAnatomyOrigin = {value: origin};
+    sh.vertexShader = "varying vec3 vAnatomyPosition;\n" + sh.vertexShader.replace("#include <begin_vertex>",
+      "#include <begin_vertex>\n vAnatomyPosition = position;");
+    sh.fragmentShader = "varying vec3 vAnatomyPosition;\nuniform vec3 uAnatomyOrigin;\n" + sh.fragmentShader.replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
+      vec3 ap = vAnatomyPosition + uAnatomyOrigin;
+      ${disc ? `// Fine annulus lamellae and a softer central nucleus, all on the existing disc.
+      float radial = length(vAnatomyPosition.xz*vec2(1.0, 1.25));
+      float lamella = .5 + .5*sin(radial*4200.0 + sin(ap.y*900.0)*.35);
+      float nucleus = 1.0 - smoothstep(.003, .010, radial);
+      diffuseColor.rgb *= .88 + .10*lamella + .07*nucleus;
+      roughnessFactor = mix(.66, .42, nucleus);
+      totalEmissiveRadiance *= .92 + .08*lamella;` : `// Trabecular microdensity, preserving the baked AO and cortical silhouette.
+      float pore = fract(sin(dot(floor(ap*1600.0), vec3(12.9898, 78.233, 31.13)))*43758.5453);
+      diffuseColor.rgb *= .94 + .075*pore;
+      // Posterior paired articular facets: denser smooth cartilage-facing margins.
+      float paired = smoothstep(.005, .009, abs(ap.x))*(1.0 - smoothstep(.024, .030, abs(ap.x)));
+      float posterior = 1.0 - smoothstep(-.012, .008, ap.z);
+      float articular = pow(abs(normal.y), 6.0)*paired*posterior;
+      totalEmissiveRadiance += vec3(.075, .084, .071)*articular;
+      roughnessFactor = mix(.96, .78, articular);`}
+    `);
+  };
+  m.customProgramCacheKey = () => disc ? "towel-annulus-v1" : "towel-cortical-facet-v1";
+  anatomyVariants.set(original, m); anatomyVariants.set(m, original);
+  return m;
+}
+function selectAnatomy(towel){
+  if(towel === anatomyTowel || !ready) return;
+  const swap = (p, disc) => {
+    if(!p) return;
+    const original = p.mat;
+    p.mat = towel ? detailedAnatomy(original, disc, p.home) : anatomyVariants.get(original) || original;
+    p.m.material = p.mat;
+  };
+  V.forEach(p => swap(p, false)); TV.forEach(p => swap(p, false));
+  D.forEach(p => swap(p, true)); TD.forEach(p => swap(p, true)); swap(torn, true);
+  SPURS.forEach(mesh => { const v = V.find(p => p.g === mesh.parent); if(v) mesh.material = v.mat; });
+  anatomyTowel = towel;
+}
+
 /* Cord: two passes sharing one set of uniforms. The main pass is depth-tested, so it shows bright in the canal
    between the bones; the ghost pass ignores depth at low gain, so the cord still reads faintly through the bodies. */
 const CORD_R = 0.0042;
@@ -383,6 +434,7 @@ function bendSpine(target, parts){
    null. traction: towel mode {s: neck stretch (m), slide: how far the body slid (m, core/towel.js BODY_SHARE), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
    stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
+  selectAnatomy(!!traction);
   film.material = traction ? tractionFilm() : clinicFilmMaterial;
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
   film.visible = amount >= 0.002;

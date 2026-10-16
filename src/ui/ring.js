@@ -158,71 +158,44 @@ function breathLabel(ctx, br, cx, cy, R, verb){
    the towel's tension (mint -> coral), the band to hit in mint, the limit as a coral line; the breath arc as usual. */
 function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const tg = S.towel, t = towelTension(S.cur.bend), H = hud.height/hudDpr, Wd = hud.width/hudDpr;
-  const h = clamp(R*1.5, 104, H*0.42), w = 12;
-  const x = Math.min(cx + R*1.65, Wd - 96), top = clamp(cy - h*0.62, 102, H - h - 58), bot = top + h;
-  const yAt = v => bot - v*h, over = t > tg.limit;
-  const color = over ? C_CORAL : zone ? C_MINT : C_BONE;
-  const tugAge = S.stretchAt ? (now - S.stretchAt)/1000 : -1;
-  if(tugAge >= 0 && tugAge < 0.42){
-    // Short ink strokes catch the yank without obscuring the neck or moving the camera.
-    const u = tugAge/0.42;
-    ctx.globalAlpha = fade*(1 - u)*0.7; ctx.strokeStyle = S.overAt ? C_CORAL : C_MINT; ctx.lineWidth = 2;
-    for(let i = 0; i < 6; i++){
-      const a = Math.PI*(0.2 + i*0.32), d = R*(1.05 + 0.45*u);
-      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a)*d, cy + Math.sin(a)*d*0.65);
-      ctx.lineTo(cx + Math.cos(a)*(d + 8 + 11*u), cy + Math.sin(a)*(d + 8 + 11*u)*0.65); ctx.stroke();
-    }
-    ctx.globalAlpha = fade;
-  }
-  ctx.lineJoin = "round"; ctx.lineCap = "round";
-  // A compact instrument card keeps the anatomy free of floating labels.
-  ctx.fillStyle = "rgba(23,49,44,.92)"; ctx.strokeStyle = "rgba(244,239,228,.22)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect(x - 24, top - 37, 104, h + 83, 12); ctx.fill(); ctx.stroke();
-  ctx.font = "700 11px 'IBM Plex Sans KR', sans-serif"; ctx.textAlign = "left";
-  ctx.fillStyle = C_BONE; ctx.fillText("수건 장력", x - 12, top - 18);
-  ctx.textAlign = "right"; ctx.font = "700 11px 'IBM Plex Sans KR', sans-serif";
-  ctx.fillStyle = color; ctx.fillText(Math.round(t*100) + "%", x + 65, top - 18);
-  // Fixed scale, mint target bracket and a crisp coral maximum.
-  ctx.fillStyle = "rgba(244,239,228,.08)";
-  ctx.beginPath(); ctx.roundRect(x - w/2, top, w, h, 6); ctx.fill();
-  for(let i = 0; i <= 10; i++){
-    ctx.strokeStyle = "rgba(244,239,228,.22)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x + 12, yAt(i/10)); ctx.lineTo(x + (i%5 ? 16 : 20), yAt(i/10)); ctx.stroke();
-  }
-  ctx.fillStyle = "rgba(138,223,191,.14)";
-  ctx.fillRect(x - 12, yAt(tg.mid + tg.half), 39, tg.half*2*h);
-  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(x + 20, yAt(tg.mid + tg.half)); ctx.lineTo(x + 26, yAt(tg.mid + tg.half));
-  ctx.lineTo(x + 26, yAt(tg.mid - tg.half)); ctx.lineTo(x + 20, yAt(tg.mid - tg.half)); ctx.stroke();
-  ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif"; ctx.textAlign = "left"; ctx.fillStyle = C_MINT;
-  ctx.fillText("목표", x + 32, yAt(tg.mid) + 3);
-  if(t > 0.005){
-    const grd = ctx.createLinearGradient(x, bot, x + 8, top);
-    grd.addColorStop(0, "#17312c"); grd.addColorStop(0.2, color); grd.addColorStop(1, color);
-    ctx.fillStyle = grd; ctx.beginPath(); ctx.roundRect(x - w/2, yAt(t), w, t*h, 5); ctx.fill();
-  }
-  ctx.strokeStyle = C_CORAL; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(x - 12, yAt(tg.limit)); ctx.lineTo(x + 26, yAt(tg.limit)); ctx.stroke();
-  ctx.fillStyle = C_CORAL; ctx.fillText("한계", x + 32, yAt(tg.limit) + 3);
-  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(x - 13, yAt(t)); ctx.lineTo(x + 10, yAt(t)); ctx.stroke();
-  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x - 15, yAt(t)); ctx.lineTo(x - 20, yAt(t) - 4); ctx.lineTo(x - 20, yAt(t) + 4); ctx.closePath(); ctx.fill();
-  // The breath bonus still shows phase and lung fill, now below the scale.
-  {
-    ctx.strokeStyle = "rgba(244,239,228,.16)"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x - 10, bot + 16); ctx.lineTo(x + 62, bot + 16); ctx.stroke();
-    ctx.strokeStyle = br.exhale ? C_MINT : C_BONE;
-    ctx.beginPath(); ctx.moveTo(x - 10, bot + 16); ctx.lineTo(x - 10 + 72*br.fill, bot + 16); ctx.stroke();
-    ctx.fillStyle = br.exhale ? C_MINT : C_BONE; ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif";
-    ctx.fillText(br.exhale ? `내쉬는 중${T.breath ? " · +15" : ""}` : "숨 들이쉬는 중…", x - 10, bot + 34);
-  }
+  const h = clamp(R*1.7, 110, H*0.62), w = 16;
+  const x = Math.min(cx + R*1.4, Wd - 70), top = clamp(cy - h*0.55, 70, H - h - 20), bot = top + h;
+  const yAt = v => bot - v*h;
+  ctx.lineJoin = "round";
+  // the tube
+  ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x - w/2 - 3, top - 3, w + 6, h + 6, 10); ctx.fill(); ctx.stroke();
+  // the band to hit
+  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h);
+  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+  ctx.strokeRect(x - w/2 - 3, yAt(tg.mid + tg.half), w + 6, tg.half*2*h); ctx.setLineDash([]);
+  // the fill
+  const grd = ctx.createLinearGradient(0, bot, 0, top);
+  grd.addColorStop(0, C_MINT); grd.addColorStop(1, C_CORAL);
+  ctx.fillStyle = grd;
+  if(t > 0.005){ ctx.beginPath(); ctx.roundRect(x - w/2, yAt(t), w, t*h, 6); ctx.fill(); }
+  // the limit
+  const over = t > tg.limit;
+  ctx.strokeStyle = C_CORAL; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x - w/2 - 8, yAt(tg.limit)); ctx.lineTo(x + w/2 + 8, yAt(tg.limit)); ctx.stroke();
+  // the level knob
+  ctx.beginPath(); ctx.arc(x, yAt(t), 8, 0, Math.PI*2);
+  ctx.fillStyle = zone ? C_CORAL : over ? C_CORAL : C_BONE; ctx.fill();
+  ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
+  // labels
+  ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("수건 장력", x, top - 10);
+  ctx.fillStyle = C_BONE; ctx.fillText("수건 장력", x, top - 10);
+  ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
+  ctx.strokeText("과해요", x + w/2 + 10, yAt(tg.limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(tg.limit) + 4);
+  breathArc(ctx, now, br, fade, cx, cy, R);
+  breathLabel(ctx, br, cx, cy, R, "당기면");
+  // under the head: what to do
   const msg = zone ? "지금! 툭 당겨요" : over ? "너무 팽팽해요!" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
   if(msg){
-    const y = Math.min(cy + R + 44, H - 52);
-    ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
-    const mw = ctx.measureText(msg).width + 26;
-    ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.beginPath(); ctx.roundRect(cx - mw/2, y - 19, mw, 29, 14); ctx.fill();
-    ctx.fillStyle = over ? C_CORAL : zone ? C_MINT : C_BONE; ctx.fillText(msg, cx, y);
+    ctx.textAlign = "center"; ctx.font = "15px 'Black Han Sans', sans-serif";
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(msg, cx, Math.min(cy + R + 44, H - 52));
+    ctx.fillStyle = zone || over ? C_CORAL : C_BONE; ctx.fillText(msg, cx, Math.min(cy + R + 44, H - 52));
   }
   ctx.globalAlpha = 1;
 }

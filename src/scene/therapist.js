@@ -1,9 +1,11 @@
 import * as THREE from "three";
 import { scene, camBase } from "./renderer.js";
-import { mats } from "./materials.js";
 import { crackFadeMats } from "./patientModel.js";
 import { loadModel, getEnv } from "./realAssets.js";
 import { headRest } from "./room.js";
+import { S } from "../game/state.js";
+import { updateTowelStage } from "./towelStage.js";
+import { withVisualIds } from "./visualBuild.js";
 
 /* The therapist's body (public/models/therapist/therapist.glb, scripts/assets/therapist_build.py): sitting upright
    on a clinic stool at the head end of the table (the head extension is folded away for him, room.js headRest),
@@ -24,7 +26,7 @@ function prepare(g, env){
     const m = o.material, name = (m && m.name) || "";
     if(m){
       m.envMap = env; m.envMapIntensity = 0.15;
-      if(name.endsWith(".shirt")) m.color = mats.coat.color;          // the same white as the arms' sleeves
+      // The towel-stage scrub and sleeve assets share a dark green palette.
       // the opaque ones fade under the x-ray with the hands; the alpha hair / brows / lashes keep their own blending
       if(!m.transparent && m.alphaTest === 0 && !crackFadeMats.includes(m)) crackFadeMats.push(m);
     }
@@ -62,11 +64,12 @@ export function therapistShoulder(s, out){
   return m && root && root.visible ? m.getWorldPosition(out) : null;
 }
 export function updateTherapist(on, lean = 0, fall = 0){
+  updateTowelStage(S.game === "towel");
   if(on && !root && !loading){
     loading = true;
-    Promise.all([loadModel("therapist/therapist.glb"), getEnv()]).then(([g, env]) => prepare(g, env))
+    Promise.all([loadModel("towel-stage/therapist/therapist.glb"), getEnv()]).then(([g, env]) => withVisualIds(() => prepare(g, env)))
       .catch(err => console.warn("therapist body not loaded", err));
   }
   if(root){ root.visible = on; if(on) place(lean, fall); }
-  headRest.forEach(m => { m.visible = !(on && root); });
+  headRest.forEach(m => { m.visible = !(on && root) && !(S.game === "towel" && document.documentElement.dataset.towelStage === "ready"); });
 }

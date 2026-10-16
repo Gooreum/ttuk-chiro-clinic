@@ -1,5 +1,10 @@
 import * as THREE from "three";
 import { mats, mesh, box, cyl, sph } from "./materials.js";
+import { scene } from "./renderer.js";
+
+// Capture references without adding or reordering anything in the original scene.
+// The towel suite swaps only this range; clinic/back retain these exact objects.
+const roomStart = scene.children.length;
 
 /* Treatment room and table. Static meshes; added to the scene in the same order as the prototype. */
 /* ---- room ---- */
@@ -48,3 +53,4 @@ mesh(cyl(0.05,0.05,0.56,16), mats.paper, null, [0,0.85,2.26], [0,0,Math.PI/2]);
 // folded away there (headRest)
 export const headRest = [mesh(box(0.48,0.1,0.44), mats.vinyl, null, [0,0.83,-0.27]),
   mesh(box(0.36,0.002,0.36), mats.paper, null, [0,0.881,-0.27], null, null, true)];
+export const roomMeshes = scene.children.slice(roomStart);

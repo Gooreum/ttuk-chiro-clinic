@@ -8,6 +8,7 @@ import { neckWeight, neckPinch, NECK_LEN, HEAD_NECK_LEN, UPPER_SHARE } from "../
 import { clamp } from "../lib/math.js";
 import { S } from "../game/state.js";
 import { prepareTowelNeck, showTowelNeck } from "./towelNeck.js";
+import { withVisualIds } from "./visualBuild.js";
 
 /* Realistic glTF models for every patient (AGENTS.md 2, "realistic assets"), one MakeHuman/MPFB2 character (CC0) each,
    built by scripts/assets/*.py from the presets in scripts/assets/patients.py, optimized copies in public/models/<id>.
@@ -52,7 +53,7 @@ const SPREAD = [-0.08, -0.02, 0.04, 0.11];
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 function turn(bone, axis, angle){ bone.quaternion.multiply(_q.setFromAxisAngle(axis, angle)); }
 
-const real = {arms: null, models: {}};      // models[id] = {head, body, morphs, skin, hair, skinMesh, bodyMeshes}
+const real = {arms: null, models: {}, towelModels: {}, clinicArms: null, towelArms: null};      // models[id] = {head, body, morphs, skin, hair, skinMesh, bodyMeshes}
 let wantHands = false, wantModel = null, lastLook = null;
 
 /* ---- patient head ----
@@ -68,6 +69,7 @@ const MODELS = {
   patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749}
 };
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
+const TOWEL_REST_HEAD = head.position.clone();
 function glbRoot(g){
   const scale = (PRIM.chin - PRIM.crown) / (g.crown - g.chin);
   const root = new THREE.Group();
@@ -84,11 +86,15 @@ function placeHead(gltf, env, g, model){
     if(!o.isMesh) return;
     const src = o.material, name = src.name || "";
     let m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.6, metalness: 0, envMap: env, envMapIntensity: 0.35});
-    if(name.endsWith(".body")){
+    if(model.towelStage && name.endsWith(".accessory")){
+      m.color.copy(src.color); m.roughness = 0.62; m.metalness = 0.08;
+    }
+    else if(name.endsWith(".body")){
       // skin: a reddish sheen on grazing angles stands in for light scattering under the skin
       m = new THREE.MeshPhysicalMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.52, metalness: 0,
         sheen: 0.45, sheenColor: new THREE.Color(0xb04030), sheenRoughness: 0.6, specularIntensity: 0.5,
         envMap: env, envMapIntensity: 0.22});
+      if(model.towelStage){ m.normalScale.copy(src.normalScale); m.roughness = 0.6; m.sheen = 0.24; }
       m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; model.skin = m; model.skinMesh = o;
     }
     else if(name.endsWith(".cornea")){
@@ -144,11 +150,13 @@ function placeBody(gltf, env, g, model){
     if(name.endsWith(".skin")){
       // plain standard skin: the body covers a lot of screen, the sheen of the face and hands would cost fill rate
       m = new THREE.MeshStandardMaterial({map: src.map, roughness: 0.58, metalness: 0, envMap: env, envMapIntensity: 0.22});
+      if(model.towelStage){ m.normalMap = src.normalMap; m.normalScale.copy(src.normalScale); m.roughness = 0.65; }
       xrayMats.push(m);                 // the neck fades under the x-ray like the head
     }else{
       // ambient-occlusion map as the base colour, multiplied by the palette colour: folds without the original print
       m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap, roughness: 0.9, metalness: 0, envMap: env, envMapIntensity: 0.15});
-      m.color = (name.endsWith(".pants") ? mats.pants : mats.gown).color;     // shared: follows the patient's gown colour
+      m.color = model.towelStage ? src.color.clone() : (name.endsWith(".pants") ? mats.pants : mats.gown).color;
+      if(model.towelStage) m.normalScale.copy(src.normalScale);     // shared: follows the patient's gown colour
       if(name.endsWith(".shirt")) crackFadeMats.push(m);
     }
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -302,7 +310,8 @@ function neckHead(model){
   // Separate geometry/materials: clinic keeps its original skinning and shader byte for byte.
   model.towelNeckFrame = {center: c, radius: R0};
 }
-const current = () => wantModel && real.models[wantModel];
+const current = () => wantModel && ((S.game === "towel" && real.towelModels[wantModel]) || real.models[wantModel]);
+const allModels = () => [...Object.values(real.models), ...Object.values(real.towelModels)];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
 // grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
@@ -333,15 +342,53 @@ export function updateRealBody(fill, s = 0, body = s){
 }
 
 /* One patient's head + body. Resolves once both are placed (hidden); shows them if that patient is on the table. */
-function loadPatientModel(id){
-  const model = {head: null, body: null, morphs: [], skin: null, hair: null};
-  return Promise.all([load(BASE + `${id}/${id}.glb`), load(BASE + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
-    model.head = placeHead(gh, env, MODELS[id], model);
-    model.body = placeBody(gb, env, MODELS[id], model);
-    neckHead(model);
-    real.models[id] = model;
+function loadPatientModel(id, towelStage = false){
+  const model = {head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
+  const base = BASE + (towelStage ? "towel-stage/" : "");
+  return Promise.all([load(base + `${id}/${id}.glb`), load(base + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
+    const place = () => {
+      model.head = placeHead(gh, env, MODELS[id], model);
+      model.body = placeBody(gb, env, MODELS[id], model);
+      neckHead(model);
+    };
+    if(towelStage) withVisualIds(() => {
+      // Loading may finish during a tug. Build the seam in the saved rest frame, then restore the live pose atomically.
+      const position = head.position.clone(), rotation = pivot.rotation.clone();
+      try {
+        head.position.copy(TOWEL_REST_HEAD); pivot.rotation.set(0, 0, 0); pivot.updateMatrixWorld(true);
+        place();
+      } finally {
+        head.position.copy(position); pivot.rotation.copy(rotation); pivot.updateMatrixWorld(true);
+      }
+    }); else place();
+    (towelStage ? real.towelModels : real.models)[id] = model;
     if(wantModel === id) setRealPatient(id, lastLook);
   });
+}
+let towelAssetsP = null;
+// Requested by setRealPatient only after the towel game starts. Clinic startup/network and original caches stay intact.
+function loadTowelCharacters(){
+  if(towelAssetsP) return towelAssetsP;
+  document.documentElement.dataset.towelCharacters = "loading";
+  const patients = Object.keys(MODELS).reduce((p, id) => p.then(() => loadPatientModel(id, true)), Promise.resolve());
+  const arms = Promise.all([load(BASE + "towel-stage/hands/arms.glb"), getEnv()]).then(([g, env]) => {
+    withVisualIds(() => {
+      const made = {}, matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env, true));
+      scene.add(g.scene);
+      real.towelArms = [placeArm(g.scene.getObjectByName("therapist_arm_r"), -1, matFor), placeArm(g.scene.getObjectByName("therapist_arm_l"), 1, matFor)];
+      real.towelArms.forEach(a => { a.root.visible = false; });
+      Object.values(made).forEach(m => crackFadeMats.push(m));
+      syncArms();
+    });
+    document.documentElement.dataset.towelHands = "ready";
+  });
+  towelAssetsP = Promise.all([patients, arms]).then(() => {
+    document.documentElement.dataset.towelCharacters = "ready";
+  }).catch(err => {
+    console.warn("towel character variants not loaded, keeping original assets", err);
+    document.documentElement.dataset.towelCharacters = "failed";
+  });
+  return towelAssetsP;
 }
 export function loadRealAssets(){
   const [first, ...rest] = Object.keys(MODELS);
@@ -357,7 +404,8 @@ export function loadRealAssets(){
     const made = {};
     const matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env));
     scene.add(g.scene);
-    real.arms = [placeArm(g.scene.getObjectByName("therapist_arm_r"), -1, matFor), placeArm(g.scene.getObjectByName("therapist_arm_l"), 1, matFor)];
+    real.clinicArms = [placeArm(g.scene.getObjectByName("therapist_arm_r"), -1, matFor), placeArm(g.scene.getObjectByName("therapist_arm_l"), 1, matFor)];
+    real.clinicArms.forEach(a => { a.root.visible = false; });
     Object.values(made).forEach(m => crackFadeMats.push(m));
     syncArms();
     document.documentElement.dataset.hands = "ready";
@@ -368,14 +416,15 @@ export function loadRealAssets(){
 }
 /* Arm materials: baked skin (diffuse x occlusion) with the face's soft sheen; the sleeve and its hem keep the shirt's
    occlusion as base colour and are tinted with the palette's coat (white) and cuff (teal) colours. */
-function armMaterial(src, env){
+function armMaterial(src, env, towelStage = false){
   const name = src.name || "";
-  if(name.endsWith(".skin")) return new THREE.MeshPhysicalMaterial({map: src.map, roughness: 0.55, metalness: 0,
+  if(name.endsWith(".skin")) return new THREE.MeshPhysicalMaterial({map: src.map, normalMap: towelStage ? src.normalMap : null, normalScale: towelStage ? src.normalScale : new THREE.Vector2(1, 1), roughness: towelStage ? 0.64 : 0.55, metalness: 0,
     sheen: 0.4, sheenColor: new THREE.Color(0xb04030), sheenRoughness: 0.6, specularIntensity: 0.45,
     envMap: env, envMapIntensity: 0.25});
   const m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap || null, roughness: 0.85, metalness: 0,
     envMap: env, envMapIntensity: 0.15, side: THREE.DoubleSide});      // the sleeve is an open tube: its inside shows
-  m.color = (name.endsWith(".hem") ? mats.cuff : mats.coat).color;     // shared: follows the palette
+  m.color = towelStage ? src.color.clone() : (name.endsWith(".hem") ? mats.cuff : mats.coat).color;
+  if(towelStage) m.normalScale.copy(src.normalScale);     // shared: follows the palette
   return m;
 }
 
@@ -714,6 +763,11 @@ export function disableRealArms(err){
 }
 let armsShown = false;
 function syncArms(){
+  const selected = (S.game === "towel" && real.towelArms) || real.clinicArms;
+  if(real.arms !== selected){
+    if(real.arms) real.arms.forEach(a => { a.root.visible = false; a.seen = false; });
+    real.arms = selected; real.armsSynced = false;
+  }
   const cur = current();
   const use = wantHands && !armsBroken && !!real.arms && !!cur && !!measureHead(cur);
   if(real.arms) real.arms.forEach(a => { a.root.visible = use; if(!use) a.seen = false; });
@@ -911,7 +965,7 @@ export function updateRealHands(st){
 /* Primitive head parts = everything under `head` except the therapist hands and the realistic models. */
 function primitiveHeadParts(){
   // the primitive glasses go too: their toy frames float over the realistic face
-  const models = Object.values(real.models).map(m => m.head);
+  const models = allModels().map(m => m.head);
   // the simulated towel (scene/towel.js) hangs under head too: hiding it here lost it from the second patient on
   // (user: "수건 사라짐", 2026-10-15)
   return head.children.filter(o => !models.includes(o) && !handParts.includes(o) && !hands.includes(o) && !o.userData.keep);
@@ -926,14 +980,16 @@ export function restorePrimitiveHead(){
 /* Realistic head + body of patient `id` (null: primitives). */
 export function setRealPatient(id, look){
   wantModel = id; lastLook = look || lastLook;
+  if(S.game === "towel") loadTowelCharacters();
   const cur = current();
   restorePrimitiveHead();
-  Object.values(real.models).forEach(m => { m.head.visible = m === cur; m.body.visible = m === cur; });
+  allModels().forEach(m => { m.head.visible = m === cur; m.body.visible = m === cur; });
+  if(S.game === "towel") document.documentElement.dataset.towelPatient = cur?.towelStage ? id : "fallback";
   bodyParts.forEach(m => { m.visible = !cur; });
   if(cur){
     hiddenPrims = primitiveHeadParts();
     hiddenPrims.forEach(o => { o.userData.wasVisible = o.visible; o.visible = false; });
-    if(look && cur.hair) cur.hair.color.setHex(look.hairTint || 0xffffff);
+    if(look && cur.hair) cur.hair.color.setHex(cur.towelStage ? 0xffffff : look.hairTint || 0xffffff);
   }
   syncArms();
 }
