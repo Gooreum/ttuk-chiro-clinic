@@ -1,5 +1,19 @@
 # Credits
 
+## Towel-stage redesign (2026-10-16)
+
+The following assets load only after entering the towel stage. Original clinic/back assets are retained unchanged.
+
+| 파일 | 출처·변경 | 라이선스 |
+|---|---|---|
+| `public/models/towel-stage/patient01`–`patient05/*.glb` | 기존 환자들과 동일한 MakeHuman 시스템 CC0 에셋/MPFB 출력에서 파생. 목 절단선·2본 스킨·호흡·26개 표정 타깃을 보존하고 얼굴 면/헤어 실루엣을 조정. 기존 피부 사진에 직접 작성한 미세 피부/연령/직물 맵, 환자별 의상 아틀라스, 실제 봉제 가장자리, 교수 안경·작가 머리핀을 더함 (`towel_stage_characters.mjs`, `towel_stage_textures.py`) | 원본 MakeHuman 에셋 CC0 ([시스템 에셋](https://static.makehumancommunity.org/assets/assetpacks/makehuman_system_assets.html)). 추가 모델링·맵은 직접 제작, 외부 소스 없음 |
+| `public/models/towel-stage/hands/arms.glb` | 기존 CC0 MPFB 팔·손·손가락 리그 보존, 피부/손 미세 법선과 청록색 스크럽 트윌·민트 소매 끝단 | 원본 MakeHuman 에셋 CC0. 추가 맵 직접 제작 |
+| `public/models/towel-stage/therapist/therapist.glb` | 기존 CC0 MPFB 치료사를 바탕으로 얼굴·짧은 옆가르마·안경, V넥 봉제/포켓/명찰, 산호색 스툴/테두리/발걸이 제작. 어깨·눈·엉덩이·넘어짐 마커와 앉은 자세 유지 (`towel_stage_props.py`) | 원본 MakeHuman 에셋 CC0. 추가 형상·맵 직접 제작 |
+| `public/models/towel-stage/towel/towel_sim.glb` | 기존 천 시뮬레이션의 X자 감김과 `taut` 모프 보존, 같은 모프를 따르는 실제 봉제 가장자리 추가. 사진 텍스처는 기존 Poly Haven "Terry Cloth", 사진 colormass / 처리 Rico Cilliers | 텍스처 CC0 ([Terry Cloth](https://polyhaven.com/a/terry_cloth), [라이선스](https://polyhaven.com/license)). 천·봉제 형상 직접 제작 |
+| `public/models/towel-stage/room.glb` | 직접 제작한 테라조 타일/광물 조각, 플루트 벽, 반투명 리브 문, 수납장·린넨·펌프 병·이동식 트레이·라디에이터, 분할 가죽 테이블·봉제선·레일·육각 볼트·조절 레버 (`towel_stage_room.mjs`). 새 외부 에셋/사진 없음 | 직접 제작. 게임의 `LICENSE` 적용 |
+
+새로 작성한 형상과 텍스처에는 별도 표시가 없는 한 게임의 `LICENSE`가 적용된다. 원본 CC0 소스의 권리는 바뀌지 않는다. 척추는 아래 BodyParts3D 파일을 그대로 사용하며, 수건 모드에만 피질골 미세 음영·추간판 섬유륜·관절면 재질을 더한다. 새 해부학 소스를 추가하지 않았다.
+
 ## Sounds
 
 | 파일 | 출처 | 라이선스 |

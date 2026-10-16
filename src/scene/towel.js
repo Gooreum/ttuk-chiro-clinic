@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { scene } from "./renderer.js";
 import { head, crackFadeMats } from "./patientModel.js";
 import { loadModel, getEnv } from "./realAssets.js";
+import { withVisualIds } from "./visualBuild.js";
 
 /* Towel mode (core/towel.js): a folded white bath towel (public/models/towel/towel.glb, scripts/assets/towel_build.py)
    slung under the patient's chin, up along the jaw to the therapist's fists beside it, the loose ends hanging out of
@@ -50,24 +51,26 @@ function finishCloth(m, env){
     sh.fragmentShader = "uniform float uClothPull;\n" + sh.fragmentShader.replace("#include <roughnessmap_fragment>",
       "#include <roughnessmap_fragment>\n roughnessFactor = max(0.82, roughnessFactor - 0.06*uClothPull);");
   };
-  m.customProgramCacheKey = () => "towel-terry-v1";
+  m.customProgramCacheKey = () => `towel-stage-terry-v2-${m.uuid}`;
 }
 function loadSim(){
   simLoading = true;
-  Promise.all([loadModel("towel/towel_sim.glb"), getEnv()]).then(([g, env]) => {
-    g.scene.traverse(o => {
-      if(!o.isMesh) return;
-      const id = (o.name.match(/patient0\d/) || [])[0];
-      if(!id) return;
-      o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
-      finishCloth(o.material, env);
-      if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
-      simMeshes[id] = o;
+  Promise.all([loadModel("towel-stage/towel/towel_sim.glb"), getEnv()]).then(([g, env]) => {
+    withVisualIds(() => {
+      // Each patient node contains the original cloth plus its sewn edge primitive.
+      // Keep the parent transform and drive both primitives with the original taut morph.
+      g.scene.traverse(o => {
+        if(/^towel_patient0\d$/.test(o.name)) simMeshes[o.name.match(/patient0\d/)[0]] = o;
+        if(!o.isMesh) return;
+        o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
+        finishCloth(o.material, env);
+        if(!crackFadeMats.includes(o.material)) crackFadeMats.push(o.material);
+      });
+      sim = new THREE.Group();
+      sim.userData.keep = true;
+      Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
+      head.add(sim);
     });
-    sim = new THREE.Group();
-    sim.userData.keep = true;   // not one of the primitive head parts realAssets.js hides for the realistic head
-    Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
-    head.add(sim);
   }).catch(err => console.warn("simulated towel not loaded, keeping the bone towel", err));
 }
 function load(){
@@ -120,8 +123,10 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patie
     if(model) model.visible = false;
     ribbon.visible = false;
     if(!on) return;
-    const k = simMesh.morphTargetDictionary && simMesh.morphTargetDictionary.taut;
-    if(k != null) simMesh.morphTargetInfluences[k] = slip >= 0 && slip < SLIP_BACK ? 0 : Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
+    simMesh.traverse(m => {
+      const k = m.morphTargetDictionary && m.morphTargetDictionary.taut;
+      if(k != null) m.morphTargetInfluences[k] = slip >= 0 && slip < SLIP_BACK ? 0 : Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
+    });
     sim.position.set(0, 0.12*arc, -0.06*arc);
     sim.rotation.set(-0.5*arc, 0, 0.2*arc);
     return;
