@@ -49,7 +49,7 @@
 | 모듈 | 내용 |
 |---|---|
 | `tuning.js` | `DEFAULTS`, `T`(localStorage `chiroTune`), `saveT`, `resetT`. 튜닝 패널과 1:1 |
-| `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·증상 쪽 회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·교정 반응 풀 `react`(`jolt`/`ahh`/`first`/`then`/`big`)·대사 `lines`(교정 뒤 `sigh`/`what`/`ahh`/`after`/`done`)), `REVIEWS`, `makePatients()`(매 판 양쪽 목표 각도 `sides`와 위험 한계 `limR/limB` 랜덤) |
+| `patient/roster.js` | `TRAITS`, `ROSTER`(5명: 이름·나이·증상 `cc`·목표 마디 `seg`·증상 쪽 회전 방향 `side`·허용 오차 `tolR/tolB`·호흡 주기·외형 `look`·교정 반응 풀 `react`(`jolt`/`ahh`/`first`/`then`/`big`)·대사 `lines`(교정 뒤 `sigh`/`what`/`ahh`/`after`/`done`)), `REVIEWS`, `makePatients()`(매 판 5명 중 `PER_DAY`(3)명을 랜덤 순서로 뽑고 양쪽 목표 각도 `sides`와 위험 한계 `limR/limB` 랜덤) |
 | `core/` | **DOM·three 없는 순수 함수. 단위 테스트 대상.** `tilt.js`(`tiltAngles`), `feel.js`(`tolMul`, `distAt`, `closenessOf`, `deltaGain`, `breathState`), `motion.js`(`classifySample` 스냅/버림/사용, `aimBefore`), `scoring.js`(`scoreSuccess`, `rankTitle`), `crack.js`(`crackProfile` 교정 순간 목의 움직임), `faceRig.js`(표정 가중치, `pickReaction`), `cue.js`(준비 시간 `PREP_MS`·준비 대사, 호흡 안내 `breathCue`), `fail.js`(잘못 꺾었을 때 연출 종류 `failKind`, 환자 실패 대사 `failLine`, 고무줄 출렁 `boingProfile`, 손 털기 `flinchProfile`, 진료 일지 후기 `reviewLine`, 실패 도장 `FAIL_STAMP`, 일지 실패 칩 `failTags`, 꺾은 세기 단계 `forceTier`), `crackPattern.js`(교정 소리 패턴 `crackPattern` 뚝/두둑/우두둑) |
 | `core/towel.js` | 수건 견인 연습(4절)의 순수 함수: 장력 `towelTension`(조준 세로축 `S.cur.bend` / 28°), 환자별 목표 구역 `makeTowelTarget`(어르신 낮고 한계 낮음, 긴장형 좁음), `towelKind`(ok/over/taut/slip/skew), 목 당김 `stretchProfile(t, peak, hold)`(0.12초에 확, hold(기본 1.3초)까지 부들부들, 1초 감쇠 스프링으로 복귀), 과당김의 `fallProfile`/`letGoProfile`(구급차면 getup=Infinity)과 타이밍(`FALL_HIT` 0.75, `OVER_XRAY` 1.0, `OVER_XRAY_HOLD` 2.9, `OVER_SIREN` 4.2), 몸이 머리를 따라오는 비율 `BODY_SHARE`(0.15), 환자별 성공 리액션 `towelReaction(name, burn)`(`TOWEL_BURN` 욕 대사, `TOWEL_COOL` 시원 대사), 환자별 병맛 대사 `TOWEL_LINES`, 도장·칩·후기 |
 | `core/towelLook.js` / `scene/towelNeck.js` / `scene/visualBuild.js` | 수건 모드 전용 목의 시각 프로파일과 선택적 메시 세분화·피부/그림자 셰이더. `core/towel.js`의 거리·시간·판정·상수는 수정하지 않는다. 어깨 고정, 턱/쇄골의 완만한 부착과 이음매 연속성을 단위 테스트와 목 프로브로 검증한다. 새 geometry/material의 UUID 생성은 동기식 별도 난수 범위에 격리해 다음 목표 장력·반응 추첨에 영향을 주지 않는다. |
@@ -138,6 +138,7 @@
 
 ## 4. 게임 규칙 요약
 
+- 한 판은 환자 3명(`PER_DAY`)이다. 5명 로스터에서 매 판 랜덤으로 뽑는다(사용자: "다섯명 너무 많지 않나 동일한 시나리오자나", 2026-10-16).
 - 새 환자는 2.2초 준비 시간(`PREP_MS`) 뒤에 조준할 수 있다. 그동안은 판정하지 않는다.
 - 환자마다 **양쪽**을 교정한다: 증상 쪽(`side`)을 먼저, 성공하면 2.3초 뒤 같은 환자의 반대쪽(`-side`). 쪽마다 목표 각도를 따로 굴리고(`makePatients` → `sides[0..1]`), 긴장형 축소·호흡 주기·`painHere`는 쪽마다 다시 시작한다. 차트 칩에 `1/2`, `2/2`로 표시.
 - 거리: `d = sqrt(((rot−목표rot)/(tolR·T.tol·tolMul))² + ((bend−목표bend)/(tolB·…))²)`. `d ≤ 1`이면 성공 구역.
@@ -157,7 +158,7 @@
 - "어깨가 몸통에서 빠져버림": 준비의 cup 가중치가 어깨 고정까지 풀던 것을 고쳤다. 수건에서는 준비에도 실제 `therapistShoulder`를 즉시 따르며 불필요한 좌우 headRock을 끈다. 프로브는 숨겨진 진료용 팔 대신 현재 보이는 수건 팔과 현 치료사 마커를 비교한다.
 - "좌우 초점 개념"·"과하게 하면 ... 앰뷸런스"는 아래 focus/skew/over 규칙으로 구현한다. 금·골절 X-ray에서는 성공용 파랑/복귀 변형을 적용하지 않는다. 목 메시·가중치·카메라 및 거리/판정/대사는 보존한다.
 - 사용자 요청(2026-10-15): "수건으로 목을 감싸고 수건을 댕겨서 목 뽑는거". 별도 연습 모드로 골랐다. 진료 흐름·판정은 그대로다.
-- 환자 5명을 한 번씩 당긴다(양쪽 없음). 장력은 기존 조준 세로축(`S.cur.bend`, 폰 위쪽을 몸 쪽으로 젖힘, 드래그는 위로)을 28°로 나눈 값이라 센서 계산은 그대로다. 좌우축(`S.cur.rot`)은 환자별 중심 `S.towel.aim`과 허용 폭 `aimTol`에 맞춘다. 머리는 입력의 0.35배만 돌아 보인다. 툭은 기존 스냅(센서·스와이프·스페이스)을 그대로 쓴다.
+- 그 판의 환자 3명을 한 번씩 당긴다(양쪽 없음). 장력은 기존 조준 세로축(`S.cur.bend`, 폰 위쪽을 몸 쪽으로 젖힘, 드래그는 위로)을 28°로 나눈 값이라 센서 계산은 그대로다. 좌우축(`S.cur.rot`)은 환자별 중심 `S.towel.aim`과 허용 폭 `aimTol`에 맞춘다. 머리는 입력의 0.35배만 돌아 보인다. 툭은 기존 스냅(센서·스와이프·스페이스)을 그대로 쓴다.
 - 좌우 중심 카드는 화면 아래 가운데(조작 안내와 "중앙으로" 사이)에 둔다. 머리 아래에 두면 얼굴과 목을 가린다(사용자: "좌우 중심 맞추는 바가 너무 목쪽에 있어서 시야가 답답해 보이고 환자 얼굴이 잘 안 보임", 2026-10-16).
 - 판정: 목표 구역 안이면 성공(점수·PERFECT·날숨·연속은 `scoreSuccess` 그대로), 한계 초과면 `over`(머리가 16cm 당겨지고 목이 13.6cm 늘어나며 치료사가 넘어짐, 통증), 정상 구역 위~한계 이하면 `taut`(목이 10cm 곧게 늘어난 채 진료 모드 금 소리 `crunch(1)`, 금 X-ray(frac 1) 후 구급차로 종료. 사용자: "수건 장력이 정상과 과해요 사이에 있으면 뼈금가는 소리 우리 목꺾기에서 사용했던거 쓰고 뼈 금가는 엑스레이로 넣어줘", 2026-10-16. 이전엔 slip이었음. 장력 게이지에 금 구간을 옅은 산호색으로만 표시, 라벨 없음: "금가요 타이틀 삭제해", 2026-10-16), 그보다 느슨하면 `slip`(목 아래에서 치료사 쪽으로 빠져 주먹 사이에 늘어졌다 1.3초 안에 다시 감김, 통증). 장력 구역 안이어도 좌우 중심 밖이면 `skew`: 허용 폭 2배 이내는 금, 그 밖은 골절 후 구급차로 종료한다. **어느 경우든 당기는 순간(0초) 녹음 뼈 소리가 난다**(성공 `crackSound(3|2)`, over `crackSound(3)` "우두둑!", slip `crackSound(2)` "뚜둑!", 그립 유예 토스트도 `crackSound(1)`. 사용자: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑 소리가 나야 한다고 ㅡㅡ 몇번을 말하냐", 2026-10-15). 과당김·금·좌우 이탈은 통증 횟수와 관계없이 구급차로 종료한다. 머리를 넘겨받은 0.6초 안 느슨한 툭은 토스트만.
 - 카메라(사용자가 보낸 실제 영상 캡처의 각도, 2026-10-15): 3인칭으로 환자 왼쪽 골반 옆 위(`TV_POS`)에서 머리맡을 비스듬히 내려다본다. 몸이 화면 아래 대각선, 머리는 위 가운데, 그 뒤에 스툴에 앉아 뒤로 기댄 치료사. 당길수록 치료사가 뒤로 젖혀진다. 당기는 방향(치료사 쪽 -z)이 화면 위쪽 대각선이라 목이 당겨지는 게 보인다. 1인칭에서 이 시점으로 부드럽게 넘어가고, 이 동안 팔 어깨는 카메라를 따라가지 않는다.
