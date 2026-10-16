@@ -74,7 +74,7 @@ export function closeChart(){
   clearTimeout(sheetTimer); sheetTimer = setTimeout(() => { el.hidden = true; el.classList.remove("closing"); }, 340);
 }
 // aiming and cracking stop while the tuning sheet or the big chart is up
-export const uiBlocked = () => !$("#tune").hidden || S.chartOpen;
+export const uiBlocked = () => !$("#tune").hidden || !$("#clinicMenu").hidden || S.chartOpen;
 $("#chartMini").addEventListener("click", () => openChart(false));
 $("#chartSheet").addEventListener("click", closeChart);
 export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return `오후 ${h}:${mm}`; };

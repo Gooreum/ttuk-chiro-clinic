@@ -1,6 +1,7 @@
 import "../ui/clinic-hud.css";
 import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
 import {makeHud} from '../ui/hudDom.js';
+import {mountClinicMenu,renderClinicLinks} from '../ui/clinicSwitch.js';
 import {clamp} from '../lib/math.js';
 import {therapistStyle} from './therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
@@ -141,11 +142,13 @@ async function start(useMotion=preferMotion){
   $('backMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
   sync();
 }
-function pause(){
-  if(S.phase!=='play'&&S.phase!=='anim')return;
+// halt: stop the play without the tuning sheet (the 클리닉 menu); pause: halt and show the sheet
+function halt(){
+  if(S.phase!=='play'&&S.phase!=='anim')return false;
   settleImpact();S.previousPhase=S.phase;S.pausedAt=performance.now();cancelInput();S.phase='paused';
-  stopSound();clinicAudio.suspend();syncTune();$('backPaused').hidden=false;sync();
+  stopSound();clinicAudio.suspend();sync();return true;
 }
+function pause(){if(halt()){syncTune();$('backPaused').hidden=false;sync();}}
 function resume(){
   if(S.phase!=='paused')return;
   if(S.previousPhase==='anim')S.animAt+=performance.now()-S.pausedAt;
@@ -189,6 +192,8 @@ addEventListener('keydown',e=>{
 });
 addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
 $('backTune').addEventListener('click',openTune);
+mountClinicMenu({chip:$('backClinic'),menu:$('backClinicMenu'),current:()=>'back',onOpen:halt,onClose:resume});
+['backWelcomeClinics','backResultClinics'].forEach(id=>renderClinicLinks($(id),'back'));
 $('backTuneClose').addEventListener('click',closeTune);
 $('backPause').addEventListener('click',pause);$('backResume').addEventListener('click',closeTune);
 $('backStart').addEventListener('click',()=>start());$('backAgain').addEventListener('click',()=>start(S.control==='motion'));

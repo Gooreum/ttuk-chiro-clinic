@@ -15,6 +15,7 @@ import { canvas } from "../scene/renderer.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
 import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
+import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
@@ -55,7 +56,7 @@ function loadPatient(){
     $("#pname").textContent = target.name;
     $("#page").textContent = `${target.age}세`;
     $("#pcc").textContent = target.cc;
-    $("#pseg").textContent = S.game === "towel" ? "수건 견인 · 장력 맞추고 툭" : sideLabel(target);
+    $("#pseg").textContent = S.game === "towel" ? "목뽑기 · 장력 맞추고 툭" : sideLabel(target);
     S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
     S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
     const tr = target.trait ? TRAITS[target.trait] : null;
@@ -423,7 +424,7 @@ function finish(){
   const isBest = score > best && S.pain < 3 && !S.ambulance;
   if(isBest) store.set(key, score);
   const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
-  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= 3 ? "환자들이 도망갔어요" : towel ? "수건 견인 연습 끝" : "오늘 진료 끝";
+  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= 3 ? "환자들이 도망갔어요" : towel ? "목뽑기 끝" : "오늘 진료 끝";
   $("#rank").textContent = rankTitle(avg, S.ambulance ? 3 : S.pain);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
@@ -445,6 +446,7 @@ function finish(){
     li.appendChild(rev);
     list.appendChild(li);
   });
+  renderClinicLinks($("#resultClinics"), clinicNow());
   $("#result").hidden = false;
   if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
 }
@@ -484,4 +486,8 @@ async function start(game){
 $("#start").addEventListener("click", () => start("clinic"));
 $("#startTowel").addEventListener("click", () => start("towel"));
 $("#again").addEventListener("click", () => start(S.game));
+const clinicNow = () => S.game === "towel" ? "towel" : "crack";
+mountClinicMenu({ chip: $("#clinicBtn"), menu: $("#clinicMenu"), current: clinicNow });
+// index.html?mode=towel (from the 클리닉 menu): 목뽑기 is the main start button
+if(new URLSearchParams(location.search).get("mode") === "towel"){ $("#startTowel").className = "btn"; $("#start").className = "btn ghost"; }
 { const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? `최고 기록 ${b}점` : "최고 기록 —"; }
