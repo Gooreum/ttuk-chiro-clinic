@@ -154,6 +154,12 @@ function breathLabel(ctx, br, cx, cy, R, verb){
   ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
   ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.85)"; ctx.fillText(label, cx, cy - R + 20);
 }
+// an element's box in #app's own (pre-rotation) layout, the HUD canvas's coordinates
+function boxIn(el){
+  let x = 0, y = 0, n = el;
+  while(n && n.id !== "app"){ x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+  return {left: x, right: x + el.offsetWidth, bottom: y + el.offsetHeight, w: el.offsetWidth};
+}
 /* Towel mode (core/towel.js): no aim dot, a tall tension gauge right of the head instead. Filled from the bottom by
    the towel's tension (mint -> coral), the band to hit in mint, the limit as a coral line; the breath arc as usual. */
 function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
@@ -196,16 +202,16 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   ctx.fillText(`${Math.round(t*100)}%`, x, bot+15);
   ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
   ctx.strokeText("과해요", x + w/2 + 10, yAt(tg.limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(tg.limit) + 4);
-  const ty = (yAt(tg.limit) + yAt(tg.mid + tg.half))/2 + 4;
-  if(ty - yAt(tg.limit) > 10){ ctx.strokeText("금 가요", x + w/2 + 10, ty); ctx.fillStyle = "rgba(255,122,89,.8)"; ctx.fillText("금 가요", x + w/2 + 10, ty); }
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
   // 바가 너무 목쪽에 있어서 시야가 답답해 보이고 환자 얼굴이 잘 안 보임", 2026-10-16; it sat right under the head): the left / right focus (core/towel.js aimOff), the centre band in mint, the aim dot coral when off
   const off = aimOff(S.cur.rot, tg), offC = Math.abs(off) > 1;
-  const mR = modeEl.getBoundingClientRect(), zR = zeroEl.getBoundingClientRect();
-  const gapL = mR.width ? mR.right : 20, gapR = zR.width ? zR.left : Wd - 20;
-  const bw = clamp(gapR - gapL - 40, 110, 180), mx = (gapL + gapR)/2, bx = mx - bw/2, by = (zR.height ? zR.bottom : H - 12) - 19, xAt = o => mx + clamp(o/3, -1, 1)*(bw/2-12);
+  // (layout boxes, not getBoundingClientRect: on a rotated phone that is the turned screen, input/orientation.js)
+  const mR = boxIn(modeEl), zR = boxIn(zeroEl);
+  const gapL = mR.w ? mR.right : 20, gapR = zR.w ? zR.left : Wd - 20;
+  const bw = clamp(gapR - gapL - 40, 110, 180), bx = clamp((gapL + gapR - bw)/2, 10, Wd - bw - 10), mx = bx + bw/2;
+  const by = clamp((zR.w ? zR.bottom : H - 12) - 19, 40, H - 20), xAt = o => mx + clamp(o/3, -1, 1)*(bw/2-12);
   ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect(bx-10,by-29,bw+20,48,12); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
