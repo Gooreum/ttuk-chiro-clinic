@@ -17,9 +17,10 @@ export function sizeHud(w, h){
   hudDpr = Math.min(window.devicePixelRatio||1, 2);
   hud.width = Math.round(w*hudDpr); hud.height = Math.round(h*hudDpr);
 }
-let C_BONE, C_CORAL, C_MINT;
+let C_BONE, C_CORAL, C_MINT, C_PAPER;
 // read once the stylesheet is applied (the prototype read them at the same point, after the inline <style>)
 export function readColors(){
+  C_PAPER = css("--paper") || "#f4efe4";
   C_BONE = css("--bone") || "#f1eadc"; C_CORAL = css("--coral") || "#ff7a59"; C_MINT = css("--mint") || "#8adfbf";
 }
 export function drawRing(now, c, zone, br){
@@ -36,24 +37,37 @@ export function drawRing(now, c, zone, br){
   const ax = R*0.78/70, ay = R*0.62/30;
   const T0 = -Math.PI/2;
   if(S.game === "towel" && S.towel){ drawTowel(ctx, now, zone, br, fade, cx, cy, R); return; }
+  // The head sits low in the fixed clinic camera. Compress only the decorative bezel/outer arc vertically so it
+  // clears a rotated phone's bottom edge; the head centre, R, ax/ay, aim dots and angular bounds remain unchanged.
+  const bezelY = Math.max(12, Math.min(R + 15, hud.height/hudDpr - cy - 4)), tensionY = Math.max(8, Math.min(R + 9, bezelY - 4));
 
-  // field
+  // A translucent instrument bezel frames the head without covering the face.
+  // Its centre and the ax/ay mapping stay tied to the original patient projection.
+  ctx.fillStyle = "rgba(23,49,44,.06)";   // light: the face must stay readable through it
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "rgba(23,49,44,.76)";
+  ctx.beginPath(); ctx.ellipse(cx, cy, R + 15, bezelY, 0, 0, Math.PI*2); ctx.arc(cx, cy, R - 5, 0, Math.PI*2, true); ctx.fill();
   ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(241,234,220,.28)";
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
-  ctx.strokeStyle = "rgba(241,234,220,.16)";
+  ctx.strokeStyle = "rgba(244,239,228,.3)";
+  ctx.beginPath(); ctx.ellipse(cx, cy, R + 15, bezelY, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = "rgba(138,223,191,.46)";
+  ctx.beginPath(); ctx.arc(cx, cy, R - 5, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = "rgba(244,239,228,.18)";
   ctx.setLineDash([3,5]);
   ctx.beginPath(); ctx.moveTo(cx - R*0.82, cy); ctx.lineTo(cx + R*0.82, cy); ctx.moveTo(cx, cy - R*0.7); ctx.lineTo(cx, cy + R*0.7); ctx.stroke();
   ctx.setLineDash([]);
   // degree ticks every 15°
-  ctx.strokeStyle = "rgba(241,234,220,.35)";
+  ctx.strokeStyle = "rgba(244,239,228,.55)";
   for(let d=-60; d<=60; d+=15){ const x = cx + d*ax; ctx.beginPath(); ctx.moveTo(x, cy-3); ctx.lineTo(x, cy+3); ctx.stroke(); }
-  // danger limits
-  ctx.strokeStyle = "rgba(255,122,89,.55)"; ctx.lineWidth = 2;
-  [-1,1].forEach(s => { const x = cx + s*target.limR*ax; ctx.beginPath(); ctx.moveTo(x, cy - R*0.45); ctx.lineTo(x, cy + R*0.45); ctx.stroke(); });
-  [-1,1].forEach(s => { const y = cy - s*target.limB*ay; ctx.beginPath(); ctx.moveTo(cx - R*0.3, y); ctx.lineTo(cx + R*0.3, y); ctx.stroke(); });
-  // side labels
-  ctx.fillStyle = "rgba(241,234,220,.55)"; ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif"; ctx.textAlign = "center";
+  // danger limits: the same angular bounds, with coral end caps like the towel gauge.
+  ctx.strokeStyle = "rgba(255,122,89,.8)"; ctx.lineWidth = 2;
+  [-1,1].forEach(s => { const x = cx + s*target.limR*ax; ctx.beginPath(); ctx.moveTo(x, cy - R*0.45); ctx.lineTo(x, cy + R*0.45); ctx.moveTo(x-3, cy-R*.45); ctx.lineTo(x+3, cy-R*.45); ctx.moveTo(x-3, cy+R*.45); ctx.lineTo(x+3, cy+R*.45); ctx.stroke(); });
+  [-1,1].forEach(s => { const y = cy - s*target.limB*ay; ctx.beginPath(); ctx.moveTo(cx - R*0.3, y); ctx.lineTo(cx + R*0.3, y); ctx.moveTo(cx-R*.3, y-3); ctx.lineTo(cx-R*.3, y+3); ctx.moveTo(cx+R*.3, y-3); ctx.lineTo(cx+R*.3, y+3); ctx.stroke(); });
+  // side labels use the suite display face and a quiet room-colour under-stroke.
+  ctx.font = "10px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(23,49,44,.9)"; ctx.lineWidth = 3;
+  ctx.strokeText("왼쪽", cx - R*0.82, cy - 8); ctx.strokeText("오른쪽", cx + R*0.82, cy - 8);
+  ctx.fillStyle = C_PAPER;
   ctx.fillText("왼쪽", cx - R*0.82, cy - 8); ctx.fillText("오른쪽", cx + R*0.82, cy - 8);
 
   // target zone (first patients)
@@ -68,17 +82,17 @@ export function drawRing(now, c, zone, br){
   // tension arc
   ctx.lineCap = "round";
   ctx.lineWidth = 6;
-  ctx.strokeStyle = "rgba(241,234,220,.12)";
-  ctx.beginPath(); ctx.arc(cx, cy, R + 9, 0, Math.PI*2); ctx.stroke();
+  ctx.strokeStyle = "rgba(244,239,228,.2)";
+  ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, 0, Math.PI*2); ctx.stroke();
   if(zone){
     ctx.strokeStyle = C_CORAL; ctx.globalAlpha = fade * (0.75 + Math.sin(now*0.012)*0.25);
-    ctx.beginPath(); ctx.arc(cx, cy, R + 9, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, 0, Math.PI*2); ctx.stroke();
     ctx.globalAlpha = fade;
   }else if(c > 0.01){
     const grd = ctx.createLinearGradient(cx - R, cy, cx + R, cy);
     grd.addColorStop(0, C_MINT); grd.addColorStop(1, C_CORAL);
     ctx.strokeStyle = grd;
-    ctx.beginPath(); ctx.arc(cx, cy, R + 9, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "꺾으면");
@@ -115,20 +129,26 @@ export function drawRing(now, c, zone, br){
   // aim dot with short trail
   for(let i=Math.max(0, aimHist.length-8); i<aimHist.length; i++){
     const p = aimHist[i], a = (i - (aimHist.length-8))/8;
-    ctx.fillStyle = `rgba(241,234,220,${0.12*a})`;
+    ctx.fillStyle = `rgba(138,223,191,${0.2*a})`;
     ctx.beginPath(); ctx.arc(cx + clamp(p.rot,-75,75)*ax, cy - clamp(p.bend,-32,32)*ay, 5, 0, Math.PI*2); ctx.fill();
   }
   const px = cx + clamp(S.cur.rot,-75,75)*ax, py = cy - clamp(S.cur.bend,-32,32)*ay;
   ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2);
-  ctx.fillStyle = zone ? C_CORAL : c > 0.66 ? "#ffc1ad" : C_BONE; ctx.fill();
+  ctx.fillStyle = zone ? C_CORAL : C_PAPER; ctx.fill();
   ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
 
   // labels under the ring
   ctx.textAlign = "center";
   ctx.font = "15px 'Black Han Sans', sans-serif";
-  ctx.fillStyle = zone ? C_CORAL : C_BONE;
+  ctx.fillStyle = zone ? C_CORAL : C_PAPER;
   const H = hud.height/hudDpr;
-  ctx.fillText(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "", cx, Math.min(cy + R + 44, H - 52));
+  const msg = zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "";
+  if(msg){
+    const y = Math.min(cy + R + 44, H - 52), w = ctx.measureText(msg).width + 24;
+    ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx-w/2, y-18, w, 27, 8) : ctx.rect(cx-w/2, y-18, w, 27);   // roundRect: iOS 16+ ctx.fill(); ctx.stroke();
+    ctx.fillStyle = zone ? C_CORAL : C_PAPER; ctx.fillText(msg, cx, y);
+  }
   ctx.globalAlpha = 1;
 }
 

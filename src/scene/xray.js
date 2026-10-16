@@ -77,10 +77,10 @@ function boneMat(){
   return m;
 }
 
-/* Towel suite: retain every BodyParts3D triangle and animation. Detail is a lazy
-   material variant; the exact original material objects return in other modes. */
+/* Shared suite: retain every BodyParts3D triangle and animation. Detail is a lazy
+   material variant; cord deformation and film remain specific to each mode. */
 const anatomyVariants = new WeakMap();
-let anatomyTowel = false;
+let anatomyTowel = false, cordTraction = false;
 const tractionClock = new PresentedClock();
 let tractionEvent = null, tractionActive = false, towelWarmed = "";
 // Called after the actual draw, including on the first patient / a slow asset load.
@@ -89,6 +89,7 @@ export function warmTowelXray(renderer){
   const d = document.documentElement.dataset, patient = d.towelPatient;
   if(!ready || d.towelStage !== "ready" || d.towelHands !== "ready" || !patient || patient === "fallback" || towelWarmed === patient) return;
   selectAnatomy(true);
+  selectCord(true);
   const visible = root.visible, material = film.material;
   const fading = [...new Set([...xrayMats, ...crackFadeMats])].map(m => [m, m.transparent, m.opacity, m.depthWrite]);
   root.visible = true; film.material = tractionFilm();
@@ -146,10 +147,13 @@ function selectAnatomy(towel){
   V.forEach(p => swap(p, false)); TV.forEach(p => swap(p, false));
   D.forEach(p => swap(p, true)); TD.forEach(p => swap(p, true)); swap(torn, true);
   SPURS.forEach(mesh => { const v = V.find(p => p.g === mesh.parent); if(v) mesh.material = v.mat; });
-  // Keep the clinic/back shader source byte-for-byte on its original path. Even adding a uniform-zero operation
-  // can change raster rounding on a phone GPU.
-  for(const m of [cordMat, ghostMat]){ m.vertexShader = towel ? towelCordVertex : clinicCordVertex; m.needsUpdate = true; }
   anatomyTowel = towel;
+}
+function selectCord(traction){
+  if(traction === cordTraction) return;
+  // Material detail is shared; only traction selects the stretchable cord shader.
+  for(const m of [cordMat, ghostMat]){ m.vertexShader = traction ? towelCordVertex : clinicCordVertex; m.needsUpdate = true; }
+  cordTraction = traction;
 }
 
 /* Cord: two passes sharing one set of uniforms. The main pass is depth-tested, so it shows bright in the canal
@@ -473,7 +477,8 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     // Use one clock for colour, symptom alignment, disc height and the cord.
     if(!traction.over) crackT = frac ? -1 : Math.max(0, tractionX - 0.6) + (tractionX >= 0.6 ? XRAY_PRE : 0);
   }
-  selectAnatomy(!!traction);
+  selectAnatomy(true);
+  selectCord(!!traction);
   film.material = traction ? tractionFilm() : clinicFilmMaterial;
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
   film.visible = amount >= 0.002;
