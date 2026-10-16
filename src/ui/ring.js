@@ -6,7 +6,7 @@ import { curTolMul } from "../game/feel.js";
 import { SHOW_ZONE_UNTIL } from "../patient/roster.js";
 import { headScreen } from "./hud.js";
 import { aimHist } from "../input/motion.js";
-import { towelTension } from "../core/towel.js";
+import { towelTension, aimOff } from "../core/towel.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
@@ -159,9 +159,12 @@ function breathLabel(ctx, br, cx, cy, R, verb){
 function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const tg = S.towel, t = towelTension(S.cur.bend), H = hud.height/hudDpr, Wd = hud.width/hudDpr;
   const h = clamp(R*1.7, 110, H*0.62), w = 16;
-  const x = Math.min(cx + R*1.4, Wd - 70), top = clamp(cy - h*0.55, 70, H - h - 20), bot = top + h;
+  const x = Math.min(cx + Math.max(R*1.7, 136), Wd - 76), top = clamp(cy - h*0.55, 82, H - h - 28), bot = top + h;
   const yAt = v => bot - v*h;
   ctx.lineJoin = "round";
+  // Both instruments use the room / paper card, with the same mint target brackets.
+  ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x-35,top-34,90,h+53,12); ctx.fill(); ctx.stroke();
   // the tube
   ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(x - w/2 - 3, top - 3, w + 6, h + 6, 10); ctx.fill(); ctx.stroke();
@@ -186,16 +189,33 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
   ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("수건 장력", x, top - 10);
   ctx.fillStyle = C_BONE; ctx.fillText("수건 장력", x, top - 10);
+  ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif"; ctx.fillStyle = over ? C_CORAL : C_MINT;
+  ctx.fillText(`${Math.round(t*100)}%`, x, bot+15);
   ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
   ctx.strokeText("과해요", x + w/2 + 10, yAt(tg.limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(tg.limit) + 4);
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "당기면");
-  // under the head: what to do
-  const msg = zone ? "지금! 툭 당겨요" : over ? "너무 팽팽해요!" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
+  // under the head: the left / right focus (core/towel.js aimOff), the centre band in mint, the aim dot coral when off
+  const off = aimOff(S.cur.rot, tg), offC = Math.abs(off) > 1;
+  const bw = clamp(R*2.2, 150, Math.min(180,Wd*0.3)), by = Math.min(cy + R + 38, H - 88), bx = clamp(cx - bw/2,20,Wd-bw-20), mx=bx+bw/2, xAt = o => mx + clamp(o/3, -1, 1)*(bw/2-12);
+  ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(bx-10,by-29,bw+20,48,12); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(bx + 5, by - 7, bw - 10, 14, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(xAt(-1), by - 7, xAt(1) - xAt(-1), 14);
+  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.strokeRect(xAt(-1), by - 7, xAt(1) - xAt(-1), 14); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(xAt(off), by, 7, 0, Math.PI*2);
+  ctx.fillStyle = offC ? C_CORAL : C_BONE; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
+  ctx.textAlign = "left"; ctx.font = "12px 'Black Han Sans', sans-serif";
+  ctx.fillStyle = C_BONE; ctx.fillText("좌우 중심", bx+2, by-14);
+  ctx.textAlign = "right"; ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif"; ctx.fillStyle = offC ? C_CORAL : C_MINT;
+  ctx.fillText(offC ? "중심 밖" : "맞아요", bx+bw-2, by-14);
+  // under that: what to do
+  const msg = over ? "너무 팽팽해요!" : zone ? "지금! 툭 당겨요" : offC && towelTension(S.cur.bend) > tg.mid - tg.half - 0.2 ? "좌우 중심을 맞춰요" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
   if(msg){
     ctx.textAlign = "center"; ctx.font = "15px 'Black Han Sans', sans-serif";
-    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(msg, cx, Math.min(cy + R + 44, H - 52));
-    ctx.fillStyle = zone || over ? C_CORAL : C_BONE; ctx.fillText(msg, cx, Math.min(cy + R + 44, H - 52));
+    ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(msg, mx, by + 39);
+    ctx.fillStyle = zone || over || offC ? C_CORAL : C_BONE; ctx.fillText(msg, mx, by + 39);
   }
   ctx.globalAlpha = 1;
 }

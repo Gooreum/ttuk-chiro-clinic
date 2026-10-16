@@ -9,7 +9,7 @@ import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
-import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, towelReaction, FALL_HIT, OVER_XRAY, OVER_HOLD } from "../core/towel.js";
+import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, towelReaction, FALL_HIT, OVER_XRAY, OVER_XRAY_HOLD, OVER_SIREN, skewTier } from "../core/towel.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { canvas } from "../scene/renderer.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
@@ -57,7 +57,7 @@ function loadPatient(){
     $("#pcc").textContent = target.cc;
     $("#pseg").textContent = S.game === "towel" ? "수건 견인 · 장력 맞추고 툭" : sideLabel(target);
     S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
-    S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.saidTense = S.saidTight = false;
+    S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
     const tr = target.trait ? TRAITS[target.trait] : null;
     $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
     renderSpine(target.seg); renderDots();
@@ -85,7 +85,7 @@ function loadPatient(){
       if(tok !== loadTok || S.phase !== "play") return;
       S.busy = false; S.patientStart = performance.now(); closeChart();
       // towel practice: how to play, on the first patients
-      if(S.game === "towel" && S.idx < SHOW_ZONE_UNTIL) coach(S.mode === "tilt" ? "폰 위쪽을 몸 쪽으로 젖혀 초록에 맞추고, 숨 내쉴 때 툭!" : "위로 드래그해 초록에 맞추고, 휙 쓸어 당겨요", 2800);
+      if(S.game === "towel" && S.idx < SHOW_ZONE_UNTIL) coach(S.mode === "tilt" ? "폰을 젖혀 장력, 좌우로 기울여 중심을 초록에 맞추고 숨 내쉴 때 툭!" : "위아래로 장력, 좌우로 중심을 초록에 맞추고 휙 쓸어 당겨요", 3200);
     }, PREP_MS);
   }, 280);
 }
@@ -203,6 +203,18 @@ function flashSiren(ms){   // red / blue lights at the screen edges (style.css #
   const a = $("#app"); a.classList.add("siren");
   clearTimeout(sirenTimer); sirenTimer = setTimeout(() => a.classList.remove("siren"), ms);
 }
+/* The ambulance (a crack or a break, and in towel mode an over-pull or a skewed tug): S.ambulance now, at `at` ms the
+   siren, the red / blue lights and the stamp, AMBULANCE_END - SIREN_AT later the day log with this patient "이송". */
+function callAmbulance(later, at, target, pts){
+  S.ambulance = true;
+  later(at, () => {
+    siren(3.4); vib([200, 100, 200, 100, 200]); flashSiren(AMBULANCE_END - SIREN_AT + 300);
+    stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
+    S.input.rot = 0; S.input.bend = 0;
+  });
+  later(at + AMBULANCE_END - SIREN_AT, () => { S.results.push({name:target.name, age:target.age, pts, stars:0, label:"구급차 이송", ambulance:true,
+    fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
+}
 function hurt(msg, kind, force = 0){
   const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx, tier = forceTier(force);
   S.busy = true;
@@ -255,14 +267,7 @@ function hurt(msg, kind, force = 0){
   // a crack or a break ends the day whatever the pain count (user: "금가거나 골절되면 삐용 삐용 엠뷸런스 소리 나면서
   // 끝나는게 맞을듯", 2026-10-15): once the x-ray closes the ambulance is called, lights flash, then the day log
   if(tier){
-    S.ambulance = true;
-    later(SIREN_AT, () => {
-      siren(3.4); vib([200, 100, 200, 100, 200]); flashSiren(AMBULANCE_END - SIREN_AT + 300);
-      stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
-      S.input.rot = 0; S.input.bend = 0;
-    });
-    later(AMBULANCE_END, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"구급차 이송", ambulance:true,
-      fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
+    callAmbulance(later, SIREN_AT, target, S.sidePts.reduce((a, b) => a + b, 0));
     return;
   }
   // the squint is small on a phone: a "흠…" by the head when the doubt face sets in
@@ -280,12 +285,15 @@ function hurt(msg, kind, force = 0){
 /* Towel practice (core/towel.js): the tension when the tug lands. A tug on a slack towel right as the head is handed
    over is the player settling the grip (like GRIP_GRACE above): a toast, no pain. */
 function towelAdjust(src){
-  const t = towelTension(S.cur.bend), kind = __FORCE_HIT__ ? "ok" : towelKind(t, S.towel);
+  const t = towelTension(S.cur.bend), kind = __FORCE_HIT__ ? "ok" : towelKind(t, S.towel, S.cur.rot);
   if(kind === "ok") return towelSuccess(distNorm(), T.breath && breath(performance.now()).exhale);
   if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ crackSound(1); toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
   towelHurt(kind);
 }
-const TOWEL_XRAY_DELAY = 0.55;  // s: the long neck in the towel reads first, then the see-through x-ray shows the spine stretched (scene/xray.js traction)
+/* s: the long neck in the towel and the patient's face read first, then the see-through x-ray shows the spine stretched
+   (scene/xray.js traction); the neck holds out until OK_HOLD so the x-ray still sees it long (user: "당기고 나서 환자 얼굴
+   보이는 시간이 조금 더 길어야함. 그러고 나서 엑스레이가 나와야함", 2026-10-16; it was 0.55 s and the 1.3 s hold) */
+const TOWEL_XRAY_DELAY = 1.6, OK_HOLD = 2.7;
 const STRETCH_OK = 0.07, STRETCH_OVER = 0.16;   // m the head snaps out (the neck takes 85%, core/towel.js BODY_SHARE): a good tug, past the limit (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;
@@ -303,7 +311,7 @@ function towelSuccess(d, exhale){
   crackSound(perfect ? 3 : 2); stretchSound();
   vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   const now = performance.now();
-  S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1); S.stretchHold = 0;
+  S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1); S.stretchHold = OK_HOLD;
   S.thrust = 0; S.shake = 0.6; S.slow = 0; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
   hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, null);
@@ -327,52 +335,70 @@ function towelSuccess(d, exhale){
   setTimeout(() => say(target.lines.done, 1800), THEN_AT + x + 450);
   setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT + x);
 }
-/* A wrong tug: "over" the neck goes giraffe and boings back, "slip" only the towel comes off and flies away. Pain and
-   the third-strike end work as for a wrong crack; there is no crack / break tier in this mode. */
+/* A wrong tug: "over" the neck goes giraffe and tears off the back, "skew" (off the left / right centre) the neck
+   wrenches to that side and a vertebra cracks or breaks, "slip" only the towel comes off. Over and skew end the day on
+   an ambulance like a clinic crack / break (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스", "좌우 중심 초점이 안 맞으면
+   목이 그쪽으로 꺾이면서 빠지고 골절되던가 금이 가는", 2026-10-16); a slip costs a pain and the third ends the day. */
 function towelHurt(kind){
   const target = S.target, tok = ++hurtTok, idx = S.idx;
+  const tier = kind === "skew" ? skewTier(S.cur.rot, S.towel) : 0;
   S.busy = true;
-  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(0);
+  S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(tier);
   renderPain(); renderCombo();
   hideCoach();
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
-  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : "수건이 너무 느슨했어요", kind === "over" ? "over" : "dud", kind === "over" ? 950 : 1700);   // over: gone before the x-ray
+  const cw = () => canvas.clientWidth || innerWidth, ch = () => canvas.clientHeight || innerHeight;
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : "수건이 너무 느슨했어요",
+    kind === "over" ? "over" : kind === "skew" ? (tier > 1 ? "break" : "crack") : "dud", kind === "slip" ? 1700 : 950);   // over / skew: gone before the x-ray
   // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
-  crackSound(kind === "over" ? 3 : 2);
-  floater(kind === "over" ? "우두둑!" : "뚜둑!", 50, -r - 34);
+  crackSound(kind === "slip" ? 2 : 3);
+  floater(kind === "slip" ? "뚜둑!" : "우두둑!", 50, -r - 34);
   if(kind === "over"){
     // the neck pulled out like taffy, and the therapist goes over backwards with his stool (core/towel.js fallProfile;
     // user: "존나 세게 잡아 당기면 치료자도 뒤로 훌러덩 넘어지게", 2026-10-15). Then the see-through x-ray: the whole neck
-    // comes off the back at C7/T1 (scene/xray.js; "목뼈랑 척추가 분리되는... 아예 확실히 분리"). It holds long, boings
-    // back and the vertebrae clunk home; he bounces back up on his stool
+    // comes off the back at C7/T1 (scene/xray.js; "목뼈랑 척추가 분리되는... 아예 확실히 분리") and stays off; he stays on
+    // the floor and the ambulance is called once the x-ray closes (core/towel.js OVER_SIREN)
     flashOuch();
     stretchSound(); vib([60, 40, 60]);
-    S.stretchAt = now; S.stretchPeak = STRETCH_OVER; S.stretchHold = OVER_HOLD; S.overAt = now;
+    S.stretchAt = now; S.stretchPeak = STRETCH_OVER; S.stretchHold = 99; S.overAt = now;
     S.shake = 0.6; S.jitter = 0.6; S.xrayIn = OVER_XRAY;
-    faceRun([[0, "gasp"], [500, "ouch"], [OVER_HOLD*1000 + 400, "sulk"], [OVER_HOLD*1000 + 1200, "doubt"]]);
+    faceRun([[0, "gasp"], [500, "ouch"], [(OVER_SIREN + 0.4)*1000, "dazed"]]);
     floater("쭈와아악", -64, -r - 10);
-    later(FALL_HIT*1000, () => { thud(); vib([90]); S.shake = 1; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("꽈당!", cw*0.5 - headScreen.x, ch*0.22 - headScreen.y, "frac", 1100); });
-    later((OVER_XRAY + 0.3)*1000, () => { crunch(2, 0.8); vib([80, 30, 120]); S.shake = 0.9; const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; floater("목뼈 탈출!", cw/2 - headScreen.x, ch*0.28 - headScreen.y, "frac", 1500); });
-    later(OVER_HOLD*1000, () => { boing(); crunch(1, 0.4); vib([40, 30, 40, 30, 80]); S.shake = 0.8; floater("철컥!", 40, -r - 30, "small"); });
-    // the patient's line once the neck is back (a bubble over the x-ray hid the tear)
-    later(OVER_HOLD*1000 + 350, () => say(towelLine(target.name, "over"), 2000, true));
-  }else{
-    whoosh(); vib([60]);
-    S.slipAt = now; S.shake = 0.4;
-    faceRun([[0, "wince"], [600, "doubt"]]);
-    floater("쏙!", r + 20, r*0.4); later(150, () => floater("…?", 0, -r - 20, "small", 1400));
-    later(250, () => say(towelLine(target.name, "slip"), 1600, true));
-  }
-  const over = kind === "over";
-  later(over ? 5900 : 2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
-  later(over ? 4600 : 600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
-  later(over ? 8200 : 4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
-  if(S.pain >= 3){
-    later(over ? 5800 : 3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    later(FALL_HIT*1000, () => { thud(); vib([90]); S.shake = 1; floater("꽈당!", cw()*0.5 - headScreen.x, ch()*0.22 - headScreen.y, "frac", 1100); });
+    later((OVER_XRAY + 0.3)*1000, () => { crunch(2, 0.8); vib([80, 30, 120]); S.shake = 0.9; floater("목뼈 탈출!", cw()/2 - headScreen.x, ch()*0.28 - headScreen.y, "frac", 1500); });
+    // the patient's line once the x-ray has closed (a bubble over the x-ray hid the tear)
+    later((OVER_XRAY + OVER_XRAY_HOLD)*1000 + 100, () => say(towelLine(target.name, "over"), 2200, true));
+    callAmbulance(later, OVER_SIREN*1000, target, 0);
     return;
   }
-  setTimeout(() => { S.busy = false; }, over ? 4600 : 1100);
+  if(kind === "skew"){
+    // the neck wrenches hard to the side it was off (game/loop.js: the crack profile at FORCE_AMP, as a side bend in
+    // towel mode), a crunch, then the clinic's crack / break x-ray on this patient's vertebra (scene/xray.js frac)
+    flashOuch();
+    S.thrust = 1; S.crackAmp = FORCE_AMP[tier]; S.skewAt = now;
+    crunch(tier); vib(tier > 1 ? [120, 40, 200] : [80, 30, 120]);
+    S.shake = tier > 1 ? 1.2 : 0.8; S.jitter = tier > 1 ? 1.4 : 0.8;
+    faceRun([[0, "gasp"], [350, "ouch"], [SIREN_AT + 400, "dazed"]]);
+    floater(tier > 1 ? "아그작" : "으그적", -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
+    later(250, () => say(towelLine(target.name, "skew"), 1500, true));
+    later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; });
+    callAmbulance(later, SIREN_AT, target, 0);
+    return;
+  }
+  whoosh(); vib([60]);
+  S.slipAt = now; S.shake = 0.4;
+  faceRun([[0, "wince"], [600, "doubt"]]);
+  floater("쏙!", r + 20, r*0.4); later(150, () => floater("…?", 0, -r - 20, "small", 1400));
+  later(250, () => say(towelLine(target.name, "slip"), 1600, true));
+  later(2300, () => say(failLine(target.lines, S.fails.length), 2200, true));
+  later(600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
+  later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
+  if(S.pain >= 3){
+    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    return;
+  }
+  setTimeout(() => { S.busy = false; }, 1100);
 }
 
 function finish(){

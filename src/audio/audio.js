@@ -168,8 +168,23 @@ export function thud(){
 }
 export function whoosh(){
   if(!ac) return;
-  tone(900, 120, 0.35, "triangle", 0.05);
-  tone(1800, 300, 0.25, "sine", 0.025, 0.03);
+  if(S.game !== "towel"){
+    tone(900, 120, 0.35, "triangle", 0.05);
+    tone(1800, 300, 0.25, "sine", 0.025, 0.03);
+    return;
+  }
+  const t=ac.currentTime+0.01, duration=0.48;
+  const buffer=ac.createBuffer(1,Math.ceil(ac.sampleRate*duration),ac.sampleRate), data=buffer.getChannelData(0);
+  // Local noise seed: sound detail must not consume the next patient's target / reaction draws.
+  let seed=0x74746b;
+  for(let i=0;i<data.length;i++){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;data[i]=(seed>>>0)/2147483648-1;}
+  const src=ac.createBufferSource(), band=ac.createBiquadFilter(), low=ac.createBiquadFilter(), gain=ac.createGain();
+  src.buffer=buffer;band.type="bandpass";band.Q.value=0.7;low.type="lowpass";low.Q.value=0.35;
+  band.frequency.setValueAtTime(850,t);band.frequency.exponentialRampToValueAtTime(4200,t+0.08);band.frequency.exponentialRampToValueAtTime(240,t+duration);
+  low.frequency.setValueAtTime(6500,t);low.frequency.exponentialRampToValueAtTime(700,t+duration);
+  gain.gain.setValueAtTime(0.0001,t);gain.gain.exponentialRampToValueAtTime(0.24,t+0.065);gain.gain.exponentialRampToValueAtTime(0.06,t+0.20);gain.gain.exponentialRampToValueAtTime(0.0001,t+duration);
+  src.connect(band);band.connect(low);low.connect(gain);gain.connect(master);src.start(t);src.stop(t+duration);
+  src.onended=()=>{src.disconnect();band.disconnect();low.disconnect();gain.disconnect();};
 }
 /* A hard wrong crack (core/fail.js forceTier): tier 1 "으그적" = four gritty low pops over a dull thud; tier 2
    "아그작" = seven louder ones, a sharp snap at the end, a deeper thud. vol scales the whole (the x-ray replay is softer). */
