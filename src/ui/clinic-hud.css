@@ -69,6 +69,14 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .pain i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--coral);display:inline-block}
 :where(.clinic-app) .pain i.on{background:var(--coral)}
 :where(.clinic-app) .tools{display:flex;gap:6px;pointer-events:auto}
+:where(.clinic-app) .tools{position:relative}
+/* 다른 클리닉: the 클리닉 chip's popover on the play HUD and the chip row on start / result cards (src/ui/clinicSwitch.js) */
+:where(.clinic-app) .clinic-menu{position:absolute;top:calc(100% + 6px);right:0;display:grid;gap:4px;min-width:112px;padding:6px;background:var(--room-deep);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:6;pointer-events:auto}
+:where(.clinic-app) .clinic-menu[hidden]{display:none}
+:where(.clinic-app) .clinic-menu .chip{font-size:13px;padding:8px 10px;text-align:left}
+:where(.clinic-app) .clinic-switch{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+:where(.clinic-app) .clinic-menu a,:where(.clinic-app) .clinic-switch a{text-decoration:none}
+:where(.clinic-app) .clinic-menu [aria-current="page"],:where(.clinic-app) .clinic-switch [aria-current="page"]{background:var(--mint);color:var(--room);border-color:var(--mint);cursor:default}
 :where(.clinic-app) .chip{font:600 11px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer}
 :where(.clinic-app) .chip.off{opacity:.55;text-decoration:line-through}
 :where(.clinic-app) .chip.mini{font-size:10px;padding:3px 7px;border-radius:5px}
