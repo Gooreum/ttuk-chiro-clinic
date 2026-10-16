@@ -10,3 +10,7 @@ dist-shot/
 .ai-bouncer/
 test-results/
 playwright-report/
+
+# 앱인토스 빌드 산출물
+*.ait
+.granite/
