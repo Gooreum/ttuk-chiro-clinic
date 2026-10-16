@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
-<div id="app">
+<div id="app" class="clinic-app">
   <canvas id="c"></canvas>
   <canvas id="hud"></canvas>
 
@@ -40,8 +40,10 @@
     </div>
   </div>
 
-  <div id="toast"></div>
-  <div id="bubble"></div>
+  <div id="toast" class="toast"></div>
+  <div id="bubble" class="bubble"></div>
+  <div id="coach" class="coach"></div>
+  <div id="stamp" class="stamp-card"></div>
   <!-- big medical chart (ui/hud.js openChart): new patient, or tap the small chart -->
   <div id="chartSheet" hidden>
     <div class="board">
@@ -80,7 +82,7 @@
 
   <div class="bottom">
     <div class="mode" id="mode">드래그로 각도 조절</div>
-    <button id="zero" type="button">중앙으로</button>
+    <button id="zero" class="zero-btn" type="button">중앙으로</button>
   </div>
 
   <div id="fade"></div>

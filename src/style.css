@@ -1,33 +1,7 @@
-*{box-sizing:border-box}html,body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}
-/* Layout: landscape-first, patient-centred. The 3D treatment room fills the screen with the patient's head at centre;
-   the aim ring is drawn around the head itself. Chart clipboard top-left, score top-right, mode line bottom-left,
-   교정 button bottom-right under the right thumb. Single warm night-clinic look. */
-:root{
-  --room:#17312c;
-  --room-deep:#0f231f;
-  --bone:#f1eadc;
-  --ink:#f7f3eb;
-  --muted:#a9c0b9;
-  --coral:#ff7a59;
-  --coral-deep:#b4482f;
-  --mint:#8adfbf;
-  --paper:#f4efe4;
-  --paper-ink:#24302d;
-  --panel:rgba(15,35,31,.82);
-  --line:rgba(241,234,220,.16);
-  --display:"Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
-  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
-  --gl:calc(16px + env(safe-area-inset-left, 0px));
-  --gr:calc(16px + env(safe-area-inset-right, 0px));
-  color-scheme:dark;
-}
-html,body{height:100%}
-body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
 #app{position:relative;height:100%;overflow:hidden}
 #app.rotated{position:fixed;top:0;left:0;transform-origin:0 0}
 #c,#hud{position:absolute;inset:0;width:100%;height:100%;display:block}
 #hud{pointer-events:none}
-
 /* ---------- chart clipboard ---------- */
 /* the big medical chart (ui/hud.js openChart): a sheet on a clipboard, centred over a dimmed room */
 #chartSheet{position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,24,21,.55);z-index:5;pointer-events:auto;opacity:1;transition:opacity .3s}
@@ -71,202 +45,19 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 /* the small chart top left: always one line, tap to open the big one */
 #chartMini{pointer-events:auto;cursor:pointer;position:relative;padding-right:14px}
 #chartMini::after{content:"";position:absolute;right:7px;bottom:13px;width:6px;height:6px;border-right:2px solid #7b8783;border-bottom:2px solid #7b8783;transform:rotate(45deg)}
-.top{position:absolute;top:10px;left:var(--gl);right:var(--gr);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
-.chart{background:var(--paper);color:var(--paper-ink);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.35);width:min(300px,46%);min-width:0;overflow:hidden;transform:rotate(-1deg);transform-origin:top left}
-/* folded while aiming (game/flow.js loadPatient): the strip and one line, name · segment · trait */
-.chart.compact{width:auto;max-width:min(320px,50%)}
-.chart.compact .chip-trait{display:none}
-.chart.compact .chips{min-width:0}
-.chart.compact .chip-seg{overflow:hidden;text-overflow:ellipsis}
-.chart.compact .cc,.chart.compact .spine{display:none}
-.chart.compact .chartbody{display:flex;align-items:center;gap:8px;padding:5px 9px 6px}
-.chart.compact .chartbody > div:first-child{display:flex;align-items:center;gap:8px;min-width:0}
-.chart.compact .name{font-size:15px;white-space:nowrap}
-.chart.compact .chips{margin-top:0;flex-wrap:nowrap}
-.chart.compact .clip{padding:3px 9px;font-size:9px}
-.clip{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2c4842;color:var(--bone);padding:5px 10px;font-size:10px;letter-spacing:.06em;font-variant-numeric:tabular-nums;position:relative}
-.clip::before{content:"";position:absolute;left:50%;top:-1px;width:44px;height:7px;margin-left:-22px;border-radius:0 0 5px 5px;background:#c9c2b2}
-.dots{display:flex;gap:4px}
-.dots i{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--bone);opacity:.55}
-.dots i.done{background:var(--mint);border-color:var(--mint);opacity:1}
-.dots i.now{background:var(--coral);border-color:var(--coral);opacity:1}
-.chartbody{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:8px 10px 9px}
-.name{font-family:var(--display);font-size:20px;line-height:1.1;display:flex;align-items:baseline;gap:6px}
-.name small{font-family:var(--body);font-size:11px;color:#5d6b67;font-weight:600}
-.cc{font-size:11.5px;line-height:1.4;color:#45524e;margin-top:3px}
-.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.chip-seg,.chip-trait{font-size:10.5px;font-weight:700;border-radius:4px;padding:2px 6px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.chip-seg{background:#2c4842;color:var(--bone)}
-.chip-trait{border:1.5px solid var(--coral-deep);color:var(--coral-deep)}
-.spine{display:grid;gap:2px;justify-items:center;align-content:center;padding-left:8px;border-left:1px dashed #c9c2b2}
-.spine b{display:block;height:5px;border-radius:3px;background:#c9c2b2}
-.spine b.hit{background:var(--coral)}
-.spine span{font-size:8px;color:#7b8783;letter-spacing:.04em}
-
-/* ---------- score ---------- */
-/* top right: a tight score panel, the rarely used tuning / music chips small under it (user: "쓸데 없이 큼", 2026-10-15) */
-.side{display:grid;gap:5px;justify-items:end}
-.stat{text-align:right;display:grid;gap:4px;justify-items:end;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 9px;backdrop-filter:blur(6px)}
-.score{display:flex;align-items:baseline;gap:6px;font-family:var(--display);font-size:26px;line-height:1;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px rgba(0,0,0,.4)}
-.score small{font-family:var(--body);font-size:10px;color:var(--muted);letter-spacing:.08em}
-.combo{font-size:11px;font-weight:700;color:var(--mint)}
-.combo:empty{display:none}
-.pain{display:flex;gap:4px;align-items:center;font-size:10px;color:var(--muted);letter-spacing:.06em}
-.pain i{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--coral);display:inline-block}
-.pain i.on{background:var(--coral)}
-.tools{display:flex;gap:6px;pointer-events:auto}
-.chip{font:600 11px var(--body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px;cursor:pointer}
-.chip.off{opacity:.55;text-decoration:line-through}
-.chip.mini{font-size:10px;padding:3px 7px;border-radius:5px}
-.chip:focus-visible,.btn:focus-visible,#zero:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
-
-/* ---------- bottom ---------- */
-.bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
-.mode{font-size:11px;color:var(--muted);line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
-.mode b{color:var(--ink);font-weight:600}
-/* "중앙으로" where the thumb rests: the crack is a flick / swipe / space, no button (user request, 2026-10-15) */
-#zero{pointer-events:auto;flex:none;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--mint);background:var(--panel);color:var(--mint);font:700 13px var(--body);letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .08s}
-#zero:active{transform:scale(.94)}
-
-/* Shared suite: quieter paper labels, mint controls and room-colour cards. */
-.suite-look #bubble{font-size:14px;border-radius:12px;box-shadow:0 3px 0 rgba(23,49,44,.18),0 8px 20px rgba(23,49,44,.2)}
-.suite-look #bubble.loud{font-size:17px}
-.suite-look .mode{border-left:3px solid var(--mint);background:rgba(23,49,44,.92);border-radius:4px 10px 10px 4px;padding:8px 10px;max-width:252px}
 .towel-look .towel-key{white-space:nowrap}
-.suite-look #zero{border-width:1px;background:rgba(23,49,44,.92);box-shadow:inset 0 0 0 3px rgba(138,223,191,.08),0 4px 12px rgba(23,49,44,.25)}
-.suite-look .float:not(.big):not(.small):not(.breath):not(.frac){font-size:30px;text-shadow:0 2px 0 var(--coral),0 5px 12px rgba(23,49,44,.5)}
-
-/* ---------- floating text ---------- */
-#toast{position:absolute;left:50%;top:22%;transform:translate(-50%,-50%);font-family:var(--display);font-size:24px;text-align:center;color:var(--ink);text-shadow:0 2px 12px rgba(0,0,0,.7);pointer-events:none;opacity:0;transition:opacity .25s;max-width:56%;text-wrap:balance}
-#toast.show{opacity:1}
-.float{position:absolute;font-family:var(--display);color:var(--bone);font-size:38px;pointer-events:none;text-shadow:0 3px 0 var(--coral),0 6px 18px rgba(0,0,0,.5);animation:up .95s ease-out forwards;white-space:nowrap;z-index:3}
-.float.big{font-size:22px;color:var(--mint);text-shadow:0 2px 10px rgba(0,0,0,.7)}
-.float.small{font-size:15px;color:var(--ink);text-shadow:0 2px 8px rgba(0,0,0,.7)}
-.float.breath{font-family:var(--body);font-weight:700;font-size:17px;color:var(--bone);text-shadow:0 2px 8px rgba(0,0,0,.65);animation:breathe 1.7s ease-out forwards}
-.float.breath.out{color:var(--mint)}
-/* a hard wrong crack: the vertebra's name on the fracture x-ray ("C5 골절!") */
-.float.frac{font-size:30px;color:var(--coral);text-shadow:0 3px 0 var(--room-deep),0 0 14px rgba(0,0,0,.6);animation:breathe 1.9s ease-out forwards}
-@keyframes breathe{0%{opacity:0;transform:translate(-50%,4px)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-26px)}}
-@keyframes up{from{transform:translate(-50%,0) scale(.6);opacity:0}20%{transform:translate(-50%,-14px) scale(1.15);opacity:1}to{transform:translate(-50%,-70px) scale(1);opacity:0}}
-#bubble{position:absolute;left:0;top:0;transform:translate(-50%,-100%);background:var(--paper);color:var(--paper-ink);font-size:16px;font-weight:700;padding:9px 14px;border-radius:14px;white-space:normal;width:max-content;max-width:46vw;text-wrap:balance;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s;box-shadow:0 6px 18px rgba(0,0,0,.3);z-index:2}
-#bubble::after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-8px;border:8px solid transparent;border-bottom:0;border-top-color:var(--paper)}
-#bubble.show{opacity:1}
-/* a wrong-crack line (ui/hud.js say loud): bigger, a coral rim, a shake */
-#bubble.loud{font-size:19px;padding:10px 16px;border:2px solid var(--coral);animation:shake .35s}
-@keyframes shake{0%,100%{translate:0}25%{translate:-5px}50%{translate:5px}75%{translate:-2px}}
-/* a wrong crack (ui/hud.js stamp): a tilted stamp on the empty floor left of the patient */
-#stamp{position:absolute;left:24%;top:50%;transform:translate(-50%,-50%) rotate(-9deg);display:grid;justify-items:center;gap:4px;padding:10px 18px 9px;border:3px solid var(--coral);border-radius:14px;background:rgba(15,35,31,.8);pointer-events:none;opacity:0;transition:opacity .3s;z-index:3;max-width:40%}
-#stamp b{font-family:var(--display);font-weight:400;font-size:46px;line-height:1;color:var(--coral);text-shadow:0 3px 0 var(--room-deep);white-space:nowrap}
-#stamp small{font-size:13px;font-weight:700;color:var(--ink);text-align:center;text-wrap:balance}
-#stamp.show{opacity:1;animation:stampIn .32s cubic-bezier(.2,1.6,.4,1)}
-#stamp.over.show b{animation:wob .9s ease-out}
-#stamp.dud{border-color:var(--bone)}
-#stamp.dud b{color:var(--bone)}
-#stamp.break b{font-size:54px}
-#stamp.break.show b{animation:shake .4s 2}
-@keyframes stampIn{from{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(1.9)}to{opacity:1;transform:translate(-50%,-50%) rotate(-9deg) scale(1)}}
-@keyframes wob{0%,100%{transform:none}20%{transform:skewX(-16deg)}40%{transform:skewX(12deg)}60%{transform:skewX(-7deg)}80%{transform:skewX(3deg)}}
 /* a wrong crack (over / finger): the screen edges flash coral */
 #app.ouch::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 90px 24px rgba(255,122,89,.6);animation:ouchFade .65s ease-out forwards;z-index:2}
 @keyframes ouchFade{from{opacity:1}to{opacity:0}}
 /* a crack / break ends the day (game/flow.js hurt): ambulance lights at the edges, the x-ray disc red / blue (7절 예외) */
 #app.siren::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;animation:sirenLights .55s steps(1) infinite}
 @keyframes sirenLights{0%{box-shadow:inset 110px 0 90px -40px rgba(232,56,61,.75),inset -40px 0 60px -40px rgba(61,139,255,.2)}50%{box-shadow:inset -110px 0 90px -40px rgba(61,139,255,.75),inset 40px 0 60px -40px rgba(232,56,61,.2)}}
-#stamp.siren{border-color:#e8383d}
-#stamp.siren b{color:#e8383d}
-#stamp.siren.show b{animation:sirenWord .55s steps(1) infinite}
-@keyframes sirenWord{50%{color:#3d8bff}}
 #banner{position:absolute;left:50%;top:12px;transform:translate(-50%,-140%);background:var(--paper);color:var(--paper-ink);border-radius:10px;padding:8px 14px;display:grid;gap:1px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35);transition:transform .35s cubic-bezier(.2,.9,.3,1.2);pointer-events:none;z-index:4;max-width:60%}
 #banner.show{transform:translate(-50%,0)}
 #banner small{font-size:10px;letter-spacing:.1em;color:#6b7774}
 #banner b{font-family:var(--display);font-weight:400;font-size:20px}
 #banner span{font-size:11px;color:var(--coral-deep);font-weight:700}
-/* therapist talk (prep "힘 빼세요", breath cue): the doctor's side, so dark panel + mint, not the patient's paper bubble */
-#coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:15px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
-#coach small{color:var(--muted);font-size:11px;font-weight:600;margin-right:6px}
-#coach.show{opacity:1}
 #fade{position:absolute;inset:0;background:var(--room-deep);opacity:0;transition:opacity .25s;pointer-events:none;z-index:4}
 #fade.on{opacity:1}
 
-/* ---------- tuning sheet ---------- */
-.sheet{position:absolute;right:var(--gr);top:10px;bottom:10px;width:min(360px,calc(100% - 32px));overflow:auto;background:var(--room-deep);border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;align-content:start;gap:12px;z-index:5;touch-action:pan-y}
-.sheethead{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.sheethead b{font-family:var(--display);font-weight:400;font-size:20px}
-.row{display:grid;gap:4px;font-size:13px}
-.row .lbl{display:flex;justify-content:space-between;gap:8px}
-.row .lbl span{color:var(--muted);font-variant-numeric:tabular-nums}
-.row .hint{font-size:11px;color:var(--muted);line-height:1.4}
-.row input[type=range]{width:100%;accent-color:var(--coral)}
-.chk{display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.4}
-.chk input{accent-color:var(--coral);width:18px;height:18px;flex:none}
-.live{font-size:12px;color:var(--muted);background:rgba(241,234,220,.06);border-radius:8px;padding:8px 10px;line-height:1.5;font-variant-numeric:tabular-nums}
-.live b{color:var(--ink)}
-
-/* ---------- overlays ---------- */
-.overlay{position:absolute;inset:0;display:grid;place-items:center;padding:14px var(--gr) 14px var(--gl);background:rgba(10,24,21,.74);backdrop-filter:blur(5px);z-index:6}
-.card{background:var(--room-deep);border:1px solid var(--line);border-radius:16px;padding:20px 22px;max-width:680px;width:100%;display:grid;gap:14px;max-height:100%;overflow:auto}
-.card.wide{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:26px;align-items:center}
-.logo{display:flex;align-items:center;gap:12px}
-.stamp{flex:none;width:74px;height:74px;border-radius:50%;background:var(--coral);color:var(--room-deep);display:grid;place-items:center;font-family:var(--display);font-size:40px;transform:rotate(-10deg);box-shadow:inset 0 0 0 4px var(--room-deep),inset 0 0 0 6px var(--coral)}
-.logo h1{font-family:var(--display);font-weight:400;font-size:34px;line-height:1;margin:0}
-.logo h1 small{display:block;font-family:var(--body);font-size:11px;letter-spacing:.18em;color:var(--muted);margin-top:6px;font-weight:600}
-.lead{display:grid;gap:14px;align-content:start}
-.lead p{margin:0;color:var(--muted);line-height:1.6;font-size:13.5px}
-.hours{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;font-variant-numeric:tabular-nums}
-.hours b{color:var(--mint);font-weight:600}
-.legal{margin:-6px 0 0;font-size:10px;color:var(--muted)}
-.linkbtn{font:inherit;color:var(--mint);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
-.card.credits{max-width:560px;gap:10px;font-size:12px;line-height:1.5}
-.card.credits h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;color:var(--paper)}
-.card.credits p{margin:0}
-.card.credits ul{margin:0;padding-left:18px;color:var(--ink)}
-.card.credits .sub{color:var(--muted)}
-.how{display:grid;gap:10px;margin:0;padding:0;list-style:none;font-size:13px;line-height:1.5}
-.how li{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
-.how svg{width:34px;height:34px;color:var(--coral)}
-.how b{color:var(--ink)}
-.how div{color:var(--muted)}
-.tip{font-size:12px;color:var(--ink);background:rgba(138,223,191,.1);border:1px solid rgba(138,223,191,.35);border-radius:8px;padding:8px 10px;line-height:1.5}
-.btn{font-family:var(--display);font-size:22px;border:0;border-radius:10px;padding:13px;background:var(--coral);color:var(--room-deep);cursor:pointer;box-shadow:0 4px 0 var(--coral-deep)}
-.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--coral-deep)}
-.starts{display:grid;grid-template-columns:1.25fr 1fr;gap:8px}
-.btn.ghost{font-size:16px;padding:10px 6px;background:transparent;color:var(--mint);border:2px solid var(--mint);box-shadow:none}
-.btn.ghost:active{transform:translateY(2px);box-shadow:none}
-.best{font-size:11px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
-
-.log{background:var(--paper);color:var(--paper-ink);max-width:460px;gap:12px}
-.log h2{font-family:var(--display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
-.log .sub{font-size:11px;letter-spacing:.1em;color:#6b7774}
-.log ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}
-.log li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;border-bottom:1px dashed #cfc7b6;padding-bottom:7px;font-size:13px}
-.log li .who{font-weight:700}
-.log li .stars{color:var(--coral-deep);letter-spacing:2px;font-size:14px}
-.log li .rev{grid-column:1 / -1;font-size:12.5px;color:#56635f}
-.log li .tags{grid-column:1 / -1;display:flex;gap:4px;flex-wrap:wrap}
-.log li .tags i{font-style:normal;font-size:11px;font-weight:700;color:var(--coral-deep);border:1px solid var(--coral-deep);border-radius:999px;padding:1px 7px}
-.log li .pts{font-variant-numeric:tabular-nums;font-weight:700}
-.total{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-.total b{font-family:var(--display);font-weight:400;font-size:30px;font-variant-numeric:tabular-nums}
-.total span{font-size:12px;color:#56635f}
-.rank{font-family:var(--display);font-size:22px;color:var(--coral-deep)}
-.newbest{font-size:11px;font-weight:700;color:#2c7a5e}
-
-@media (orientation:portrait){
-  .card.wide{grid-template-columns:1fr}
-  .chart{width:min(260px,62%)}
-  .sheet{left:var(--gl);right:var(--gr);width:auto;top:auto;max-height:72%}
-  .mode{max-width:58%}
-}
-@media (orientation:landscape) and (max-height:430px){
-  .name{font-size:17px}
-  .cc{font-size:10.5px}
-  .score{font-size:26px}
-  .card{padding:16px 18px}
-  .logo h1{font-size:28px}
-  .stamp{width:60px;height:60px;font-size:32px}
-  .how{gap:6px;font-size:12px}
-  .how svg{width:28px;height:28px}
-  .how li{grid-template-columns:28px 1fr}
-  .lead{gap:10px}
-}
-@media (prefers-reduced-motion:reduce){.float{animation-duration:.01s}.float.breath{animation-duration:1.7s}#banner{transition:none}#app.siren::before,#stamp.siren.show b{animation-duration:1.4s}}
+@media (prefers-reduced-motion:reduce){#banner{transition:none}#app.siren::before{animation-duration:1.4s}}

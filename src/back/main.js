@@ -1,18 +1,24 @@
+import "../ui/clinic-hud.css";
+import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
+import {makeHud} from '../ui/hudDom.js';
+import {clamp} from '../lib/math.js';
 import {therapistStyle} from './therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,TARGETS,SWEET,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,clinicFilm} from './core.js';
+import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint} from './core.js';
 import {BackMotion} from './motion.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
-import {T} from '../tuning.js';
+import {T,saveT} from '../tuning.js';
 import {store} from '../lib/store.js';
 
-const $=id=>document.getElementById(id), app=$('backApp'),canvas=$('backCanvas'),press=$('backPress'),slider=$('backPosition');
+const $=id=>document.getElementById(id), app=$('backApp'),canvas=$('backCanvas'),press=$('backPress'),hud=$('backHud'),ctx=hud.getContext('2d');
+const domHud=makeHud(app);
+let hudDpr=1,lastSpeech='',lastExhale=null;
 let drag=null,swipePeak=0;
 const motionDebug=new URLSearchParams(location.search).has('motionDebug');
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -34,23 +40,37 @@ function stopSound(){clinicAudio.stopSiren();}
 function tone(from,to,length,volume,delay=0){if(S.sound)clinicAudio.tone(from,to,length,'sine',volume,delay);}
 function damageSound(tier,volume=1){if(S.sound)clinicAudio.crunch(tier,volume);}
 function ambulanceSound(){if(S.sound)clinicAudio.siren(3.4);clinicAudio.vib([200,100,200,100,200]);}
-function cue(text,style=''){
-  if(text===S.cue&&$('backCue').className==='cue '+style)return;
-  S.cue=text;$('backCue').textContent=text;$('backCue').className='cue '+style;
+function cue(text,style=''){S.cue=text;S.cueStyle=style;}
+function syncMusic(){
+  $('backMusic').textContent=S.music?'음악':'음악 끔';
+  $('backMusic').classList.toggle('off',!S.music);
+  $('backMusic').setAttribute('aria-pressed',String(S.music));
+  $('backTuneMusic').checked=S.music;
 }
+function syncTune(){
+  $('backSound').checked=S.sound;
+  $('backTuneBreath').checked=!!T.breath;$('backTuneTick').checked=!!T.tick;
+  syncMusic();
+}
+function openTune(){pause();syncTune();$('backPaused').hidden=false;}
+function closeTune(){$('backPaused').hidden=true;resume();}
 function sync(){
   app.dataset.input=S.control;
   if(S.phase!=='paused')clinicAudio.setAmbient();
-  $('backScore').textContent=String(S.score).padStart(3,'0');
+  $('backScore').textContent=String(S.score);
   const el=$('backMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 3회`);
   [...el.querySelectorAll('i')].forEach((e,i)=>e.classList.toggle('on',i<S.mistakes));
-  document.querySelectorAll('.step-pills>span').forEach((e,i)=>{e.classList.toggle('active',i===S.step&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
-  $('positionTarget').style.left=S.targets[Math.min(2,S.step)]*100+'%';slider.value=S.position;
-  slider.disabled=S.phase!=='play'||S.control!=='touch';press.disabled=S.phase!=='play';
-  $('backMotionNotice').hidden=S.control!=='motion'||(S.sensorStatus==='connected'&&S.motionReady);
+  [...$('backDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.step&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
+  $('backZone').textContent=names[S.step]+' '+(S.step+1)+'/3';
+  $('backMode').innerHTML=S.control==='motion'
+    ?'<b>좌우로 기울여</b> 위치 · <b>앞쪽 낮춰</b> 힘 · <b>앞뒤로 툭</b>'
+    :'<b>드래그</b>로 위치·힘 · <b>휙 튕겨서</b> 누르기 · 스페이스';
+  press.disabled=S.phase!=='play';
+  const now=performance.now(),problem=S.sensorStatus==='denied'||S.lastSample&&now-S.lastSample>1800||!S.lastSample&&now-S.breathAt>2200;
+  $('backMotionNotice').hidden=S.phase!=='play'||S.control!=='motion'||!problem;
   $('backSensorRetry').hidden=S.sensorStatus!=='denied';
 }
-function setPosition(value){if(S.phase!=='play'||S.control!=='touch')return;S.position=Math.max(0,Math.min(1,Number(value)));slider.value=S.position;}
+function setPosition(value){if(S.phase!=='play'||S.control!=='touch')return;S.position=Math.max(0,Math.min(1,Number(value)));}
 function cancelInput(){S.holdAt=null;S.pointer=null;S.pending=null;drag=null;swipePeak=0;sync();}
 function updateImpact(){
   const p=S.pending;if(!p)return;
@@ -65,9 +85,12 @@ function settleImpact(){
   S.reaction=pickReaction(patient.react,S.outcome.perfect,Math.random,S.previousReaction);
   if(S.kind==='ok'){
     S.score+=S.outcome.points;S.streak=S.outcome.streak;
+    domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');
+    domHud.stamp(S.outcome.perfect?'PERFECT':'성공',names[S.step], 'dud');
 
   }else{
     S.mistakes++;S.painHere++;S.streak=0;S.fails.push({kind:S.kind,feedback:S.outcome.feedback,tier:S.tier});
+    domHud.stamp(S.tier?FORCE_STAMP[S.tier]:FAIL_STAMP[S.outcome.feedback],names[S.step],S.tier===2?'break':S.outcome.feedback);
 
   }
   cue(S.kind==='ok'?'그 자리에서 우두둑.':S.tier?'잠깐… 방금 소리가 이상한데요.':'조금 빗나갔어요.',S.kind==='ok'?'good':'bad');sync();
@@ -88,16 +111,15 @@ function applyPress(position,pressure,force=1){
 // a fast flick released within 140 ms is the shove, its speed the force.
 function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&!S.pending&&performance.now()>=S.prepUntil){ensureSound();applyPress(S.position,S.pressure,force);}}
 function finish(){
-  S.phase='result';cancelInput();$('backControls').hidden=true;$('backPause').hidden=true;$('backMotionNotice').hidden=true;
+  S.phase='result';cancelInput();$('backControls').hidden=true;$('backMotionNotice').hidden=true;
   const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=complete&&S.score>best;
   if(record)store.set('chiroBackMotionBest',S.score);
   $('backResultTitle').textContent=S.tier?'구급차가 왔어요':complete?'허리까지 시원하게.':'오늘은 여기까지만.';
   $('backReview').textContent='“'+reviewLine({stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('backTotal').textContent=S.score;
-  $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('span');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
+  $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('li');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
   $('backRank').textContent=rankTitle(S.score/3,S.tier?3:S.mistakes);
   $('backBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
-  $('backBestSmall').textContent=`최고 ${store.get('chiroBackMotionBest',0)}점`;
   $('backResult').hidden=false;sync();
 }
 // Invoke both iOS permission APIs synchronously inside the start tap, as in neck adjustment.
@@ -111,18 +133,18 @@ async function start(useMotion=preferMotion){
   ensureSound();stopSound();
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
-  motion.reset();
+  motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeBackTargets(),results:[],fails:[],
     holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
-  $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;$('backPause').hidden=false;
+  $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;
   $('backMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
   sync();
 }
 function pause(){
   if(S.phase!=='play'&&S.phase!=='anim')return;
   settleImpact();S.previousPhase=S.phase;S.pausedAt=performance.now();cancelInput();S.phase='paused';
-  stopSound();clinicAudio.suspend();$('backPaused').hidden=false;sync();
+  stopSound();clinicAudio.suspend();syncTune();$('backPaused').hidden=false;sync();
 }
 function resume(){
   if(S.phase!=='paused')return;
@@ -135,6 +157,9 @@ function resize(){
   app.classList.toggle('self-rotated',rotated);app.style.width=width+'px';app.style.height=height+'px';
   app.style.transform=rotated?`translateX(${w}px) rotate(90deg)`:'none';app.style.left='0';app.style.top='0';
   motion.recenter();S.motionReady=false;if(scene)scene.resize(width,height);
+  hudDpr=Math.min(devicePixelRatio||1,2);hud.width=Math.round(width*hudDpr);hud.height=Math.round(height*hudDpr);
+  $('backSpeech').style.left=width*.5+'px';$('backSpeech').style.top=height-40+'px';
+  $('backSpeech').style.maxWidth=width*.46+'px';
 }
 function localPoint(e){return rotated?{x:e.clientY,y:innerWidth-e.clientX}:{x:e.clientX,y:e.clientY};}
 canvas.addEventListener('pointerdown',e=>{
@@ -154,23 +179,29 @@ canvas.addEventListener('pointermove',e=>{
 });
 canvas.addEventListener('pointerup',()=>{if(drag&&swipePeak>1.6&&performance.now()-drag.t<140)touchShove(swipePeak/1.6);drag=null;swipePeak=0;});
 canvas.addEventListener('pointercancel',()=>{drag=null;swipePeak=0;});
-slider.addEventListener('input',e=>setPosition(e.target.value));
 press.addEventListener('click',()=>{motion.recenter();S.motionReady=false;S.position=.5;S.pressure=.12;S.prepUntil=performance.now()+700;sync();});
 addEventListener('keydown',e=>{
-  if(e.code==='Escape'){if(S.phase==='paused')resume();else pause();return;}
+  if(e.code==='Escape'){if(!$('backPaused').hidden)closeTune();else openTune();return;}
   if(S.phase!=='play'||S.control!=='touch')return;
-  if(e.code==='Space'&&e.target!==slider){e.preventDefault();if(!e.repeat)touchShove(1);}
-  if(e.target!==slider&&['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();setPosition(S.position+(scene?.screenAxis??1)*(e.code==='ArrowLeft'?-.02:.02));}
+  if(e.code==='Space'){e.preventDefault();if(!e.repeat)touchShove(1);}
+  if(['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();setPosition(S.position+(scene?.screenAxis??1)*(e.code==='ArrowLeft'?-.02:.02));}
   if(['ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();S.pressure=Math.max(0,Math.min(1.35,S.pressure+(e.code==='ArrowUp'?.04:-.04)));}
 });
 addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
-$('backPause').addEventListener('click',pause);$('backResume').addEventListener('click',resume);
+$('backTune').addEventListener('click',openTune);
+$('backTuneClose').addEventListener('click',closeTune);
+$('backPause').addEventListener('click',pause);$('backResume').addEventListener('click',closeTune);
 $('backStart').addEventListener('click',()=>start());$('backAgain').addEventListener('click',()=>start(S.control==='motion'));
 $('backTouchStart').addEventListener('click',()=>start(false));$('backTouchFallback').addEventListener('click',()=>start(false));
 $('backSensorRetry').addEventListener('click',()=>start(true));
-$('backSound').addEventListener('click',()=>{S.sound=!S.sound;$('backSound').setAttribute('aria-pressed',String(S.sound));$('backSound').textContent=S.sound?'소리 켬':'소리 끔';if(S.sound)ensureSound();else{stopSound();clinicAudio.setAmbient();}});
-$('backMusic').setAttribute('aria-pressed',String(S.music));$('backMusic').textContent=S.music?'음악 켬':'음악 끔';
-$('backMusic').addEventListener('click',()=>{S.music=!S.music;store.set('chiroBackMusic',S.music);$('backMusic').setAttribute('aria-pressed',String(S.music));$('backMusic').textContent=S.music?'음악 켬':'음악 끔';ensureSound();clinicAudio.setAmbient();});
+$('backSound').addEventListener('change',e=>{S.sound=e.target.checked;if(S.sound)ensureSound();else{stopSound();clinicAudio.setAmbient();}});
+function setMusic(on){S.music=on;store.set('chiroBackMusic',S.music);syncMusic();ensureSound();clinicAudio.setAmbient();}
+$('backMusic').addEventListener('click',()=>setMusic(!S.music));
+$('backTuneMusic').addEventListener('change',e=>setMusic(e.target.checked));
+for(const [id,key] of [['backTuneBreath','breath'],['backTuneTick','tick']]){
+  $(id).addEventListener('change',e=>{T[key]=e.target.checked;saveT();});
+}
+syncTune();
 addEventListener('deviceorientation',e=>motion.orientation(e,performance.now()));
 addEventListener('devicemotion',e=>{
   if(S.control!=='motion'||!S.motionEnabled||!['play','anim'].includes(S.phase))return;
@@ -198,11 +229,35 @@ function faceFor(t){
   if(S.outcome.feedback==='finger')return t<.35?'startle':'doubt';
   return t<.35?'wince':t<1.4?'doubt':'sulk';
 }
+function boxIn(el){
+  let x=0,y=0,n=el;
+  while(n&&n!==app){x+=n.offsetLeft;y+=n.offsetTop;n=n.offsetParent;}
+  return {left:x,right:x+el.offsetWidth,bottom:y+el.offsetHeight,w:el.offsetWidth};
+}
+function drawHud(pressure,br){
+  ctx.setTransform(hudDpr,0,0,hudDpr,0,0);ctx.clearRect(0,0,width,height);
+  if(S.phase!=='play')return;
+  const R=clamp(height*.19,62,Math.min(width,height)*.25),cx=width*.5,cy=height*.55;
+  const h=clamp(R*1.7,110,height*.62),x=Math.min(cx+Math.max(R*1.7,136),width-76),top=clamp(cy-h*.55,82,height-h-28);
+  const near=backDistance(S.position,S.step,pressure,S.targets)<=1;
+  drawVGauge(ctx,{x,top,h,title:'누르는 힘',value:pressure/1.35,band:[SWEET.min/1.35,SWEET.max/1.35],limit:SWEET.max/1.35,hot:near||pressure>SWEET.max});
+  const mR=boxIn($('backMode')),zR=boxIn(press),gapL=mR.w?mR.right:20,gapR=zR.w?zR.left:width-20;
+  const bw=clamp(gapR-gapL-40,110,180),bx=clamp((gapL+gapR-bw)/2,10,width-bw-10);
+  const by=clamp((zR.w?zR.bottom:height-12)-19,40,height-20);
+  const off=(S.position-S.targets[S.step])/POSITION_TOL,showBand=S.control==='touch'||S.step<2||S.painHere>0;
+  drawHBar(ctx,{bx,by,bw,off,ok:Math.abs(off)<=1,title:'손 위치',showBand,okText:showBand?'맞아요':'찾아봐요',offText:showBand?'중심 밖':'찾아봐요'});
+  drawHint(ctx,{x:bx+bw/2,y:by-40,text:S.cue,hot:S.cueStyle==='bad'});
+  if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:'후우… 지금 툭 +15',colors:{bone:'#8adfbf'}});
+}
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
   if(S.pending&&now-S.pending.at>=130)settleImpact();
   let pressure=S.pressure,impulse=0,shotTime=-1,face=false;
-  const br=breathState(now,S.breathAt,4.4);$('backBreath').textContent=br.exhale?'후우… 지금 툭 하면 날숨 보너스':'흐읍… 들이쉬는 중';app.classList.toggle('exhaling',br.exhale);
+  const br=breathState(now,S.breathAt,4.4);
+  if(S.phase==='play'&&br.exhale!==lastExhale){
+    if(lastExhale!==null)domHud.floater(br.exhale?'후우~':'흐읍…',width*.5,height*.42,br.exhale?'breath out':'breath',1700);
+    lastExhale=br.exhale;
+  }
   if(S.phase==='anim'){
     shotTime=(now-S.animAt)/1000;const timing=reactionTiming(S.kind,S.tier,S.force),style=therapistStyle(S.force,S.tier);
     if(style.power>.3&&shotTime>=.10&&!S.jumpSoundPlayed){S.jumpSoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
@@ -219,7 +274,10 @@ function frame(now){
     if(S.tier&&shotTime>=.8+style.xrayDelay&&!S.fracSoundPlayed){S.fracSoundPlayed=true;damageSound(S.tier,.6);clinicAudio.vib(S.tier>1?[60,30,90]:[50]);}
     pressure=S.peakPressure*Math.max(0,1-shotTime/.35);
     face=shotTime>=timing.faceAt&&shotTime<timing.faceEnd;
-    if(face){const faceTime=shotTime-timing.faceAt;$('backSpeech').textContent=speechFor(S.kind,S.tier,faceTime);}
+    if(face){
+      const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
+      if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
+    }
     $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
@@ -236,7 +294,7 @@ function frame(now){
       sync();face=false;shotTime=-1;
     }
   }
-  S.faceVisible=face;$('backSpeech').hidden=!face;app.classList.toggle('face-closeup',face);
+  S.faceVisible=face;if(!face){domHud.hideSpeech();lastSpeech='';}app.classList.toggle('face-closeup',face);
   const emergency=S.phase==='anim'&&S.tier>0&&S.sirenPlayed;app.classList.toggle('ambulance',emergency);$('backEmergency').hidden=!emergency;
   $('backImpact').hidden=!(S.phase==='anim'&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   $('backImpactTail').textContent=S.tier===2?'작!':'적…';$('backImpactTail').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt+.05&&shotTime<therapistStyle(S.force,S.tier).impactAt+.65);
@@ -256,15 +314,14 @@ function frame(now){
     else if(pressureHint(S.position,S.step,pressure,S.targets)==='position')label=S.control==='motion'?(S.step===2&&S.painHere===0?'천천히 훑어요. 틱 소리가 빨라지는 자리를 찾아요':'좌우로 기울여 민트 링에 손을 맞춰요'):`${names[S.step]} 민트 링에 손을 맞춰 주세요`;
     else if(pressureHint(S.position,S.step,pressure,S.targets)==='release')label=S.control==='motion'?'조금 깊어요. 폰 앞쪽을 살짝 들어요':'압박을 조금 빼 주세요';
     else label=S.control==='motion'?'폰 앞쪽을 천천히 낮춰 압박을 실어요':'위로 드래그해 힘을 더 실어요';
-    $('backPressureLabel').textContent=pressure>SWEET.max?'너무 깊어요':near?'준비됐어요':pressureHint(S.position,S.step,pressure,S.targets)==='release'?'힘을 조금 빼요':'압박을 맞춰요';
     cue(label,pressure>SWEET.max?'bad':near?'good':'');
     if(S.control==='motion'){
       $('backMotionStatus').textContent=S.sensorStatus==='denied'?'센서가 꺼져 있어요. 다시 연결해 주세요.':S.lastSample&&now-S.lastSample>1800?'센서 연결이 끊겼어요. 자세를 다시 잡아 주세요.':!S.lastSample&&now-S.breathAt>2200?'동작 센서를 기다리고 있어요. Safari에서 센서를 연결해 주세요.':'폰을 가로로 편하게 들고 잠깐 멈춰 주세요.';
-      $('backMotionNotice').hidden=S.sensorStatus==='connected'&&S.motionReady&&now-S.lastSample<1800;
+      $('backMotionNotice').hidden=!(S.sensorStatus==='denied'||S.lastSample&&now-S.lastSample>1800||!S.lastSample&&now-S.breathAt>2200);
+      $('backSensorRetry').hidden=S.sensorStatus!=='denied';
     }
   }
-  $('backPressureFill').style.height=Math.min(100,pressure/1.35*100)+'%';$('backPressureNeedle').style.bottom=Math.min(100,pressure/1.35*100)+'%';$('backPressureValue').textContent=Math.round(pressure*100)+'%';
-  $('backPositionDot').style.left=S.position*100+'%';slider.value=S.position;
+  drawHud(pressure,br);
   app.dataset.phase=S.phase;app.classList.toggle('slam-wide',S.phase==='anim'&&therapistStyle(S.force,S.tier).power>.3&&shotTime<therapistStyle(S.force,S.tier).impactAt+.95);app.dataset.injury=S.tier===2?'break':S.tier===1?'crack':'none';
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
@@ -275,9 +332,8 @@ function frame(now){
   if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
 }
 addEventListener('resize',resize);resize();
-$('backBestSmall').textContent=`최고 ${store.get('chiroBackMotionBest',0)}점`;
 try{scene=await createBackScene(canvas);resize();S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
-  $('backStart').textContent=preferMotion?'폰 들고 진료 시작':'마우스로 진료 연습';document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(frame);
+  $('backStart').textContent='진료 시작';document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(frame);
 }catch(error){console.error('허리 진료실을 불러오지 못했어요',error);$('backLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('backStart').textContent='다시 불러오기';$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
