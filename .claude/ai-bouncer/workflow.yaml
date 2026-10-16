@@ -97,8 +97,9 @@ stages:
         blocking: true
 
       # 시각 변경일 때만. shot.py는 콘솔/페이지 에러가 있으면 exit 1.
+      # .venv가 없으면 여기서 만든다 — verify는 읽기 전용이라 모델이 따로 만들 수 없다(2026-10-17에 그래서 막혔다).
       - label: 헤드리스 스크린샷
-        run: "npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
+        run: "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
         timeout: 900
         blocking: true
         optional: true

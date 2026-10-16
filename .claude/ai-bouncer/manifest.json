@@ -11,10 +11,7 @@
     ".claude/ai-bouncer/hooks/stop.sh",
     ".claude/ai-bouncer/hooks/session-end.sh",
     ".claude/ai-bouncer/scripts/update-check.sh",
-    ".claude/skills/dev-bounce/SKILL.md",
-    ".claude/ai-bouncer/workflow.yaml",
-    ".claude/ai-bouncer/prompts/plan.md",
-    "CLAUDE.md"
+    ".claude/skills/dev-bounce/SKILL.md"
   ],
-  "gitignore_added": true
+  "gitignore_added": false
 }
