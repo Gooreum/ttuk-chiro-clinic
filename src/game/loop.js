@@ -11,7 +11,7 @@ import {
   torso, collar, bodyParts, pivot, head, neckMesh, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
-import { updateXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
+import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
 import { tone, vib, crunch } from "../audio/audio.js";
 import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
@@ -107,6 +107,7 @@ export function frame(now){
   // horizontal axis is the left / right focus and turns the head a little (TOWEL_TURN of it, looks only); a tug snaps the
   // head out toward the camera, the neck stretches and the body barely follows; a skewed tug wrenches it to the side
   const towel = S.game === "towel";
+  if(towel) warmTowelXray(renderer);
   const hold = S.stretchHold || STRETCH_HOLD;
   if(S.stretchAt && now - S.stretchAt > stretchLen(hold)*1000) S.stretchAt = 0;
   const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak, hold) : 0;
@@ -116,7 +117,7 @@ export function frame(now){
   // the towel's tension already draws the head a little toward the therapist while aiming
   const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? thrustDeg*SKEW_BEND*DEG : (cur.bend + thrustBend)*DEG,
-    ((towel ? cur.rot*TOWEL_TURN : cur.rot) + thrustDeg + jit + boingDeg + headRock(now))*DEG);
+    ((towel ? cur.rot*TOWEL_TURN : cur.rot) + thrustDeg + jit + boingDeg + (towel ? 0 : headRock(now)))*DEG);
   // the head goes, the body below the neck comes along only a little (core/towel.js BODY_SHARE), the neck takes the rest
   const pull = stretch + pre, body = pull*BODY_SHARE;
   head.position.z = HEAD_Z - pull;
@@ -201,10 +202,10 @@ export function frame(now){
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
   // towel mode: the bottom of the spine rides with the body, its gaps open with the neck's stretch;
-  // the stuck disc lets go only when the patient snaps back
-  // (STRETCH_HOLD after the tug, with the recorded crack from game/flow.js), never on an over-pull
+  // scene/xray.js gives traction one presented-frame clock: red compression, blue opening, then settling with return.
+  // The recorded crack is still on the tug in game/flow.js; an over-pull stays separated through the siren.
   const tSince = S.stretchAt ? (now - S.stretchAt)/1000 : -1, over = S.stretchPeak > 0.15;
-  const traction = towel ? {s: stretch*(1 - BODY_SHARE), slide: body, over, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
+  const traction = towel ? {s: stretch*(1 - BODY_SHARE), slide: body, over, event: S.xrayAt, x: S.xray > 0.001 && S.xrayAt ? (now - S.xrayAt)/1000 : -1, back: tSince >= hold ? tSince - hold : (S.stretchAt ? -1 : 1)} : null;
   const crackT = S.xray > 0.001 ? (towel ? (over || tSince < hold - XRAY_PRE ? -1 : tSince - hold + XRAY_PRE) : S.crackT) : -1;
   if(updateXray(now, xray, crackT, S.hurtX, target, frac, traction)){
     // the disc lets go: a deep pop, an airy rising tone, a rumble, a small camera kick, the mint wave (towel mode: the

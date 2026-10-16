@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { slipPose } from "./towelMotion.js";
 import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
@@ -922,13 +923,13 @@ export function updateRealHands(st){
       _qR.slerp(_qB, w.pat);
     }
     // towel mode: both fists on the towel ends beside the jaw, knuckles toward the feet, palms in; pulled toward the
-    // therapist with the tension. A slip throws both hands up and back for a moment (the towel flew off)
-    w.towel += ((st.towel && !cupOn && !awayOn ? 1 : 0) - w.towel)*(1 - Math.exp(-dt*6));
-    if(!arm.seen) w.towel = st.towel && !cupOn && !awayOn ? 1 : 0;
+    // therapist with the tension. On a slip both closed fists withdraw with the cloth and feed it back below the neck.
+    w.towel += ((st.towel ? 1 : 0) - w.towel)*(1 - Math.exp(-dt*6));
+    if(!arm.seen) w.towel = st.towel ? 1 : 0;
     if(w.towel > 0.001){
-      const sl = st.slip >= 0 && st.slip < 0.8 ? Math.sin(Math.PI*st.slip/0.8) : 0;
+      const sl = slipPose(st.slip).hand;
       _v2.set(s*TOWEL_GRIP[0], TOWEL_GRIP[1], TOWEL_GRIP[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
-      _v2.y += 0.07*sl; _v2.z -= 0.08*sl; _v2.x += s*0.03*sl;
+      _v2.y -= 0.015*sl; _v2.z -= 0.16*sl; _v2.x += s*0.015*sl;
       // a fist round the towel end (user: "진짜 사람이 잡고 있는것처럼", 2026-10-15): the band runs through the palm, the
       // fingers point across it toward the table and curl round it, the thumb on top; the palm faces the head; the
       // forearm and metacarpals form a pulling line. Curl the fingers around the band, rather than folding the
@@ -939,7 +940,7 @@ export function updateRealHands(st){
       pairQuat(arm.F0, arm.N0, _v, _v3, _qB);
       _P.lerp(_v2, w.towel);
       _qR.slerp(_qB, w.towel);
-      grip += (1.2*(1 - sl) - grip)*w.towel;
+      grip += (1.2 - grip)*w.towel;
       // an over-pull: he goes over backwards (scene/therapist.js), lets go of the towel and the arms fly up, hands open
       // (core/towel.js letGoProfile: at once, before the body has moved, so the arms go over with him)
       const fl = clamp(st.drop || 0, 0, 1);
@@ -959,7 +960,7 @@ export function updateRealHands(st){
     _sh.set(camBase.x + SHOULDER[0]*s, camBase.y + SHOULDER[1], camBase.z + SHOULDER[2]).add(_camF);
     // towel mode: the shoulders of the seated body (scene/therapist.js), which leans back as he pulls
     // (followed at once: the body can move fast, falling over, and the sleeve must stay on it)
-    const onBody = w.towel > 0.001 && st.shoulder && st.shoulder(s, _shT);
+    const onBody = st.towel && st.shoulder && st.shoulder(s, _shT);
     if(onBody) _sh.lerp(_shT, w.towel);
     if(arm.seen && !onBody) arm.shoulder.lerp(_sh, 1 - Math.exp(-dt*8)); else arm.shoulder.copy(_sh);
     // on the body the shoulder stays where it is and the hand comes along out of reach (solveArm would pull the

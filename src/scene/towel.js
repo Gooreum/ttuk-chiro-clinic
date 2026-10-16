@@ -3,6 +3,7 @@ import { scene } from "./renderer.js";
 import { head, crackFadeMats } from "./patientModel.js";
 import { loadModel, getEnv } from "./realAssets.js";
 import { withVisualIds } from "./visualBuild.js";
+import { slipPose } from "./towelMotion.js";
 
 /* Towel mode (core/towel.js): a folded white bath towel (public/models/towel/towel.glb, scripts/assets/towel_build.py)
    slung under the patient's chin, up along the jaw to the therapist's fists beside it, the loose ends hanging out of
@@ -40,6 +41,7 @@ const simMeshes = {};
 const clothPull = {value: 0};
 function finishCloth(m, env){
   m.color.set(0xf4efe4);
+  m.side = THREE.DoubleSide; m.forceSinglePass = true;
   m.envMap = env; m.envMapIntensity = 0.16;
   m.roughness = 0.94;
   if(m.normalScale) m.normalScale.set(1.35, 1.35);
@@ -70,6 +72,12 @@ function loadSim(){
       sim.userData.keep = true;
       Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
       head.add(sim);
+      sim.updateWorldMatrix(true, true);
+      for(const patient of Object.values(simMeshes)){
+        const meshes=[];patient.traverse(m=>{if(m.isMesh)meshes.push(m);});
+        const reference=meshes.find(m=>m.geometry.attributes.uv);
+        meshes.forEach(m=>buildSlipMorphs(m,reference));
+      }
     });
   }).catch(err => console.warn("simulated towel not loaded, keeping the bone towel", err));
 }
@@ -107,28 +115,100 @@ const local = (x, y, z, out) => out.set(x, y, z).applyMatrix4(head.matrixWorld);
 const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(head.matrixWorld);
 
 /* on: towel mode and playing. grips: realAssets towelGrips() or null. tension 0..1, near: 0..1 how close to the limit
-   (a fine tremble), slip: seconds since the towel slipped out of the fists (< 0 none): it jumps up out of them and
-   flops back down onto the neck, slack, and is back in the hands by SLIP_BACK. It never disappears (user: "수건
-   사라짐", 2026-10-15). t: seconds (the hanging ends sway). */
-const SLIP_BACK = 1.3;
-const slipArc = slip => slip >= 0 && slip < SLIP_BACK ? Math.sin(Math.PI*slip/SLIP_BACK) : 0;
+   (a fine tremble), slip: seconds since it slipped out from under the neck (< 0 none): it loosens below the occiput,
+   slides toward the therapist, hangs from closed fists, then wraps again by 1.3 s. It never disappears.
+   t: seconds (the hanging ends sway). */
+// The two morphs use cloth coordinates along its length, shared by the terry surface and sewn rim.
+// First loosen below the occiput, then draw the loop toward the therapist. The final U hangs from closed fists.
+function buildSlipMorphs(m, reference){
+  const source = m.geometry, P = source.attributes.position;
+  let UV = source.attributes.uv;
+  if(!UV && !reference) return;
+  const geo = source.clone(), toHead = new THREE.Matrix4().copy(head.matrixWorld).invert().multiply(m.matrixWorld);
+  const fromHead = toHead.clone().invert(), p = new THREE.Vector3(), q = new THREE.Vector3();
+  if(!UV){
+    // The sewn-edge primitive has no texture coordinates. Transfer cloth coordinates from its nearest terry
+    // surface point so the seam unwraps with the sheet instead of remaining as a wire collar on the neck.
+    const R=reference.geometry.attributes.position, U=reference.geometry.attributes.uv;
+    const matrix=new THREE.Matrix4().copy(head.matrixWorld).invert().multiply(reference.matrixWorld), points=[];
+    for(let i=0;i<R.count;i++)points.push(new THREE.Vector3().fromBufferAttribute(R,i).applyMatrix4(matrix));
+    const values=new Float32Array(P.count*2);
+    for(let i=0;i<P.count;i++){
+      p.fromBufferAttribute(P,i).applyMatrix4(toHead);let best=0,d=Infinity;
+      for(let j=0;j<points.length;j++){const ds=p.distanceToSquared(points[j]);if(ds<d){d=ds;best=j;}}
+      values[i*2]=U.getX(best);values[i*2+1]=U.getY(best);
+    }
+    UV=new THREE.BufferAttribute(values,2);geo.setAttribute('uv',UV);
+  }
+  const base = new Float32Array(P.count*3), clear = new Float32Array(base.length), out = new Float32Array(base.length);
+  let lo = Infinity, hi = -Infinity, vlo=Infinity, vhi=-Infinity;
+  for(let i=0;i<P.count;i++){lo=Math.min(lo,UV.getX(i));hi=Math.max(hi,UV.getX(i));vlo=Math.min(vlo,UV.getY(i));vhi=Math.max(vhi,UV.getY(i));}
+  const vCenter=(vlo+vhi)/2;
+  const rows = new Map();
+  for(let i=0;i<P.count;i++){
+    const key = Math.round(UV.getX(i)*1e5);
+    if(!rows.has(key)) rows.set(key,{sum:new THREE.Vector3(),n:0});
+    const row=rows.get(key); row.sum.add(p.fromBufferAttribute(P,i).applyMatrix4(toHead)); row.n++;
+  }
+  for(const row of rows.values()) row.sum.multiplyScalar(1/row.n);
+  for(let i=0;i<P.count;i++){
+    p.fromBufferAttribute(P,i);base.set(p.toArray(),i*3);p.applyMatrix4(toHead);
+    const u=(UV.getX(i)-lo)/(hi-lo)*2-1, a=Math.abs(u), s=u<0?-1:1;
+    const row=rows.get(Math.round(UV.getX(i)*1e5)).sum;
+    // Lower the sling before it passes the skull; the loose tails remain near the grips.
+    const loop=1-THREE.MathUtils.smoothstep(a,0.36,0.56);
+    q.copy(p);q.y-=0.065*loop;q.x+=Math.sign(p.x)*0.018*loop;
+    q.applyMatrix4(fromHead);clear.set(q.toArray(),i*3);
+    const v=Math.min(1,a/0.62), tail=Math.max(0,(a-0.62)/0.38);
+    // A catenary-like U between the fists, followed by two free ends. Retain the simulated small folds and thickness.
+    q.set(s*(0.133*v+0.022*tail),0.015-0.05*(1-v*v)-0.12*tail,-0.13-0.075*(1-v)+0.04*tail);
+    // Unroll the band's width into the hanging sheet's frame. Keeping the old radial neck frame here made the
+    // cloth edge-on and hid its middle inside the table. UVs preserve both the thickness shell and sewn borders.
+    const gather=1-0.75*Math.exp(-Math.pow((a-0.62)/0.045,2));
+    q.z+=(UV.getY(i)-vCenter)*0.3632*gather;
+    q.y+=(p.y-row.y)*0.08+0.003*Math.sin(u*70+UV.getY(i)*40);
+    q.applyMatrix4(fromHead);out.set(q.toArray(),i*3);
+  }
+  // Float positions allow micrometre deltas even though the source is quantised Int16.
+  geo.setAttribute('position',new THREE.BufferAttribute(base,3));
+  const morphs=geo.morphAttributes.position || (geo.morphAttributes.position=[]);
+  const normals=geo.morphAttributes.normal;
+  for(const [name,values] of [['slipClear',clear],['slipOut',out]]){
+    const absolute=values.slice();
+    if(geo.morphTargetsRelative) for(let i=0;i<values.length;i++) values[i]-=base[i];
+    const a=new THREE.BufferAttribute(values,3);a.name=name;morphs.push(a);
+    if(normals){
+      const normalGeo=new THREE.BufferGeometry();normalGeo.setIndex(geo.index);normalGeo.setAttribute('position',new THREE.BufferAttribute(absolute,3));normalGeo.computeVertexNormals();
+      const n=normalGeo.attributes.normal.array.slice(), N=geo.attributes.normal;
+      if(geo.morphTargetsRelative) for(let i=0;i<N.count;i++){n[i*3]-=N.getX(i);n[i*3+1]-=N.getY(i);n[i*3+2]-=N.getZ(i);}
+      normals.push(new THREE.BufferAttribute(n,3));normalGeo.dispose();
+    }
+  }
+  const dictionary={...m.morphTargetDictionary}, first=morphs.length-2;
+  m.geometry=geo;m.updateMorphTargets();
+  // GLTFLoader's extras.targetNames are not retained on BufferAttribute.name by r149.
+  m.morphTargetDictionary={...dictionary,slipClear:first,slipOut:first+1};
+}
 export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patient = ""){
   clothPull.value = Math.min(1, Math.max(0, tension));
   if(on && !sim && !simLoading) loadSim();
   const simMesh = sim && simMeshes[patient];
-  const arc = slipArc(slip);
+  const pose = slipPose(slip), arc = pose.out;
   if(simMesh){
-    // the simulated towel: shown for this patient only, tension blends slack -> taut, a slip tosses it up and back down
+    // The simulated wrap remains the rest shape; two cloth-space morphs unwrap and re-feed it below the neck.
     Object.values(simMeshes).forEach(m => { m.visible = on && m === simMesh; });
     if(model) model.visible = false;
     ribbon.visible = false;
     if(!on) return;
     simMesh.traverse(m => {
       const k = m.morphTargetDictionary && m.morphTargetDictionary.taut;
-      if(k != null) m.morphTargetInfluences[k] = slip >= 0 && slip < SLIP_BACK ? 0 : Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70);
+      if(k != null) m.morphTargetInfluences[k] = (1-pose.clear)*Math.min(1, Math.max(0, tension)) + 0.01*near*Math.sin(t*70)*(1-pose.clear);
+      const c=m.morphTargetDictionary?.slipClear, o=m.morphTargetDictionary?.slipOut;
+      if(c != null) m.morphTargetInfluences[c]=pose.clear*(1-pose.out);
+      if(o != null) m.morphTargetInfluences[o]=pose.out;
     });
-    sim.position.set(0, 0.12*arc, -0.06*arc);
-    sim.rotation.set(-0.5*arc, 0, 0.2*arc);
+    sim.position.set(0, 0, 0);
+    sim.rotation.set(0, 0, 0);
     return;
   }
   if(on && !model && !loading) load();
@@ -186,7 +266,7 @@ export function updateTowel(on, grips, slip, tension = 1, near = 0, t = 0, patie
     const roll = (r[1] - 0.5)*(0.55*loose + 0.5*chin)*(1 - g);
     if(roll){ _t.copy(f.y).multiplyScalar(Math.cos(roll)).addScaledVector(f.z, Math.sin(roll)); f.z.multiplyScalar(Math.cos(roll)).addScaledVector(f.y, -Math.sin(roll)); f.y.copy(_t); }
     f.p.addScaledVector(f.y, (r[2] - 0.5)*0.012*loose*(1 - g));
-    if(u > 0){ _fly.set(Math.sin(i*1.7)*0.02*u, 0.1*u, -0.05*u); f.p.add(_fly); }
+    if(u > 0){ _fly.set(0, -0.10*u, -0.12*u); f.p.add(_fly); }
     _m.makeBasis(f.x, f.y, f.z); f.q.setFromRotationMatrix(_m);
   });
   if(model){

@@ -2,10 +2,11 @@ import * as THREE from "three";
 import { clamp } from "../lib/math.js";
 import { spineOffsets, discStretch } from "../core/towel.js";
 import { spinePose, spineOf } from "../core/spine.js";
-import { pivot } from "./patientModel.js";
+import { pivot, xrayMats, crackFadeMats } from "./patientModel.js";
 import { scene, camera } from "./renderer.js";
 import { loadModel, getEnv } from "./realAssets.js";
 import { withVisualIds } from "./visualBuild.js";
+import { tractionPose, PresentedClock } from "./towelMotion.js";
 
 /* Cervical x-ray (AGENTS.md 2). The bones and discs are a real anatomical model: BodyParts3D C1-C7, T1-T8 and the discs
    C2/3-T7/8 (CC BY 4.0, CREDITS.md; the thoracic part is the body end and stays put), each patient's neck bent their
@@ -80,6 +81,27 @@ function boneMat(){
    material variant; the exact original material objects return in other modes. */
 const anatomyVariants = new WeakMap();
 let anatomyTowel = false;
+const tractionClock = new PresentedClock();
+let tractionEvent = null, tractionActive = false, towelWarmed = "";
+// Called after the actual draw, including on the first patient / a slow asset load.
+function presented(){ if(tractionActive) tractionClock.present(performance.now()); }
+export function warmTowelXray(renderer){
+  const d = document.documentElement.dataset, patient = d.towelPatient;
+  if(!ready || d.towelStage !== "ready" || d.towelHands !== "ready" || !patient || patient === "fallback" || towelWarmed === patient) return;
+  selectAnatomy(true);
+  const visible = root.visible, material = film.material;
+  const fading = [...new Set([...xrayMats, ...crackFadeMats])].map(m => [m, m.transparent, m.opacity, m.depthWrite]);
+  root.visible = true; film.material = tractionFilm();
+  try {
+    // The first x-ray also changes skin / clothes to transparency. Compile that variant while the patient settles.
+    for(const [m] of fading){ m.transparent = true; m.opacity = 0.2; m.depthWrite = false; m.needsUpdate = true; }
+    withVisualIds(() => renderer.compile(scene, camera));
+    towelWarmed = patient;
+  }finally {
+    for(const [m, transparent, opacity, depthWrite] of fading){ Object.assign(m, {transparent, opacity, depthWrite}); m.needsUpdate = true; }
+    root.visible = visible; film.material = material;
+  }
+}
 function detailedAnatomy(original, disc, origin){
   let m = anatomyVariants.get(original);
   if(m) return m;
@@ -124,6 +146,9 @@ function selectAnatomy(towel){
   V.forEach(p => swap(p, false)); TV.forEach(p => swap(p, false));
   D.forEach(p => swap(p, true)); TD.forEach(p => swap(p, true)); swap(torn, true);
   SPURS.forEach(mesh => { const v = V.find(p => p.g === mesh.parent); if(v) mesh.material = v.mat; });
+  // Keep the clinic/back shader source byte-for-byte on its original path. Even adding a uniform-zero operation
+  // can change raster rounding on a phone GPU.
+  for(const m of [cordMat, ghostMat]){ m.vertexShader = towel ? towelCordVertex : clinicCordVertex; m.needsUpdate = true; }
   anatomyTowel = towel;
 }
 
@@ -135,7 +160,7 @@ const cordMat = new THREE.ShaderMaterial({
     uColor: {value: COL.nerve.clone()}, uHot: {value: COL.coral.clone()}, uPulseCol: {value: COL.mint.clone()},
     uOpacity: {value: 0}, uLevel: {value: 0}, uPinch: {value: 0}, uOff: {value: 0}, uHotAmt: {value: 0},
     uPulseR: {value: 0}, uPulseAmt: {value: 0}, uTop: {value: 0.13}, uBot: {value: -0.02}, uGain: {value: 1},
-    uSep: {value: 0}, uSepY: {value: 0},
+    uSep: {value: 0}, uSepY: {value: 0}, uTraction: {value: 0}, uTractionY: {value: new THREE.Vector2(0, 1)},
     uGapY: {value: new Array(6).fill(-1)}, uGapR: {value: Array.from({length: 6}, () => new THREE.Matrix3())},
     uGapP: {value: Array.from({length: 6}, () => new THREE.Vector3())}, uGapL: {value: new Array(6).fill(0)},
     uShear: {value: new THREE.Vector3()}, uShearY: {value: new THREE.Vector2(0, 1)}
@@ -182,6 +207,9 @@ const cordMat = new THREE.ShaderMaterial({
 const ghostMat = new THREE.ShaderMaterial({uniforms: cordMat.uniforms, vertexShader: cordMat.vertexShader,
   fragmentShader: cordMat.fragmentShader.replace("* uGain *", "* 0.32 *"),
   transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending});
+const clinicCordVertex = cordMat.vertexShader;
+const towelCordVertex = "uniform float uTraction; uniform vec2 uTractionY;\n" + clinicCordVertex.replace("vY = p.y;",
+  "p.y += uTraction*clamp((position.y-uTractionY.x)/(uTractionY.y-uTractionY.x),0.0,1.0);\n vY = p.y;");
 
 // joint flash, gas bubbles, muscle haze: additive sprites
 const glowTex = (() => {
@@ -358,6 +386,7 @@ export function loadSpine(){
       root.add(cordMesh, ghost);
     }
     flash.renderOrder = 1001; bubbles.forEach(b => { b.s.renderOrder = 1001; }); haze.forEach(h => { h.renderOrder = 1001; }); discGlow.forEach(g => { g.renderOrder = 1001; });
+    V[0].m.onAfterRender = presented;
     ready = true;
     document.documentElement.dataset.spine = "ready";
   }).catch(err => {
@@ -434,6 +463,16 @@ function bendSpine(target, parts){
    null. traction: towel mode {s: neck stretch (m), slide: how far the body slid (m, core/towel.js BODY_SHARE), over, x: seconds since the x-ray opened, back: seconds since the snap back (< 0 before)}, the spine
    stretches with the neck. Returns true on the frame of the release (sound, rumble, wave). */
 export function updateXray(now, amount, crackT, hurt, target, frac = null, traction = null){
+  tractionActive = !!traction && amount >= 0.002 && ready;
+  if(!tractionActive){ tractionClock.reset(); tractionEvent = null; }
+  let tractionX = 0;
+  if(tractionActive){
+    const event = traction.event ?? (now - traction.x*1000);
+    if(event !== tractionEvent){ tractionEvent = event; tractionClock.reset(); }
+    tractionX = tractionClock.read(now);
+    // Use one clock for colour, symptom alignment, disc height and the cord.
+    if(!traction.over) crackT = frac ? -1 : Math.max(0, tractionX - 0.6) + (tractionX >= 0.6 ? XRAY_PRE : 0);
+  }
   selectAnatomy(!!traction);
   film.material = traction ? tractionFilm() : clinicFilmMaterial;
   film.material.opacity = Math.min(amount, 1)*(traction ? 0.6 : 0.86);   // towel: thinner, so the long neck shows through
@@ -451,7 +490,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   // ct: seconds since the release (< 0: still pressed). pressure: 0..1 build-up over XRAY_PRE.
   const ct = crackT < 0 ? -1 : crackT - XRAY_PRE, before = ct < 0;
   const pressure = crackT < 0 ? 1 : clamp(crackT/XRAY_PRE, 0, 1);
-  const align = snapAt(ct, 0), off = 1 - align;                 // 1 = stuck, 0 = in line, < 0 = overshoot
+  const align = traction ? (frac || traction.over ? 0 : tractionPose(tractionX, traction.back).open) : snapAt(ct, 0), off = 1 - align;
   const freed = before ? 0 : clamp(ct/SNAP, 0, 1);
   // the throb quickens while the pressure builds
   const throb = 0.5 + 0.5*Math.sin(now*(0.012 + 0.02*(crackT >= 0 && before ? pressure : 0)));
@@ -466,6 +505,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   });
   if(torn) torn.g.visible = false;
   cordMat.uniforms.uSep.value = 0;
+  cordMat.uniforms.uTraction.value = 0;
   bendSpine(target, all);
   // only the roots at the stuck level are drawn: fourteen of them read as bristles
   R.forEach((r, i) => [r.L, r.R].forEach(p => { if(p) p.g.visible = i === stuck; }));
@@ -478,7 +518,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   // sitting down on it and trembling. Released: it springs past its full height and settles in damped bounces,
   // lifting everything above it; a swell rolls over the neighbouring discs; then it keeps breathing gently.
   const dz = D[stuck];
-  if(dz){
+  if(dz && !traction){
     const sq = (SQUASH[kind] || 0.65)*(0.88 + 0.12*pressure);
     const open = before ? 0 : spring(ct);                       // 0 pressed .. ~1.35 .. 1
     const breathe = before ? 0 : 0.05*Math.sin(ct*4.5)*Math.exp(-0.6*ct)*clamp(ct - 0.5, 0, 1);
@@ -502,7 +542,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     // one after another, outward from the stuck level
     const a = V[0].home, b = V[6].home;
     V.forEach((v, i) => {
-      const lin = a.z + (b.z - a.z)*i/6, o = 1 - snapAt(ct, 0.06*Math.abs(i - stuck));
+      const lin = a.z + (b.z - a.z)*i/6, o = traction ? off : 1 - snapAt(ct, 0.06*Math.abs(i - stuck));
       v.g.position.z += (lin - v.home.z - 0.005*Math.sin(Math.PI*i/6))*o;
     });
   }
@@ -586,11 +626,9 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   // A good tug (user: "성공하면 엑스레이도 빨간색이 좁아져 있는 상태에서 파란색으로 넓어지도록", 2026-10-15): the discs
   // are squashed thin and red at first, then the gaps open with the neck's stretch (core/towel.js spineOffsets) and the
   // discs swell tall and turn blue; after the neck springs back they stay blue at a healthy height.
-  if(traction && !traction.over){
-    const x = Math.max(0, traction.x), open = smooth01((x - 0.35)/0.5);
-    const settle = traction.back < 0 ? 0 : clamp(traction.back/0.6, 0, 1);
+  if(traction && !traction.over && !frac){
+    const {open, height: h} = tractionPose(tractionX, traction.back);
     const offs = spineOffsets(traction.s/SC*open);
-    const h = (0.55 + 0.75*open)*(1 - settle) + 1.08*settle;    // disc height factor: 0.55 pinched .. 1.3 .. 1.08
     const shiver = open < 1 ? 0.0004*Math.sin(now*0.11)*(1 - open) : 0;
     _tc.copy(COL.pinched).lerp(COL.freed, open);
     // each vertebra rides on the gaps below it: the stretch, plus every disc under it being thinner / taller
@@ -599,19 +637,22 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     for(let j = 1; j < D.length; j++){
       const d = D[j];
       if(!d) continue;
-      d.g.position.y = d.home.y + (offs[j] + (j < 6 ? offs[j + 1] : 0))/2 + DISC_H*(h - 1)*(6.5 - j);
-      d.g.scale.set(1 + 0.12*(1 - h)*(h < 1 ? 1 : 0), h, 1 + 0.12*(1 - h)*(h < 1 ? 1 : 0));
+      d.g.position.y += (offs[j] + (j < 6 ? offs[j + 1] : 0))/2 + DISC_H*(h - 1)*(6.5 - j);
+      d.g.scale.x *= 1 + 0.12*Math.max(0,1-h); d.g.scale.y *= h; d.g.scale.z *= 1 + 0.12*Math.max(0,1-h);
       d.mat.color.copy(_tc); d.mat.emissive.copy(_tc).multiplyScalar(open < 1 ? 0.3 + 0.2*throb*(1 - open) : 0.35);
       d.over.material.color.copy(_tc); d.over.material.opacity = (0.6 + 0.2*throb*(1 - open))*amount;
     }
+    R.forEach((r,i) => [r.L,r.R].forEach(p => { if(p) p.g.position.y += offs[i]; }));
+    cu.uTraction.value = traction.s/SC*open;
+    cu.uTractionY.value.set(levelY[6] - (V[0].home.y-levelY[6])/7, V[0].home.y + (V[0].home.y-levelY[6])/7);
   }
   // An over-pull (user: "존나 세게 뽑았을 때 목뼈랑 척추가 분리되는... 아예 확실히 분리 되버리는 느낌", 2026-10-15): the
   // neck stretches like taffy and trembles at C7/T1, then at SEP_AT it snaps clean off the back: the whole cervical
   // column (with the upper half of the torn C7/T1 disc) shoots up toward the head with a twist, a white flash, bone
-  // chips and a red glow in the gap, the cord stretched thin like a rubber band between. It dangles there, and when the
-  // neck springs back (traction.back) it clunks home. A cartoon, not anatomy.
+  // chips and a red glow in the gap, the cord stretched thin like a rubber band between. The over-pull now stays
+  // separated through the ambulance; traction.back remains negative. A cartoon, not anatomy.
   if(traction && traction.over){
-    const x = Math.max(0, traction.x), sm = traction.s/SC, offs = spineOffsets(sm);
+    const x = tractionX, sm = traction.s/SC, offs = spineOffsets(sm);
     const home = traction.back < 0 ? 0 : smooth01(traction.back/0.22);
     const pre = clamp(x/SEP_AT, 0, 1)*(1 - home);
     const sep = (x < SEP_AT ? 0 : easeOutBack(clamp((x - SEP_AT)/0.22, 0, 1)))*(1 - home);
