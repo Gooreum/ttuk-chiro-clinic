@@ -72,6 +72,7 @@ export class BackMotion {
           this.pressure=clamp(this.pressure+d.db*.04*gain,0,1.35);
         }
       }
+      out.lr=tilt.lr;out.neutral=this.neutral;
       if(this.ready){
         out.type='aim';out.position=this.position;out.pressure=this.pressure;
         this.hist.push({t:now,position:this.position,pressure:this.pressure});while(this.hist.length&&this.hist[0].t<now-800)this.hist.shift();

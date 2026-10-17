@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {pressedSegment,pressedZone,TARGETS,judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile} from '../src/back/core.js';
+import {pressedSegment,pressedZone,TARGETS,judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile,backViewRot} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -141,6 +141,20 @@ describe('back feel regression fixes',()=>{
   it('moves the same distance for the same tilt either way',()=>{
     const at=lr=>{const m=new BackMotion();warm(m);for(let t=720;t<=1100;t+=20)m.sample(packet({lr}),t,0);return m.position-.5;};
     expect(at(12)).toBeCloseTo(-at(-12),2);expect(Math.abs(at(12))).toBeGreaterThan(.2);
+  });
+  it('rotates a portrait viewport toward the last landscape, like the neck layout',()=>{
+    expect(backViewRot(390,844,0,270)).toEqual({rot:270,lastLandscape:270});
+    expect(backViewRot(390,844,0,90)).toEqual({rot:90,lastLandscape:90});
+    expect(backViewRot(844,390,270)).toEqual({rot:0,lastLandscape:270});
+    expect(backViewRot(390,844,0)).toEqual({rot:90,lastLandscape:90});
+    expect(backViewRot(844,390,-90,90).lastLandscape).toBe(270);
+  });
+  it('keeps aiming through an OS flip when the sensor angle stays the same',()=>{
+    const angle=rad(270),m=new BackMotion();warm(m,{angle});let t=720,last=.5;
+    for(let i=1;i<=15;i++,t+=20){m.sample(packet({angle,lr:i}),t,angle,{axis:1});expect(m.position).toBeLessThanOrEqual(last+1e-9);last=m.position;}
+    // OS rotated to portrait: angle stays 0+270, so no recalibration
+    for(let i=16;i<=20;i++,t+=20)m.sample(packet({angle,lr:i}),t,angle,{axis:1});
+    expect(m.ready).toBe(true);expect(m.position).toBeLessThan(last);
   });
   it('handles opposite signs between native linear and gravity-inclusive acceleration',()=>{
     for(const gravitySign of [1,-1])for(const linearSign of [1,-1]){

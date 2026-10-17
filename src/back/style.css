@@ -1,6 +1,7 @@
 /* Back scene layout and mode-specific effects. Shared HUD lives in ui/clinic-hud.css. */
 #backApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room)}
 #backApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px))}
+#backApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px))}
 #backCanvas,#backHud{position:absolute;width:100%;height:100%;inset:0;display:block}
 #backCanvas{touch-action:none;z-index:-1}
 #backHud{pointer-events:none;z-index:1}
@@ -19,7 +20,7 @@
 @keyframes ambulanceLight{0%{box-shadow:inset 24px 0 45px #ff7a5977}
 50%{box-shadow:inset -24px 0 45px #8adfbf77}
 }
-.motion-debug{position:absolute;z-index:8;bottom:9px;left:50%;transform:translateX(-50%);font:10px monospace;background:var(--panel);padding:5px 8px;border-radius:4px;white-space:nowrap}
+.motion-debug{position:absolute;z-index:8;bottom:9px;left:50%;transform:translateX(-50%);font:10px monospace;background:var(--panel);padding:5px 8px;border-radius:4px;white-space:pre;text-align:center}
 .face-closeup .motion-debug{display:none}
 .miss-mark,.answer-mark{position:absolute;z-index:3;pointer-events:none;transform:translate(-50%,-50%);font-weight:700;text-shadow:0 2px 4px var(--room)}
 .miss-mark{font-size:30px;color:var(--coral)}

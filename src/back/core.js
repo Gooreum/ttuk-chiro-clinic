@@ -17,6 +17,12 @@ export function clinicFilm(time,kind,tier=0,force=1){
 // zone that was asked for (user request 2026-10-16). The three targets keep their old segments 3/4/5.
 export const pressedSegment=position=>Math.max(2,Math.min(6,Math.round(3+(Math.min(1,Math.max(0,Number.isFinite(position)?position:TARGETS[0]))-TARGETS[0])/(TARGETS[1]-TARGETS[0]))));
 export const pressedZone=position=>{const s=pressedSegment(position);return s<=2?'목 밑':s===3?'등 위쪽':s===4?'등 가운데':s===5?'허리':'골반 쪽';};
+// Portrait viewport while held sideways: rotate toward the last landscape the phone was in (neck layout() rule), so an
+// OS flip caused by tilting a flat-held phone keeps the same physical screen frame (user, 2026-10-17).
+export function backViewRot(w,h,pa,last=90){
+  pa=((pa%360)+360)%360;const lastLandscape=pa===90||pa===270?pa:last;
+  return {rot:h>w?(lastLandscape===270?270:90):0,lastLandscape};
+}
 export const makeBackTargets=(random=Math.random)=>TARGETS.map(p=>p+(random()-.5)*.10);
 // Keep the camera loaded until the radiograph takes over, independent of tissue rebound.
 export const cameraPreload=(pressure,peak,time)=>time>=0&&time<BACK_XRAY.end?peak:pressure;
