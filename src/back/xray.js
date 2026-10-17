@@ -15,6 +15,7 @@ const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
 
 // Every surface masks the layers beneath it. The diagnostic marks use organ-local
 // coordinates, so the anatomy stays registered while the three clipped pieces move.
+const INFLATE=.35;
 const ORGAN_KIND={lungL:0,lungR:0,heart:1,liver:2,stomach:3,spleen:4,kidneyL:5,kidneyR:5,bowel:6};
 function organMaterial(id,centre,size){
   const U={organCentre:{value:centre},organSize:{value:size},organKind:{value:ORGAN_KIND[id]},
@@ -152,6 +153,24 @@ function organTag(id,customText){
   tag.setHot(false);return tag;
 }
 
+// One absurd sound per organ (병맛, user 2026-10-18 "장기 파열되는거 지금 졸라 재미없음").
+const ORGAN_WORD={lungL:'피슝~',lungR:'피슝~',heart:'쿵!',liver:'퍽!',stomach:'뿌욱!',spleen:'팡!',kidneyL:'콩!',kidneyR:'콩!',bowel:'뿌드득!'};
+function wordSprite(text){
+  const canvas=document.createElement('canvas'),g=canvas.getContext('2d'),font='96px "Black Han Sans", sans-serif';
+  g.font=font;canvas.width=Math.ceil(g.measureText(text).width)+48;canvas.height=136;
+  function draw(){
+    g.clearRect(0,0,canvas.width,canvas.height);g.font=font;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
+    g.lineWidth=22;g.strokeStyle='#0f231f';g.strokeText(text,canvas.width/2,canvas.height/2+4);
+    g.lineWidth=9;g.strokeStyle='#ff7a59';g.strokeText(text,canvas.width/2,canvas.height/2+4);
+    g.fillStyle='#f4efe4';g.fillText(text,canvas.width/2,canvas.height/2+4);
+  }
+  draw();
+  const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
+  document.fonts?.load(font,text).then(()=>{draw();map.needsUpdate=true;}).catch(()=>{});
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
+  sprite.renderOrder=1004;sprite.frustumCulled=false;sprite.visible=false;sprite.userData={text,aspect:canvas.width/canvas.height};
+  return sprite;
+}
 function filmSprite(type){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const g=canvas.getContext('2d');
   g.strokeStyle='#ff7a59';g.fillStyle='#ff7a59';g.lineWidth=type==='ring'?5:4;
@@ -161,6 +180,10 @@ function filmSprite(type){
     g.lineWidth=3;g.beginPath();g.moveTo(65,40);g.lineTo(75,18);g.moveTo(44,75);g.lineTo(34,105);g.stroke();
   }else if(type==='flash'){
     g.fillStyle='#f4efe4';g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?15:60;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
+  }else if(type==='burst'){
+    // Comic-book "펑" star: coral spikes with a cream rim, deliberately lopsided.
+    g.beginPath();for(let i=0;i<28;i++){const a=i*Math.PI/14,r=i%2?26+(i%3)*4:52+(i%5)*2.4;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();
+    g.fill();g.strokeStyle='#f4efe4';g.lineWidth=5;g.stroke();
   }else if(type==='drop'){
     g.beginPath();g.moveTo(64,17);g.bezierCurveTo(59,45,46,68,46,86);
     g.bezierCurveTo(46,112,82,112,82,86);g.bezierCurveTo(82,68,69,45,64,17);g.fill();
@@ -176,9 +199,13 @@ function createOrgans(source,scene){
   const t1=source.scene.getObjectByName('ref_T1').getWorldPosition(new THREE.Vector3());
   const l5=source.scene.getObjectByName('ref_L5').getWorldPosition(new THREE.Vector3());
   const length=t1.y-l5.y,scale=.6/length;
-  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[];
+  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],wordTexts=[];
   const bead=filmSprite('bead'),beadMap=bead.material.map;bead.material.dispose();
   const layerOrder=['lungL','lungR','bowel','liver','kidneyL','kidneyR','stomach','spleen','heart'];
+  // The spine stays the brightest thing in the shot (user, 2026-10-18): drop the organ depth before the engine's
+  // bones (renderOrder 999+) so the vertebrae and their fracture draw over the opaque organ fills.
+  const spineOnTop=new THREE.Mesh(new THREE.PlaneGeometry(1e-4,1e-4),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,depthTest:false}));
+  spineOnTop.renderOrder=998.99;spineOnTop.frustumCulled=false;spineOnTop.onBeforeRender=r=>r.clearDepth();group.add(spineOnTop);
   const surfaces=[];source.scene.traverse(o=>{if(o.isMesh)surfaces.push(o);});
   surfaces.sort((a,b)=>layerOrder.indexOf(a.name)-layerOrder.indexOf(b.name));
   for(const o of surfaces){
@@ -211,15 +238,15 @@ function createOrgans(source,scene){
       const mesh=new THREE.Mesh(geometry,mat);mesh.name=o.name+'_piece'+j;mesh.renderOrder=order+.02+j*.001;mesh.frustumCulled=false;
       root.add(depth,hull,mesh);parts.push({root,depth,hull,mesh,mat,U,planes,normals,angle});
     }
-    const ring=filmSprite('ring'),flash=filmSprite('flash');group.add(ring,flash);
-    const drops=Array.from({length:12},(_,i)=>{
+    const ring=filmSprite('ring'),flash=filmSprite('flash'),star=filmSprite('burst'),word=wordSprite(ORGAN_WORD[o.name]||'펑!');group.add(ring,star,flash,word);
+    const drops=Array.from({length:18},(_,i)=>{
       const sprite=filmSprite('drop');group.add(sprite);
       // Deterministic radial speeds keep all particle setup out of game RNG.
-      return {sprite,flightMap:sprite.material.map,angle:i*Math.PI*2/12+entries.length*.37,speed:.75+(i%4)*.12,diameter:7+(i%3),flying:false};
+      return {sprite,flightMap:sprite.material.map,angle:i*Math.PI*2/18+entries.length*.37,speed:.8+(i%5)*.1,diameter:9+(i%3)*2,flying:false};
     });
     const tag=organTag(o.name);group.add(tag.sprite,tag.line);
     const side=['lungR','liver','kidneyR','bowel'].includes(o.name)?-1:1;
-    entries.push({id:o.name,parts,tag,side,box,centre,size,ring,flash,drops,hit:false,burst:false});
+    entries.push({id:o.name,parts,tag,side,box,centre,size,ring,flash,star,word,drops,hit:false,burst:false});
   }
   // Both markers are back-only; the shared clinic engine stays unchanged.
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
@@ -228,32 +255,43 @@ function createOrgans(source,scene){
   let markerSeg=3,markerPos=new THREE.Vector3();
   function update(ids,amount,fractureTime,zoom,spine){
     group.visible=ids.length>0&&amount>.001;lastAmount=group.visible?amount:0;lastZoom=group.visible?zoom:0;
-    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];
+    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];wordTexts=[];
     for(const e of entries){
       e.hit=ids.includes(e.id);
-      const age=fractureTime-(ORGAN_BEAT.zoomEnd+hitIds.indexOf(e.id)*ORGAN_BEAT.stagger-.45);
-      const burstAge=age-.12;e.burst=e.hit&&burstAge>=0;
+      // Balloon for .35s (trembling, swelling to 1.4), then pop at burstAt+stagger (seconds after the x-ray delay).
+      const age=fractureTime+.45-(ORGAN_BEAT.burstAt-INFLATE+hitIds.indexOf(e.id)*ORGAN_BEAT.stagger);
+      const burstAge=age-INFLATE;e.burst=e.hit&&burstAge>=0;
       if(e.burst&&group.visible)burstIds.push(e.id);
-      const split=e.hit?smooth(0,.35,burstAge):0,heat=e.hit?smooth(0,.12,age):0;
-      const swell=e.hit&&age>=0?1+.12*smooth(0,.12,age)*(1-smooth(.12,.35,age)):1;
+      const inflate=e.hit&&age>=0?smooth(0,INFLATE,age):0,popped=e.hit?smooth(0,.12,burstAge):0;
+      const split=e.hit?smooth(0,.4,burstAge):0,heat=e.hit?smooth(0,INFLATE*.8,age):0;
+      const swell=e.hit?1+(.4*inflate*(1+.12*Math.sin(age*42)))*(1-popped):1;
+      const shiver=e.burst?0:inflate*.012;
       for(const p of e.parts){
         p.root.visible=group.visible;p.root.scale.setScalar(swell);
-        const drift=.15*split;
-        p.root.position.copy(e.centre).add(new THREE.Vector3(Math.cos(p.angle)*e.size.x*drift,0,Math.sin(p.angle)*e.size.z*drift));
-        p.root.rotation.set(0,(p.angle-2)*.045*split,Math.cos(p.angle)*.025*split);
+        const drift=.45*split;
+        p.root.position.copy(e.centre).add(new THREE.Vector3(Math.cos(p.angle)*e.size.x*drift+Math.sin(age*97)*shiver,0,Math.sin(p.angle)*e.size.z*drift+Math.sin(age*83+1)*shiver));
+        p.root.rotation.set(0,(p.angle-2)*.16*split,Math.cos(p.angle)*.06*split);
         p.root.updateWorldMatrix(true,false);
         p.planes.forEach((plane,i)=>plane.setFromNormalAndCoplanarPoint(p.normals[i],new THREE.Vector3()).applyMatrix4(p.root.matrixWorld));
         p.U.organAmount.value=amount;p.U.organDamage.value=e.hit?smooth(0,.10,burstAge):0;p.U.organHeat.value=heat;p.U.organTime.value=Math.max(0,age);
       }
       const fx=e.hit&&burstAge>=0&&group.visible,diameter=Math.max(e.size.x,e.size.z);
       e.flash.visible=fx&&burstAge<.24;e.flash.position.copy(e.centre);e.flash.position.y=1.03;
-      e.flash.scale.setScalar(diameter*(.55+.6*smooth(0,.22,burstAge)));
+      e.flash.scale.setScalar(diameter*(.8+1.0*smooth(0,.22,burstAge)));
+      e.star.visible=fx&&burstAge<.5;e.star.position.copy(e.centre);e.star.position.y=1.032;
+      e.star.scale.setScalar(diameter*(.4+.9*smooth(0,.14,burstAge)));e.star.material.rotation=.3+burstAge*1.5;
+      e.star.material.opacity=amount*(1-smooth(.25,.5,burstAge));
+      // The sound sticker pops in big, settles, holds, then fades.
+      const wordOn=fx&&burstAge<1.3,pop=1+.5*Math.exp(-burstAge*14)*Math.cos(burstAge*30),h=Math.max(.09,diameter*.38)*pop;
+      e.word.visible=wordOn;e.word.position.copy(e.centre);e.word.position.y=1.045;e.word.position.x+=Math.sign(e.centre.x||1)*diameter*.32;e.word.position.z-=diameter*.12;
+      e.word.scale.set(h*e.word.userData.aspect,h,1);e.word.material.rotation=(e.side>0?-.18:.18);
+      e.word.material.opacity=amount*(1-smooth(1,1.3,burstAge));if(wordOn)wordTexts.push(e.word.userData.text);
       e.flash.material.color.setHex(burstAge<.055?0xf4efe4:0xff7a59);e.flash.material.opacity=amount*(1-smooth(.03,.24,burstAge));
       const ringEnd=.6;
       e.ring.visible=fx&&burstAge<ringEnd;e.ring.position.copy(e.centre);e.ring.position.y=1.03;
-      e.ring.scale.setScalar(diameter*(.6+1.0*smooth(0,.45,burstAge)));e.ring.material.opacity=amount*(1-smooth(.2,ringEnd,burstAge));
+      e.ring.scale.setScalar(diameter*(.6+1.4*smooth(0,.45,burstAge)));e.ring.material.opacity=amount*(1-smooth(.2,ringEnd,burstAge));
       for(const d of e.drops){
-        const t=Math.max(0,burstAge),travel=(1-Math.exp(-t*5))*.78*d.speed;
+        const t=Math.max(0,burstAge),travel=(1-Math.exp(-t*6))*.85*d.speed;
         d.sprite.visible=fx;d.sprite.position.copy(e.centre);
         d.sprite.position.x+=Math.cos(d.angle)*e.size.x*travel;d.sprite.position.z+=Math.sin(d.angle)*e.size.z*travel;d.sprite.position.y=1.035;
         const settle=smooth(.20,.55,t);
@@ -273,20 +311,21 @@ function createOrgans(source,scene){
     marker.visible=markerTag.sprite.visible=markerTag.line.visible=spine.on&&zoom>0&&spine.amount>.001;
     marker.material.opacity=amount*(.75+.25*Math.sin(fractureTime*9));marker.position.copy(markerPos);
     markerTag.sprite.material.opacity=amount;markerTag.line.material.opacity=amount;
-    spineCrack.visible=spine.on&&zoom<1&&spine.time>=.8&&spine.amount>.001;
-    spineCrack.position.copy(markerPos);spineCrack.material.opacity=spine.amount*(1-zoom);spineCrack.scale.set(.075,.045,1);
+    // The spine snaps in the same wide shot as the organs, so its crack is drawn big enough to read there.
+    spineCrack.visible=spine.on&&spine.time>=.8&&spine.amount>.001;
+    spineCrack.position.copy(markerPos);spineCrack.material.opacity=spine.amount;spineCrack.scale.set(.17,.1,1);
     spineFlash.visible=spineCrack.visible&&spine.time<1.02;spineFlash.position.copy(markerPos);
-    spineFlash.scale.setScalar(.07);spineFlash.material.opacity=spine.amount*(1-smooth(.81,1.02,spine.time));
+    spineFlash.scale.setScalar(.16);spineFlash.material.opacity=spine.amount*(1-smooth(.81,1.02,spine.time));
   }
   function framing(ids=[]){
     const box=new THREE.Box3();
     for(const e of entries){
       if(!ids.includes(e.id)){box.union(e.box);continue;}
-      // Reserve the entire 1.12 swell, clipped-piece drift/rotation, 1.6-diameter
-      // shock ring and the furthest droplet, even before that organ has burst.
+      // Reserve the 1.4 balloon, the .45 piece throw, the 2.0-diameter shock ring
+      // and the furthest droplet, even before that organ has burst.
       const diameter=Math.max(e.size.x,e.size.z),extent=new THREE.Vector3(
-        Math.max(e.size.x*.72+.02,diameter*.62),e.size.y*.7+.03,
-        Math.max(e.size.z*.72+.02,diameter*.62));
+        Math.max(e.size.x*.9+.02,diameter*.72),e.size.y*.8+.03,
+        Math.max(e.size.z*.9+.02,diameter*.72));
       box.union(new THREE.Box3(e.centre.clone().sub(extent),e.centre.clone().add(extent)));
     }
     return box;
@@ -366,7 +405,7 @@ function createOrgans(source,scene){
     }
   }
   const state=()=>({visible:group.visible?entries.length:0,hit:group.visible?[...hitIds]:[],
-    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],labels:group.visible?entries.length:0,zoom:lastZoom});
+    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],words:group.visible?[...wordTexts]:[],labels:group.visible?entries.length:0,zoom:lastZoom});
   function disposeMarkers(){
     for(const e of entries){e.tag.disposeMaps();for(const d of e.drops)d.flightMap.dispose();}beadMap.dispose();markerTag.disposeMaps();
     for(const s of [marker,markerTag.sprite,spineCrack,spineFlash]){s.removeFromParent();s.material.map?.dispose();s.material.dispose();}
@@ -435,6 +474,9 @@ export async function createBackXray({scene,camera,env,renderer}){
     target.seg=pressedSegment(Number.isFinite(position)?position:TARGETS[Math.max(0,Math.min(2,step))]);
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
+    // In the wide organ shot a true-size spine is a thin thread; blow the column up around the broken level so the
+    // fracture reads next to the bursting organs (user, 2026-10-18 "척추랑 장기 파열되는거 같이").
+    pivot.scale.setScalar(organs.length?1+.8*zoom:1);
     // Cache the real vertebral pivots while they are still in their rest pose.
     // Read their animated positions thereafter; a guessed world height floats
     // above the bone when the spine camera is close.
