@@ -9,7 +9,7 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint} from './core.js';
+import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -31,7 +31,7 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   targets:[...TARGETS],results:[],fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,sound:true,music:store.get("chiroBackMusic",true),
   motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,nearSaid:false,missAt:0,missPosition:.5,
   cue:'',pausedAt:0,previousPhase:null,sirenPlayed:false,faceVisible:false,speechStage:-1};
-let scene,width=innerWidth,height=innerHeight,rotated=false,raf=0,wasNear=false,nextPulse=0;
+let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 const names=['등 위쪽','등 가운데','허리'];
 const patient=ROSTER.find(p=>p.name==='박대리');
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
@@ -167,15 +167,18 @@ function resume(){
 }
 function resize(){
   if(S.pending)settleImpact();drag=null;swipePeak=0;
-  const w=innerWidth,h=innerHeight;rotated=h>w;width=rotated?h:w;height=rotated?w:h;
-  app.classList.toggle('self-rotated',rotated);app.style.width=width+'px';app.style.height=height+'px';
-  app.style.transform=rotated?`translateX(${w}px) rotate(90deg)`:'none';app.style.left='0';app.style.top='0';
-  motion.recenter();S.motionReady=false;if(scene)scene.resize(width,height);
+  const w=innerWidth,h=innerHeight,v=backViewRot(w,h,physAngle(),lastLandscape);
+  viewRot=v.rot;lastLandscape=v.lastLandscape;rotated=viewRot!==0;width=rotated?h:w;height=rotated?w:h;
+  app.classList.toggle('self-rotated',rotated);app.classList.toggle('rot270',viewRot===270);app.style.width=width+'px';app.style.height=height+'px';
+  app.style.transform=viewRot===90?`translateX(${w}px) rotate(90deg)`:viewRot===270?`translateY(${h}px) rotate(-90deg)`:'none';app.style.left='0';app.style.top='0';
+  // No recenter here: tilting a flat-held phone flips the OS layout mid-aim; BackMotion recalibrates on a real angle change.
+  if(scene)scene.resize(width,height);
   hudDpr=Math.min(devicePixelRatio||1,2);hud.width=Math.round(width*hudDpr);hud.height=Math.round(height*hudDpr);
   $('backSpeech').style.left=width*.5+'px';$('backSpeech').style.top=height-40+'px';
   $('backSpeech').style.maxWidth=width*.46+'px';
 }
-function localPoint(e){return rotated?{x:e.clientY,y:innerWidth-e.clientX}:{x:e.clientX,y:e.clientY};}
+function physAngle(){const a=screen.orientation?.angle??window.orientation??0;return ((a%360)+360)%360;}
+function localPoint(e){return viewRot===90?{x:e.clientY,y:innerWidth-e.clientX}:viewRot===270?{x:innerHeight-e.clientY,y:e.clientX}:{x:e.clientX,y:e.clientY};}
 canvas.addEventListener('pointerdown',e=>{
   if(S.phase!=='play'||S.control!=='touch')return;
   const p=localPoint(e);drag={x:p.x,y:p.y,t:performance.now()};swipePeak=0;
@@ -221,11 +224,11 @@ syncTune();
 addEventListener('deviceorientation',e=>motion.orientation(e,performance.now()));
 addEventListener('devicemotion',e=>{
   if(S.control!=='motion'||!S.motionEnabled||!['play','anim'].includes(S.phase))return;
-  const now=performance.now(),pa=screen.orientation?.angle??window.orientation??0;
+  const now=performance.now(),pa=physAngle();
   const active=S.phase==='play',canPush=active&&!S.pending&&now>=S.prepUntil;
-  const sample=motion.sample(e,now,(pa+(rotated?90:0))*Math.PI/180,{active,canPush,step:S.step,sens:T.sens,bend:T.bend,heavy:T.heavy,jerk:T.jerk,flick:T.flick,targets:S.targets,axis:scene.screenAxis});
+  const sample=motion.sample(e,now,(pa+viewRot)*Math.PI/180,{active,canPush,step:S.step,sens:T.sens,bend:T.bend,heavy:T.heavy,jerk:T.jerk,flick:T.flick,targets:S.targets,axis:scene.screenAxis});
   if(!sample)return;
-  if(motionDebug){$('backDebug').hidden=false;$('backDebug').textContent=`툭 ${sample.force.toFixed(2)} · 앞 ${sample.forward.toFixed(1)} / 뒤 ${sample.reverse.toFixed(1)} · 중력부호 ${sample.sign} / 선가속도 ${sample.linearSign} · 지난 힘 ${S.force.toFixed(2)}`;}
+  if(motionDebug){$('backDebug').hidden=false;$('backDebug').textContent=`툭 ${sample.force.toFixed(2)} · 앞 ${sample.forward.toFixed(1)} / 뒤 ${sample.reverse.toFixed(1)} · 중력부호 ${sample.sign} / 선가속도 ${sample.linearSign} · 지난 힘 ${S.force.toFixed(2)}\n화면각 ${pa}/${viewRot} · 롤 ${sample.lr?.toFixed(1)}° · 중립 ${sample.neutral?.toFixed(1)}° · 위치 ${S.position.toFixed(2)} · 준비 ${sample.ready}`;}
   S.lastSample=now;S.sensorStatus='connected';const becameReady=!S.motionReady&&sample.ready;S.motionReady=sample.ready;
   if(becameReady){S.prepUntil=Math.max(S.prepUntil,now+600);sync();}
   if(S.pending){if(now-S.pending.at>=130){settleImpact();return;}S.pending.force=Math.max(S.pending.force,sample.force);updateImpact();return;}
@@ -346,7 +349,7 @@ function frame(now){
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,targets:S.targets,points:[.18,.5,.82].map(p=>scene.projectPosition(p))});
   if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
 }
-addEventListener('resize',resize);resize();
+addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
 try{scene=await createBackScene(canvas);resize();S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
   $('backStart').textContent='진료 시작';document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(frame);
 }catch(error){console.error('허리 진료실을 불러오지 못했어요',error);$('backLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('backStart').textContent='다시 불러오기';$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
