@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "vite build --mode shot && playwright test",
-    "build:toss": "vite build && ait build"
+    "build:toss": "vite build --mode toss && ait build"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "3.7.0",
