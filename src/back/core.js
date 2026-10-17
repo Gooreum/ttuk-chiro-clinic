@@ -6,11 +6,15 @@ import {scoreSuccess} from '../core/scoring.js';
 export const TARGETS = [0.18, 0.50, 0.82];
 export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
 // Timing from clinic flow.js (XRAY_DELAY/FRAC_AT/FRAC_HOLD) and loop.js opacity speeds.
-export function clinicFilm(time,kind,tier=0,force=1){
+// Organ ruptures get two beats (user, 2026-10-17 "척추 부러지는 표현이 제일 잘되어야"): the spine close-up first,
+// then the camera pulls out to the organs. Seconds after the x-ray delay, like clinicFilm's own clock.
+export const ORGAN_EXTRA=1.5,ORGAN_BEAT={spineEnd:1.6,zoomEnd:2,stagger:.12};
+export function organZoom(time){const t=Math.max(0,Math.min(1,(time-ORGAN_BEAT.spineEnd)/(ORGAN_BEAT.zoomEnd-ORGAN_BEAT.spineEnd)));return t*t*(3-2*t);}
+export function clinicFilm(time,kind,tier=0,force=1,organs=false){
   time-=therapistStyle(force,tier).xrayDelay;
   if(time<0)return 0;
   if(kind!=='ok'&&!tier)return time<.7?0:Math.max(0,1-(time-.7)*1.4)*.55;
-  const start=tier?.45:.7,hold=tier?2.3:2.4;
+  const start=tier?.45:.7,hold=tier?2.3+(organs?ORGAN_EXTRA:0):2.4;
   return Math.max(0,Math.min(1,(time-start)*5,1-Math.max(0,time-start-hold)*2.5));
 }
 // The bone under the hands, as the x-ray engine's segment: a crack or break shows where the shove landed, not the
@@ -52,9 +56,9 @@ export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhal
   const score=scoreSuccess(Math.min(1,d),exhale,streak,pain);
   return {...score,points:score.pts,kind,perfect:score.perfect,tier:0,d};
 }
-export function reactionTiming(kind,tier=0,force=1){
-  const delay=therapistStyle(force,tier).xrayDelay;
-  const timing=tier?{faceAt:3.15,faceEnd:5.65,end:5.65,sirenAt:3.15}
+export function reactionTiming(kind,tier=0,force=1,organs=false){
+  const delay=therapistStyle(force,tier).xrayDelay,x=tier&&organs?ORGAN_EXTRA:0;
+  const timing=tier?{faceAt:3.15+x,faceEnd:5.65+x,end:5.65+x,sirenAt:3.15+x}
     :kind!=='ok'?{faceAt:1.45,faceEnd:3.6,end:3.6}
     :{faceAt:3.5,faceEnd:7.25,end:7.25};
   return Object.fromEntries(Object.entries(timing).map(([k,v])=>[k,v+delay]));

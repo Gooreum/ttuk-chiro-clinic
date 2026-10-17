@@ -260,14 +260,14 @@ export async function createBackXray({scene,camera,env,renderer}){
   // The original engine bakes its own geometry/materials. Keep source resources
   // alive until disposal so async model initialization remains safe.
   const target={name:'박대리',seg:3,side:1,xr:'disc'};
-  function update({time=-1,step=0,kind='ok',position,forceTier=0,force=1,organs=[]}={}){
+  function update({time=-1,step=0,kind='ok',position,forceTier=0,force=1,organs=[],zoom=0}={}){
     const tier=Math.max(0,Math.min(2,Math.round(forceTier))),fracture=tier>0,success=kind==='ok'&&!fracture;
-    const amount=clinicFilm(time,kind,tier,force);
+    const amount=clinicFilm(time,kind,tier,force,organs.length>0);
     time-=therapistStyle(force,tier).xrayDelay;
     target.seg=pressedSegment(Number.isFinite(position)?position:TARGETS[Math.max(0,Math.min(2,step))]);
     const worldZ=-.05+(Number.isFinite(position)?clamp(position):[.18,.5,.82][Math.max(0,Math.min(2,step))])*.6;
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
-    organLayer.update(organs,amount,time-.45);
+    organLayer.update(organs,amount*zoom,time-.45);
     const crackT=success?time-.7:-1;
     engine.updateXray(Math.max(0,time)*1000,amount,crackT,success?0:Math.max(0,1-Math.max(0,time-.7)*1.4),target,fracture?{lvl:tier,t:time-.45}:null,null);
     if(organs.length)engine.film.material.opacity=amount;

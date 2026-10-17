@@ -9,7 +9,7 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,makeBackTargets,pressureHint,backViewRot} from './core.js';
+import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -37,7 +37,9 @@ const patient=ROSTER.find(p=>p.name==='박대리');
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-zone shove names where it actually landed.
 // An overload that also missed the ring bursts the organs at that height too (user, 2026-10-16).
-function injuryLabel(tier,position,step){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';
+// Spine beat first: the organs are named only once the camera has pulled out to them (2026-10-17).
+function injuryLabel(tier,position,step,organsShown=true){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';
+  if(S.organs.length&&!organsShown)return `${pressedZone(position)} ${hurt}`;
   if(S.organs.length)return `${pressedZone(position)} ${hurt} + ${organLabel(S.organs)} 파열!`;
   return seg===[3,4,5][step]?`T${seg} ${hurt}`:`${pressedZone(position)} ${hurt} 엉뚱한 데를 눌렀어요`;}
 function ensureSound(){if(S.sound||S.music)clinicAudio.ensureAudio();}
@@ -279,7 +281,7 @@ function frame(now){
     lastExhale=br.exhale;
   }
   if(S.phase==='anim'){
-    shotTime=(now-S.animAt)/1000;const timing=reactionTiming(S.kind,S.tier,S.force),style=therapistStyle(S.force,S.tier);
+    shotTime=(now-S.animAt)/1000;const timing=reactionTiming(S.kind,S.tier,S.force,S.organs.length>0),style=therapistStyle(S.force,S.tier);
     if(style.power>.3&&shotTime>=.10&&!S.jumpSoundPlayed){S.jumpSoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
     if(!S.pending&&shotTime>=style.impactAt&&!S.impactSoundPlayed){
       S.impactSoundPlayed=true;
@@ -296,7 +298,7 @@ function frame(now){
       const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
       if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
     }
-    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step,shotTime>=ORGAN_BEAT.zoomEnd+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
@@ -344,7 +346,7 @@ function frame(now){
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
   if(S.phase!=='paused')scene.render({now,position:S.position,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
-    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
+    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
   // Read-only DOM diagnostics for browser extensions that isolate the page's JS globals.
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,targets:S.targets,points:[.18,.5,.82].map(p=>scene.projectPosition(p))});
   if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
@@ -355,4 +357,4 @@ try{scene=await createBackScene(canvas);resize();S.phase='ready';$('backStart').
 }catch(error){console.error('허리 진료실을 불러오지 못했어요',error);$('backLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('backStart').textContent='다시 불러오기';$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
-if(import.meta.env.MODE==='shot')window.__backShot={press:(position,pressure,force)=>applyPress(position,pressure,force),snapshot:()=>({...S,results:[...S.results]}),project:p=>scene?.projectPosition(p),metrics:()=>scene?.metrics(),timeline:()=>({...reactionTiming(S.kind,S.tier,S.force),...therapistStyle(S.force,S.tier)})};
+if(import.meta.env.MODE==='shot')window.__backShot={press:(position,pressure,force)=>applyPress(position,pressure,force),snapshot:()=>({...S,results:[...S.results]}),project:p=>scene?.projectPosition(p),metrics:()=>scene?.metrics(),timeline:()=>({...reactionTiming(S.kind,S.tier,S.force,S.organs.length>0),...therapistStyle(S.force,S.tier)})};
