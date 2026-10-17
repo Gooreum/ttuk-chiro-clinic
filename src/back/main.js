@@ -298,7 +298,7 @@ function frame(now){
       const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
       if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
     }
-    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step,shotTime>=ORGAN_BEAT.zoomEnd+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step,shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
