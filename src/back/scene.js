@@ -435,7 +435,7 @@ export async function createBackScene(canvas, view = {}){
     }
     const k = kind || "ok",feel=impactFeel(force,forceTier),move=therapistMotion(shotTime,force,forceTier);
     const film=clinicFilm(shotTime,kind,forceTier,force,organs.length>0);
-    // Organ ruptures: the wide torso view from the first film frame, spine and organs together.
+    // Organ ruptures: spine side close-up first, then the pull-out to the burst organs (0 → 1).
     const zoom=organs.length?organZoom(shotTime-move.xrayDelay):0;
     xray.update({time:shotTime,step,kind,position,forceTier,force,organs,zoom});
     if(shotTime<0||zoom===0)organBursts.clear();
