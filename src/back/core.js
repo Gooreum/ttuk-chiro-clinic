@@ -8,7 +8,7 @@ export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end
 // Timing from clinic flow.js (XRAY_DELAY/FRAC_AT/FRAC_HOLD) and loop.js opacity speeds.
 // Organ ruptures play in one shot with the spine (user, 2026-10-18 "척추랑 장기 파열되는거 같이 보여주고"): the wide
 // torso view from the first frame, the spine cracks, then the organs pop in a chain. Seconds after the x-ray delay.
-export const ORGAN_EXTRA=1,ORGAN_BEAT={burstAt:.95,stagger:.18};
+export const ORGAN_EXTRA=1,ORGAN_BEAT={burstAt:.95,stagger:.06};
 export function organZoom(time){return time>=0?1:0;}
 export function clinicFilm(time,kind,tier=0,force=1,organs=false){
   time-=therapistStyle(force,tier).xrayDelay;
