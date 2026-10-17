@@ -23,14 +23,15 @@ function organMaterial(id,centre,size){
     organColor:{value:new THREE.Color(0xf4efe4).convertSRGBToLinear()},organMint:{value:new THREE.Color(0x7fd1b9).convertSRGBToLinear()},
     organFilm:{value:new THREE.Color(0x0f231f).convertSRGBToLinear()},organCoral:{value:new THREE.Color(0xff7a59).convertSRGBToLinear()}};
   const mat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,toneMapped:false,clipping:true,uniforms:U,
-    vertexShader:`uniform vec3 organCentre,organSize; varying vec3 vOrgan;
+    vertexShader:`uniform vec3 organCentre,organSize; varying vec3 vOrgan,vOrganNormal,vOrganView;
       #include <clipping_planes_pars_vertex>
       void main(){vOrgan=(position-organCentre)/organSize;vec4 mvPosition=modelViewMatrix*vec4(position,1.0);
+        vOrganNormal=normalize(normalMatrix*normal);vOrganView=-mvPosition.xyz;
         gl_Position=projectionMatrix*mvPosition;
         #include <clipping_planes_vertex>
       }`,
     fragmentShader:`uniform float organKind,organSide,organTime,organDamage,organHeat,organAmount;
-      uniform vec3 organColor,organMint,organFilm,organCoral; varying vec3 vOrgan;
+      uniform vec3 organColor,organMint,organFilm,organCoral; varying vec3 vOrgan,vOrganNormal,vOrganView;
       #include <clipping_planes_pars_fragment>
       float segment(vec2 p,vec2 a,vec2 b){vec2 ab=b-a;return length(p-a-ab*clamp(dot(p-a,ab)/max(dot(ab,ab),.00001),0.0,1.0));}
       float ink(float d,float w){return 1.0-smoothstep(w,w+max(fwidth(d),.002),d);}
@@ -40,34 +41,58 @@ function organMaterial(id,centre,size){
         d=min(d,segment(p,vec2(.16,.04),vec2(.37,.28)));
         d=min(d,segment(p,vec2(.27,-.19),vec2(.06,-.35)));
         d=min(d,segment(p,vec2(.30,.18),vec2(.10,.36)));
-        d=min(d,segment(p,vec2(.16,.04),vec2(.41,-.03)));return d;
+        d=min(d,segment(p,vec2(.16,.04),vec2(.41,-.03)));
+        // Fine offshoots keep the main anatomical branches readable at phone size.
+        for(int i=0;i<5;i++){
+          float t=float(i)/4.0;vec2 a=mix(vec2(.16,.04),vec2(.33,-.30),t);
+          d=min(d,segment(p,a,a+vec2(.085,-.035)));
+          a=mix(vec2(.16,.04),vec2(.37,.28),t);
+          d=min(d,segment(p,a,a+vec2(.075,.045)));
+        }
+        return d;
+      }
+      float twigs(vec2 p){
+        float d=1.0;
+        for(int i=0;i<5;i++){
+          float t=float(i)/4.0;
+          vec2 a=mix(vec2(.16,.04),vec2(.33,-.30),t)+vec2(.045,-.018);
+          d=min(d,segment(p,a,a+vec2(.035,-.075)));
+          d=min(d,segment(p,a+vec2(.025,-.05),a+vec2(-.02,-.095)));
+          a=mix(vec2(.16,.04),vec2(.37,.28),t)+vec2(.04,.024);
+          d=min(d,segment(p,a,a+vec2(.065,-.025)));
+          d=min(d,segment(p,a+vec2(.03,-.012),a+vec2(.05,.04)));
+        }
+        return d;
       }
       void main(){
         #include <clipping_planes_fragment>
-        vec2 p=vOrgan.xz;float d=1.0,mark=0.0,density=.035;vec3 tint=organColor;
+        vec2 p=vOrgan.xz;float d=1.0,mark=0.0,fine=0.0;
         if(organKind<.5){
           vec2 q=vec2(p.x*organSide+.34,p.y);d=branch(q);
           d=min(d,segment(q,vec2(-.03,-.04),vec2(.04,-.36)));
           d=min(d,segment(q,vec2(.04,-.21),vec2(.25,-.42)));
           d=min(d,segment(q,vec2(-.03,-.04),vec2(.02,.31)));
-          mark=ink(d,.007)*.58;density=.045;tint=organMint;
+          mark=ink(d,.012);
+          fine=ink(twigs(q),.0035);
         }else if(organKind<1.5){
           float a=abs(p.x-.07*sin(p.y*7.0)+.02);
           float b=abs(p.y+.12+.13*cos(p.x*7.0));
-          mark=max(ink(a,.009),ink(b,.008)*(1.0-smoothstep(.18,.35,abs(p.x))))*.65;density=.35;
+          mark=max(ink(a,.014),ink(b,.012)*(1.0-smoothstep(.18,.35,abs(p.x))));
         }else if(organKind<2.5){
           d=abs(p.x+.02+.14*sin(p.y*5.0));
-          mark=max(ink(d,.008),ink(branch(vec2(p.x+.08,p.y)),.005)*.6)*.65;density=.22;
+          mark=max(ink(d,.013),ink(branch(vec2(p.x+.08,p.y)),.009)*.85);
+          fine=ink(twigs(vec2(p.x+.08,p.y)),.003);
         }else if(organKind<3.5){
           float stripe=abs(sin((p.y+.045*sin(p.x*13.0))*57.0));
-          mark=(1.0-smoothstep(.12,.23,stripe))*.44*(1.0-smoothstep(.33,.49,abs(p.x)));density=.07;
+          mark=(1.0-smoothstep(.16,.30,stripe))*.85*(1.0-smoothstep(.33,.49,abs(p.x)));
         }else if(organKind<4.5){
           vec2 cell=fract(p*vec2(31.0,27.0))-.5;
-          mark=(1.0-smoothstep(.10,.20,length(cell)))*.5;density=.10;
+          mark=(1.0-smoothstep(.12,.24,length(cell)))*.8;
         }else if(organKind<5.5){
           vec2 q=vec2(p.x*organSide+.32,p.y);d=branch(q);
           d=min(d,segment(q,vec2(-.06,-.27),vec2(-.03,-.04)));
-          mark=ink(d,.010)*.78;density=.12;
+          mark=ink(d,.015);
+          fine=ink(twigs(q),.004);
         }else{
           // Five folded barium-filled tubes, with separate walls and dark lumen.
           // Distance to one meandering centreline avoids concentric contour rings.
@@ -77,7 +102,7 @@ function organMaterial(id,centre,size){
             vec2 b=vec2(-.31*cos(t*15.707963)+.018*sin(t*41.0),-.35+.70*t);
             tube=min(tube,segment(p,a,b));a=b;
           }
-          mark=max(0.0,ink(tube,.035)-ink(tube,.022))*.78;density=.025;
+          mark=max(0.0,ink(tube,.040)-ink(tube,.022));
         }
         // Three radial tears and small jagged branches remain after the burst.
         float tear=1.0;
@@ -86,18 +111,38 @@ function organMaterial(id,centre,size){
           float jag=.012*sin(q.x*65.0);float line=abs(q.y+jag);
           tear=min(tear,max(line,-q.x));
         }
-        float seam=ink(tear,.050)*organDamage;
-        vec3 color=mix(organFilm,tint,density*(1.0-.82*organDamage));
-        color=mix(color,organColor,mark*(1.0-.8*organDamage));
-        color=mix(color,organCoral,seam*.96);
-        gl_FragColor=vec4(color,organAmount);
+        float seam=ink(tear,.012)*organDamage;
+        vec3 n=normalize(vOrganNormal),view=normalize(vOrganView);
+        if(!gl_FrontFacing)n=-n;
+        // The source is flattened for top view. Restore a rounded lighting normal
+        // without changing its anatomical silhouette or organ-local vessel placement.
+        vec3 rounded=normalize(mat3(viewMatrix)*normalize(vec3(p.x*1.8,.65,p.y*1.5)));
+        n=normalize(mix(n,rounded,.65));
+        float facing=abs(dot(n,view)),rim=pow(1.0-facing,2.5);
+        vec3 light=normalize(vec3(-.45,.65,1.0));
+        float diffuse=max(0.0,dot(n,light));
+        // A creamy shell over a mint interior, with soft volume and a fine coral edge.
+        float window=1.0-smoothstep(.15,.53,length(p*vec2(1.0,.85)+vec2(.09,0.0)));
+        float interior=(1.0-rim)*(.24+.46*window);
+        vec3 color=mix(organColor,organMint,interior);
+        color*=.46+.54*diffuse;
+        float grain=fract(sin(dot(floor(p*650.0),vec2(127.1,311.7)))*43758.5453);
+        color*=.98+.04*grain;
+        color=mix(color,organMint*(.82+.18*diffuse),mark*.94);
+        color=mix(color,organMint,fine*.6);
+        float glow=exp(-d*32.0)*.12;
+        color+=organMint*glow*(1.0-organDamage*.4);
+        float spec=pow(max(0.0,dot(n,normalize(light+view))),32.0);
+        color=mix(color,organColor,spec*.18);
+        color=mix(color,organCoral,rim*.32+seam*.65);
+        gl_FragColor=vec4(color,organAmount*(.78+.16*rim));
         #include <encodings_fragment>
       }`});
   mat.extensions.derivatives=true;
   return {mat,U};
 }
 
-// Dim anatomy uses a fine hull; a ruptured silhouette gets four CSS pixels of coral.
+// A thin coral rim follows the actual silhouette rather than a thick diagram line.
 function organOutline(U){
   return new THREE.ShaderMaterial({transparent:true,depthTest:false,depthWrite:false,side:THREE.BackSide,toneMapped:false,clipping:true,
     uniforms:{...U,organViewport:{value:new THREE.Vector2(844,390)}},
@@ -105,14 +150,14 @@ function organOutline(U){
       #include <clipping_planes_pars_vertex>
       void main(){vec4 mvPosition=modelViewMatrix*vec4(position,1.0);vec4 clip=projectionMatrix*mvPosition;
         vec3 n=normalMatrix*normal;vec2 direction=normalize(n.xy+vec2(.00001));
-        clip.xy+=direction*vec2(mix(5.4,8.0,organHeat))/organViewport*clip.w;gl_Position=clip;
+        clip.xy+=direction*vec2(mix(1.8,2.6,organHeat))/organViewport*clip.w;gl_Position=clip;
         #include <clipping_planes_vertex>
       }`,
     fragmentShader:`uniform vec3 organColor,organCoral;uniform float organAmount,organHeat;
       #include <clipping_planes_pars_fragment>
       void main(){
         #include <clipping_planes_fragment>
-        gl_FragColor=vec4(mix(organColor*.55,organCoral,organHeat),organAmount);
+        gl_FragColor=vec4(organCoral,organAmount*(.55+.2*organHeat));
         #include <encodings_fragment>
       }`});
 }
@@ -153,6 +198,64 @@ function organTag(id,customText){
   tag.setHot(false);return tag;
 }
 
+function organFace(id){
+  const maps={};
+  for(const mood of ['calm','strain','dead']){
+    const canvas=document.createElement('canvas');canvas.width=256;canvas.height=192;
+    const g=canvas.getContext('2d');g.strokeStyle=g.fillStyle='#0f231f';g.lineWidth=11;g.lineCap=g.lineJoin='round';
+    for(const x of [84,172]){
+      if(mood==='calm'){
+        g.beginPath();g.ellipse(x,78,10,14,0,0,Math.PI*2);g.fill();
+        g.fillStyle='#f4efe4';g.beginPath();g.arc(x-3,73,2.5,0,Math.PI*2);g.fill();g.fillStyle='#0f231f';
+      }else{
+        g.beginPath();
+        if(mood==='dead'){g.moveTo(x-12,65);g.lineTo(x+12,91);g.moveTo(x+12,65);g.lineTo(x-12,91);}
+        else{const dir=x<128?1:-1;g.moveTo(x-dir*10,64);g.lineTo(x+dir*10,78);g.lineTo(x-dir*10,92);}
+        g.stroke();
+      }
+    }
+    g.lineWidth=7;g.beginPath();g.moveTo(112,113);
+    if(mood==='calm')g.bezierCurveTo(119,129,137,129,144,113);
+    else{g.quadraticCurveTo(120,102,128,114);g.quadraticCurveTo(136,125,144,113);}
+    g.stroke();
+    if(mood==='strain')for(const [x,y,s] of [[37,82,1],[216,111,.8]]){
+      g.save();g.translate(x,y);g.scale(s,s);g.fillStyle='#7fd1b9';g.strokeStyle='#0f231f';g.lineWidth=2;
+      g.beginPath();g.moveTo(0,-22);g.bezierCurveTo(-5,-6,-18,9,-12,19);g.bezierCurveTo(-4,31,16,22,13,10);g.quadraticCurveTo(11,0,0,-22);g.fill();g.stroke();
+      g.strokeStyle='#f4efe4';g.lineWidth=3;g.beginPath();g.moveTo(-5,5);g.quadraticCurveTo(-10,16,-4,18);g.stroke();g.restore();
+    }
+    const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;maps[mood]=map;
+  }
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:maps.calm,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
+  sprite.name=id+'_face';sprite.frustumCulled=false;sprite.visible=false;
+  return {sprite,mood:'calm',setMood(mood){this.mood=mood;sprite.material.map=maps[mood];},disposeMaps(){for(const map of Object.values(maps))map.dispose();}};
+}
+
+function organPopWord(){
+  const canvas=document.createElement('canvas');canvas.width=384;canvas.height=256;const g=canvas.getContext('2d');
+  const font='900 156px "Black Han Sans", "IBM Plex Sans KR", sans-serif';
+  function draw(){
+    g.clearRect(0,0,384,256);g.font=font;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
+    g.strokeStyle='#0f231f';g.lineWidth=24;g.strokeText('팡!',192,135,336);g.fillStyle='#f4efe4';g.fillText('팡!',192,135,336);
+  }
+  draw();const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
+  document.fonts?.load(font,'팡!').then(()=>{draw();map.needsUpdate=true;}).catch(()=>{});
+  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,rotation:.14}));
+  sprite.name='organ_pop_word';sprite.frustumCulled=false;sprite.visible=false;return sprite;
+}
+
+function organShards(){
+  const geometry=new THREE.TetrahedronGeometry(1,0),colors=[];
+  const cream=new THREE.Color(0xf4efe4).convertSRGBToLinear();
+  for(let i=0;i<geometry.attributes.position.count;i++){
+    const c=cream.clone().multiplyScalar([1,.72,.88,.59][Math.floor(i/3)%4]);colors.push(c.r,c.g,c.b);
+  }
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
+  return Array.from({length:6},(_,i)=>{
+    const shard=new THREE.Mesh(geometry,material);shard.name='organ_shard_'+i;shard.frustumCulled=false;shard.visible=false;return shard;
+  });
+}
+
 function filmSprite(type){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const g=canvas.getContext('2d');
   g.strokeStyle='#ff7a59';g.fillStyle='#ff7a59';g.lineWidth=type==='ring'?5:4;
@@ -160,6 +263,8 @@ function filmSprite(type){
   else if(type==='crack'){
     g.lineJoin='miter';g.lineWidth=7;g.beginPath();g.moveTo(7,67);g.lineTo(30,48);g.lineTo(44,75);g.lineTo(65,40);g.lineTo(79,67);g.lineTo(119,47);g.stroke();
     g.lineWidth=3;g.beginPath();g.moveTo(65,40);g.lineTo(75,18);g.moveTo(44,75);g.lineTo(34,105);g.stroke();
+  }else if(type==='star'){
+    g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?17+(i%3)*4:49+(i%5)*3;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
   }else if(type==='flash'){
     g.fillStyle='#f4efe4';g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?15:60;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
   }else{g.beginPath();g.arc(64,64,24,0,Math.PI*2);g.fill();}
@@ -174,7 +279,7 @@ function createOrgans(source,scene){
   const t1=source.scene.getObjectByName('ref_T1').getWorldPosition(new THREE.Vector3());
   const l5=source.scene.getObjectByName('ref_L5').getWorldPosition(new THREE.Vector3());
   const length=t1.y-l5.y,scale=.6/length;
-  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],swells={};
+  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],swells={},moods={};
   const layerOrder=['lungL','lungR','bowel','liver','kidneyL','kidneyR','stomach','spleen','heart'];
   // The spine stays the brightest thing in the shot (user, 2026-10-18): drop the organ depth before the engine's
   // bones (renderOrder 999+) so the vertebrae and their fracture draw over the opaque organ fills.
@@ -197,7 +302,8 @@ function createOrgans(source,scene){
     geometry.deleteAttribute('normal');geometry.computeVertexNormals();geometry.computeBoundingBox();
     const box=geometry.boundingBox.clone(),centre=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
     geometry.translate(-centre.x,-centre.y,-centre.z);geometry.computeBoundingSphere();
-    const parts=[],order=998.3+entries.length*.05;
+    // All hit surfaces sort after every faded surface, below the spine depth clear.
+    const parts=[],order=998.05+entries.length*.018;
     for(let j=0;j<3;j++){
       const angle=j*Math.PI*2/3+.22+Math.PI/3;
       const normals=[new THREE.Vector3(-Math.sin(angle-Math.PI/3),0,Math.cos(angle-Math.PI/3)),new THREE.Vector3(Math.sin(angle+Math.PI/3),0,-Math.cos(angle+Math.PI/3))];
@@ -212,10 +318,15 @@ function createOrgans(source,scene){
       const mesh=new THREE.Mesh(geometry,mat);mesh.name=o.name+'_piece'+j;mesh.renderOrder=order+.02+j*.001;mesh.frustumCulled=false;
       root.add(depth,hull,mesh);parts.push({root,depth,hull,mesh,mat,U,planes,normals,angle});
     }
-    const ring=filmSprite('ring'),flash=filmSprite('flash');group.add(ring,flash);
+    const ring=filmSprite('ring'),flash=filmSprite('star');group.add(ring,flash);
     const tag=organTag(o.name);group.add(tag.sprite,tag.line);
+    const face=organFace(o.name),word=organPopWord(),shards=organShards();group.add(face.sprite,word,...shards);
+    face.sprite.renderOrder=998.55+entries.length*.008;
+    flash.renderOrder=998.65;ring.renderOrder=998.68;word.renderOrder=998.8;
+    for(const shard of shards)shard.renderOrder=998.72;
+    tag.sprite.renderOrder=998.9;tag.line.renderOrder=998.88;
     const side=['lungR','liver','kidneyR','bowel'].includes(o.name)?-1:1;
-    entries.push({id:o.name,parts,tag,side,box,centre,size,ring,flash,hit:false,burst:false});
+    entries.push({id:o.name,parts,order,tag,face,word,shards,side,box,centre,size,ring,flash,hit:false,burst:false});
   }
   // Both markers are back-only; the shared clinic engine stays unchanged.
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
@@ -224,34 +335,58 @@ function createOrgans(source,scene){
   let markerSeg=3,markerPos=new THREE.Vector3();
   function update(ids,amount,fractureTime,zoom,spine){
     group.visible=ids.length>0&&amount>.001;lastAmount=group.visible?amount:0;lastZoom=group.visible?zoom:0;
-    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];swells={};
+    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];swells={};moods={};
     for(const e of entries){
       e.hit=ids.includes(e.id);
-      // Grow for .4s (ease-in, 1 to 1.6), then 팡: collapse with one flash and one ring (user, 2026-10-18 "간결하게 … 임팩트 있게").
+      // The existing .4s beat and .06s stagger stay fixed; ease out to a full 2x swell.
       const age=fractureTime+.45-(ORGAN_BEAT.burstAt-INFLATE+hitIds.indexOf(e.id)*ORGAN_BEAT.stagger);
       const burstAge=age-INFLATE;e.burst=e.hit&&burstAge>=0;
       if(e.burst&&group.visible)burstIds.push(e.id);
-      const grow=e.hit&&age>=0?Math.pow(Math.min(1,age/INFLATE),2.2):0,popped=e.hit?smooth(0,.08,burstAge):0;
+      const grow=e.hit&&age>=0?1-Math.pow(1-clamp(age/INFLATE),3):0,popped=e.hit?smooth(0,.08,burstAge):0;
       const split=e.hit?smooth(0,.3,burstAge):0,heat=e.hit?smooth(0,INFLATE*.8,age):0;
-      const swell=e.hit?1+.6*grow*(1-popped):1;
+      const swell=e.hit?1+1.0*grow*(1-popped):1;
+      const jitter=e.hit?.012*grow*(1-popped)*Math.sin(Math.max(0,age)*90):0;
+      const opacity=amount*(e.hit?1:.18),order=e.order+(e.hit?.3:0);
+      e.face.setMood(e.burst?'dead':e.hit&&age>=0?'strain':'calm');
+      if(e.hit)moods[e.id]=e.face.mood;
       if(e.hit)swells[e.id]=+swell.toFixed(3);
-      for(const p of e.parts){
-        p.root.visible=group.visible;p.root.scale.setScalar(swell);
-        const drift=.2*split;
+      for(const [j,p] of e.parts.entries()){
+        p.depth.renderOrder=order+j*.001;p.hull.renderOrder=order+.01+j*.001;p.mesh.renderOrder=order+.02+j*.001;
+        p.root.visible=group.visible;p.root.scale.set(swell*(1+jitter),swell,swell*(1-jitter));
+        const drift=.35*split;
         p.root.position.copy(e.centre).add(new THREE.Vector3(Math.cos(p.angle)*e.size.x*drift,0,Math.sin(p.angle)*e.size.z*drift));
-        p.root.rotation.set(0,(p.angle-2)*.05*split,0);
+        p.root.rotation.set(0,(p.angle-2)*.05*split+jitter*.4,0);
         p.root.updateWorldMatrix(true,false);
         p.planes.forEach((plane,i)=>plane.setFromNormalAndCoplanarPoint(p.normals[i],new THREE.Vector3()).applyMatrix4(p.root.matrixWorld));
-        p.U.organAmount.value=amount;p.U.organDamage.value=e.hit?smooth(0,.10,burstAge):0;p.U.organHeat.value=heat;p.U.organTime.value=Math.max(0,age);
+        p.U.organAmount.value=opacity;p.U.organDamage.value=e.hit?smooth(0,.10,burstAge):0;p.U.organHeat.value=heat;p.U.organTime.value=Math.max(0,age);
       }
       const fx=e.hit&&burstAge>=0&&group.visible,diameter=Math.max(e.size.x,e.size.z);
-      e.flash.visible=fx&&burstAge<.18;e.flash.position.copy(e.centre);e.flash.position.y=1.03;
-      e.flash.scale.setScalar(diameter*(1+.8*smooth(0,.15,burstAge)));
-      e.flash.material.color.setHex(burstAge<.06?0xf4efe4:0xff7a59);e.flash.material.opacity=amount*(1-smooth(.04,.18,burstAge));
-      e.ring.visible=fx&&burstAge<.4;e.ring.position.copy(e.centre);e.ring.position.y=1.03;
-      e.ring.scale.setScalar(diameter*(.7+1.1*smooth(0,.35,burstAge)));e.ring.material.opacity=amount*(1-smooth(.15,.4,burstAge));
-      e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible;
-      e.tag.sprite.material.opacity=amount;e.tag.line.material.opacity=amount*(e.burst?.8:.35);
+      e.face.sprite.visible=group.visible;e.face.sprite.material.opacity=opacity;
+      e.face.sprite.position.copy(e.centre);e.face.sprite.position.y+=e.size.y*.5*swell+.006;
+      e.face.sprite.position.z-=e.size.z*.17*swell;
+      const faceWidth=Math.min(e.size.x*.62,diameter*.38)*swell;
+      e.face.sprite.scale.set(faceWidth*(1+jitter),faceWidth*.75*(1-jitter),1);
+      e.face.sprite.material.rotation=jitter;
+      e.face.sprite.renderOrder=e.hit?998.55+entries.indexOf(e)*.008:998.23;
+      e.flash.visible=fx&&burstAge<.22;e.flash.position.copy(e.centre);e.flash.position.y=1.03;
+      e.flash.scale.setScalar(diameter*(1.5+.9*smooth(0,.18,burstAge)));
+      e.flash.material.opacity=amount*(1-smooth(.06,.22,burstAge));
+      e.ring.visible=fx&&burstAge<.45;e.ring.position.copy(e.centre);e.ring.position.y=1.03;
+      e.ring.scale.setScalar(diameter*(1.1+1.2*smooth(0,.4,burstAge)));e.ring.material.opacity=amount*(1-smooth(.2,.45,burstAge));
+      for(const [i,shard] of e.shards.entries()){
+        const a=i*Math.PI/3+.3,travel=.36+Math.max(0,burstAge)*1.25;
+        shard.visible=fx&&burstAge<.55;
+        shard.position.copy(e.centre).add(new THREE.Vector3(Math.cos(a)*diameter*travel,.045,Math.sin(a)*diameter*travel));
+        const size=diameter*(.035+(i%3)*.009)*(1-.5*smooth(.25,.55,burstAge));
+        shard.scale.set(size,size*.65,size*1.4);shard.rotation.set(a+burstAge*5,a*2+burstAge*7,burstAge*4);
+        shard.material.opacity=amount*(1-smooth(.25,.55,burstAge));
+      }
+      e.word.visible=fx&&burstAge<.5;
+      e.word.position.copy(e.centre).add(new THREE.Vector3(e.side*e.size.x*.36,.07,-e.size.z*(.3+Math.max(0,burstAge)*.18)));
+      const wordSize=diameter*(.52+.10*smooth(0,.09,burstAge));
+      e.word.scale.set(wordSize,wordSize*2/3,1);e.word.material.opacity=amount*(1-smooth(.32,.5,burstAge));
+      e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible&&e.hit;
+      e.tag.sprite.material.opacity=opacity;e.tag.line.material.opacity=opacity*(e.burst?.8:.35);
     }
     markerPos.copy(spine.position);
     if(markerSeg!==spine.seg){
@@ -273,10 +408,7 @@ function createOrgans(source,scene){
     const box=new THREE.Box3();
     for(const e of entries){
       if(!ids.includes(e.id))continue; // frame only the burst organs so they read big (user, 2026-10-18)
-      // Reserve the 1.6 swell and the 1.8-diameter ring, even before that organ has burst.
-      const diameter=Math.max(e.size.x,e.size.z),extent=new THREE.Vector3(
-        Math.max(e.size.x*.85+.02,diameter*.95),e.size.y*.8+.03,
-        Math.max(e.size.z*.85+.02,diameter*.95));
+      const extent=e.size.clone().multiplyScalar(.55).addScalar(.01);
       box.union(new THREE.Box3(e.centre.clone().sub(extent),e.centre.clone().add(extent)));
     }
     return box;
@@ -288,7 +420,7 @@ function createOrgans(source,scene){
     const pixelAt=p=>2*(-p.clone().applyMatrix4(camera.matrixWorldInverse).z)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/height;
     if(!group.visible)return;
     const bounds={left:width,right:0},occupied=[];
-    const shown=new Set(entries.filter(e=>{if(e.hit)return true;const q=project(e.centre);return q.x>0&&q.x<width&&q.y>0&&q.y<height;}));
+    const shown=new Set(entries.filter(e=>e.hit));
     for(const e of entries)if(!shown.has(e))e.tag.sprite.visible=e.tag.line.visible=false;
     for(const e of entries){
       for(const p of e.parts)p.hull.material.uniforms.organViewport.value.set(width,height);
@@ -296,7 +428,7 @@ function createOrgans(source,scene){
       // the flashes, without a halo or any coral wash inside the organs.
       if(e.ring.visible){
         const pixels=e.ring.scale.x/pixelAt(e.ring.position);
-        const map=e.ring.material.map,stroke=(pixels<110?16:11)*128/pixels;
+        const map=e.ring.material.map,stroke=3*128/pixels;
         if(Math.abs((map.userData.stroke||5)-stroke)>.2){
           const g=map.image.getContext('2d');g.clearRect(0,0,128,128);g.strokeStyle='#ff7a59';g.lineWidth=stroke;
           g.beginPath();g.arc(64,64,56,0,Math.PI*2);g.stroke();
@@ -350,9 +482,10 @@ function createOrgans(source,scene){
     }
   }
   const state=()=>({visible:group.visible?entries.length:0,hit:group.visible?[...hitIds]:[],
-    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],swell:group.visible?{...swells}:{},labels:group.visible?entries.length:0,zoom:lastZoom});
+    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],swell:group.visible?{...swells}:{},labels:group.visible?entries.length:0,zoom:lastZoom,
+    faded:group.visible?entries.filter(e=>!e.hit).map(e=>e.id):[],mood:group.visible?{...moods}:{}});
   function disposeMarkers(){
-    for(const e of entries)e.tag.disposeMaps();markerTag.disposeMaps();
+    for(const e of entries){e.tag.disposeMaps();e.face.disposeMaps();}markerTag.disposeMaps();
     for(const s of [marker,markerTag.sprite,spineCrack,spineFlash]){s.removeFromParent();s.material.map?.dispose();s.material.dispose();}
     markerTag.line.removeFromParent();markerTag.line.geometry.dispose();markerTag.line.material.dispose();
   }
