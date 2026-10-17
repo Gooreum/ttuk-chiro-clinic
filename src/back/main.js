@@ -265,7 +265,7 @@ function drawHud(pressure,br){
   const bw=clamp(gapR-gapL-40,110,180),bx=clamp((gapL+gapR-bw)/2,10,width-bw-10);
   const by=clamp((zR.w?zR.bottom:height-12)-19,40,height-20);
   const off=(S.position-S.targets[S.step])/POSITION_TOL,showBand=S.control==='touch'||S.step<2||S.painHere>0;
-  drawHBar(ctx,{bx,by,bw,off,ok:Math.abs(off)<=1,title:'손 위치',showBand,okText:showBand?'맞아요':'찾아봐요',offText:showBand?'중심 밖':'찾아봐요'});
+  drawHBar(ctx,{bx,by,bw,off,span:{pos:S.position,target:S.targets[S.step],tol:POSITION_TOL},ok:Math.abs(off)<=1,title:'손 위치',showBand,okText:showBand?'맞아요':'찾아봐요',offText:showBand?'중심 밖':'찾아봐요'});
   drawHint(ctx,{x:bx+bw/2,y:by-40,text:S.cue,hot:S.cueStyle==='bad'});
   if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:'후우… 지금 툭 +15',colors:{bone:'#8adfbf'}});
 }

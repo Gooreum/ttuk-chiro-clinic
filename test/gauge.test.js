@@ -27,6 +27,18 @@ describe('shared clinic gauges',()=>{
     expect(ctx.fillRect).not.toHaveBeenCalled();expect(ctx.strokeRect).not.toHaveBeenCalled();
     expect(ctx.arc).toHaveBeenCalled();expect(ctx.fillText).toHaveBeenCalled();
   });
+  it('spans the whole travel when given a span, so both ends are reachable',()=>{
+    const {bx,bw}=horizontal,lin=v=>bx+12+v*(bw-24);
+    for(const pos of [0,1]){
+      const ctx=mockContext();drawHBar(ctx,{...horizontal,span:{pos,target:.18,tol:.12}});
+      expect(ctx.arc.mock.calls[0][0]).toBeCloseTo(pos?bx+bw-12:bx+12);
+      expect(ctx.fillRect.mock.calls[0][0]).toBeCloseTo(lin(.06));expect(ctx.fillRect.mock.calls[0][2]).toBeCloseTo(.24*(bw-24));
+    }
+  });
+  it('keeps the offset bar without a span',()=>{
+    const ctx=mockContext();drawHBar(ctx,horizontal);
+    expect(ctx.arc.mock.calls[0][0]).toBeCloseTo(horizontal.bx+horizontal.bw/2+.1*(horizontal.bw/2-12));
+  });
   it('draws a supplied hint without a percentage label',()=>{
     const ctx=mockContext();drawHint(ctx,{x:200,y:250,text:'지금 툭',hot:true});
     expect(ctx.fillText).toHaveBeenCalledWith('지금 툭',200,250);
