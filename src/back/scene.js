@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm,impactFeel,organZoom} from './core.js';
 import {flinchProfile} from '../core/fail.js';
 import {createBackXray} from "./xray.js";
+import {ORGANS} from "./organs.js";
 import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
@@ -227,7 +228,7 @@ function hairOver(m){ m.transparent = false; m.depthWrite = true; m.alphaTest = 
 /* ---------- the scene ---------- */
 export async function createBackScene(canvas, view = {}){
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: "high-performance"});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -298,7 +299,18 @@ export async function createBackScene(canvas, view = {}){
   // ---- therapist ----
   const ther = tg.scene;
   const bones = {};
+  // All 20 therapist skins bind the same 53 joints; one skeleton = one bone update/upload per frame, not 20.
+  // Each mesh's inverse binds differ from the first by one constant matrix C (its quantization offset), so fold C
+  // into that mesh's bind matrix instead.
+  let sharedSkeleton = null;
   ther.traverse(o => {
+    if (o.isSkinnedMesh){
+      if (!sharedSkeleton) sharedSkeleton = o.skeleton;
+      else {
+        const C = sharedSkeleton.boneInverses[0].clone().invert().multiply(o.skeleton.boneInverses[0]);
+        o.bind(sharedSkeleton, C.multiply(o.bindMatrix));
+      }
+    }
     if (o.isBone) bones[o.name] = o;
     if (o.isMesh){
       o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -555,7 +567,7 @@ export async function createBackScene(canvas, view = {}){
 
   function resize(width, height){
     cssW = Math.max(1, width|0); cssH = Math.max(1, height|0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(cssW, cssH, false);
     fitCamera(); reaction.resize(cssW,cssH);
   }
@@ -618,5 +630,15 @@ export async function createBackScene(canvas, view = {}){
   // compile now so the first frame does not hitch
   renderer.compile(scene, camera);
   renderer.compile(reaction.scene,reaction.camera);
+  // compile() skips hidden objects, so the x-ray spine/film/organs linked ~26 programs mid-shot (0.6 s freeze).
+  // Draw each shot look once now, while the loading screen is up, then put the scene back.
+  const rest={...st,pulses:[]};
+  const organDelay=therapistMotion(0,5,2).xrayDelay,okDelay=therapistMotion(0,1,0).xrayDelay;
+  for(const t of [.6,1,1.9,2.3,2.7])render({kind:'over',position:.3,force:5,forceTier:2,organs:ORGANS.map(o=>o.id),shotTime:t+organDelay});
+  for(const t of [.9,1.5])render({kind:'ok',position:.5,shotTime:t+okDelay});
+  // The face close-up's 1024px textures upload on first draw; a late faceTime makes the real close-up start fresh.
+  render({faceVisible:true,faceTime:99,kind:'ok'});
+  render({shotTime:-1});
+  Object.assign(st,rest);organBursts.clear();
   return {screenAxis: 1, render, resize, dispose, projectPosition, pickPosition, metrics:()=>st.metrics, renderer, scene, camera};
 }
