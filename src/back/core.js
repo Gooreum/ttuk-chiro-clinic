@@ -6,10 +6,11 @@ import {scoreSuccess} from '../core/scoring.js';
 export const TARGETS = [0.18, 0.50, 0.82];
 export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
 // Timing from clinic flow.js (XRAY_DELAY/FRAC_AT/FRAC_HOLD) and loop.js opacity speeds.
-// Organ ruptures play in one shot with the spine (user, 2026-10-18 "척추랑 장기 파열되는거 같이 보여주고"): the wide
-// torso view from the first frame, the spine cracks, then the organs pop in a chain. Seconds after the x-ray delay.
-export const ORGAN_EXTRA=1,ORGAN_BEAT={burstAt:.95,stagger:.06};
-export function organZoom(time){return time>=0?1:0;}
+// Organ ruptures (user, 2026-10-18 "척추가 먼저 골절되는걸 기존처럼 옆에서 보이게 하고 그 애니메이션 끝나면 터진 장기가 크게 보이면서 펑"):
+// the spine side close-up until spineEnd, a pull-out to the burst organs by zoomEnd, then they grow and pop at burstAt.
+// Seconds after the x-ray delay, like clinicFilm's own clock.
+export const ORGAN_EXTRA=1.8,ORGAN_BEAT={spineEnd:1.6,zoomEnd:2,burstAt:2.4,stagger:.06};
+export function organZoom(time){const t=Math.max(0,Math.min(1,(time-ORGAN_BEAT.spineEnd)/(ORGAN_BEAT.zoomEnd-ORGAN_BEAT.spineEnd)));return t*t*(3-2*t);}
 export function clinicFilm(time,kind,tier=0,force=1,organs=false){
   time-=therapistStyle(force,tier).xrayDelay;
   if(time<0)return 0;

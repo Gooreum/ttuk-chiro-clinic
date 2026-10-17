@@ -263,16 +263,16 @@ function createOrgans(source,scene){
     marker.visible=markerTag.sprite.visible=markerTag.line.visible=spine.on&&zoom>0&&spine.amount>.001;
     marker.material.opacity=amount*(.75+.25*Math.sin(fractureTime*9));marker.position.copy(markerPos);
     markerTag.sprite.material.opacity=amount;markerTag.line.material.opacity=amount;
-    // The spine snaps in the same wide shot as the organs, so its crack is drawn big enough to read there.
+    // Side close-up first (small crack), then it grows a little in the organ view.
     spineCrack.visible=spine.on&&spine.time>=.8&&spine.amount>.001;
-    spineCrack.position.copy(markerPos);spineCrack.material.opacity=spine.amount;spineCrack.scale.set(.17,.1,1);
+    spineCrack.position.copy(markerPos);spineCrack.material.opacity=spine.amount;spineCrack.scale.set(.075+.06*zoom,.045+.035*zoom,1);
     spineFlash.visible=spineCrack.visible&&spine.time<1.02;spineFlash.position.copy(markerPos);
-    spineFlash.scale.setScalar(.16);spineFlash.material.opacity=spine.amount*(1-smooth(.81,1.02,spine.time));
+    spineFlash.scale.setScalar(.07+.06*zoom);spineFlash.material.opacity=spine.amount*(1-smooth(.81,1.02,spine.time));
   }
   function framing(ids=[]){
     const box=new THREE.Box3();
     for(const e of entries){
-      if(!ids.includes(e.id)){box.union(e.box);continue;}
+      if(!ids.includes(e.id))continue; // frame only the burst organs so they read big (user, 2026-10-18)
       // Reserve the 1.6 swell and the 1.8-diameter ring, even before that organ has burst.
       const diameter=Math.max(e.size.x,e.size.z),extent=new THREE.Vector3(
         Math.max(e.size.x*.85+.02,diameter*.95),e.size.y*.8+.03,
@@ -288,6 +288,8 @@ function createOrgans(source,scene){
     const pixelAt=p=>2*(-p.clone().applyMatrix4(camera.matrixWorldInverse).z)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/height;
     if(!group.visible)return;
     const bounds={left:width,right:0},occupied=[];
+    const shown=new Set(entries.filter(e=>{if(e.hit)return true;const q=project(e.centre);return q.x>0&&q.x<width&&q.y>0&&q.y<height;}));
+    for(const e of entries)if(!shown.has(e))e.tag.sprite.visible=e.tag.line.visible=false;
     for(const e of entries){
       for(const p of e.parts)p.hull.material.uniforms.organViewport.value.set(width,height);
       // Keep the expanded shock front and its finer inner echo legible after
@@ -301,12 +303,12 @@ function createOrgans(source,scene){
           map.userData.stroke=stroke;map.needsUpdate=true;
         }
       }
-      for(const x of [e.box.min.x,e.box.max.x])for(const z of [e.box.min.z,e.box.max.z]){
+      if(shown.has(e))for(const x of [e.box.min.x,e.box.max.x])for(const z of [e.box.min.z,e.box.max.z]){
         const p=project(new THREE.Vector3(x,e.centre.y,z));bounds.left=Math.min(bounds.left,p.x);bounds.right=Math.max(bounds.right,p.x);
       }
     }
     for(const side of [-1,1]){
-      const tags=entries.filter(e=>e.side===side).map(e=>{const anchor=e.centre.clone();anchor.x+=side*e.size.x*.32;return {e,anchor,p:project(anchor)};}).sort((a,b)=>a.p.y-b.p.y);
+      const tags=entries.filter(e=>e.side===side&&shown.has(e)).map(e=>{const anchor=e.centre.clone();anchor.x+=side*e.size.x*.32;return {e,anchor,p:project(anchor)};}).sort((a,b)=>a.p.y-b.p.y);
       const top=Math.min(105,height*.25),bottom=height-24;
       // Use the actual mixed 24/30px heights; all five left-side labels fit a phone.
       for(let i=0;i<tags.length;i++){
@@ -419,7 +421,7 @@ export async function createBackXray({scene,camera,env,renderer}){
     pivot.position.set(0,.95,worldZ-engine.XRAY_LEVEL(target.seg-1));
     // In the wide organ shot a true-size spine is a thin thread; blow the column up around the broken level so the
     // fracture reads next to the bursting organs (user, 2026-10-18 "척추랑 장기 파열되는거 같이").
-    pivot.scale.setScalar(organs.length?1+.8*zoom:1);
+    pivot.scale.setScalar(1);
     // Cache the real vertebral pivots while they are still in their rest pose.
     // Read their animated positions thereafter; a guessed world height floats
     // above the bone when the spine camera is close.

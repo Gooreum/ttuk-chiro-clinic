@@ -17,8 +17,10 @@ describe('organ rupture x-ray beats (user, 2026-10-17/18)',()=>{
     for(const k of ['faceAt','faceEnd','end','sirenAt'])expect(b[k]-a[k]).toBeCloseTo(ORGAN_EXTRA);
     expect(reactionTiming('ok',0,1,true)).toEqual(reactionTiming('ok',0,1));
   });
-  it('shows spine and organs together from the first film frame',()=>{
-    expect(organZoom(-.1)).toBe(0);expect(organZoom(0)).toBe(1);expect(organZoom(ORGAN_BEAT.burstAt)).toBe(1);expect(organZoom(3)).toBe(1);
-    expect(ORGAN_EXTRA).toBe(1);
+  it('holds the spine side close-up, then pulls out to the burst organs before they pop',()=>{
+    expect(organZoom(1)).toBe(0);expect(organZoom(ORGAN_BEAT.spineEnd)).toBe(0);
+    expect(organZoom(ORGAN_BEAT.zoomEnd)).toBe(1);expect(organZoom(3)).toBe(1);
+    let last=0;for(let t=ORGAN_BEAT.spineEnd;t<=ORGAN_BEAT.zoomEnd;t+=.05){const z=organZoom(t);expect(z).toBeGreaterThanOrEqual(last);last=z;}
+    expect(ORGAN_BEAT.burstAt).toBeGreaterThan(ORGAN_BEAT.zoomEnd);expect(ORGAN_EXTRA).toBe(1.8);
   });
 });
