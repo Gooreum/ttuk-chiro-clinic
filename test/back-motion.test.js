@@ -122,6 +122,26 @@ describe('back feel regression fixes',()=>{
       expect(m.position).toBeGreaterThan(.5);
     }
   });
+  it('returns to the centre after tilting past either end (no drift off the wall)',()=>{
+    for(const end of [30,-30]){
+      const m=new BackMotion();warm(m);let t=720;
+      for(let i=1;i<=30;i++,t+=20)m.sample(packet({lr:end*i/30}),t,0);
+      expect(m.position).toBe(end>0?1:0);
+      for(let i=29;i>=0;i--,t+=20)m.sample(packet({lr:end*i/30}),t,0);
+      for(let i=0;i<10;i++,t+=20)m.sample(packet(),t,0);
+      expect(m.position).toBeCloseTo(.5,1);expect(Math.abs(m.position-.5)).toBeLessThan(.02);
+    }
+  });
+  it('follows a fast tilt instead of dropping it',()=>{
+    const m=new BackMotion();warm(m);let t=720;
+    for(let i=1;i<=3;i++,t+=16)m.sample(packet({lr:5*i,rate:300}),t,0);
+    for(let i=0;i<10;i++,t+=16)m.sample(packet({lr:15,rate:0}),t,0);
+    expect(Math.abs(m.position-.5)).toBeGreaterThan(.3);
+  });
+  it('moves the same distance for the same tilt either way',()=>{
+    const at=lr=>{const m=new BackMotion();warm(m);for(let t=720;t<=1100;t+=20)m.sample(packet({lr}),t,0);return m.position-.5;};
+    expect(at(12)).toBeCloseTo(-at(-12),2);expect(Math.abs(at(12))).toBeGreaterThan(.2);
+  });
   it('handles opposite signs between native linear and gravity-inclusive acceleration',()=>{
     for(const gravitySign of [1,-1])for(const linearSign of [1,-1]){
       const m=new BackMotion();warm(m,{sign:gravitySign});
