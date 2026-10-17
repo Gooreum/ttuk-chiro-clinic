@@ -17,6 +17,7 @@ import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
 import {T,saveT} from '../tuning.js';
 import {store} from '../lib/store.js';
+import {mountMonetize} from '../ui/monetize.js';
 
 const $=id=>document.getElementById(id), app=$('backApp'),canvas=$('backCanvas'),press=$('backPress'),hud=$('backHud'),ctx=hud.getContext('2d');
 const domHud=makeHud(app);
@@ -133,7 +134,19 @@ function finish(){
   $('backRank').textContent=rankTitle(S.score/3,S.tier?3:S.mistakes);
   $('backBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('backResult').hidden=false;sync();
+  monetize.showResult({endedBad:!complete,used:S.continued});
 }
+// 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
+// zone again with the misses cleared; the zones already done keep their points.
+function continueRun(){
+  if(S.phase!=='result')return;
+  stopSound();lastSpeech='';domHud.hideSpeech();
+  Object.assign(S,{phase:'play',continued:true,mistakes:0,streak:0,painHere:0,fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,
+    prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
+  $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backResult').hidden=true;$('backControls').hidden=false;
+  sync();
+}
+const monetize=mountMonetize({continueBtn:$('backContinueAd'),buyBtn:$('backBuyAdFree'),onContinue:continueRun});
 // Invoke both iOS permission APIs synchronously inside the start tap, as in neck adjustment.
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;
@@ -146,7 +159,7 @@ async function start(useMotion=preferMotion){
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
-  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeBackTargets(),results:[],fails:[],
+  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeBackTargets(),results:[],fails:[],continued:false,
     holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
   $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;
