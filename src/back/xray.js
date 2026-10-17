@@ -15,7 +15,7 @@ const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
 
 // Every surface masks the layers beneath it. The diagnostic marks use organ-local
 // coordinates, so the anatomy stays registered while the three clipped pieces move.
-const INFLATE=.35;
+const INFLATE=.4;
 const ORGAN_KIND={lungL:0,lungR:0,heart:1,liver:2,stomach:3,spleen:4,kidneyL:5,kidneyR:5,bowel:6};
 function organMaterial(id,centre,size){
   const U={organCentre:{value:centre},organSize:{value:size},organKind:{value:ORGAN_KIND[id]},
@@ -153,24 +153,6 @@ function organTag(id,customText){
   tag.setHot(false);return tag;
 }
 
-// One absurd sound per organ (병맛, user 2026-10-18 "장기 파열되는거 지금 졸라 재미없음").
-const ORGAN_WORD={lungL:'피슝~',lungR:'피슝~',heart:'쿵!',liver:'퍽!',stomach:'뿌욱!',spleen:'팡!',kidneyL:'콩!',kidneyR:'콩!',bowel:'뿌드득!'};
-function wordSprite(text){
-  const canvas=document.createElement('canvas'),g=canvas.getContext('2d'),font='96px "Black Han Sans", sans-serif';
-  g.font=font;canvas.width=Math.ceil(g.measureText(text).width)+48;canvas.height=136;
-  function draw(){
-    g.clearRect(0,0,canvas.width,canvas.height);g.font=font;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
-    g.lineWidth=22;g.strokeStyle='#0f231f';g.strokeText(text,canvas.width/2,canvas.height/2+4);
-    g.lineWidth=9;g.strokeStyle='#ff7a59';g.strokeText(text,canvas.width/2,canvas.height/2+4);
-    g.fillStyle='#f4efe4';g.fillText(text,canvas.width/2,canvas.height/2+4);
-  }
-  draw();
-  const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
-  document.fonts?.load(font,text).then(()=>{draw();map.needsUpdate=true;}).catch(()=>{});
-  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
-  sprite.renderOrder=1004;sprite.frustumCulled=false;sprite.visible=false;sprite.userData={text,aspect:canvas.width/canvas.height};
-  return sprite;
-}
 function filmSprite(type){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const g=canvas.getContext('2d');
   g.strokeStyle='#ff7a59';g.fillStyle='#ff7a59';g.lineWidth=type==='ring'?5:4;
@@ -180,13 +162,6 @@ function filmSprite(type){
     g.lineWidth=3;g.beginPath();g.moveTo(65,40);g.lineTo(75,18);g.moveTo(44,75);g.lineTo(34,105);g.stroke();
   }else if(type==='flash'){
     g.fillStyle='#f4efe4';g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?15:60;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
-  }else if(type==='burst'){
-    // Comic-book "펑" star: coral spikes with a cream rim, deliberately lopsided.
-    g.beginPath();for(let i=0;i<28;i++){const a=i*Math.PI/14,r=i%2?26+(i%3)*4:52+(i%5)*2.4;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();
-    g.fill();g.strokeStyle='#f4efe4';g.lineWidth=5;g.stroke();
-  }else if(type==='drop'){
-    g.beginPath();g.moveTo(64,17);g.bezierCurveTo(59,45,46,68,46,86);
-    g.bezierCurveTo(46,112,82,112,82,86);g.bezierCurveTo(82,68,69,45,64,17);g.fill();
   }else{g.beginPath();g.arc(64,64,24,0,Math.PI*2);g.fill();}
   const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
@@ -199,8 +174,7 @@ function createOrgans(source,scene){
   const t1=source.scene.getObjectByName('ref_T1').getWorldPosition(new THREE.Vector3());
   const l5=source.scene.getObjectByName('ref_L5').getWorldPosition(new THREE.Vector3());
   const length=t1.y-l5.y,scale=.6/length;
-  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],wordTexts=[];
-  const bead=filmSprite('bead'),beadMap=bead.material.map;bead.material.dispose();
+  const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],swells={};
   const layerOrder=['lungL','lungR','bowel','liver','kidneyL','kidneyR','stomach','spleen','heart'];
   // The spine stays the brightest thing in the shot (user, 2026-10-18): drop the organ depth before the engine's
   // bones (renderOrder 999+) so the vertebrae and their fracture draw over the opaque organ fills.
@@ -238,15 +212,10 @@ function createOrgans(source,scene){
       const mesh=new THREE.Mesh(geometry,mat);mesh.name=o.name+'_piece'+j;mesh.renderOrder=order+.02+j*.001;mesh.frustumCulled=false;
       root.add(depth,hull,mesh);parts.push({root,depth,hull,mesh,mat,U,planes,normals,angle});
     }
-    const ring=filmSprite('ring'),flash=filmSprite('flash'),star=filmSprite('burst'),word=wordSprite(ORGAN_WORD[o.name]||'펑!');group.add(ring,star,flash,word);
-    const drops=Array.from({length:18},(_,i)=>{
-      const sprite=filmSprite('drop');group.add(sprite);
-      // Deterministic radial speeds keep all particle setup out of game RNG.
-      return {sprite,flightMap:sprite.material.map,angle:i*Math.PI*2/18+entries.length*.37,speed:.8+(i%5)*.1,diameter:9+(i%3)*2,flying:false};
-    });
+    const ring=filmSprite('ring'),flash=filmSprite('flash');group.add(ring,flash);
     const tag=organTag(o.name);group.add(tag.sprite,tag.line);
     const side=['lungR','liver','kidneyR','bowel'].includes(o.name)?-1:1;
-    entries.push({id:o.name,parts,tag,side,box,centre,size,ring,flash,star,word,drops,hit:false,burst:false});
+    entries.push({id:o.name,parts,tag,side,box,centre,size,ring,flash,hit:false,burst:false});
   }
   // Both markers are back-only; the shared clinic engine stays unchanged.
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
@@ -255,49 +224,32 @@ function createOrgans(source,scene){
   let markerSeg=3,markerPos=new THREE.Vector3();
   function update(ids,amount,fractureTime,zoom,spine){
     group.visible=ids.length>0&&amount>.001;lastAmount=group.visible?amount:0;lastZoom=group.visible?zoom:0;
-    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];wordTexts=[];
+    hitIds=ids.filter(id=>entries.some(e=>e.id===id));burstIds=[];swells={};
     for(const e of entries){
       e.hit=ids.includes(e.id);
-      // Balloon for .35s (trembling, swelling to 1.4), then pop at burstAt+stagger (seconds after the x-ray delay).
+      // Grow for .4s (ease-in, 1 to 1.6), then 팡: collapse with one flash and one ring (user, 2026-10-18 "간결하게 … 임팩트 있게").
       const age=fractureTime+.45-(ORGAN_BEAT.burstAt-INFLATE+hitIds.indexOf(e.id)*ORGAN_BEAT.stagger);
       const burstAge=age-INFLATE;e.burst=e.hit&&burstAge>=0;
       if(e.burst&&group.visible)burstIds.push(e.id);
-      const inflate=e.hit&&age>=0?smooth(0,INFLATE,age):0,popped=e.hit?smooth(0,.12,burstAge):0;
-      const split=e.hit?smooth(0,.4,burstAge):0,heat=e.hit?smooth(0,INFLATE*.8,age):0;
-      const swell=e.hit?1+(.4*inflate*(1+.12*Math.sin(age*42)))*(1-popped):1;
-      const shiver=e.burst?0:inflate*.012;
+      const grow=e.hit&&age>=0?Math.pow(Math.min(1,age/INFLATE),2.2):0,popped=e.hit?smooth(0,.08,burstAge):0;
+      const split=e.hit?smooth(0,.3,burstAge):0,heat=e.hit?smooth(0,INFLATE*.8,age):0;
+      const swell=e.hit?1+.6*grow*(1-popped):1;
+      if(e.hit)swells[e.id]=+swell.toFixed(3);
       for(const p of e.parts){
         p.root.visible=group.visible;p.root.scale.setScalar(swell);
-        const drift=.45*split;
-        p.root.position.copy(e.centre).add(new THREE.Vector3(Math.cos(p.angle)*e.size.x*drift+Math.sin(age*97)*shiver,0,Math.sin(p.angle)*e.size.z*drift+Math.sin(age*83+1)*shiver));
-        p.root.rotation.set(0,(p.angle-2)*.16*split,Math.cos(p.angle)*.06*split);
+        const drift=.2*split;
+        p.root.position.copy(e.centre).add(new THREE.Vector3(Math.cos(p.angle)*e.size.x*drift,0,Math.sin(p.angle)*e.size.z*drift));
+        p.root.rotation.set(0,(p.angle-2)*.05*split,0);
         p.root.updateWorldMatrix(true,false);
         p.planes.forEach((plane,i)=>plane.setFromNormalAndCoplanarPoint(p.normals[i],new THREE.Vector3()).applyMatrix4(p.root.matrixWorld));
         p.U.organAmount.value=amount;p.U.organDamage.value=e.hit?smooth(0,.10,burstAge):0;p.U.organHeat.value=heat;p.U.organTime.value=Math.max(0,age);
       }
       const fx=e.hit&&burstAge>=0&&group.visible,diameter=Math.max(e.size.x,e.size.z);
-      e.flash.visible=fx&&burstAge<.24;e.flash.position.copy(e.centre);e.flash.position.y=1.03;
-      e.flash.scale.setScalar(diameter*(.8+1.0*smooth(0,.22,burstAge)));
-      e.star.visible=fx&&burstAge<.5;e.star.position.copy(e.centre);e.star.position.y=1.032;
-      e.star.scale.setScalar(diameter*(.4+.9*smooth(0,.14,burstAge)));e.star.material.rotation=.3+burstAge*1.5;
-      e.star.material.opacity=amount*(1-smooth(.25,.5,burstAge));
-      // The sound sticker pops in big, settles, holds, then fades.
-      const wordOn=fx&&burstAge<1.3,pop=1+.5*Math.exp(-burstAge*14)*Math.cos(burstAge*30),h=Math.max(.09,diameter*.38)*pop;
-      e.word.visible=wordOn;e.word.position.copy(e.centre);e.word.position.y=1.045;e.word.position.x+=Math.sign(e.centre.x||1)*diameter*.32;e.word.position.z-=diameter*.12;
-      e.word.scale.set(h*e.word.userData.aspect,h,1);e.word.material.rotation=(e.side>0?-.18:.18);
-      e.word.material.opacity=amount*(1-smooth(1,1.3,burstAge));if(wordOn)wordTexts.push(e.word.userData.text);
-      e.flash.material.color.setHex(burstAge<.055?0xf4efe4:0xff7a59);e.flash.material.opacity=amount*(1-smooth(.03,.24,burstAge));
-      const ringEnd=.6;
-      e.ring.visible=fx&&burstAge<ringEnd;e.ring.position.copy(e.centre);e.ring.position.y=1.03;
-      e.ring.scale.setScalar(diameter*(.6+1.4*smooth(0,.45,burstAge)));e.ring.material.opacity=amount*(1-smooth(.2,ringEnd,burstAge));
-      for(const d of e.drops){
-        const t=Math.max(0,burstAge),travel=(1-Math.exp(-t*6))*.85*d.speed;
-        d.sprite.visible=fx;d.sprite.position.copy(e.centre);
-        d.sprite.position.x+=Math.cos(d.angle)*e.size.x*travel;d.sprite.position.z+=Math.sin(d.angle)*e.size.z*travel;d.sprite.position.y=1.035;
-        const settle=smooth(.20,.55,t);
-        d.flying=settle<1;d.sprite.material.map=d.flying?d.flightMap:beadMap;
-        d.sprite.material.opacity=amount*(1-.2*smooth(.4,.8,t)); // settled drops stay as the splatter
-      }
+      e.flash.visible=fx&&burstAge<.18;e.flash.position.copy(e.centre);e.flash.position.y=1.03;
+      e.flash.scale.setScalar(diameter*(1+.8*smooth(0,.15,burstAge)));
+      e.flash.material.color.setHex(burstAge<.06?0xf4efe4:0xff7a59);e.flash.material.opacity=amount*(1-smooth(.04,.18,burstAge));
+      e.ring.visible=fx&&burstAge<.4;e.ring.position.copy(e.centre);e.ring.position.y=1.03;
+      e.ring.scale.setScalar(diameter*(.7+1.1*smooth(0,.35,burstAge)));e.ring.material.opacity=amount*(1-smooth(.15,.4,burstAge));
       e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible;
       e.tag.sprite.material.opacity=amount;e.tag.line.material.opacity=amount*(e.burst?.8:.35);
     }
@@ -321,11 +273,10 @@ function createOrgans(source,scene){
     const box=new THREE.Box3();
     for(const e of entries){
       if(!ids.includes(e.id)){box.union(e.box);continue;}
-      // Reserve the 1.4 balloon, the .45 piece throw, the 2.0-diameter shock ring
-      // and the furthest droplet, even before that organ has burst.
+      // Reserve the 1.6 swell and the 1.8-diameter ring, even before that organ has burst.
       const diameter=Math.max(e.size.x,e.size.z),extent=new THREE.Vector3(
-        Math.max(e.size.x*.9+.02,diameter*.72),e.size.y*.8+.03,
-        Math.max(e.size.z*.9+.02,diameter*.72));
+        Math.max(e.size.x*.85+.02,diameter*.95),e.size.y*.8+.03,
+        Math.max(e.size.z*.85+.02,diameter*.95));
       box.union(new THREE.Box3(e.centre.clone().sub(extent),e.centre.clone().add(extent)));
     }
     return box;
@@ -343,20 +294,12 @@ function createOrgans(source,scene){
       // the flashes, without a halo or any coral wash inside the organs.
       if(e.ring.visible){
         const pixels=e.ring.scale.x/pixelAt(e.ring.position);
-        const map=e.ring.material.map,stroke=(pixels<110?13:8)*128/pixels;
+        const map=e.ring.material.map,stroke=(pixels<110?16:11)*128/pixels;
         if(Math.abs((map.userData.stroke||5)-stroke)>.2){
           const g=map.image.getContext('2d');g.clearRect(0,0,128,128);g.strokeStyle='#ff7a59';g.lineWidth=stroke;
           g.beginPath();g.arc(64,64,56,0,Math.PI*2);g.stroke();
           map.userData.stroke=stroke;map.needsUpdate=true;
         }
-      }
-      for(const d of e.drops)if(d.sprite.visible){
-        const from=project(d.sprite.position),to=project(d.sprite.position.clone().add(new THREE.Vector3(Math.cos(d.angle)*e.size.x,0,Math.sin(d.angle)*e.size.z)));
-        const pixel=pixelAt(d.sprite.position),size=d.diameter*pixel;
-        // Seven to nine pixel beads are half to a third of the old confetti;
-        // in flight the narrow tip stretches along the projected velocity.
-        d.sprite.scale.set(d.flying?size*1.35:size/.375,d.flying?size*1.7:size/.375,1);
-        d.sprite.material.rotation=d.flying?Math.atan2(from.y-to.y,to.x-from.x)-Math.PI/2:0;
       }
       for(const x of [e.box.min.x,e.box.max.x])for(const z of [e.box.min.z,e.box.max.z]){
         const p=project(new THREE.Vector3(x,e.centre.y,z));bounds.left=Math.min(bounds.left,p.x);bounds.right=Math.max(bounds.right,p.x);
@@ -405,9 +348,9 @@ function createOrgans(source,scene){
     }
   }
   const state=()=>({visible:group.visible?entries.length:0,hit:group.visible?[...hitIds]:[],
-    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],words:group.visible?[...wordTexts]:[],labels:group.visible?entries.length:0,zoom:lastZoom});
+    tags:group.visible?entries.filter(e=>e.burst).map(e=>e.tag.text):[],burst:group.visible?hitIds.filter(id=>burstIds.includes(id)):[],swell:group.visible?{...swells}:{},labels:group.visible?entries.length:0,zoom:lastZoom});
   function disposeMarkers(){
-    for(const e of entries){e.tag.disposeMaps();for(const d of e.drops)d.flightMap.dispose();}beadMap.dispose();markerTag.disposeMaps();
+    for(const e of entries)e.tag.disposeMaps();markerTag.disposeMaps();
     for(const s of [marker,markerTag.sprite,spineCrack,spineFlash]){s.removeFromParent();s.material.map?.dispose();s.material.dispose();}
     markerTag.line.removeFromParent();markerTag.line.geometry.dispose();markerTag.line.material.dispose();
   }
