@@ -445,7 +445,7 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(x, hf.palm(x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, height = 0.5, heights = TARGETS, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, height = 0.5, heights = TARGETS, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, locked=false, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
       reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
@@ -457,7 +457,7 @@ export async function createBackScene(canvas, view = {}){
     xray.update({time:shotTime,step,kind,position:height,forceTier,force,organs,zoom});
     if(shotTime<0||zoom===0)organBursts.clear();
     for(const id of xray.organState().burst){
-      if(!organBursts.has(id)){organBursts.add(id);st.shake=Math.max(st.shake,.8);}
+      if(!organBursts.has(id)){organBursts.add(id);st.shake=Math.max(st.shake,1.35);}
     }
     for(const m of patientFade){m.opacity=1-film*(.78+.17*zoom);m.depthWrite=film<.05;}
     for(const m of therapistFade){m.opacity=1-film*(.8+.15*zoom);m.depthWrite=film<.05;}
@@ -473,7 +473,7 @@ export async function createBackScene(canvas, view = {}){
     if(forceTier&&shotTime>=.8+move.xrayDelay&&shotTime<.96+move.xrayDelay)st.shake=Math.max(st.shake,forceTier===2?.8:.5);
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
-      const i = Math.min(2, completed - 1), x = C0.x + xAt(targets[i]), z = zAt(heights[i]);
+      const i = Math.min(2, completed - 1), x = C0.x, z = zAt(heights[i]);
       pulse(now, x, z, ringCol.mint, 0.85, RING_R, RING_R*3.6, 1);
       pulse(now + 140, x, z, ringCol.mint, 0.7, RING_R, RING_R*2.4, 0.7);
     }
@@ -497,7 +497,7 @@ export async function createBackScene(canvas, view = {}){
     const breathe = 0.5 + 0.5*Math.sin(now/1000*Math.PI*1.6);
     for (let i = 0; i < 3; i++){
       const c = U.bkRingCol.value[i];
-      U.bkRing.value[i].x=C0.x+xAt(targets[i]);U.bkRing.value[i].y=zAt(heights[i]);
+      U.bkRing.value[i].x=C0.x+(locked&&i===step?xAt(targets[i]):0);U.bkRing.value[i].y=zAt(heights[i]);
       if (i < completed){ c.set(ringCol.dim.r, ringCol.dim.g, ringCol.dim.b, 0.62); U.bkRingFill.value[i] = 0.9; U.bkRing.value[i].z = RING_R*0.85; }
       else if (i === step){
         const m = ringCol.mint;

@@ -1,6 +1,7 @@
 import {POSITION_TOL,TARGETS,pressedSide} from './core.js';
-// Organs under the back by spinal level, seen from above (BodyParts3D anatomy; height 0 = T1, 1 = L5). The hand bar
-// aims left/right of the spine, so a miss bursts that side's organs at the step height; the midline bowel goes either way.
+// Organs under the back by spinal level, seen from above (BodyParts3D anatomy; height 0 = T1, 1 = L5). The hands aim
+// up/down the spine first and, once the height is locked, left/right: a side miss bursts that side's organs at the
+// pressed height (the midline bowel goes either way), a height-only miss bursts both sides there.
 export const ORGANS=[
   {id:'lungL',name:'폐',side:'L',from:0,to:.56},{id:'lungR',name:'폐',side:'R',from:0,to:.56},
   {id:'heart',name:'심장',side:'L',from:.25,to:.44},
@@ -11,9 +12,10 @@ export const ORGANS=[
 ];
 export const organsAt=(h,side)=>Number.isFinite(h)?ORGANS.filter(o=>h>=o.from&&h<=o.to&&(!side||o.side===side||o.side==='C')).map(o=>o.id):[];
 // Only an overload (tier 1-2) that also missed the ring ruptures organs (user, 2026-10-16).
-export function organHit(position,step,tier,targets=TARGETS,heights=TARGETS){
-  if(!tier||!Number.isFinite(position)||!Number.isInteger(step)||step<0||step>2)return [];
-  return Math.abs(position-targets[step])>POSITION_TOL?organsAt(heights[step],pressedSide(position)):[];
+export function organHit({height,side=.5,locked=false},step,tier,heights=TARGETS,sides=[.5,.5,.5]){
+  if(!tier||!Number.isFinite(height)||!Number.isInteger(step)||step<0||step>2)return [];
+  const sideOff=locked&&Math.abs(side-sides[step])>POSITION_TOL;
+  return sideOff||Math.abs(height-heights[step])>POSITION_TOL?organsAt(height,sideOff?pressedSide(side):undefined):[];
 }
 export const organLabel=ids=>[...new Set(ids.map(id=>ORGANS.find(o=>o.id===id)?.name).filter(Boolean))].join('·');
 // X-ray name tag: the two lungs and kidneys are told apart there.
