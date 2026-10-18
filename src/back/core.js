@@ -29,11 +29,17 @@ export function backViewRot(w,h,pa,last=90){
   return {rot:h>w?(lastLandscape===270?270:90):0,lastLandscape};
 }
 export const makeBackTargets=(random=Math.random)=>TARGETS.map(p=>p+(random()-.5)*.10);
-// The hand bar is left(0)..right(1) of the patient's spine, 0.5 = on it; the height is each step's target above
+// Once the height is locked the hand bar is left(0)..right(1) of the patient's spine, 0.5 = on it
 // (user, 2026-10-18 "오른쪽으로 치우쳐져서 누르면 오른쪽에 있는 장기들이 파열").
 export const SIDE_CENTRE=.5;
 export const makeSideTargets=(random=Math.random)=>TARGETS.map(()=>SIDE_CENTRE+(random()-.5)*.12);
 export const pressedSide=position=>position>SIDE_CENTRE?'R':'L';
+// Two-stage aim (user, 2026-10-18 "위아래 설정을 기존 모션방식으로 … 고정 버튼을 누르면 지금의 좌우 모션"):
+// the bar runs along the spine first; once the height is locked it aims left/right. Unlocked, the hands stay on the spine.
+export function judgeAim({height,side=SIDE_CENTRE,locked=false},step,pressure,force=1,{heights=TARGETS,sides=[.5,.5,.5],...o}={}){
+  const h=judgePress(height,step,pressure,force,{...o,targets:heights});
+  return !locked||h.kind!=='ok'?h:judgePress(side,step,pressure,force,{...o,targets:sides});
+}
 // Keep the camera loaded until the radiograph takes over, independent of tissue rebound.
 export const cameraPreload=(pressure,peak,time)=>time>=0&&time<BACK_XRAY.end?peak:pressure;
 export function pressureHint(position,step,pressure,targets=TARGETS){

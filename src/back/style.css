@@ -7,6 +7,9 @@
 #backHud{pointer-events:none;z-index:1}
 #backApp::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(0deg,#17312c70,transparent 25%,transparent 80%,#17312c38)}
 #backApp > .top,#backApp > .bottom{z-index:2}
+/* Right-thumb height lock: up/down first, then left/right (user, 2026-10-18). */
+#backLock{position:absolute;right:0;bottom:calc(50cqh - 34px)}
+#backLock[aria-pressed=true]{background:var(--mint);color:var(--film,#0f231f)}
 #backMotionNotice{pointer-events:auto;white-space:normal;width:max-content;max-width:90%;text-align:center}
 #backApp.face-closeup > .top,#backApp.face-closeup > .bottom,#backApp.face-closeup #backHud,
 #backApp.slam-wide > .top,#backApp.slam-wide > .bottom,#backApp.slam-wide #backHud,
