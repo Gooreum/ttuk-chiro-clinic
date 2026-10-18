@@ -22,4 +22,9 @@
 .side-gag.bad{background:var(--coral);color:var(--paper)}
 .side-gag[hidden]{display:none}
 @keyframes gagPop{from{transform:translateX(-50%) scale(1.8) rotate(-10deg);opacity:0}}
+/* 뚝발전소: a perfect first side flickers the clinic's lights */
+.side-flash{position:absolute;inset:0;z-index:3;pointer-events:none;background:#f4efe4;animation:sideFlash .6s steps(1) both}
+.side-flash[hidden]{display:none}
+@keyframes sideFlash{0%{opacity:.85}20%{opacity:0}35%{opacity:.6}55%{opacity:0}70%{opacity:.35}100%{opacity:0}}
+#sideApp[data-phase=leave] > .bottom,#sideApp[data-phase=leave] #sideHud{visibility:hidden}
 @media(prefers-reduced-motion:reduce){#sideApp,#sideApp *{transition:none!important;animation:none!important}}

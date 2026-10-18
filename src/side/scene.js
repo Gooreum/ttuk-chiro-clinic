@@ -72,7 +72,17 @@ export async function createSideScene(canvas){
   const cloth = {side_jeans: [0x2c4a43, 0x2a3345], side_shirt: [COL.paper, 0xf7f5ef]};
   function prepare(root, hair){
     const bones = {};
+    // every skin of one character binds the same joints: one shared skeleton = one bone-texture upload per frame, not
+    // one per mesh (back/scene.js); fold each mesh's constant inverse-bind offset into its bind matrix
+    let shared = null;
     root.traverse(o => {
+      if(o.isSkinnedMesh){
+        if(!shared) shared = o.skeleton;
+        else if(o.skeleton.bones.length === shared.bones.length && o.skeleton.bones.every((b, i) => b === shared.bones[i])){
+          const C = shared.boneInverses[0].clone().invert().multiply(o.skeleton.boneInverses[0]);
+          o.bind(shared, C.multiply(o.bindMatrix));
+        }
+      }
       if(o.isBone) bones[o.name] = o;
       if(!o.isMesh) return;
       o.castShadow = o.receiveShadow = true; o.frustumCulled = false;
@@ -113,7 +123,7 @@ export async function createSideScene(canvas){
     bone.updateMatrixWorld(true);
   }
 
-  const NUDGE = [pBones.pelvis, pBones.spine_02, tBones.spine_01, tBones.spine_02].filter(Boolean), nudged = new Map();
+  const NUDGE = [pBones.pelvis, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.spine_03, tBones.head].filter(Boolean), nudged = new Map();
 
   // ---- the lumbar aim line on the patient's back, from the rig's L4/5 skin marker ----
   const L4 = {L: new THREE.Vector3(...marks.clips.lieL.mark_l4_L), R: new THREE.Vector3(...marks.clips.lieR.mark_l4_R)};
@@ -153,7 +163,7 @@ export async function createSideScene(canvas){
 
   const st = {shake: 0, t: null};
   function render({now = performance.now(), side = "L", roll = null, height = .5, position = .5, locked = false, pressure = 0, impulse = 0,
-    kind = "ok", forceTier = 0, shotTime = -1, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
+    kind = "ok", forceTier = 0, shotTime = -1, exit = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
     const dt = st.t == null ? 1/60 : Math.min(.1, Math.max(0, (now - st.t)/1000)); st.t = now;
     const f = facing(side), other = side === "L" ? "R" : "L";
     // a paused action does not rewrite its bones every update, so undo last frame's nudges before re-posing
@@ -179,14 +189,32 @@ export async function createSideScene(canvas){
       worldRotate(pBones.spine_02, f*ang*.7);
       // therapist: lean in with the preload, drop the body on the thrust
       const lean = THREE.MathUtils.degToRad(pressure*7 + Math.max(0, impulse)*8*over);
+      // the baked setup buries his face in the patient's neck: lift the chest a touch and the head up over the shoulder
+      worldRotate(tBones.spine_03, -f*8*Math.PI/180); worldRotate(tBones.head, -f*26*Math.PI/180);
       worldRotate(tBones.spine_01, f*lean*.6); worldRotate(tBones.spine_02, f*lean*.4);
       therRoot.position.set(0, -Math.max(0, impulse)*.04*over, (clamp01(height) - .5)*.08);
     }else therRoot.position.set(0, 0, 0);
-    patientRoot.position.set(0, -Math.max(0, impulse)*.006, 0);
+    patientRoot.position.set(0, -Math.max(0, impulse)*.006, 0); patientRoot.rotation.set(0, 0, 0);
+    // exit gags: both sides perfect -> he spins up off the table like a swivel chair; lopsided -> he stays wrung out
+    if(exit){
+      const e = clamp01(exit.t/1.4);
+      if(exit.kind === "spin"){
+        const pivot = new THREE.Vector3(0, 0, .45), turn = Math.PI*4*smooth(0, 1, e)*f;
+        patientRoot.rotation.y = turn;
+        patientRoot.position.copy(pivot).add(new THREE.Vector3(0, 0, -.45).applyAxisAngle(new THREE.Vector3(0, 1, 0), turn));
+        patientRoot.position.y += .35*Math.sin(Math.PI*Math.min(1, e*1.2));
+      }else if(exit.kind === "twist"){
+        therRoot.position.x += f*.6*smooth(0, .3, e);      // the therapist steps back so the wrung-out patient shows
+        worldRotate(pBones.pelvis, -f*THREE.MathUtils.degToRad(80*smooth(0, .4, e)));
+        worldRotate(pBones.spine_02, f*THREE.MathUtils.degToRad(120*smooth(0, .4, e)));
+        worldRotate(pBones.head, -f*THREE.MathUtils.degToRad(40*smooth(.3, .6, e)));
+        patientRoot.rotation.z = Math.sin(exit.t*18)*.02*(1 - e);
+      }
+    }
     if(shotTime >= 0 && impulse > .6) st.shake = Math.max(st.shake, forceTier === 2 ? 1.2 : forceTier ? .8 : .35);
 
     // rings: only while aiming
-    const aiming = roll == null && shotTime < 0;
+    const aiming = roll == null && shotTime < 0 && !exit;
     goalRing.visible = aiming && showGoal; aimDot.visible = aiming;
     if(aiming){
       const gp = spinePoint(side, goal.height);
@@ -212,17 +240,17 @@ export async function createSideScene(canvas){
     const dir = camDirAt(az, el);
     camera.position.copy(target).addScaledVector(dir, d);
     const look = target.clone();
-    if(film > 0){ const fc = xray.focus(side); camera.position.lerp(fc.camera, film); look.lerp(fc.look, film); }
     st.shake = Math.max(0, st.shake - dt*1.6);
     if(st.shake > 0){ const s = st.shake*st.shake*.012, t = now/1000; camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s; }
     camera.lookAt(look);
     renderer.render(scene, camera);
+    xray.render(renderer);
   }
 
   function resize(width, height){
     cssW = Math.max(1, width|0); cssH = Math.max(1, height|0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.setSize(cssW, cssH, false); fitCamera();
+    renderer.setSize(cssW, cssH, false); fitCamera(); xray.resize(cssW, cssH);
   }
   /* aim (height 0..1 along L1..L5, roll position) -> canvas-local CSS pixels on the back */
   function projectPosition(side, height, position = .5, locked = false){
@@ -246,8 +274,8 @@ export async function createSideScene(canvas){
   renderer.compile(scene, camera);
   // draw every look once while the start card is up (the film and both sides), so no shader links mid-shot
   for(const side of ["L", "R"]){
-    render({side, film: 0}); render({side, film: 1, shotTime: 1, xrayState: {kind: "ok", time: 1}});
-    render({side, film: 1, shotTime: 1, kind: "over", forceTier: 2, xrayState: {kind: "over", tier: 2, time: 1.5}});
+    render({side, film: 0}); render({side, film: 1, shotTime: 1, xrayState: {kind: "ok", time: 1.2}});
+    for(const tier of [0, 1, 2]) render({side, film: 1, shotTime: 1, kind: "over", forceTier: tier, xrayState: {kind: "over", tier, time: 1.5}});
     render({side, roll: .8});
   }
   render({side: "L"}); st.shake = 0;
