@@ -419,3 +419,44 @@ npm_config_cache=/private/tmp/codex-npm npx --yes @gltf-transform/cli@4.5.1 mesh
 ```
 
 최종 Meshopt GLB는 **150,596 B (150.6 KB)**다. 두 생성 경로의 감축 알고리즘은 다르므로 위 삼각형 수는 CPU 경로의 실제 결과다. 기존 척추 GLB는 변경하지 않는다. 밀도 레퍼런스는 [Radiology Assistant의 실제 PA 흉부 필름](https://radiologyassistant.nl/chest/chest-x-ray/basic-interpretation)이며, 원본 사진을 에셋으로 복제하지 않는다. 폐는 어두운 공기 공간과 약한 윤곽, 고형 장기는 중간 밀도의 반투명 조직, 장은 희미한 가스 얼룩으로 표시한다. 파열 목록이 있을 때만 장기 레이어를 표시하며, 기존 골절 시점(`xrayDelay + .45 + .35초`)에 coral 균열·번짐·맥동을 시작한다.
+
+
+## 허리비틀기 옆누운 자세 — Round 2 스크립트 (2026-10-19)
+
+`side_patient.py`, `side_therapist.py`, `lumbar_build.py`의 단일 진입점은 아래 명령이다.
+**Blender 실행은 Claude의 샌드박스 밖 호스트에서만 한다. Codex 샌드박스에서는 실행하지 않는다.**
+
+```sh
+bash scripts/assets/side_optimize.sh /private/tmp/side-lumbar-build /path/to/preview-out
+```
+
+기존 MPFB 부트스트랩이 필요한 호스트에서는 `SIDE_BOOTSTRAP=/private/tmp/side-lumbar-build/bootstrap.py`를 지정한다.
+Blender 경로는 `BLENDER`, MPFB 패키지는 `SIDE_MPFB_PACKAGE`로 바꿀 수 있다. 새 Blender/bpy 설치는 필요 없다.
+빌드 중간물과 `.blend`는 작업 폴더에, 최적화 결과는 `public/models/side/`에 쓴다.
+게임 코드와 기존 모드 에셋은 변경하지 않는다.
+
+좌표는 three.js 미터, +y 위, 머리 -z다. 패드 윗면 0.82, 프리뷰 폭 0.62·길이 1.90m(z -0.30..1.60)다.
+`lieL`은 왼쪽이 아래이며 +x를 바라보고 치료사는 +x에 선다. `lieR`은 오른쪽이 아래이며 -x를 바라본다.
+Blender pose copy/paste flipped와 양의 루트 회전으로 반전하며 음수 스케일을 쓰지 않는다.
+환자와 치료사 모두 MPFB `game_engine` 리그, `shoes05` 신발을 유지한다.
+
+환자 클립은 `lieL`, `lieR`(각 1초), `rollLR`, `rollRL`(각 1.6초)이다.
+치료사 클립은 `setupL`, `setupR`(각 1초), `walkLR`, `walkRL`(각 1.6초)이다.
+모든 액션에 fake user를 두며 저장된 `.blend`를 다시 열고, 원본 GLB를 재임포트해 클립과 접지를 검사한다.
+`patient_marks.json`의 `clips.lieL/lieR`에는 `mark_l4_L/R`, `mark_shoulder_L/R`, `mark_hip_L/R`,
+`top_knee`, 실측 바지 표면 `top_knee_surface`, `facing`이 있다. 이름이 `mark_`로 시작하는 여섯 지점은 GLB empty로도 보존한다.
+`pelvisRollAxesLocal`은 `pelvis`, `spine_01..03`, `thigh_l/r` 각각의 현재 본 로컬 축이다.
+이 축으로 양의 각도를 본 쿼터니언에 후곱하면 해당 자세에서 골반이 치료사 쪽으로 구른다.
+치료사 thrust는 루트의 월드 y를 약 0.04m 낮추고 spine을 굽히는 방식으로 더한다.
+
+`PATIENT_SUPPORT`는 피부 최저 y와 위·아래 다리 각도를, `THERAPIST_SUPPORT`/`contact_metrics.json`은
+각 신발 최저 y, 몸통 실측 각도, 고정된 손바닥 피부 정점의 좌표·접촉 오차와 허벅지/환자 무릎 표면 거리를 기록한다.
+손바닥 정점 ID는 IK 전에 고르며 타깃 좌표로 대체하지 않는다.
+`SAVED_BLEND_ACTIONS`, `GLTF_ANIMATIONS`, `REIMPORT_ANIMATIONS`, `REIMPORT_SUPPORT`, `FINAL_GLB`가 보존·내보내기 검증이다.
+최종 캐릭터 각 1,000,000B 이하, 요추 400,000B 이하를 검사한다.
+Round 2의 Blender 실행 결과·렌더는 아직 확인하지 않았다. 실제 수치는 다음 호스트 실행 로그로 판단한다.
+
+캐릭터 소스는 기존 MakeHuman/MPFB CC0 시스템 에셋(피부·머리·의상·shoes05)이다.
+요추는 `organs_build.py`와 같은 HTTP Range 방식으로 받는 BodyParts3D 3.0 obj_95의 실제 L1–L5·천골·디스크이며
+© DBCLS, CC BY 4.0이다. `lumbar.json`에 출처, 원점, 본체 중심과 관절 표면 추정점을 기록한다.
+참고 영상/시트는 자세 검토용이며 텍스처나 메시로 복제하지 않는다.

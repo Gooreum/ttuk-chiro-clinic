@@ -1,0 +1,302 @@
+{
+  "source": "BodyParts3D 3.0 obj_95 © DBCLS, CC BY 4.0",
+  "url": "https://dbarchive.biosciencedbc.jp/data/bodyparts3d/20110915/BodyParts3D_3.0_obj_95.zip",
+  "frame": "+x patient left, +y superior, +z posterior; metres; origin L4/L5 disc centre",
+  "originSourceMetres": [
+    -7.590000000000027e-05,
+    -0.09254535,
+    0.9514685
+  ],
+  "vertebrae": {
+    "L1": {
+      "pivot": [
+        -0.000664,
+        0.107406,
+        0.006436
+      ],
+      "facets": {
+        "left_superior": [
+          0.018763,
+          0.117781,
+          0.03775
+        ],
+        "left_inferior": [
+          0.021281,
+          0.107711,
+          0.033862
+        ],
+        "right_superior": [
+          -0.019805,
+          0.118412,
+          0.03608
+        ],
+        "right_inferior": [
+          -0.013114,
+          0.096621,
+          0.03421
+        ]
+      },
+      "source": "FMA13072",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    },
+    "L2": {
+      "pivot": [
+        -0.0016,
+        0.077476,
+        0.001974
+      ],
+      "facets": {
+        "left_superior": [
+          0.019234,
+          0.088631,
+          0.031623
+        ],
+        "left_inferior": [
+          0.01231,
+          0.067022,
+          0.031532
+        ],
+        "right_superior": [
+          -0.021743,
+          0.090221,
+          0.030431
+        ],
+        "right_inferior": [
+          -0.016486,
+          0.065031,
+          0.030788
+        ]
+      },
+      "source": "FMA13073",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    },
+    "L3": {
+      "pivot": [
+        -0.00428,
+        0.050968,
+        -0.000304
+      ],
+      "facets": {
+        "left_superior": [
+          0.013969,
+          0.059551,
+          0.029713
+        ],
+        "left_inferior": [
+          0.017581,
+          0.03757,
+          0.028405
+        ],
+        "right_superior": [
+          -0.023521,
+          0.059422,
+          0.027033
+        ],
+        "right_inferior": [
+          -0.018188,
+          0.039158,
+          0.029084
+        ]
+      },
+      "source": "FMA13074",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    },
+    "L4": {
+      "pivot": [
+        -0.000179,
+        0.019177,
+        -0.000331
+      ],
+      "facets": {
+        "left_superior": [
+          0.022922,
+          0.030177,
+          0.025511
+        ],
+        "left_inferior": [
+          0.021436,
+          0.011845,
+          0.030544
+        ],
+        "right_superior": [
+          -0.019357,
+          0.030103,
+          0.028206
+        ],
+        "right_inferior": [
+          -0.021251,
+          0.010622,
+          0.029258
+        ]
+      },
+      "source": "FMA13075",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    },
+    "L5": {
+      "pivot": [
+        -0.003686,
+        -0.01359,
+        0.004341
+      ],
+      "facets": {
+        "left_superior": [
+          0.019096,
+          0.001502,
+          0.031798
+        ],
+        "left_inferior": [
+          0.017358,
+          -0.018393,
+          0.035628
+        ],
+        "right_superior": [
+          -0.024338,
+          0.003538,
+          0.031274
+        ],
+        "right_inferior": [
+          -0.021303,
+          -0.019714,
+          0.036205
+        ]
+      },
+      "source": "FMA13076",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    },
+    "sacrum": {
+      "pivot": [
+        0.001038,
+        -0.047955,
+        0.020932
+      ],
+      "facets": {
+        "left_superior": [
+          0.022055,
+          -0.047563,
+          0.053419
+        ],
+        "left_inferior": [
+          0.025193,
+          -0.107242,
+          0.061397
+        ],
+        "right_superior": [
+          -0.018971,
+          -0.047658,
+          0.053945
+        ],
+        "right_inferior": [
+          -0.021411,
+          -0.111738,
+          0.062066
+        ]
+      },
+      "source": "FMA16202",
+      "landmarkMethod": "geometric articular-process surface estimate; review in oblique preview"
+    }
+  },
+  "discs": {
+    "disc_L1": {
+      "centre": [
+        -0.000483,
+        0.100872,
+        -0.000691
+      ],
+      "source": "FMA16033"
+    },
+    "disc_L2": {
+      "centre": [
+        -0.000261,
+        0.067996,
+        -0.004724
+      ],
+      "source": "FMA16034"
+    },
+    "disc_L3": {
+      "centre": [
+        -0.000476,
+        0.032666,
+        -0.005023
+      ],
+      "source": "FMA16035"
+    },
+    "disc_L4": {
+      "centre": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source": "FMA16036"
+    },
+    "disc_L5": {
+      "centre": [
+        0.000882,
+        -0.033073,
+        0.009443
+      ],
+      "source": "FMA16037"
+    }
+  },
+  "joints": {
+    "L1/L2": {
+      "left": [
+        0.020258,
+        0.098171,
+        0.032743
+      ],
+      "right": [
+        -0.017428,
+        0.093421,
+        0.032321
+      ]
+    },
+    "L2/L3": {
+      "left": [
+        0.01314,
+        0.063286,
+        0.030622
+      ],
+      "right": [
+        -0.020004,
+        0.062227,
+        0.02891
+      ]
+    },
+    "L3/L4": {
+      "left": [
+        0.020251,
+        0.033874,
+        0.026958
+      ],
+      "right": [
+        -0.018772,
+        0.034631,
+        0.028645
+      ]
+    },
+    "L4/L5": {
+      "left": [
+        0.020266,
+        0.006673,
+        0.031171
+      ],
+      "right": [
+        -0.022794,
+        0.00708,
+        0.030266
+      ]
+    },
+    "L5/S1": {
+      "left": [
+        0.019707,
+        -0.032978,
+        0.044524
+      ],
+      "right": [
+        -0.020137,
+        -0.033686,
+        0.045075
+      ]
+    }
+  }
+}
