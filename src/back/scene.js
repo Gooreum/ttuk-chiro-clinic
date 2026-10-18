@@ -457,7 +457,7 @@ export async function createBackScene(canvas, view = {}){
     xray.update({time:shotTime,step,kind,position:height,forceTier,force,organs,zoom});
     if(shotTime<0||zoom===0)organBursts.clear();
     for(const id of xray.organState().burst){
-      if(!organBursts.has(id)){organBursts.add(id);st.shake=Math.max(st.shake,.8);}
+      if(!organBursts.has(id)){organBursts.add(id);st.shake=Math.max(st.shake,1.35);}
     }
     for(const m of patientFade){m.opacity=1-film*(.78+.17*zoom);m.depthWrite=film<.05;}
     for(const m of therapistFade){m.opacity=1-film*(.8+.15*zoom);m.depthWrite=film<.05;}
