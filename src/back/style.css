@@ -7,9 +7,21 @@
 #backHud{pointer-events:none;z-index:1}
 #backApp::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(0deg,#17312c70,transparent 25%,transparent 80%,#17312c38)}
 #backApp > .top,#backApp > .bottom{z-index:2}
-/* Right-thumb height lock: up/down first, then left/right (user, 2026-10-18). */
-#backLock{position:absolute;right:0;bottom:calc(50cqh - 34px)}
-#backLock[aria-pressed=true]{background:var(--mint);color:var(--film,#0f231f)}
+/* Height first (front/back tilt), then 고정 opens left/right + push; 높이 다시 goes back (user, 2026-10-18). */
+.lock-btn{pointer-events:auto;position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;
+  min-width:190px;padding:9px 26px 11px;border:2px solid #f4efe4;border-radius:999px;background:linear-gradient(180deg,#9fe6cf,#7fd1b9);color:#0f231f;
+  font:400 21px var(--display);letter-spacing:.02em;cursor:pointer;box-shadow:0 0 0 4px #7fd1b933,0 10px 24px #0f231f88;transition:transform .08s}
+.lock-btn small{font:700 10px var(--body);letter-spacing:.08em;opacity:.7}
+.lock-btn:active{transform:translateX(-50%) scale(.95)}
+.lock-btn.ready{animation:lockReady .9s ease-in-out infinite}
+@keyframes lockReady{50%{box-shadow:0 0 0 10px #7fd1b955,0 0 34px #7fd1b9cc,0 10px 24px #0f231f88}}
+.relock-btn{pointer-events:auto;position:absolute;right:0;bottom:calc(50cqh - 40px);display:flex;flex-direction:column;align-items:center;gap:5px;
+  width:62px;padding:10px 0 9px;border:1.5px solid #7fd1b9;border-radius:18px;background:rgba(15,35,31,.86);color:#7fd1b9;backdrop-filter:blur(6px);
+  font:700 11px/1.2 var(--body);text-align:center;cursor:pointer;box-shadow:0 6px 18px #0f231f80;transition:transform .08s}
+.relock-btn:active{transform:scale(.94)}
+.relock-btn i{position:relative;width:2px;height:20px;background:#7fd1b9;border-radius:1px}
+.relock-btn i::before,.relock-btn i::after{content:"";position:absolute;left:50%;width:8px;height:8px;border:solid #7fd1b9;border-width:2px 0 0 2px;transform:translateX(-50%) rotate(45deg)}
+.relock-btn i::before{top:-1px}.relock-btn i::after{bottom:-1px;transform:translateX(-50%) rotate(225deg)}
 #backMotionNotice{pointer-events:auto;white-space:normal;width:max-content;max-width:90%;text-align:center}
 #backApp.face-closeup > .top,#backApp.face-closeup > .bottom,#backApp.face-closeup #backHud,
 #backApp.slam-wide > .top,#backApp.slam-wide > .bottom,#backApp.slam-wide #backHud,
@@ -43,3 +55,4 @@
 .slam-wide .back-impact-echo{left:29%;top:58%}
 
 @media(prefers-reduced-motion:reduce){#backApp,#backApp *{transition:none!important;animation:none!important}}
+.lock-btn[hidden],.relock-btn[hidden]{display:none}

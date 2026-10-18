@@ -32,7 +32,7 @@ export class BackMotion {
   recenter(){this.position=.5;this.pressure=.12;this.prev=null;this.hist=[];this.ready=false;this.stableAt=null;this.quietAt=null;this.neutral=null;}
   orientation(e,now){ if(Number.isFinite(e.beta)&&Number.isFinite(e.gamma))this.pose={beta:e.beta,gamma:e.gamma,t:now}; }
   cooldown(now){this.coolUntil=now+900;this.quietAt=null;}
-  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS,axis=-1}={}){
+  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS,axis=-1,vertical=false,vaxis=1}={}){
     const a=e.accelerationIncludingGravity;if(!vector(a))return null;
     const rate=Math.hypot(e.rotationRate?.alpha||0,e.rotationRate?.beta||0,e.rotationRate?.gamma||0);
     if(this.lastAt!==null&&now-this.lastAt>1800)this.recenter();
@@ -62,12 +62,13 @@ export class BackMotion {
       for(const axis of ['x','y','z'])this.gravity[axis]+=(raw[axis]-this.gravity[axis])*k;
       const tilt=tiltAngles(this.gravity.x,this.gravity.y,this.gravity.z,angle),prev=this.prev;this.prev=tilt;
       if(this.ready&&canPush&&now>=this.coolUntil-500){
-        const side=axis*sens*SIDE_PER_DEG;
-        // A new neutral (calibration, sign change) keeps the current aim instead of jumping.
-        if(this.neutral===null)this.neutral=tilt.lr+(this.position-.5)/side;
-        this.position=clamp(.5-(tilt.lr-this.neutral)*side,0,1);
+        // Before the height lock the front/back tilt walks the hands along the spine (user, 2026-10-18).
+        const k=(vertical?vaxis:axis)*sens*SIDE_PER_DEG,angle=vertical?tilt.pt:tilt.lr;
+        // A new neutral (calibration, sign change, lock toggle) keeps the current aim instead of jumping.
+        if(this.neutral===null)this.neutral=angle+(this.position-.5)/k;
+        this.position=clamp(.5-(angle-this.neutral)*k,0,1);
         const dpt=prev?tilt.pt-prev.pt:0;
-        if(Math.abs(dpt)<25){
+        if(!vertical&&Math.abs(dpt)<25){
           const d=aimDelta(0,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure,targets)));
           this.pressure=clamp(this.pressure+d.db*.04*gain,0,1.35);
         }
@@ -87,7 +88,7 @@ export class BackMotion {
       out.type=this.ready?'aim':'calibrating';out.position=this.position;out.pressure=this.pressure;
     }else{
       if(!this.ready)this.stableAt=null;
-      if(this.ready&&canPush&&now>this.coolUntil&&now>this.blockUntil&&impact.force>=.6&&this.hist.length){
+      if(!vertical&&this.ready&&canPush&&now>this.coolUntil&&now>this.blockUntil&&impact.force>=.6&&this.hist.length){
         const pre=aimBefore(this.hist,now-250,{position:this.position,pressure:this.pressure});
         out.type='impulse';out.position=pre.position;out.pressure=pre.pressure;
         this.position=pre.position;this.pressure=pre.pressure;this.cooldown(now);
