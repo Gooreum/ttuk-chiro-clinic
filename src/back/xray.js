@@ -13,8 +13,8 @@ import {createClinicXray} from 'virtual:clinic-xray';
 const clamp=v=>Math.max(0,Math.min(1,v));
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
 
-// Painted organ atlases preserve the approved rounded cream shell and translucent
-// mint anatomy. The GLB supplies anatomical landmarks only, never visible slices.
+// Posterior medical illustrations; the GLB supplies anatomical landmarks only.
+// In the prone overhead shot world +x is the patient's and viewer's right.
 const INFLATE=.4;
 const ORGAN_ART=['lungL','lungR','heart','liver','stomach','spleen','kidneyL','kidneyR','bowel'];
 const ART_HEIGHT={lungL:.29,lungR:.29,heart:.135,liver:.215,stomach:.18,spleen:.15,kidneyL:.18,kidneyR:.18,bowel:.27};
@@ -66,32 +66,6 @@ function organTag(id,customText){
   tag.setHot(false);return tag;
 }
 
-function organPopWord(){
-  const canvas=document.createElement('canvas');canvas.width=384;canvas.height=256;const g=canvas.getContext('2d');
-  const font='900 156px "Black Han Sans", "IBM Plex Sans KR", sans-serif';
-  function draw(){
-    g.clearRect(0,0,384,256);g.font=font;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
-    g.strokeStyle='#0f231f';g.lineWidth=24;g.strokeText('팡!',192,135,336);g.fillStyle='#f4efe4';g.fillText('팡!',192,135,336);
-  }
-  draw();const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
-  document.fonts?.load(font,'팡!').then(()=>{draw();map.needsUpdate=true;}).catch(()=>{});
-  const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,rotation:.14}));
-  sprite.name='organ_pop_word';sprite.frustumCulled=false;sprite.visible=false;return sprite;
-}
-
-function organShards(){
-  const geometry=new THREE.TetrahedronGeometry(1,0),colors=[];
-  const cream=new THREE.Color(0xf4efe4).convertSRGBToLinear();
-  for(let i=0;i<geometry.attributes.position.count;i++){
-    const c=cream.clone().multiplyScalar([1,.72,.88,.59][Math.floor(i/3)%4]);colors.push(c.r,c.g,c.b);
-  }
-  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  const material=new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,depthTest:false,depthWrite:false,toneMapped:false});
-  return Array.from({length:6},(_,i)=>{
-    const shard=new THREE.Mesh(geometry,material);shard.name='organ_shard_'+i;shard.frustumCulled=false;shard.visible=false;return shard;
-  });
-}
-
 function filmSprite(type){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const g=canvas.getContext('2d');
   g.strokeStyle='#ff7a59';g.fillStyle='#ff7a59';g.lineWidth=type==='ring'?5:4;
@@ -99,10 +73,10 @@ function filmSprite(type){
   else if(type==='crack'){
     g.lineJoin='miter';g.lineWidth=7;g.beginPath();g.moveTo(7,67);g.lineTo(30,48);g.lineTo(44,75);g.lineTo(65,40);g.lineTo(79,67);g.lineTo(119,47);g.stroke();
     g.lineWidth=3;g.beginPath();g.moveTo(65,40);g.lineTo(75,18);g.moveTo(44,75);g.lineTo(34,105);g.stroke();
-  }else if(type==='star'){
-    g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?17+(i%3)*4:49+(i%5)*3;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
   }else if(type==='flash'){
-    g.fillStyle='#f4efe4';g.beginPath();for(let i=0;i<24;i++){const a=i*Math.PI/12,r=i%2?15:60;g.lineTo(64+Math.cos(a)*r,64+Math.sin(a)*r);}g.closePath();g.fill();
+    const glow=g.createRadialGradient(64,64,0,64,64,60);
+    glow.addColorStop(0,'rgba(244,239,228,.9)');glow.addColorStop(.35,'rgba(244,239,228,.45)');glow.addColorStop(1,'rgba(244,239,228,0)');
+    g.fillStyle=glow;g.fillRect(0,0,128,128);
   }else{g.beginPath();g.arc(64,64,24,0,Math.PI*2);g.fill();}
   const map=new THREE.CanvasTexture(canvas);map.encoding=THREE.sRGBEncoding;
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthTest:false,depthWrite:false,toneMapped:false}));
@@ -120,23 +94,22 @@ function createOrgans(source,scene,art){
   spineOnTop.renderOrder=998.99;spineOnTop.frustumCulled=false;spineOnTop.onBeforeRender=r=>r.clearDepth();group.add(spineOnTop);
   for(const id of ORGAN_ART){
     const o=source.scene.getObjectByName(id),raw=new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
-    const centre=new THREE.Vector3((raw.x-t1.x)*1.8,.92,-.05+(t1.y-raw.y)*scale);
-    // Spread the abdominal overlap just enough to read each rounded silhouette.
-    if(id==='liver')centre.x=-.11;
-    if(id==='stomach')centre.x=.115;
-    if(id==='spleen')centre.x=.23;
-    if(id==='heart'){centre.x=.075;centre.z+=.055;}
+    const side=['lungR','liver','kidneyR'].includes(id)?1:id==='bowel'?0:-1;
+    const centre=new THREE.Vector3(side*Math.abs(raw.x-t1.x)*1.8,.92,-.05+(t1.y-raw.y)*scale);
+    // Separate overlapping abdominal silhouettes while preserving patient sides.
+    if(id==='liver')centre.x=.11;
+    if(id==='stomach')centre.x=-.115;
+    if(id==='spleen')centre.x=-.23;
+    if(id==='heart'){centre.x=-.075;centre.z+=.055;}
     const map=art[id].calm,h=ART_HEIGHT[id],w=h*map.image.width/map.image.height;
     const size=new THREE.Vector3(w,.025,h);
     const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
     sprite.name=id+'_painted';sprite.frustumCulled=false;group.add(sprite);
-    const ring=filmSprite('ring'),flash=filmSprite('star'),word=organPopWord(),shards=organShards();
-    const tag=organTag(id);group.add(ring,flash,word,...shards,tag.sprite,tag.line);
-    flash.renderOrder=998.32;ring.renderOrder=998.34;word.renderOrder=998.8;
-    for(const shard of shards)shard.renderOrder=998.72;
+    const ring=filmSprite('ring'),flash=filmSprite('flash');
+    const tag=organTag(id);group.add(ring,flash,tag.sprite,tag.line);
+    flash.renderOrder=998.8;ring.renderOrder=998.82;
     tag.sprite.renderOrder=998.9;tag.line.renderOrder=998.88;
-    const side=['lungR','liver','kidneyR','bowel'].includes(id)?-1:1;
-    entries.push({id,sprite,tag,word,shards,side,centre,size,ring,flash,hit:false,burst:false});
+    entries.push({id,sprite,tag,side,centre,size,ring,flash,hit:false,burst:false});
   }
   // Both markers are back-only; the shared clinic engine stays unchanged.
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
@@ -165,24 +138,12 @@ function createOrgans(source,scene,art){
       e.sprite.position.copy(e.centre);
       e.sprite.scale.set(e.size.x*swell*(1+jitter),e.size.z*swell*(1-jitter),1);
       const fx=e.hit&&burstAge>=0&&group.visible,diameter=Math.max(e.size.x,e.size.z);
-      e.flash.visible=fx&&burstAge<.55;e.flash.position.copy(e.centre).add(new THREE.Vector3(e.side*e.size.x*.18,0,-e.size.z*.08));
-      e.flash.scale.setScalar(diameter*(1.18+.22*smooth(0,.18,burstAge)));
-      e.flash.material.opacity=amount*.85*(1-smooth(.25,.55,burstAge));
+      e.flash.visible=fx&&burstAge<.16;e.flash.position.copy(e.centre);
+      e.flash.scale.setScalar(diameter*.7);
+      e.flash.material.opacity=amount*.65*(1-smooth(0,.16,burstAge));
       e.ring.visible=fx&&burstAge<.55;e.ring.position.copy(e.centre);
       e.ring.scale.setScalar(diameter*(1.05+.4*smooth(0,.4,burstAge)));
       e.ring.material.opacity=amount*.6*(1-smooth(.25,.55,burstAge));
-      for(const [i,shard] of e.shards.entries()){
-        const a=i*Math.PI/3+.3,travel=.4+Math.min(.5,Math.max(0,burstAge))*.45;
-        shard.visible=fx&&burstAge<.65;
-        shard.position.copy(e.centre).add(new THREE.Vector3(Math.cos(a)*diameter*travel,.035,Math.sin(a)*diameter*travel));
-        const size=diameter*(.025+(i%3)*.006);
-        shard.scale.set(size,size*.65,size*1.4);shard.rotation.set(a+burstAge*5,a*2+burstAge*7,burstAge*4);
-        shard.material.opacity=amount*(1-smooth(.35,.65,burstAge));
-      }
-      e.word.visible=fx&&burstAge<.65;
-      e.word.position.copy(e.centre).add(new THREE.Vector3(e.side*e.size.x*.46,.05,-e.size.z*.48));
-      const wordSize=diameter*.40;
-      e.word.scale.set(wordSize,wordSize*2/3,1);e.word.material.opacity=amount*(1-smooth(.45,.65,burstAge));
       e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible&&e.hit;
       e.tag.sprite.material.opacity=amount;e.tag.line.material.opacity=amount*(e.burst?.65:.25);
     }
@@ -206,7 +167,7 @@ function createOrgans(source,scene,art){
     const box=new THREE.Box3();
     for(const e of entries){
       if(!ids.includes(e.id))continue; // frame only the burst organs so they read big (user, 2026-10-18)
-      // Fit the swollen silhouette and shell fragments, rather than zooming an
+      // Fit the swollen silhouette and ring, rather than zooming an
       // uninflated GLB tightly and letting the next beat cover the entire phone.
       const extent=new THREE.Vector3(e.size.x*.86,.025,e.size.z*.86);
       box.union(new THREE.Box3(e.centre.clone().sub(extent),e.centre.clone().add(extent)));
@@ -224,23 +185,14 @@ function createOrgans(source,scene,art){
     for(const e of entries)if(!shown.has(e))e.tag.sprite.visible=e.tag.line.visible=false;
     for(const e of entries){
 
-      // Keep the expanded shock front and its finer inner echo legible after
-      // the flashes, without a halo or any coral wash inside the organs.
-      if(e.ring.visible){
-        const pixels=e.ring.scale.x/pixelAt(e.ring.position);
-        const map=e.ring.material.map,stroke=3*128/pixels;
-        if(Math.abs((map.userData.stroke||5)-stroke)>.2){
-          const g=map.image.getContext('2d');g.clearRect(0,0,128,128);g.strokeStyle='#ff7a59';g.lineWidth=stroke;
-          g.beginPath();g.arc(64,64,56,0,Math.PI*2);g.stroke();
-          map.userData.stroke=stroke;map.needsUpdate=true;
-        }
-      }
       if(shown.has(e))for(const x of [e.centre.x-e.size.x*.64,e.centre.x+e.size.x*.64])for(const z of [e.centre.z-e.size.z*.64,e.centre.z+e.size.z*.64]){
         const p=project(new THREE.Vector3(x,e.centre.y,z));bounds.left=Math.min(bounds.left,p.x);bounds.right=Math.max(bounds.right,p.x);
       }
     }
     for(const side of [-1,1]){
-      const tags=entries.filter(e=>e.side===side&&shown.has(e)).map(e=>{const anchor=e.centre.clone();anchor.x+=side*e.size.x*.32;return {e,anchor,p:project(anchor)};}).sort((a,b)=>a.p.y-b.p.y);
+      // The midline bowel follows the pressed side for its label only.
+      const tagSide=e=>e.side||entries.find(o=>o.hit&&o.side)?.side||-1;
+      const tags=entries.filter(e=>tagSide(e)===side&&shown.has(e)).map(e=>{const anchor=e.centre.clone();anchor.x+=side*e.size.x*.32;return {e,anchor,p:project(anchor)};}).sort((a,b)=>a.p.y-b.p.y);
       const top=Math.min(105,height*.25),bottom=height-24;
       // Use the actual mixed 24/30px heights; all five left-side labels fit a phone.
       for(let i=0;i<tags.length;i++){

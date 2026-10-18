@@ -9,7 +9,7 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
+import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,judgePress,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -28,20 +28,19 @@ const coarse=matchMedia('(pointer: coarse)').matches;
 const preferMotion=coarse&&'DeviceMotionEvent' in window;
 const motion=new BackMotion();
 const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,
-  targets:[...TARGETS],results:[],fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,sound:true,music:store.get("chiroBackMusic",true),
+  targets:[.5,.5,.5],heights:[...TARGETS],results:[],fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,sound:true,music:store.get("chiroBackMusic",true),
   motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,nearSaid:false,missAt:0,missPosition:.5,
   cue:'',pausedAt:0,previousPhase:null,sirenPlayed:false,faceVisible:false,speechStage:-1};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 const names=['등 위쪽','등 가운데','허리'];
 const patient=ROSTER.find(p=>p.name==='박대리');
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
-// The injured bone is the one under the hands; a wrong-zone shove names where it actually landed.
-// An overload that also missed the ring bursts the organs at that height too (user, 2026-10-16).
-// Spine beat first: the organs are named only once the camera has pulled out to them (2026-10-17).
-function injuryLabel(tier,position,step,organsShown=true){const seg=pressedSegment(position),hurt=tier===2?'골절!':'금 감';
-  if(S.organs.length&&!organsShown)return `${pressedZone(position)} ${hurt}`;
-  if(S.organs.length)return `${pressedZone(position)} ${hurt} + ${organLabel(S.organs)} 파열!`;
-  return seg===[3,4,5][step]?`T${seg} ${hurt}`:`${pressedZone(position)} ${hurt} 엉뚱한 데를 눌렀어요`;}
+// The injured bone is the one at the step's height; an overload that also missed left/right of the spine bursts that
+// side's organs too (user, 2026-10-16 / 2026-10-18). Spine beat first: organs are named once the camera is on them.
+function injuryLabel(tier,step,organsShown=true){const height=S.heights[step],seg=pressedSegment(height),hurt=tier===2?'골절!':'금 감';
+  if(S.organs.length&&!organsShown)return `${pressedZone(height)} ${hurt}`;
+  if(S.organs.length)return `${pressedZone(height)} ${hurt} + ${organLabel(S.organs)} 파열!`;
+  return `T${seg} ${hurt}`;}
 function ensureSound(){if(S.sound||S.music)clinicAudio.ensureAudio();}
 function stopSound(){clinicAudio.stopSiren();}
 function tone(from,to,length,volume,delay=0){if(S.sound)clinicAudio.tone(from,to,length,'sine',volume,delay);}
@@ -83,7 +82,7 @@ function updateImpact(){
   const p=S.pending;if(!p)return;
   S.force=p.force;
   S.outcome=judgePress(p.position,S.step,p.pressure,p.force,{streak:S.streak,pain:S.painHere,exhale:p.exhale,targets:S.targets});
-  S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.organs=organHit(p.position,S.step,S.tier,S.targets);
+  S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.organs=organHit(p.position,S.step,S.tier,S.targets,S.heights);
   $('backImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과압박!':FAIL_STAMP[S.outcome.feedback];
 }
 // The bone sound lands with the shove, not when the animated hands land (they land up to 0.55 s later).
@@ -148,7 +147,7 @@ async function start(useMotion=preferMotion){
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
-  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeBackTargets(),results:[],fails:[],
+  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeSideTargets(),heights:makeBackTargets(),results:[],fails:[],
     holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
   $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;
@@ -298,7 +297,7 @@ function frame(now){
       const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
       if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
     }
-    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.position,S.step,shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.step,shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
@@ -345,11 +344,11 @@ function frame(now){
   app.dataset.phase=S.phase;app.classList.toggle('slam-wide',S.phase==='anim'&&therapistStyle(S.force,S.tier).power>.3&&shotTime<therapistStyle(S.force,S.tier).impactAt+.95);app.dataset.injury=S.tier===2?'break':S.tier===1?'crack':'none';
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
-  if(S.phase!=='paused')scene.render({now,position:S.position,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
-    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
+  if(S.phase!=='paused')scene.render({now,position:S.position,height:S.heights[S.step],pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
+    shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,heights:S.heights,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
   // Read-only DOM diagnostics for browser extensions that isolate the page's JS globals.
-  if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,targets:S.targets,points:[.18,.5,.82].map(p=>scene.projectPosition(p))});
-  if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
+  if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,targets:S.targets,heights:S.heights,points:S.heights.map(h=>scene.projectPosition(.5,h))});
+  if(mark){for(const [id,p] of [['backMissMark',S.missPosition],['backAnswer',S.targets[S.step]]]){const point=scene.projectPosition(p,S.heights[S.step]);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
 try{scene=await createBackScene(canvas);resize();S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
