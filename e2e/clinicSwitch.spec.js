@@ -11,7 +11,7 @@ test("클리닉 메뉴: 목꺾기 중에 열어 허리펴기로 옮긴다", asyn
   await page.click("#clinicBtn");
   const menu = page.locator("#clinicMenu");
   await expect(menu).toBeVisible();
-  await expect(menu.locator("a")).toHaveText(["목꺾기", "목뽑기", "허리펴기"]);
+  await expect(menu.locator("a")).toHaveText(["목꺾기", "목뽑기", "허리펴기", "허리비틀기"]);
   await expect(menu.locator("a[aria-current=page]")).toHaveText("목꺾기");
   await expect(menu.locator("a", { hasText: "목뽑기" })).toHaveAttribute("href", "./index.html?mode=towel");
 

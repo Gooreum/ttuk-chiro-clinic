@@ -1,0 +1,30 @@
+/* Side-posture mode layout. Shared HUD lives in ui/clinic-hud.css; the lock / relock buttons, the impact words and the
+   burst stamp share the back mode's look (src/back/style.css), so they are imported, not copied. */
+@import "../back/style.css";
+#sideApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room)}
+#sideApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px))}
+#sideApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px))}
+#sideCanvas,#sideHud{position:absolute;width:100%;height:100%;inset:0;display:block}
+#sideCanvas{touch-action:none;z-index:-1}
+#sideHud{pointer-events:none;z-index:1}
+#sideApp::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(0deg,#17312c70,transparent 25%,transparent 80%,#17312c38)}
+#sideApp > .top,#sideApp > .bottom{z-index:2}
+#sideMotionNotice{pointer-events:auto;white-space:normal;width:max-content;max-width:90%;text-align:center}
+#sideApp[data-phase=anim] > .bottom,#sideApp[data-phase=anim] #sideHud,#sideApp[data-phase=roll] > .bottom,#sideApp[data-phase=roll] #sideHud,
+#sideApp[data-phase=turn] > .bottom,#sideApp[data-phase=anim] #sideMotionNotice{visibility:hidden}
+/* "반대쪽으로" sits where the lock button sat, bigger: the one thing to do between the two sides */
+.flip-btn{z-index:5;bottom:calc(18px + env(safe-area-inset-bottom,0px));min-width:230px;font-size:24px;animation:lockReady .9s ease-in-out infinite}
+.flip-btn[hidden]{display:none}
+/* comic captions for the gags (packed roll-over, twisted exit ...): one fixed spot, one at a time */
+.side-gag{position:absolute;left:50%;bottom:22%;transform:translateX(-50%) rotate(-3deg);z-index:4;pointer-events:none;
+  padding:6px 14px;border:2px solid var(--paper);border-radius:12px;background:var(--mint);color:#0f231f;
+  font:400 clamp(18px,4.6cqw,26px)/1.1 var(--display);white-space:nowrap;box-shadow:0 8px 22px #0f231f99;animation:gagPop .3s cubic-bezier(.2,1.7,.4,1) both}
+.side-gag.bad{background:var(--coral);color:var(--paper)}
+.side-gag[hidden]{display:none}
+@keyframes gagPop{from{transform:translateX(-50%) scale(1.8) rotate(-10deg);opacity:0}}
+/* 뚝발전소: a perfect first side flickers the clinic's lights */
+.side-flash{position:absolute;inset:0;z-index:3;pointer-events:none;background:#f4efe4;animation:sideFlash .6s steps(1) both}
+.side-flash[hidden]{display:none}
+@keyframes sideFlash{0%{opacity:.85}20%{opacity:0}35%{opacity:.6}55%{opacity:0}70%{opacity:.35}100%{opacity:0}}
+#sideApp[data-phase=leave] > .bottom,#sideApp[data-phase=leave] #sideHud{visibility:hidden}
+@media(prefers-reduced-motion:reduce){#sideApp,#sideApp *{transition:none!important;animation:none!important}}

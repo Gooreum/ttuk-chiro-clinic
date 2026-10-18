@@ -1,9 +1,10 @@
-// Shared "다른 클리닉" switch for all three modes: the 클리닉 chip menu on the play HUD and the chip row on cards.
+// Shared "다른 클리닉" switch for all four modes: the 클리닉 chip menu on the play HUD and the chip row on cards.
 // Switching reloads the page (drops in-flight timers and stages); the target's start card then needs one tap (iOS sensor permission).
 export const CLINICS = [
   { id: "crack", label: "목꺾기", href: "./index.html?mode=crack" },
   { id: "towel", label: "목뽑기", href: "./index.html?mode=towel" },
-  { id: "back", label: "허리펴기", href: "./back.html" }
+  { id: "back", label: "허리펴기", href: "./back.html" },
+  { id: "side", label: "허리비틀기", href: "./side.html" }
 ];
 export const clinicLinks = current => CLINICS.map(c => ({ ...c, current: c.id === current }));
 

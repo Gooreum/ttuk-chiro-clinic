@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#17312c">
+<title>허리비틀기 · 뚝 카이로 클리닉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/src/side/style.css">
+</head>
+<body>
+<main id="sideApp" class="clinic-app suite-look">
+  <canvas id="sideCanvas" aria-label="옆으로 누운 환자와 허리를 비트는 치료사"></canvas>
+  <canvas id="sideHud" class="hud-canvas" aria-hidden="true"></canvas>
+  <div class="top">
+    <div class="chart compact" aria-label="환자 정보">
+      <div class="clip"><span>진료 차트 No.04</span><span id="sideDots" class="dots" aria-label="진행"><i class="now"></i><i></i></span></div>
+      <div class="chartbody"><div><div class="name">박대리<small>32세</small></div><div class="chips"><span id="sideZone" class="chip-seg">왼쪽 1/2</span></div></div></div>
+    </div>
+    <div class="side">
+      <div class="stat"><div class="score"><small>점수</small><span id="sideScore">0</span></div><div id="sideMistakes" class="pain" aria-label="통증 0회 / 2회">통증 <i></i><i></i></div></div>
+      <div class="tools"><button id="sideClinic" class="chip mini" type="button" aria-expanded="false" aria-controls="sideClinicMenu">클리닉</button><button id="sideTune" class="chip mini" type="button">튜닝</button><button id="sideMusic" class="chip mini" type="button" aria-pressed="true">음악</button><nav id="sideClinicMenu" class="clinic-menu" aria-label="다른 클리닉" hidden></nav></div>
+    </div>
+  </div>
+  <div class="bottom" id="sideControls" hidden><div id="sideMode" class="mode"></div><button id="sideLock" class="lock-btn" type="button" aria-label="이 높이로 고정하고 골반 비틀기"><small>1단계 · 높이</small>이 높이로 고정</button><button id="sideRelock" class="relock-btn" type="button" aria-label="높이 다시 고르기" hidden><i aria-hidden="true"></i><span>높이<br>다시</span></button><button id="sideCenter" class="zero-btn" type="button" aria-label="조준과 힘을 가운데로">중앙으로</button></div>
+  <button id="sideFlip" class="lock-btn flip-btn" type="button" hidden><small>1/2 끝 · 반대쪽 남음</small>반대쪽으로 굴려요</button>
+  <div class="toast" role="status"></div><div id="sideSpeech" class="bubble" role="status" aria-live="polite"></div>
+  <div class="coach"></div><div class="stamp-card"></div>
+  <output id="sideDebug" class="motion-debug" hidden></output>
+  <div id="sideHurt" class="hurt-flash" hidden></div>
+  <div id="sideImpact" class="back-impact" hidden></div><div id="sideCutLabel" class="cut-label" hidden></div>
+  <div id="sideGag" class="side-gag" hidden></div><div id="sideFlash" class="side-flash" hidden></div>
+  <div id="sideMotionNotice" class="coach show" hidden role="status"><span id="sideMotionStatus"></span> <button id="sideSensorRetry" class="chip mini" type="button" hidden>센서 다시 연결</button> <button id="sideTouchFallback" class="chip mini" type="button">터치로 연습</button></div>
+  <div class="overlay" id="sideWelcome">
+    <section class="card wide">
+      <div class="lead">
+        <div class="logo"><div class="stamp" aria-hidden="true">뚝</div><h1>카이로 클리닉<small>허리비틀기 · 연습 진료</small></h1></div>
+        <p>박대리, 32세. 허리가 한쪽으로 꼬여서 의자가 자꾸 돌아가요.<br>옆으로 눕혀 한쪽 비틀고, 굴려서 반대쪽도 비틀어요.</p>
+        <div class="starts"><button id="sideStart" class="btn" type="button" disabled>진료실 준비 중…</button><button id="sideTouchStart" class="btn ghost" type="button" disabled>마우스·터치로 연습</button></div>
+        <div class="hours"><span>한 환자 / 좌우 한 번씩</span></div>
+        <nav id="sideWelcomeClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
+        <p class="legal">이건 만화예요. 실제 교정을 따라 하지 마세요.</p>
+        <p class="legal">요추 모델 BodyParts3D, © The Database Center for Life Science · CC BY 4.0 · 축·크기 변환, 단순화</p>
+        <p id="sideLoadNote" class="legal" role="status"></p>
+      </div>
+      <ol class="how">
+        <li><b>01</b><div>폰을 <b>앞뒤로 기울여</b> 허리 높이를 맞추고 <b>고정</b>.</div></li>
+        <li><b>02</b><div><b>오른쪽으로 기울여</b> 골반을 의사 쪽으로 비틀어요.</div></li>
+        <li><b>03</b><div>폰 <b>앞쪽을 낮춰</b> 밀착하고 <b>짧게 툭!</b></div></li>
+        <li><b>×2</b><div>환자를 <b>굴려서 반대쪽</b>도 똑같이.</div></li>
+      </ol>
+    </section>
+  </div>
+  <div class="overlay" id="sideResult" hidden>
+    <section class="card log">
+      <div><div class="sub">오늘의 진료 일지</div><h2 id="sideResultTitle">양쪽 다 풀렸어요.</h2></div>
+      <p id="sideReview"></p><div class="total"><span>합계</span><b id="sideTotal">0</b></div>
+      <ul id="sideResultSteps"></ul><div class="rank" id="sideRank"></div><div class="newbest" id="sideBest"></div>
+      <button id="sideAgain" class="btn" type="button">한 번 더 비틀기</button><nav id="sideResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
+    </section>
+  </div>
+  <div class="sheet" id="sidePaused" hidden role="dialog" aria-label="손맛 튜닝">
+    <div class="sheethead"><b>손맛 튜닝</b><button id="sideTuneClose" class="chip" type="button">닫기</button></div>
+    <div class="live">손에 힘 빼고 잠깐 쉬어요.<br>돌아오면 같은 쪽부터 이어가요.</div>
+    <label class="chk"><input id="sideSound" type="checkbox" checked> 진료실 소리</label>
+    <label class="chk"><input id="sideTuneMusic" type="checkbox" checked> 배경음악</label>
+    <label class="chk"><input id="sideTuneBreath" type="checkbox"> 날숨에 누르면 +15 보너스</label>
+    <label class="chk"><input id="sideTuneTick" type="checkbox"> 목표 근처 틱 소리</label>
+    <button id="sidePause" class="chip" type="button">잠깐 쉬기</button>
+    <button id="sideResume" class="chip" type="button">이어서 진료하기</button>
+  </div>
+</main>
+<script type="module" src="/src/side/main.js"></script>
+</body>
+</html>
