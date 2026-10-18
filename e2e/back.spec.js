@@ -14,7 +14,11 @@ test("허리펴기: 세 구역을 정확히 누르고 결과 카드까지 간다
     if(Date.now() > until) throw new Error("back day never ended");
     await page.evaluate(() => {
       const s = window.__backShot.snapshot();
-      if(s.phase === "play" && performance.now() >= (s.prepUntil || 0)) window.__backShot.press(s.targets[s.step], 0.6, 1.5);
+      if(s.phase !== "play" || performance.now() < (s.prepUntil || 0)) return;
+      // height first (front-back tilt), lock it, then left-right on the locked row
+      if(!s.locked){ window.__backShot.aim(s.heights[s.step]); window.__backShot.lock(true); }
+      const t = window.__backShot.snapshot();
+      window.__backShot.press(t.targets[t.step], 0.6, 1.5);
     });
     await page.waitForTimeout(500);
   }
