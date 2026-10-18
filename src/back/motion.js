@@ -6,6 +6,9 @@ import {TARGETS,backDistance} from './core.js';
 // Same gravity pose, iOS sign voting, 250 ms pre-flick aim and 900 ms cooldown as neck adjustment.
 // A back thrust adds directional translation: rotation on its own cannot press the patient.
 const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+// Sideways aim is the phone's roll from its calibrated neutral, not a sum of deltas: summing drifted the centre
+// off a wall, so the left end became unreachable (user, 2026-10-17). Default sensitivity 1.5 reaches an end at 20°.
+export const SIDE_PER_DEG = .5/(1.5*20);
 const vector = a => a && [a.x,a.y,a.z].every(Number.isFinite);
 export function screenVector(a, angle){
   const c=Math.cos(angle),s=Math.sin(angle);
@@ -24,12 +27,12 @@ export class BackMotion {
   reset(){
     this.position=.5;this.pressure=.12;this.prev=null;this.gravity=null;this.sign=0;this.votes=0;
     this.hist=[];this.coolUntil=0;this.ready=false;this.stableAt=null;this.pose=null;this.angle=null;
-    this.lastAt=null;this.quietAt=null;this.blockUntil=0;
+    this.lastAt=null;this.quietAt=null;this.blockUntil=0;this.neutral=null;
   }
-  recenter(){this.position=.5;this.pressure=.12;this.prev=null;this.hist=[];this.ready=false;this.stableAt=null;this.quietAt=null;}
+  recenter(){this.position=.5;this.pressure=.12;this.prev=null;this.hist=[];this.ready=false;this.stableAt=null;this.quietAt=null;this.neutral=null;}
   orientation(e,now){ if(Number.isFinite(e.beta)&&Number.isFinite(e.gamma))this.pose={beta:e.beta,gamma:e.gamma,t:now}; }
   cooldown(now){this.coolUntil=now+900;this.quietAt=null;}
-  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS,axis=-1}={}){
+  sample(e,now,angle,{active=true,canPush=true,step=0,sens=1.5,bend=1,heavy=.6,jerk=10,flick=200,targets=TARGETS,axis=-1,vertical=false,vaxis=1}={}){
     const a=e.accelerationIncludingGravity;if(!vector(a))return null;
     const rate=Math.hypot(e.rotationRate?.alpha||0,e.rotationRate?.beta||0,e.rotationRate?.gamma||0);
     if(this.lastAt!==null&&now-this.lastAt>1800)this.recenter();
@@ -37,7 +40,7 @@ export class BackMotion {
     if(this.angle!==null && Math.abs(Math.atan2(Math.sin(angle-this.angle),Math.cos(angle-this.angle)))>.2)this.recenter();
     this.angle=angle;
     const ps=this.pose&&now-this.pose.t<250?orientationSign(a.z,this.pose.beta,this.pose.gamma):0;
-    if(ps){this.votes=voteSign(this.votes,ps);const sg=signFromVotes(this.votes);if(sg&&sg!==this.sign){this.sign=sg;this.gravity=null;this.prev=null;this.stableAt=null;}}
+    if(ps){this.votes=voteSign(this.votes,ps);const sg=signFromVotes(this.votes);if(sg&&sg!==this.sign){this.sign=sg;this.gravity=null;this.prev=null;this.stableAt=null;this.neutral=null;}}
     if(!this.sign&&Math.abs(a.z)>2.5)this.sign=a.z>0?1:-1;
     const sg=this.sign||1, raw={x:a.x*sg,y:a.y*sg,z:a.z*sg};
     if(!this.gravity)this.gravity={...raw};
@@ -53,27 +56,39 @@ export class BackMotion {
     // Shaking sideways cannot press; the recoil of a shove is held off by the 900 ms cooldown.
     if(!impact.directional&&lin>jerk*.6)this.blockUntil=now+250;
     if(!active){if(quiet){const k=1-Math.exp(-dt/45);for(const axis of ['x','y','z'])this.gravity[axis]+=(raw[axis]-this.gravity[axis])*k;}this.prev=null;this.hist=[];this.quietAt=null;return out;}
-    if(quiet){
-      if(this.quietAt===null)this.quietAt=now;
+    // Roll follows every low-translation sample, fast tilts included; a shove freezes it and aims from before.
+    if(lin<1.6){
       const k=1-Math.exp(-dt/45);
       for(const axis of ['x','y','z'])this.gravity[axis]+=(raw[axis]-this.gravity[axis])*k;
       const tilt=tiltAngles(this.gravity.x,this.gravity.y,this.gravity.z,angle),prev=this.prev;this.prev=tilt;
-      if(!this.ready){
-        if(this.stableAt===null)this.stableAt=now;
-        if(now-this.stableAt>=450){this.ready=true;out.ready=true;}
-      }else if(prev&&canPush&&now>=this.coolUntil-500){
-        const dlr=tilt.lr-prev.lr,dpt=tilt.pt-prev.pt;
-        if(Math.abs(dlr)<25&&Math.abs(dpt)<25){
-          const d=aimDelta(dlr,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure,targets)));
-          this.position=clamp(this.position+axis*d.dr*.022*gain,0,1);
+      if(this.ready&&canPush&&now>=this.coolUntil-500){
+        // Before the height lock the front/back tilt walks the hands along the spine (user, 2026-10-18).
+        const k=(vertical?vaxis:axis)*sens*SIDE_PER_DEG,angle=vertical?tilt.pt:tilt.lr;
+        // A new neutral (calibration, sign change, lock toggle) keeps the current aim instead of jumping.
+        if(this.neutral===null)this.neutral=angle+(this.position-.5)/k;
+        this.position=clamp(.5-(angle-this.neutral)*k,0,1);
+        const dpt=prev?tilt.pt-prev.pt:0;
+        if(!vertical&&Math.abs(dpt)<25){
+          const d=aimDelta(0,dpt,sens,bend),gain=deltaGain(heavy,false,closenessOf(backDistance(this.position,step,this.pressure,targets)));
           this.pressure=clamp(this.pressure+d.db*.04*gain,0,1.35);
         }
       }
+      out.lr=tilt.lr;out.neutral=this.neutral;
+      if(this.ready){
+        out.type='aim';out.position=this.position;out.pressure=this.pressure;
+        this.hist.push({t:now,position:this.position,pressure:this.pressure});while(this.hist.length&&this.hist[0].t<now-800)this.hist.shift();
+      }
+    }
+    if(quiet){
+      if(this.quietAt===null)this.quietAt=now;
+      if(!this.ready){
+        if(this.stableAt===null)this.stableAt=now;
+        if(now-this.stableAt>=450){this.ready=true;out.ready=true;this.neutral=null;this.position=.5;}
+      }
       out.type=this.ready?'aim':'calibrating';out.position=this.position;out.pressure=this.pressure;
-      if(this.ready){this.hist.push({t:now,position:this.position,pressure:this.pressure});while(this.hist.length&&this.hist[0].t<now-800)this.hist.shift();}
     }else{
       if(!this.ready)this.stableAt=null;
-      if(this.ready&&canPush&&now>this.coolUntil&&now>this.blockUntil&&impact.force>=.6&&this.hist.length){
+      if(!vertical&&this.ready&&canPush&&now>this.coolUntil&&now>this.blockUntil&&impact.force>=.6&&this.hist.length){
         const pre=aimBefore(this.hist,now-250,{position:this.position,pressure:this.pressure});
         out.type='impulse';out.position=pre.position;out.pressure=pre.pressure;
         this.position=pre.position;this.pressure=pre.pressure;this.cooldown(now);

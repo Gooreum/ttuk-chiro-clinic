@@ -1,6 +1,6 @@
 import {describe,it,expect} from 'vitest';
 import {BackMotion,screenVector,thrustSample} from '../src/back/motion.js';
-import {pressedSegment,pressedZone,TARGETS,judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile} from '../src/back/core.js';
+import {pressedSegment,pressedZone,TARGETS,judgePress,backDistance,reactionTiming,pressureHint,cameraPreload,BACK_XRAY,makeBackTargets,clinicFilm,impactFeel,pressProfile,backViewRot} from '../src/back/core.js';
 const rad=d=>d*Math.PI/180;
 function packet({angle=0,lr=0,pt=0,forward=0,side=0,down=0,rate=0,sign=1,linear=true}={}){
   const gx=9.81*Math.sin(rad(lr)),gy=9.81*Math.cos(rad(lr))*Math.sin(rad(pt)),gz=9.81*Math.cos(rad(lr))*Math.cos(rad(pt));
@@ -121,6 +121,52 @@ describe('back feel regression fixes',()=>{
       // Increasing z is toward the feet, projected left by this camera.
       expect(m.position).toBeGreaterThan(.5);
     }
+  });
+  it('returns to the centre after tilting past either end (no drift off the wall)',()=>{
+    for(const end of [30,-30]){
+      const m=new BackMotion();warm(m);let t=720;
+      for(let i=1;i<=30;i++,t+=20)m.sample(packet({lr:end*i/30}),t,0);
+      expect(m.position).toBe(end>0?1:0);
+      for(let i=29;i>=0;i--,t+=20)m.sample(packet({lr:end*i/30}),t,0);
+      for(let i=0;i<10;i++,t+=20)m.sample(packet(),t,0);
+      expect(m.position).toBeCloseTo(.5,1);expect(Math.abs(m.position-.5)).toBeLessThan(.02);
+    }
+  });
+  it('follows a fast tilt instead of dropping it',()=>{
+    const m=new BackMotion();warm(m);let t=720;
+    for(let i=1;i<=3;i++,t+=16)m.sample(packet({lr:5*i,rate:300}),t,0);
+    for(let i=0;i<10;i++,t+=16)m.sample(packet({lr:15,rate:0}),t,0);
+    expect(Math.abs(m.position-.5)).toBeGreaterThan(.3);
+  });
+  it('walks the height with the front/back tilt before the lock and never presses there (user 2026-10-18)',()=>{
+    const v={vertical:true,vaxis:1};
+    const m=new BackMotion();for(let t=0;t<=700;t+=20)m.sample(packet(),t,0,v);
+    const before=m.pressure;let t=720;
+    for(let i=0;i<20;i++,t+=20)m.sample(packet({pt:10}),t,0,v);
+    expect(Math.abs(m.position-.5)).toBeGreaterThan(.1);expect(m.pressure).toBe(before);
+    const n=new BackMotion();for(let t=0;t<=700;t+=20)n.sample(packet(),t,0,v);
+    for(let t=720;t<=1100;t+=20)n.sample(packet({lr:10}),t,0,v);
+    expect(Math.abs(n.position-.5)).toBeLessThan(.02);
+    const k=new BackMotion();for(let t=0;t<=700;t+=20)k.sample(packet(),t,0,v);
+    expect(k.sample(packet({forward:14}),800,0,v).type).not.toBe('impulse');
+  });
+  it('moves the same distance for the same tilt either way',()=>{
+    const at=lr=>{const m=new BackMotion();warm(m);for(let t=720;t<=1100;t+=20)m.sample(packet({lr}),t,0);return m.position-.5;};
+    expect(at(12)).toBeCloseTo(-at(-12),2);expect(Math.abs(at(12))).toBeGreaterThan(.2);
+  });
+  it('rotates a portrait viewport toward the last landscape, like the neck layout',()=>{
+    expect(backViewRot(390,844,0,270)).toEqual({rot:270,lastLandscape:270});
+    expect(backViewRot(390,844,0,90)).toEqual({rot:90,lastLandscape:90});
+    expect(backViewRot(844,390,270)).toEqual({rot:0,lastLandscape:270});
+    expect(backViewRot(390,844,0)).toEqual({rot:90,lastLandscape:90});
+    expect(backViewRot(844,390,-90,90).lastLandscape).toBe(270);
+  });
+  it('keeps aiming through an OS flip when the sensor angle stays the same',()=>{
+    const angle=rad(270),m=new BackMotion();warm(m,{angle});let t=720,last=.5;
+    for(let i=1;i<=15;i++,t+=20){m.sample(packet({angle,lr:i}),t,angle,{axis:1});expect(m.position).toBeLessThanOrEqual(last+1e-9);last=m.position;}
+    // OS rotated to portrait: angle stays 0+270, so no recalibration
+    for(let i=16;i<=20;i++,t+=20)m.sample(packet({angle,lr:i}),t,angle,{axis:1});
+    expect(m.ready).toBe(true);expect(m.position).toBeLessThan(last);
   });
   it('handles opposite signs between native linear and gravity-inclusive acceleration',()=>{
     for(const gravitySign of [1,-1])for(const linearSign of [1,-1]){

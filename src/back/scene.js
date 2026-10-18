@@ -1,8 +1,9 @@
 import {therapistMotion} from './therapistMotion.js';
 import * as THREE from "three";
-import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm,impactFeel} from './core.js';
+import {BACK_XRAY,cameraPreload,TARGETS,clinicFilm,impactFeel,organZoom} from './core.js';
 import {flinchProfile} from '../core/fail.js';
 import {createBackXray} from "./xray.js";
+import {ORGANS} from "./organs.js";
 import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
@@ -19,7 +20,8 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 
    render() inputs (all driven from outside; the scene keeps no game state beyond animation memory):
      now        ms (performance.now style)
-     position   0..1 hands along the back zone
+     position   0..1 hands left..right of the patient's spine (0.5 = on it)
+     height     0..1 hands along the back zone (T1..L5): the step's target height
      pressure   0..1 preload: hands settle, the therapist starts leaning in
      impulse    0..1 the thrust (the caller supplies the profile); kind scales it:
      kind       "ok" | "weak" | "miss" | "over" (null = ok)
@@ -32,6 +34,10 @@ const BASE = import.meta.env.BASE_URL + "models/back/";
 export const BACK_Z0 = -0.05, BACK_LEN = 0.6;
 export const RING_POS = [0.18, 0.50, 0.82];
 const zAt = p => BACK_Z0 + p*BACK_LEN;
+// Left/right of the spine: position 1 = the patient's right = +x (the therapist's side, and the liver side of the
+// top-down organ x-ray), SIDE_HALF metres off the spine at either end of the bar.
+const SIDE_HALF = 0.13;
+const xAt = p => (p - 0.5)*2*SIDE_HALF;
 const TABLE_TOP = 0.82;
 const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x8adfbf, gown: 0xf4efe4, pants: 0x17312c};
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
@@ -227,7 +233,7 @@ function hairOver(m){ m.transparent = false; m.depthWrite = true; m.alphaTest = 
 /* ---------- the scene ---------- */
 export async function createBackScene(canvas, view = {}){
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: "high-performance"});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -298,7 +304,18 @@ export async function createBackScene(canvas, view = {}){
   // ---- therapist ----
   const ther = tg.scene;
   const bones = {};
+  // All 20 therapist skins bind the same 53 joints; one skeleton = one bone update/upload per frame, not 20.
+  // Each mesh's inverse binds differ from the first by one constant matrix C (its quantization offset), so fold C
+  // into that mesh's bind matrix instead.
+  let sharedSkeleton = null;
   ther.traverse(o => {
+    if (o.isSkinnedMesh){
+      if (!sharedSkeleton) sharedSkeleton = o.skeleton;
+      else {
+        const C = sharedSkeleton.boneInverses[0].clone().invert().multiply(o.skeleton.boneInverses[0]);
+        o.bind(sharedSkeleton, C.multiply(o.bindMatrix));
+      }
+    }
     if (o.isBone) bones[o.name] = o;
     if (o.isMesh){
       o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -403,7 +420,10 @@ export async function createBackScene(canvas, view = {}){
   // Frame the patient's back, the face cradle and the therapist's face from across the table.
   const FIT = [[0, .94, -.40], [0, .90, .88], [-.34, .86, .25], [.72, 1.72, .25]].map(p => new THREE.Vector3(...p));
   const camBase = new THREE.Vector3();
+  const clinicUp=camera.up.clone(),organUp=new THREE.Vector3(0,0,-1);
+  const organBursts=new Set();
   function fitCamera(){
+    camera.up.copy(clinicUp);
     camera.aspect = cssW/cssH;
     const portrait = cssW < cssH;
     camera.fov = view.fov ?? (portrait ? 50 : CAM_FOV);
@@ -420,23 +440,29 @@ export async function createBackScene(canvas, view = {}){
     camera.position.copy(camBase); camera.lookAt(camTarget); camera.updateMatrixWorld();
   }
 
-  function contactAt(position, depth){
-    const z = zAt(clamp01(position));
-    return new THREE.Vector3(C0.x, hf.palm(C0.x, z) + contactLift - depth + patientRoot.position.y, z);
+  function contactAt(position, height, depth){
+    const x = C0.x + xAt(clamp01(position)), z = zAt(clamp01(height));
+    return new THREE.Vector3(x, hf.palm(x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, height = 0.5, heights = TARGETS, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, locked=false, showTargets=true, revealTarget=false} = {}){
     if(faceVisible){
       reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
     }
     const k = kind || "ok",feel=impactFeel(force,forceTier),move=therapistMotion(shotTime,force,forceTier);
-    const film=clinicFilm(shotTime,kind,forceTier,force);
-    xray.update({time:shotTime,step,kind,position,forceTier,force,organs});
-    for(const m of patientFade){m.opacity=1-film*.78;m.depthWrite=film<.05;}
-    for(const m of therapistFade){m.opacity=1-film*.8;m.depthWrite=film<.05;}
+    const film=clinicFilm(shotTime,kind,forceTier,force,organs.length>0);
+    // Organ ruptures: spine side close-up first, then the pull-out to the burst organs (0 → 1).
+    const zoom=organs.length?organZoom(shotTime-move.xrayDelay):0;
+    xray.update({time:shotTime,step,kind,position:height,forceTier,force,organs,zoom});
+    if(shotTime<0||zoom===0)organBursts.clear();
+    for(const id of xray.organState().burst){
+      if(!organBursts.has(id)){organBursts.add(id);st.shake=Math.max(st.shake,1.35);}
+    }
+    for(const m of patientFade){m.opacity=1-film*(.78+.17*zoom);m.depthWrite=film<.05;}
+    for(const m of therapistFade){m.opacity=1-film*(.8+.15*zoom);m.depthWrite=film<.05;}
     renderer.toneMappingExposure=1-film*.35;
-    scene.background.copy(roomBackground).lerp(xrayBackground,film*.8);
+    scene.background.copy(roomBackground).lerp(xrayBackground,film*(.8+.2*zoom));
     const dt = st.t == null ? 1/60 : Math.min(0.1, Math.max(0, (now - st.t)/1000));
     st.t = now;
     if (st.lastCompleted == null) st.lastCompleted = completed;
@@ -447,9 +473,9 @@ export async function createBackScene(canvas, view = {}){
     if(forceTier&&shotTime>=.8+move.xrayDelay&&shotTime<.96+move.xrayDelay)st.shake=Math.max(st.shake,forceTier===2?.8:.5);
     // a ring got done: mint pulse from it
     if (completed > st.lastCompleted){
-      const i = Math.min(2, completed - 1), z = zAt(targets[i]);
-      pulse(now, 0, z, ringCol.mint, 0.85, RING_R, RING_R*3.6, 1);
-      pulse(now + 140, 0, z, ringCol.mint, 0.7, RING_R, RING_R*2.4, 0.7);
+      const i = Math.min(2, completed - 1), x = C0.x, z = zAt(heights[i]);
+      pulse(now, x, z, ringCol.mint, 0.85, RING_R, RING_R*3.6, 1);
+      pulse(now + 140, x, z, ringCol.mint, 0.7, RING_R, RING_R*2.4, 0.7);
     }
     st.lastCompleted = completed;
 
@@ -462,7 +488,7 @@ export async function createBackScene(canvas, view = {}){
     depth=Math.max(depth,-.028);
 
     // the press point on the back follows the hands
-    const contact = contactAt(position, depth*0.92);
+    const contact = contactAt(position, height, depth*0.92);
     if(kind!=='ok'&&feedback==='finger'&&!forceTier&&shotTime>=0){const f=flinchProfile(shotTime);contact.y+=f.away*.12;contact.x+=f.shake*.025;}
     U.bkPress.value.set(contact.x, 0, contact.z, depth);
     U.bkWave.value.w=0;
@@ -471,7 +497,7 @@ export async function createBackScene(canvas, view = {}){
     const breathe = 0.5 + 0.5*Math.sin(now/1000*Math.PI*1.6);
     for (let i = 0; i < 3; i++){
       const c = U.bkRingCol.value[i];
-      U.bkRing.value[i].y=zAt(targets[i]);
+      U.bkRing.value[i].x=C0.x+(locked&&i===step?xAt(targets[i]):0);U.bkRing.value[i].y=zAt(heights[i]);
       if (i < completed){ c.set(ringCol.dim.r, ringCol.dim.g, ringCol.dim.b, 0.62); U.bkRingFill.value[i] = 0.9; U.bkRing.value[i].z = RING_R*0.85; }
       else if (i === step){
         const m = ringCol.mint;
@@ -492,7 +518,8 @@ export async function createBackScene(canvas, view = {}){
     // therapist: the body follows the hands along the table (a step behind), leans in with the press
     const kk = 1 - Math.exp(-dt*5);
     st.rootZ += (contact.z - st.rootZ)*kk;
-    theRoot.position.set(move.x,move.y,st.rootZ-C0.z+move.handAway*.35);
+    // the body shifts a little toward the side the hands reach to
+    theRoot.position.set(move.x+(contact.x-C0.x)*.4,move.y,st.rootZ-C0.z+move.handAway*.35);
     theRoot.rotation.set(0,move.yaw,move.roll);
     const lean=pressure*LEAN.pre+impulse*LEAN.ok+move.lean+Math.max(0,-depth)*-40;
     theRoot.updateMatrixWorld(true);
@@ -501,50 +528,61 @@ export async function createBackScene(canvas, view = {}){
 
     // camera: a small dip with the thrust, a shake on "over"
     st.shake = Math.max(0, st.shake - dt*1.6);
+    const organFilm=film*zoom;
+    camera.up.copy(clinicUp).lerp(organUp,organFilm).normalize();
     camera.position.copy(camBase);
-    const handLook=new THREE.Vector3(.08,1.11,zAt(clamp01(position)));
+    const handLook=new THREE.Vector3(.08,1.11,zAt(clamp01(height)));
     const loaded=cameraPreload(pressure,peakPressure,shotTime);
     const leanZoom=smooth(.15,.6,loaded)*.48*(1-film);
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
-    const focus = new THREE.Vector3(0,.96,zAt(clamp01(position)));
-    const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(position)));
+    const focus = new THREE.Vector3(0,.96,zAt(clamp01(height)));
+    if(organs.length)focus.copy(xray.fractureFocus());
+    const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(height)));
     camera.position.lerp(wideLook.clone().add(camDir.clone().multiplyScalar(3.2)),move.wide);
     let filmCamera=new THREE.Vector3(-.24,1.06,focus.z+.06);
-    if(organs.length){
+    if(organs.length)filmCamera=focus.clone().add(new THREE.Vector3(-.175,.075,.044));
+    if(zoom>0){
+      const spineCam=filmCamera.clone(),spineFocus=focus.clone();
       const box=xray.organFraming(organs,focus.z),centre=box.getCenter(new THREE.Vector3());
-      focus.x=centre.x*.3;focus.z=focus.z*.65+centre.z*.35;
-      const dir=new THREE.Vector3(-.32,.94,.13).normalize();
-      const right=new THREE.Vector3().crossVectors(camera.up,dir).normalize(),up=new THREE.Vector3().crossVectors(dir,right);
-      const tan=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));let distance=.52;
+      focus.copy(centre);
+      const dir=new THREE.Vector3(0,1,0),right=new THREE.Vector3(1,0,0),up=organUp;
+      const tan=Math.tan(THREE.MathUtils.degToRad(camera.fov/2));let distance=camera.near*2;
+      // Fit the complete burst envelope below the HUD/pill, with a bottom margin.
+      // These are canvas-local dimensions, including the self-rotated phone view.
+      const top=1-2*Math.min(95,cssH*.25)/cssH,bottom=-1+30/cssH;
+      const middle=(top+bottom)/2,horizontal=.88;
       for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
         const v=new THREE.Vector3(x,y,z).sub(focus),near=v.dot(dir);
-        distance=Math.max(distance,near+Math.abs(v.dot(up))/(tan*.78),near+Math.abs(v.dot(right))/(tan*camera.aspect*.82));
+        distance=Math.max(distance,(v.dot(up)/tan+top*near)/(top-middle),(v.dot(up)/tan+bottom*near)/(bottom-middle),near+Math.abs(v.dot(right))/(tan*camera.aspect*horizontal));
       }
-      filmCamera=focus.clone().addScaledVector(dir,distance);
+      focus.addScaledVector(up,-middle*distance*tan);
+      filmCamera=spineCam.lerp(focus.clone().addScaledVector(dir,distance),zoom);
+      focus.copy(spineFocus.lerp(focus,zoom));
     }
-    camera.position.lerp(filmCamera,film*.92);
+    camera.position.lerp(filmCamera,film*(.92+.08*zoom));
     if (st.shake > 0){
-      const s = st.shake*st.shake*0.012, t = now/1000;
+      const s = st.shake*st.shake*0.012*(1-.6*organFilm), t = now/1000;
       camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s;
     }
-    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*.95));
-    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move},...(import.meta.env.MODE==='shot'?{organOpacity:xray.organOpacity()}: {})};
+    camera.lookAt(camTarget.clone().lerp(handLook,leanZoom*.8).lerp(wideLook,move.wide).lerp(focus,film*(.95+.05*zoom)));
+    xray.layoutOrgans(camera,cssW,cssH);
+    st.metrics={depth,lean,force,tier:forceTier,impulse,shake:st.shake,therapist:{...move},...(import.meta.env.MODE==='shot'?{organOpacity:xray.organOpacity(),organState:xray.organState()}: {})};
     renderer.render(scene, camera);
   }
 
   function resize(width, height){
     cssW = Math.max(1, width|0); cssH = Math.max(1, height|0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(cssW, cssH, false);
     fitCamera(); reaction.resize(cssW,cssH);
   }
 
-  /* back position (0..1) -> canvas-local CSS pixels of the spine's surface there */
-  function projectPosition(position){
-    const z = zAt(clamp01(position));
-    const y = hf.y(0, z);
-    const p = new THREE.Vector3(0, (Number.isFinite(y) ? y : TABLE_TOP + 0.2) + patientRoot.position.y, z);
+  /* hand position (left/right 0..1) at a back height (0..1) -> canvas-local CSS pixels of the back's surface there */
+  function projectPosition(position, height = 0.5){
+    const x = C0.x + xAt(clamp01(position)), z = zAt(clamp01(height));
+    const y = hf.y(x, z);
+    const p = new THREE.Vector3(x, (Number.isFinite(y) ? y : TABLE_TOP + 0.2) + patientRoot.position.y, z);
     camera.updateMatrixWorld();
     p.project(camera);
     return {x: (p.x + 1)/2*cssW, y: (1 - p.y)/2*cssH};
@@ -598,5 +636,15 @@ export async function createBackScene(canvas, view = {}){
   // compile now so the first frame does not hitch
   renderer.compile(scene, camera);
   renderer.compile(reaction.scene,reaction.camera);
+  // compile() skips hidden objects, so the x-ray spine/film/organs linked ~26 programs mid-shot (0.6 s freeze).
+  // Draw each shot look once now, while the loading screen is up, then put the scene back.
+  const rest={...st,pulses:[]};
+  const organDelay=therapistMotion(0,5,2).xrayDelay,okDelay=therapistMotion(0,1,0).xrayDelay;
+  for(const t of [.6,1,1.9,2.3,2.7])render({kind:'over',position:.9,height:.3,force:5,forceTier:2,organs:ORGANS.map(o=>o.id),shotTime:t+organDelay});
+  for(const t of [.9,1.5])render({kind:'ok',position:.5,height:.5,shotTime:t+okDelay});
+  // The face close-up's 1024px textures upload on first draw; a late faceTime makes the real close-up start fresh.
+  render({faceVisible:true,faceTime:99,kind:'ok'});
+  render({shotTime:-1});
+  Object.assign(st,rest);organBursts.clear();
   return {screenAxis: 1, render, resize, dispose, projectPosition, pickPosition, metrics:()=>st.metrics, renderer, scene, camera};
 }
