@@ -1,15 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { ROSTER, makePatients } from "../src/patient/roster.js";
+import { ROSTER, PER_DAY, makePatients } from "../src/patient/roster.js";
 
 describe("makePatients", () => {
   it("gives every patient two sides: complaint side first, then the opposite", () => {
-    const ps = makePatients();
-    expect(ps).toHaveLength(ROSTER.length);
-    ps.forEach((p, i) => {
+    makePatients().forEach(p => {
+      const r = ROSTER.find(q => q.name === p.name);
       expect(p.sides).toHaveLength(2);
-      expect(p.sides[0].side).toBe(ROSTER[i].side);
-      expect(p.sides[1].side).toBe(-ROSTER[i].side);
+      expect(p.sides[0].side).toBe(r.side);
+      expect(p.sides[1].side).toBe(-r.side);
     });
+  });
+  it("draws PER_DAY different patients from the roster", () => {
+    expect(PER_DAY).toBe(3);
+    for(let k = 0; k < 20; k++){
+      const names = makePatients().map(p => p.name);
+      expect(names).toHaveLength(PER_DAY);
+      expect(new Set(names).size).toBe(PER_DAY);
+      names.forEach(n => expect(ROSTER.some(q => q.name === n)).toBe(true));
+    }
+  });
+  it("can draw every roster patient", () => {
+    const seen = new Set();
+    for(let k = 0; k < 200; k++) makePatients().forEach(p => seen.add(p.name));
+    expect(seen.size).toBe(ROSTER.length);
   });
   it("rot follows the side, bend goes the other way", () => {
     makePatients().forEach(p => p.sides.forEach(s => {

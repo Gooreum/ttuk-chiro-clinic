@@ -16,6 +16,7 @@ import "./ui/tuneSheet.js";
 import { setFace } from "./game/flow.js";
 import { readColors } from "./ui/ring.js";
 import { frame } from "./game/loop.js";
+import { S } from "./game/state.js";
 
 readColors();
 loadRealAssets();
@@ -24,3 +25,5 @@ applyLook(ROSTER[0]);
 setFace("rest");
 layout();
 requestAnimationFrame(frame);
+// e2e/shot build only (`npm run build:shot`): tests read the game state; the normal build drops this line.
+if(__FORCE_HIT__) window.__game = { S };

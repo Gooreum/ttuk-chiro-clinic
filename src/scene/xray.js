@@ -38,8 +38,9 @@ import { tractionPose, PresentedClock } from "./towelMotion.js";
 
    A hard wrong crack (game/flow.js hurt, core/fail.js forceTier) opens the x-ray still pressed (crackT < 0) with
    frac = {lvl, t}: FRAC_HIT s in, a jagged crack zips across the stuck vertebra with a white flash and the column
-   jolts (lvl 1); on lvl 2 the vertebra then splits along a slanted plane into two clipped halves that drift apart
-   and twist, a red glow between them, bone chips flying, the cord hot and pinched harder. A cartoon warning. */
+   jolts; at SHATTER_AT the bone comes apart in clipped shards: lvl 1 crumbles (the stuck vertebra and its neighbours
+   rain down the screen, top first), lvl 2 blows up (five vertebrae flung out like shrapnel, tumbling). The column
+   above sinks into the hole, the discs in the wreck go flat and red, dust and chips fly, the cord runs hot. A cartoon warning. */
 
 const SC = 1.5;                       // a little over real size so it reads on a phone
 const C1_Z = -0.125;                   // pivot z of the atlas (just under the skull base)
@@ -264,18 +265,42 @@ const chips = Array.from({length: 8}, (_, i) => {
 // normal blending: an additive red on the pale bone burns out to white
 const gapGlow = new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, color: 0xe8383d, transparent: true, opacity: 0, depthWrite: false, depthTest: false}));
 gapGlow.renderOrder = 1001; root.add(gapGlow);
-// the two halves of the broken vertebra: the same geometry, clipped on opposite sides of the break plane
-const halves = [0, 1].map(() => {
-  const mat = boneMat(); mat.clippingPlanes = [new THREE.Plane()];
-  const m = new THREE.Mesh(new THREE.BufferGeometry(), mat); m.renderOrder = 999; m.visible = false; root.add(m);
-  return m;
+// A hard wrong crack breaks the bone apart, harder the harder it was cracked (user: "존나 쎄게 꺾으면 뼈 파편처럼 튀어버리고
+// 적당히 꺾으면 우수수 떨어져버리고 약하게 꺾으면 으악 이렇게만", 2026-10-17): every vertebra in reach is cut into eight
+// pieces, the octants of three slanted planes through its centre, each the vertebra's own geometry clipped to its cell
+// so it reads as real bone. lvl 1 (금): the stuck one and its neighbours crumble and rain down the screen, top first;
+// lvl 2 (골절): five vertebrae blow apart, the shards flung out like shrapnel, tumbling.
+const CUT = [[1, 0.35, 0.2], [-0.25, 1, 0.3], [0.2, -0.3, 1]].map(v => new THREE.Vector3(...v).normalize());
+const shards = [];
+[-2, -1, 0, 1, 2].forEach(who => {
+  for(let k = 0; k < 8; k++){
+    const signs = [0, 1, 2].map(i => k >> i & 1 ? -1 : 1);
+    const mat = boneMat(); mat.clippingPlanes = [0, 1, 2].map(() => new THREE.Plane());
+    const m = new THREE.Mesh(new THREE.BufferGeometry(), mat); m.renderOrder = 999; m.visible = false; root.add(m);
+    const dir = new THREE.Vector3(); CUT.forEach((c, i) => dir.addScaledVector(c, signs[i])); dir.normalize();
+    const axis = new THREE.Vector3().crossVectors(dir, CUT[(k + 1) % 3]).normalize();
+    const r = ((k*5 + (who + 2)*3) % 7)/7;    // 0..1, fixed per piece
+    shards.push({who, k, signs, m, mat, dir, axis, r, spin: (k % 2 ? 1 : -1)*(1 + 0.35*(k % 3))});
+  }
 });
-/* Seconds into the fracture x-ray when the crack happens (game/loop.js plays the crunch and the label then). */
+// bone dust and splinters thrown out of the burst (more, and smaller, than the chips)
+const dust = Array.from({length: 30}, (_, i) => {
+  const puff = i % 3 === 0;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: puff ? glowTex : shardTex, color: puff ? 0xd8ccb0 : 0xe6dcc4,
+    transparent: true, opacity: 0, depthWrite: false, depthTest: false, rotation: i*1.3}));
+  s.renderOrder = 1002; s.visible = false; root.add(s);
+  const a = i*2.39996, e = (i*7 % 9)/9 - 0.5;
+  return {s, puff, v: new THREE.Vector3(Math.cos(a), e*1.2, Math.sin(a)*0.8 + 0.3).normalize().multiplyScalar(0.02 + (i % 4)*0.009)};
+});
+/* Seconds into the fracture x-ray when the crack happens (game/loop.js plays the crunch and the label then), and when a
+   break (tier 2) bursts (the shockwave and the second crunch). */
 export const FRAC_HIT = 0.35;
+export const SHATTER_AT = FRAC_HIT + 0.1;
 const _n = new THREE.Vector3(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _o = new THREE.Vector3(), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+const ORIGIN = new THREE.Vector3(), _d = new THREE.Vector3(), _h = new THREE.Vector3(), _dn = new THREE.Vector3(), _rq = new THREE.Quaternion();
 function hideFrac(){
   crackSpr.visible = false; gapGlow.material.opacity = 0;
-  chips.forEach(c => { c.s.visible = false; }); halves.forEach(h => { h.visible = false; });
+  chips.forEach(c => { c.s.visible = false; }); shards.forEach(p => { p.m.visible = false; }); dust.forEach(d => { d.s.visible = false; });
 }
 
 // dark x-ray film: a camera-attached quad drawn after the (faded) scene. It clears the depth buffer, so the spine
@@ -720,7 +745,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
 function fracture(frac, sv, stuck, side, amount, throb){
   const ft = frac.t - FRAC_HIT;
   if(ft < 0){ hideFrac(); sv.g.position.x += 0.0003*Math.sin(frac.t*90)*frac.t/FRAC_HIT; return; }   // trembling
-  const zip = clamp(ft/0.15, 0, 1), broke = frac.lvl > 1 ? clamp((ft - 0.1)/0.25, 0, 1) : 0;
+  const zip = clamp(ft/0.15, 0, 1), broke = clamp((ft - 0.1)/0.25, 0, 1);
   const split = 1 - Math.pow(1 - broke, 3);
   // the column above jolts once
   const jolt = 0.0022*Math.exp(-7*ft)*Math.sin(38*ft);
@@ -746,31 +771,69 @@ function fracture(frac, sv, stuck, side, amount, throb){
   const cu = cordMat.uniforms;
   cu.uHotAmt.value = Math.max(cu.uHotAmt.value, 0.9 + 0.3*frac.lvl);
   if(frac.lvl > 1) cu.uPinch.value = Math.min(1.2, cu.uPinch.value + 0.4*split);
-  if(frac.lvl < 2 || broke <= 0){ halves.forEach(h => { h.visible = false; }); chips.forEach(c => { c.s.visible = false; }); gapGlow.material.opacity = 0; return; }
-  // lvl 2: two halves along a slanted plane, drifting apart and twisting
-  sv.m.visible = false;
-  halves.forEach((h, i) => {
-    const s = i ? -1 : 1;
-    h.visible = true;
-    h.geometry = sv.m.geometry;
-    h.material.opacity = amount; h.material.envMap = sv.mat.envMap;
-    if(h.material.vertexColors !== sv.mat.vertexColors){ h.material.vertexColors = sv.mat.vertexColors; h.material.needsUpdate = true; }
-    h.material.emissive.copy(sv.mat.emissive);
-    h.position.copy(sv.g.position).addScaledVector(_n, s*0.011*split);
-    _e.set(0, s*0.15*split, s*0.3*split*side);
-    h.quaternion.copy(sv.g.quaternion).multiply(_q.setFromEuler(_e));
-    h.updateWorldMatrix(true, false);
-    h.material.clippingPlanes[0].setFromNormalAndCoplanarPoint(_o.copy(_n).multiplyScalar(s), new THREE.Vector3()).applyMatrix4(h.matrixWorld);
+  if(broke <= 0){ shards.forEach(p => { p.m.visible = false; }); dust.forEach(d => { d.s.visible = false; }); chips.forEach(c => { c.s.visible = false; }); gapGlow.material.opacity = 0; return; }
+  // it breaks apart. bt: s since the break; hard: shrapnel, else crumbling.
+  const bt = ft - 0.1, hard = frac.lvl > 1, reach = hard ? 2 : 1;
+  _h.copy(sv.g.position);
+  // screen-down in the spine's space, so the crumbs fall down the screen whatever way the x-ray camera looks
+  _dn.set(0, -1, 0).applyQuaternion(camera.quaternion).applyQuaternion(root.getWorldQuaternion(_rq).invert()).normalize();
+  // with the bone gone the column above sits down into the hole and bounces; the discs in the wreck go flat and red
+  const top = Math.max(0, stuck - reach);
+  _d.copy(sv.g.position).sub(V[0].g.position).normalize();
+  const drop = (hard ? 0.016 : 0.009)*(1 - Math.exp(-5*bt)*Math.cos(13*bt));
+  for(let j = 0; j < top; j++){ V[j].g.position.addScaledVector(_d, drop); if(D[j]) D[j].g.position.addScaledVector(_d, drop); }
+  for(let j = top; j <= stuck + reach; j++){
+    const d = D[j]; if(!d) continue;
+    d.g.scale.y *= 1 - 0.55*split; d.g.scale.x *= 1 + 0.25*split; d.g.scale.z *= 1 + 0.2*split;
+    d.mat.color.copy(COL.pinched); d.mat.emissive.copy(COL.pinched).multiplyScalar(0.5 + 0.3*throb);
+    d.over.material.color.copy(COL.pinched); d.over.material.opacity = 0.8*amount;
+  }
+  shards.forEach(p => {
+    const v = V[stuck + p.who];
+    // shrapnel goes off the stuck one first and outward; crumbling runs top to bottom
+    const t = hard ? bt - 0.05*Math.abs(p.who) : bt - 0.09*(p.who + 1);
+    if(!v || Math.abs(p.who) > reach || t < 0){ p.m.visible = false; return; }
+    v.m.visible = false;
+    p.m.visible = true; p.m.geometry = v.m.geometry;
+    p.mat.opacity = amount; p.mat.envMap = v.mat.envMap;
+    if(p.mat.vertexColors !== v.mat.vertexColors){ p.mat.vertexColors = v.mat.vertexColors; p.mat.needsUpdate = true; }
+    p.mat.emissive.copy(COL.coral).multiplyScalar((p.who ? 0.3 : 0.5) + 0.6*Math.exp(-4*t) + 0.15*throb);
+    _d.copy(p.dir).applyQuaternion(v.g.quaternion);
+    p.m.position.copy(v.g.position);
+    let turn;
+    if(hard){
+      // flung out, slowing a little, falling a little, tumbling the whole time
+      const tt = Math.min(t, 2.5), speed = (p.who ? 0.16 : 0.26)*(0.7 + 0.6*p.r);
+      p.m.position.addScaledVector(_d, speed*(1 - Math.exp(-1.6*tt))/1.6).addScaledVector(_dn, 0.06*tt*tt);
+      turn = (p.who ? 5 : 8)*p.spin*tt;
+    }else{
+      // the cracks open, then each piece lets go a moment apart and drops, turning over as it falls
+      const fall = Math.min(Math.max(0, t - 0.12 - 0.05*p.r - 0.03*(p.k % 4)), 2);
+      p.m.position.addScaledVector(_d, 0.004*(1 - Math.exp(-8*t)) + 0.006*fall).addScaledVector(_dn, 0.28*fall*fall);
+      turn = 1.6*p.spin*fall;
+    }
+    p.m.quaternion.copy(v.g.quaternion).multiply(_q.setFromAxisAngle(p.axis, turn));
+    p.m.updateWorldMatrix(true, false);
+    CUT.forEach((c, i) => p.mat.clippingPlanes[i].setFromNormalAndCoplanarPoint(_o.copy(c).multiplyScalar(p.signs[i]), ORIGIN).applyMatrix4(p.m.matrixWorld));
   });
-  gapGlow.position.copy(sv.g.position);
+  // the glow in the hole, the splinters and the dust: blown out on a break, sifting down when it crumbles
+  gapGlow.position.copy(_h);
   gapGlow.material.opacity = amount*split*(0.8 + 0.2*throb);
-  gapGlow.scale.setScalar(0.026 + 0.016*split);
+  gapGlow.scale.setScalar((hard ? 0.04 : 0.025) + (hard ? 0.05 : 0.02)*split);
+  const t = Math.max(0, bt);
   chips.forEach(c => {
-    const t = Math.max(0, ft - 0.1);
     c.s.visible = true;
-    c.s.position.copy(sv.g.position).addScaledVector(c.v, Math.min(t, 0.9));
-    c.s.material.opacity = amount*Math.max(0, 1 - t/1.3);
-    c.s.scale.setScalar(0.0055 + 0.002*(c.v.length() > 0.02 ? 1 : 0));
+    if(hard) c.s.position.copy(_h).addScaledVector(c.v, 4*(1 - Math.exp(-2*t))).addScaledVector(_dn, 0.05*t*t);
+    else c.s.position.copy(_h).addScaledVector(c.v, 0.4*(1 - Math.exp(-4*t))).addScaledVector(_dn, 0.25*t*t);
+    c.s.material.opacity = amount*Math.max(0, 1 - t/1.8);
+    c.s.scale.setScalar(0.0065 + 0.0025*(c.v.length() > 0.02 ? 1 : 0));
+  });
+  dust.forEach((d, i) => {
+    d.s.visible = true;
+    if(hard) d.s.position.copy(_h).addScaledVector(d.v, 3.5*(1 - Math.exp(-2.5*t)));
+    else d.s.position.copy(_h).addScaledVector(d.v, 0.5*(1 - Math.exp(-3*t))).addScaledVector(_dn, (d.puff ? 0.04 : 0.2 + 0.05*(i % 3))*t*t);
+    d.s.material.opacity = amount*Math.max(0, 1 - t/(d.puff ? 1.2 : 1.8))*(d.puff ? 0.5 : 1);
+    d.s.scale.setScalar(d.puff ? 0.012 + (hard ? 0.05 : 0.025)*Math.min(1, t*1.5) : 0.0035 + 0.0015*(d.v.length() > 0.035 ? 1 : 0));
   });
 }
 /* Pivot z of the gap under vertebra i (where the release wave rings). Rough spacing until the model is in. */

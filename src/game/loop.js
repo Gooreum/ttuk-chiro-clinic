@@ -11,7 +11,7 @@ import {
   torso, collar, bodyParts, pivot, head, neckMesh, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
-import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT } from "../scene/xray.js";
+import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT, SHATTER_AT } from "../scene/xray.js";
 import { tone, vib, crunch } from "../audio/audio.js";
 import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
@@ -199,6 +199,17 @@ export function frame(now){
         const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
         floater(`C${target.seg} ${S.fracLvl > 1 ? "골절!" : "금 감"}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
       }
+      // a beat later the bone comes apart: a break blows up (a big crunch, a hard shake, a coral shockwave), a crack
+      // crumbles (a smaller crunch and shake)
+      if(!S.shatterFired && S.fracT >= SHATTER_AT && target){
+        S.shatterFired = true;
+        const hard = S.fracLvl > 1;
+        crunch(S.fracLvl, hard ? 1 : 0.8); vib(hard ? [90, 25, 60, 25, 120] : [40, 30, 40, 30, 40]);
+        S.shake = Math.max(S.shake, hard ? 1.3 : 0.7);
+        if(hard){ S.wave = 1; S.waveHot = true; }
+        const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
+        floater(hard ? `C${target.seg} 박살!` : "우수수…", cw/2 - headScreen.x, ch*0.42 - headScreen.y, "frac", 1700);
+      }
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
   // towel mode: the bottom of the spine rides with the body, its gaps open with the neck's stretch;
@@ -212,7 +223,7 @@ export function frame(now){
     // recorded crack is already playing, no synth on top)
     if(!towel){ tone(150, 55, 0.2, "sine", 0.16); setTimeout(() => tone(520, 1300, 0.5, "sine", 0.04), 60); }
     vib([45, 30, 70]);
-    S.shake = Math.max(S.shake, 0.45); S.wave = 1;
+    S.shake = Math.max(S.shake, 0.45); S.wave = 1; S.waveHot = false;
   }
   fadeMats(xrayMats, xray > 0.001 ? 1 - 0.78*xray : 1, xray < 0.5);
   fadeMats(crackFadeMats, S.xray > 0.001 ? 1 - 0.8*S.xray : 1, S.xray < 0.5);
@@ -224,6 +235,7 @@ export function frame(now){
     S.wave = Math.max(0, S.wave - dt*1.6);
     const s = 1 + (1 - S.wave)*3.2;
     waveRing.scale.set(s, s, s); waveMat.opacity = S.wave*0.8;
+    waveMat.color.setHex(S.waveHot ? 0xff7a59 : 0x8adfbf);
     waveRing.position.set(0, -0.014, XRAY_LEVEL(target ? target.seg - 1 : 3));
   }else waveMat.opacity = 0;
   sparks.forEach(s => {

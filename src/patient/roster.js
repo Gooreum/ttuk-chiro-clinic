@@ -5,7 +5,7 @@
    lines after a wrong crack (game/flow.js hurt, core/fail.js): stop then ouch (past the limit), dud (a half crack),
    finger (the therapist's knuckle cracked); then fail[n] for the n-th one on this patient, doubt as the player
    tries again, quit on the day log if the day ends on them. */
-/* Patients: 5 per day. xr = what the x-ray shows for the complaint (scene/xray.js: flat, muscle, disc, rot, facet). makePatients() rolls each day's target angles (both sides) and danger limits. */
+/* Patients: a pool of 5, PER_DAY of them drawn at random each day. xr = what the x-ray shows for the complaint (scene/xray.js: flat, muscle, disc, rot, facet). makePatients() rolls each day's target angles (both sides) and danger limits. */
 export const TRAITS = {
   nervous:  {label:"긴장형", desc:"오래 끌면 점점 굳어요"},
   stiff:    {label:"근육 뭉침", desc:"머리가 묵직해서 잘 안 돌아가요"},
@@ -56,9 +56,13 @@ export const REVIEWS = {
   1:["다음엔 살살 부탁해요", "시원하긴 한데 좀 아팠어요", "용기 내서 또 올게요"]
 };
 /* Each patient is adjusted on both sides: the complaint side (p.side) first, then the opposite side.
-   Every side rolls its own target angle. rand is injectable for tests. */
-export function makePatients(rand = Math.random){
-  return ROSTER.map(p => {
+   Every side rolls its own target angle. rand is injectable for tests.
+   A day sees PER_DAY patients drawn from the roster in random order (5 of the same loop dragged, user 2026-10-16). */
+export const PER_DAY = 3;
+export function makePatients(rand = Math.random, count = PER_DAY){
+  const pool = ROSTER.slice();
+  for(let i = pool.length - 1; i > 0; i--){ const j = Math.floor(rand()*(i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, count).map(p => {
     const big = p.trait === "flexible", old = p.trait === "elder";
     const roll = side => {
       const mag = big ? 44 + rand()*9 : old ? 24 + rand()*10 : 28 + rand()*14;
