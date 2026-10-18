@@ -57,7 +57,7 @@ for who,names in expected.items():
     assert set(actual)==set(names),(who,actual,names)
     for node in doc.get('nodes',[]):
         assert all(s>0 for s in node.get('scale',[1,1,1])),(who,'nonpositive scale',node.get('name'))
-    assert len(blob)<=1_000_000,(who,'over 1.1 MB',len(blob))
+    assert len(blob)<=1_100_000,(who,'over 1.1 MB',len(blob))
     if who=='lumbar': assert len(blob)<=400_000,('lumbar over 400 KB',len(blob))
 PY
 run_logged preview "$HERE/side_therapist.py" --preview "$W" "$OUT"

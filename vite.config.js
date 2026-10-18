@@ -8,6 +8,6 @@ export default defineConfig(({ mode }) => ({
   base: "./",
   plugins:[clinicEffects()],
   define: { __FORCE_HIT__: JSON.stringify(mode === "shot"), __TOSS__: JSON.stringify(mode === "toss") },
-  build: { rollupOptions: { input: { main: "index.html", back: "back.html" } }, outDir: mode === "shot" ? "dist-shot" : "dist", emptyOutDir: true },
+  build: { rollupOptions: { input: { main: "index.html", back: "back.html", side: "side.html" } }, outDir: mode === "shot" ? "dist-shot" : "dist", emptyOutDir: true },
   test: { environment: "node", include: ["test/**/*.test.js"] }
 }));
