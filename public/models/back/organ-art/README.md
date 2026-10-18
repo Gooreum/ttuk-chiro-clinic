@@ -1,64 +1,71 @@
-# Posterior anatomical organ art
+# Posterior neon-film organ holograms
 
 27 transparent WebP textures: nine organs × `calm` / `strain` / `dead`.
-Repainted with the built-in ImageGen tool on 2026-10-18. No downloaded art.
-The former character faces, cream shells, mint interiors and painted fragments
-are replaced by volumetric, realistic medical illustrations in natural, slightly
-cooled and desaturated tissue colours for the dark teal X-ray film (`#0f231f`).
+Repainted with the built-in ImageGen tool on 2026-10-18 from the user's selected
+**C · neon film hologram** concept (`scratchpad/codex16/concept-C.png`).
+No downloaded art. No faces, text, blood, flesh, stickers or stars.
 
 ## View and anatomy
 
-All images show the **posterior aspect**, superior end at the top. In the prone
-overhead shot, patient right is screen right / world +x. The textures themselves
-are drawn in that orientation; the runtime does not mirror the pictures.
+All sprites retain the **posterior view**, superior end at the top. In the prone
+overhead shot, patient right is image right / world +x. The runtime does not
+mirror the textures.
 
-- `lungL`, `lungR`: posterior pleura, oblique fissures, lobes, fine vessels and a
-  partly visible medial hilum; the left lung's medial edge faces image right.
-- `heart`: posterior atrial base, pulmonary vein entries, coronary sinus and
-  posterior interventricular vessels, apex toward image left.
-- `liver`: large right lobe on image right, smaller left lobe on image left,
-  posterior caval groove and caudate region.
-- `stomach`: external posterior serosa, fundus/greater curvature on image left,
-  lesser curvature and pyloric outlet on image right; no internal cutaway.
-- `spleen`: rounded plum capsule, notched superior margin and medial hilar vessels.
-- `kidneyL`, `kidneyR`: convex posterior capsules, medial concavities, short hilar
-  vessels and ureters; no renal cross-sections.
-- `bowel`: colon frame with haustra/taeniae and irregular small-bowel coils,
-  ascending colon on image right and descending colon on image left.
+- `lungL`: medial indentation faces image right; `lungR`: image left.
+- `heart`: simplified atrial/vessel forms, apex toward image left.
+- `liver`: large right lobe on image right; small tapered left lobe on image left.
+- `stomach`: fundus/greater curvature on image left, pyloric outlet on image right.
+- `spleen`: left-side capsule with a medial indentation toward image right.
+- `kidneyL`, `kidneyR`: external bean-shaped capsules, medial concavities and
+  short ureters toward the midline; no cross-sections.
+- `bowel`: segmented colon surrounding small-bowel coils; ascending colon on
+  image right and descending colon on image left.
 
 ## States and generation
 
-Each healthy organ was generated separately. Two image edits used that organ's
-healthy PNG as the reference, locking its posterior view, anatomy, composition,
-lighting, silhouette and placement:
+Each calm organ was generated separately using concept C as the style reference.
+Two separate image edits then used that organ's calm PNG and concept C, preserving
+its orientation, silhouette, composition and placement:
 
-- `calm`: healthy tissue, subtle moist highlights and real surface detail.
-- `strain`: congested darker/duskier tissue, fuller tense surfaces and slightly
-  stronger gloss. The game supplies the large animated inflation.
-- `dead`: one localized irregular laceration with parted tissue edges and a small
-  dark-red blood trace confined to the tear. The organ stays in one piece: no
-  splatter, blood pools, intestinal contents or flying tissue.
+- `calm`: translucent dark teal/mint volume, luminous mint-white rim, sparse
+  triangular facets and fine horizontal film scanlines.
+- `strain`: intact, slightly fuller coral warning hologram with amber-white rim
+  glow. The existing runtime still supplies the large animated inflation.
+- `dead`: separated mint crystal remnants with wide transparent gaps and a trace
+  of coral along broken edges, plus small light fragments. No intact organ behind
+  the chunks and no tissue wound.
 
-Shared generation prompt: “Scientific-educational transparent medical game
-texture, realistic three-dimensional anatomy-atlas illustration, posterior view,
-entire organ centered, natural slightly cooled/desaturated organ colours, soft
-neutral lighting, fine anatomical surface detail, genuine transparent background.
-No face, eyes, mouth, sweat, text, symbols, sticker outline, glow or cartoon
-elements.” Organ-specific anatomy is listed above. The state edits preserve the
-reference and change only the condition described above.
+Shared calm prompt: “One standalone calm game organ sprite, posterior view,
+patient right = image right. Neon film hologram: smooth translucent dark teal
+volume, luminous mint/ivory silhouette rim, sparse triangular facets and delicate
+horizontal scanlines. Entire organ centered, superior end at top, true transparent
+background and clear padding. No flesh colours, body, other organs, platform,
+text, labels, faces, blood, stars or stickers.” Organ-specific anatomy is listed
+above. Strain edits replace mint with coral warning light and preserve the intact
+shape. Dead edits remove about 45% of the volume into transparent gaps, leaving
+5–7 separated angular mint chunks and a few small fragments within the original
+framing. The full prompt set and generated PNG sources are kept in
+`scratchpad/codex18/` alongside the contact sheet.
 
-Generated RGBA silhouettes are cropped by alpha, registered to the healthy organ's
-footprint and placed on the same padded canvas for all three states. Final WebP
-canvases are 560 px high, encoded at quality 90 with alpha preserved. Canvas and
-visible footprint dimensions match within each triplet, preventing size jumps
-when maps switch. Cropping/resampling/encoding do not repaint the generated art.
+Alpha cropping, registration, resampling and WebP encoding preserve the generated
+art rather than repainting it procedurally. Final canvases retain their original
+dimensions (560 px high, 346–1010 px wide), WebP quality 90 and transparent alpha.
+Each triplet uses the same centered footprint to avoid a size jump at map swaps.
 
-## Runtime
+## Runtime and performance
 
-`src/back/xray.js` uses the existing anatomical GLB landmarks with explicit
-posterior side signs and matching side labels. All 27 maps are uploaded during
-loading with `renderer.initTexture`, before the shot. Non-hit organs remain faded.
-The existing `ORGAN_BEAT` controls strain → inflation → staggered rupture, followed
-by the dead map, a brief cream flash, one coral ring and the existing screen shake.
-The former word sprite, coral star and shell fragments are removed. The shared
-spine X-ray engine, fracture marker, timing, camera flow and hit logic are retained.
+`src/back/xray.js` retains the GLB landmarks, explicit posterior side signs and
+existing labels. Non-hit organs use a faded pale mint tint. Rupture emits 18
+instanced, faceted coral/mint light shards and needle sparks per organ with
+additive blending; no particle textures or extra lights are used. The two
+shockwaves are coral and mint.
+
+All 27 maps are uploaded with `renderer.initTexture` during loading. Existing
+effect/tag textures are also initialized before the shot. Instance colours and
+geometry attributes are populated before the existing loading-time render warmup
+in `src/back/scene.js`, so no new shader variant or texture is introduced by a
+burst. A browser performance probe is still required to measure this on-device.
+
+`ORGAN_BEAT`, inflation, hit stop, flash, both shockwave timings, particle lifetime,
+shake, camera, fracture marker and hit logic are unchanged. The shared
+`src/scene/xray.js` is untouched.

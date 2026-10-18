@@ -13,11 +13,10 @@ import {createClinicXray} from 'virtual:clinic-xray';
 const clamp=v=>Math.max(0,Math.min(1,v));
 const smooth=(a,b,v)=>{const t=clamp((v-a)/(b-a));return t*t*(3-2*t);};
 
-// Posterior medical illustrations; the GLB supplies anatomical landmarks only.
+// Posterior neon-film holograms; the GLB supplies anatomical landmarks only.
 // In the prone overhead shot world +x is the patient's and viewer's right.
 const INFLATE=.4,HIT_STOP=.05;
-// Muted fruit-jelly colours, independent of the replaceable organ paintings.
-const JELLY={lungL:0xd998ba,lungR:0xd998ba,heart:0xd990ac,liver:0xc797ce,stomach:0xe6b578,spleen:0xb7a0d5,kidneyL:0xca9ebd,kidneyR:0xca9ebd,bowel:0xe8bd91};
+const SHARD_COLORS=[0xff795b,0x83ffe0,0xffb695];
 const ORGAN_ART=['lungL','lungR','heart','liver','stomach','spleen','kidneyL','kidneyR','bowel'];
 const ART_HEIGHT={lungL:.29,lungR:.29,heart:.135,liver:.215,stomach:.18,spleen:.15,kidneyL:.18,kidneyR:.18,bowel:.27};
 async function loadOrganArt(){
@@ -72,7 +71,7 @@ function filmSprite(type){
   const canvas=document.createElement('canvas');canvas.width=canvas.height=128;const g=canvas.getContext('2d');
   g.strokeStyle='#ff7a59';g.fillStyle='#ff7a59';g.lineWidth=type==='ring'?5:4;
   if(type==='ring'||type==='shock'){
-    if(type==='shock'){g.strokeStyle='#f4d7b9';g.lineWidth=12;}
+    if(type==='shock'){g.strokeStyle='#e0fff5';g.lineWidth=12;}
     g.beginPath();g.arc(64,64,type==='shock'?52:56,0,Math.PI*2);g.stroke();
   }
   else if(type==='crack'){
@@ -95,16 +94,16 @@ function createOrgans(source,scene,art){
   const l5=source.scene.getObjectByName('ref_L5').getWorldPosition(new THREE.Vector3());
   const scale=.6/(t1.y-l5.y);
   const entries=[];let hitIds=[],lastAmount=0,lastZoom=0,burstIds=[],swells={},moods={};
-  // One draw call per organ, no particle textures, lights or per-frame allocation.
-  // A rounded bead with a pale cap reads as jelly rather than torn tissue.
-  const beadGeometry=new THREE.SphereGeometry(1,10,6),beadColors=[];
-  const beadPositions=beadGeometry.attributes.position;
-  for(let i=0;i<beadPositions.count;i++){
-    const light=.72+.28*Math.max(0,beadPositions.getY(i)*.55+beadPositions.getZ(i)*.8);
-    beadColors.push(light,light,light);
+  // Faceted light fragments and needle sparks share one instanced draw per organ.
+  // All colours/attributes exist before prewarming: no first-burst shader variant.
+  const shardGeometry=new THREE.OctahedronGeometry(1,0),shardColors=[];
+  const shardPositions=shardGeometry.attributes.position;
+  for(let i=0;i<shardPositions.count;i++){
+    const light=[1,.52,.8,.66][Math.floor(i/3)%4];
+    shardColors.push(light,light,light);
   }
-  beadGeometry.setAttribute('color',new THREE.Float32BufferAttribute(beadColors,3));
-  const beadPose=new THREE.Object3D();
+  shardGeometry.setAttribute('color',new THREE.Float32BufferAttribute(shardColors,3));
+  const shardPose=new THREE.Object3D();
   const spineOnTop=new THREE.Mesh(new THREE.PlaneGeometry(1e-4,1e-4),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,depthTest:false}));
   spineOnTop.renderOrder=998.99;spineOnTop.frustumCulled=false;spineOnTop.onBeforeRender=r=>r.clearDepth();group.add(spineOnTop);
   for(const id of ORGAN_ART){
@@ -121,13 +120,17 @@ function createOrgans(source,scene,art){
     const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map,transparent:true,depthWrite:false,depthTest:false,toneMapped:false}));
     sprite.name=id+'_painted';sprite.frustumCulled=false;group.add(sprite);
     const ring=filmSprite('shock'),echo=filmSprite('shock'),flash=filmSprite('flash');
-    const beads=new THREE.InstancedMesh(beadGeometry,new THREE.MeshBasicMaterial({color:JELLY[id],vertexColors:true,transparent:true,depthWrite:false,depthTest:false,toneMapped:false}),18);
-    beads.instanceMatrix.setUsage(THREE.DynamicDrawUsage);beads.frustumCulled=false;beads.visible=false;
-    beads.name=id+'_jelly';beads.renderOrder=998.84;beads.position.copy(centre);
-    const tag=organTag(id);group.add(ring,echo,flash,beads,tag.sprite,tag.line);
+    const shards=new THREE.InstancedMesh(shardGeometry,new THREE.MeshBasicMaterial({vertexColors:true,blending:THREE.AdditiveBlending,transparent:true,depthWrite:false,depthTest:false,toneMapped:false}),18);
+    for(let i=0;i<shards.count;i++)shards.setColorAt(i,new THREE.Color(SHARD_COLORS[i%SHARD_COLORS.length]).convertSRGBToLinear());
+    shards.instanceColor.needsUpdate=true;
+    shards.instanceMatrix.setUsage(THREE.DynamicDrawUsage);shards.frustumCulled=false;shards.visible=false;
+    shards.name=id+'_light_shards';shards.renderOrder=998.84;shards.position.copy(centre);
+    ring.material.color.setHex(0xff9478);echo.material.color.setHex(0x83ffe0);
+    ring.material.blending=echo.material.blending=THREE.AdditiveBlending;
+    const tag=organTag(id);group.add(ring,echo,flash,shards,tag.sprite,tag.line);
     flash.renderOrder=998.8;ring.renderOrder=echo.renderOrder=998.82;
     tag.sprite.renderOrder=998.9;tag.line.renderOrder=998.88;
-    entries.push({id,sprite,tag,side,centre,size,ring,echo,flash,beads,hit:false,burst:false});
+    entries.push({id,sprite,tag,side,centre,size,ring,echo,flash,shards,hit:false,burst:false});
   }
   // Both markers are back-only; the shared clinic engine stays unchanged.
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
@@ -154,8 +157,8 @@ function createOrgans(source,scene,art){
       const mood=e.hit&&release>0?'dead':e.hit&&age>=0?'strain':'calm';
       if(e.hit){moods[e.id]=mood;swells[e.id]=+swell.toFixed(3);}
       e.sprite.material.map=art[e.id][e.hit?mood:'calm'];
-      e.sprite.material.color.set(e.hit?0xffffff:0x47977f);
-      e.sprite.material.opacity=amount*(e.hit?1:.105);
+      e.sprite.material.color.set(e.hit?0xffffff:0xa7f6df);
+      e.sprite.material.opacity=amount*(e.hit?1:.16);
       e.sprite.material.rotation=jitter+(e.burst?.16*recoil:0);
       e.sprite.renderOrder=e.hit?998.45+ORGAN_ART.indexOf(e.id)*.009:998.08;
       e.sprite.position.copy(e.centre);
@@ -171,20 +174,21 @@ function createOrgans(source,scene,art){
       e.echo.visible=fx&&echoAge>=0&&echoAge<.44;e.echo.position.copy(e.centre);
       e.echo.scale.setScalar(diameter*(.65+1.25*smooth(0,.44,echoAge)));
       e.echo.material.opacity=amount*.5*(1-smooth(0,.44,echoAge));
-      e.beads.visible=fx&&release>0&&release<.85;
-      if(e.beads.visible){
-        for(let i=0;i<e.beads.count;i++){
+      e.shards.visible=fx&&release>0&&release<.85;
+      if(e.shards.visible){
+        for(let i=0;i<e.shards.count;i++){
           // Even angular coverage with deterministic variation; leave game RNG alone.
           const angle=i*2.399963,dx=Math.cos(angle),dy=Math.sin(angle),speed=diameter*(.8+(i%5)*.15);
           const travel=speed*release,radius=diameter*(.025+(i%3)*.009)*(1-smooth(.45,.85,release));
-          beadPose.position.set(dx*(diameter*.18+travel),dy*(diameter*.18+travel)-diameter*.9*release*release,.002+(i%3)*.001);
-          beadPose.rotation.set(0,0,angle);
+          shardPose.position.set(dx*(diameter*.18+travel),dy*(diameter*.18+travel)-diameter*.9*release*release,.002+(i%3)*.001);
+          const spark=i%3===0;
+          shardPose.rotation.set(spark?0:release*(i%2?5:-4),spark?0:i*.7+release*3,angle);
           const stretch=1+1.6*Math.exp(-release*8);
-          beadPose.scale.set(radius*stretch,radius/stretch,radius*.6);beadPose.updateMatrix();
-          e.beads.setMatrixAt(i,beadPose.matrix);
+          shardPose.scale.set(radius*stretch*(spark?2.2:1),radius/stretch*(spark?.15:.7),radius*(spark?.12:.5));shardPose.updateMatrix();
+          e.shards.setMatrixAt(i,shardPose.matrix);
         }
-        e.beads.instanceMatrix.needsUpdate=true;
-        e.beads.material.opacity=amount*(1-smooth(.5,.85,release));
+        e.shards.instanceMatrix.needsUpdate=true;
+        e.shards.material.opacity=amount*(1-smooth(.5,.85,release));
       }
       e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible&&e.hit;
       e.tag.sprite.material.opacity=amount;e.tag.line.material.opacity=amount*(e.burst?.65:.25);
@@ -218,7 +222,7 @@ function createOrgans(source,scene,art){
     const unproject=(x,y,z)=>new THREE.Vector3(x/width*2-1,1-y/height*2,z).unproject(camera);
     const pixelAt=p=>2*(-p.clone().applyMatrix4(camera.matrixWorldInverse).z)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/height;
     if(!group.visible)return;
-    for(const e of entries)if(e.beads.visible)e.beads.quaternion.copy(camera.quaternion);
+    for(const e of entries)if(e.shards.visible)e.shards.quaternion.copy(camera.quaternion);
     const bounds={left:width,right:0},occupied=[];
     const shown=new Set(entries.filter(e=>e.hit));
     for(const e of entries)if(!shown.has(e))e.tag.sprite.visible=e.tag.line.visible=false;
