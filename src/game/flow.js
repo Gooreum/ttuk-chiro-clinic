@@ -17,6 +17,7 @@ import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, r
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
+import { mountMonetize } from "../ui/monetize.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite.
@@ -449,7 +450,24 @@ function finish(){
   renderClinicLinks($("#resultClinics"), clinicNow());
   $("#result").hidden = false;
   if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
+  monetize.showResult({ endedBad: S.ambulance || S.pain >= 3, used: S.continued });
 }
+/* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
+   comes back from the start with the pain count cleared. Their points so far come off (they are earned again). */
+function continueRun(){
+  if(S.phase !== "result") return;
+  const r = S.results.pop();
+  if(r) S.score -= r.pts || 0;
+  hurtTok++; S.continued = true;
+  S.pain = 0; S.streak = 0; S.ambulance = false;
+  stopSiren(); $("#app").classList.remove("siren");
+  $("#score").textContent = String(S.score); renderPain(); renderCombo();
+  $("#result").hidden = true;
+  S.phase = "play"; setAmbient();
+  setModeText();
+  loadPatient();
+}
+const monetize = mountMonetize({ continueBtn: $("#continueAd"), buyBtn: $("#buyAdFree"), onContinue: continueRun });
 
 let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
@@ -475,7 +493,7 @@ async function start(game){
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.game = game === "towel" ? "towel" : "clinic";
   S.patients = makePatients();
-  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; closeChart();
+  S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
   $("#intro").hidden = true; $("#result").hidden = true;
