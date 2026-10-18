@@ -44,3 +44,5 @@ The following derivatives are shared by the clinic, towel and back modes. The or
 
 손가락 자세와 손목 꺾임은 실행 중 코드(`src/scene/realAssets.js`)가 뼈를 돌려 만든다.
 환자 머리는 `scripts/assets/`의 Blender 스크립트로 다시 만들 수 있다. 원본 내보내기(약 9MB, 2048² PNG)는 저장소에 넣지 않고, 텍스처를 줄이고(피부 1024², 머리카락·눈썹 512², 눈 256², WebP) meshopt로 압축한 사본만 넣었다.
+
+앱인토스 콘솔 아이콘 `toss/icon-600.png`(600×600)은 직접 만든 것이다. 글자는 Black Han Sans(SIL OFL 1.1)로, 헤드리스 크로미움에서 HTML을 렌더해 캡처했다.
