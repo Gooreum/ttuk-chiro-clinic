@@ -45,6 +45,9 @@ function injuryLabel(tier,height,step,organsShown=true){const seg=pressedSegment
 // The bar runs along the spine until 고정 locks the height, then left/right of it (user, 2026-10-18).
 const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{height:position,side:.5,locked:false};
 const axisTargets=()=>S.locked?S.targets:S.heights;
+// +1 when a bigger height sits lower on screen. Front-down tilt and an upward drag both walk the hands up the screen.
+function heightDown(){if(!scene)return 1;const a=scene.projectPosition(.5,.2),b=scene.projectPosition(.5,.8);return Math.sign(b.y-a.y)||1;}
+const heightOk=()=>Math.abs(S.position-S.heights[S.step])<=POSITION_TOL;
 function setLocked(on){
   if(S.phase!=='play'||on===S.locked)return;
   if(on){S.lockHeight=S.position;S.position=.5;}else S.position=S.lockHeight;
@@ -73,12 +76,14 @@ function sync(){
   app.dataset.input=S.control;
   if(S.phase!=='paused')clinicAudio.setAmbient();
   $('backScore').textContent=String(S.score);
-  $('backLock').textContent=S.locked?'높이 다시':'고정';$('backLock').setAttribute('aria-pressed',String(S.locked));
+  $('backLock').hidden=S.locked;$('backRelock').hidden=!S.locked;
   const el=$('backMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 3회`);
   [...el.querySelectorAll('i')].forEach((e,i)=>e.classList.toggle('on',i<S.mistakes));
   [...$('backDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.step&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('backZone').textContent=names[S.step]+' '+(S.step+1)+'/3';
-  $('backMode').innerHTML=S.control==='motion'
+  $('backMode').innerHTML=!S.locked
+    ?(S.control==='motion'?'<b>앞뒤로 기울여</b> 높이 · <b>높이 고정</b>':'<b>위아래 드래그</b>로 높이 · <b>높이 고정</b> · 스페이스')
+    :S.control==='motion'
     ?'<b>좌우로 기울여</b> 위치 · <b>앞쪽 낮춰</b> 힘 · <b>앞뒤로 툭</b>'
     :'<b>드래그</b>로 위치·힘 · <b>휙 튕겨서</b> 누르기 · 스페이스';
   press.disabled=S.phase!=='play';
@@ -132,7 +137,7 @@ function applyPress(position,pressure,force=1){
 }
 // Touch follows the neck mode's pointer rules: slow drags aim (sideways = hands along the back, up = more weight),
 // a fast flick released within 140 ms is the shove, its speed the force.
-function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&!S.pending&&performance.now()>=S.prepUntil){ensureSound();applyPress(S.position,S.pressure,force);}}
+function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&S.locked&&!S.pending&&performance.now()>=S.prepUntil){ensureSound();applyPress(S.position,S.pressure,force);}}
 function finish(){
   S.phase='result';cancelInput();$('backControls').hidden=true;$('backMotionNotice').hidden=true;
   const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=complete&&S.score>best;
@@ -202,17 +207,19 @@ canvas.addEventListener('pointermove',e=>{
   if(speed>1.6){swipePeak=speed;return;}
   if(speed<.6)swipePeak=0;
   const g=T.sens/1.5;
+  if(!S.locked){setPosition(S.position+heightDown()*dy*.0025*g);return;}
   setPosition(S.position+(scene?.screenAxis??1)*dx*.0025*g);
   S.pressure=Math.max(0,Math.min(1.35,S.pressure-dy*.004*g*T.bend));
 });
 canvas.addEventListener('pointerup',()=>{if(drag&&swipePeak>1.6&&performance.now()-drag.t<140)touchShove(swipePeak/1.6);drag=null;swipePeak=0;});
 canvas.addEventListener('pointercancel',()=>{drag=null;swipePeak=0;});
-$('backLock').addEventListener('click',()=>setLocked(!S.locked));
+$('backLock').addEventListener('click',()=>setLocked(true));$('backRelock').addEventListener('click',()=>setLocked(false));
 press.addEventListener('click',()=>{motion.recenter();S.motionReady=false;S.position=.5;S.pressure=.12;S.prepUntil=performance.now()+700;sync();});
 addEventListener('keydown',e=>{
   if(e.code==='Escape'){if(!$('backPaused').hidden)closeTune();else openTune();return;}
   if(S.phase!=='play'||S.control!=='touch')return;
-  if(e.code==='Space'){e.preventDefault();if(!e.repeat)touchShove(1);}
+  if(e.code==='Space'){e.preventDefault();if(!e.repeat){if(S.locked)touchShove(1);else setLocked(true);}}
+  if(!S.locked){if(['ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();setPosition(S.position+heightDown()*(e.code==='ArrowUp'?-.02:.02));}return;}
   if(['ArrowLeft','ArrowRight'].includes(e.code)){e.preventDefault();setPosition(S.position+(scene?.screenAxis??1)*(e.code==='ArrowLeft'?-.02:.02));}
   if(['ArrowUp','ArrowDown'].includes(e.code)){e.preventDefault();S.pressure=Math.max(0,Math.min(1.35,S.pressure+(e.code==='ArrowUp'?.04:-.04)));}
 });
@@ -238,7 +245,7 @@ addEventListener('devicemotion',e=>{
   if(S.control!=='motion'||!S.motionEnabled||!['play','anim'].includes(S.phase))return;
   const now=performance.now(),pa=physAngle();
   const active=S.phase==='play',canPush=active&&!S.pending&&now>=S.prepUntil;
-  const sample=motion.sample(e,now,(pa+viewRot)*Math.PI/180,{active,canPush,step:S.step,sens:T.sens,bend:T.bend,heavy:T.heavy,jerk:T.jerk,flick:T.flick,targets:axisTargets(),axis:scene.screenAxis});
+  const sample=motion.sample(e,now,(pa+viewRot)*Math.PI/180,{active,canPush,step:S.step,sens:T.sens,bend:T.bend,heavy:T.heavy,jerk:T.jerk,flick:T.flick,targets:axisTargets(),axis:scene.screenAxis,vertical:!S.locked,vaxis:-heightDown()});
   if(!sample)return;
   if(motionDebug){$('backDebug').hidden=false;$('backDebug').textContent=`툭 ${sample.force.toFixed(2)} · 앞 ${sample.forward.toFixed(1)} / 뒤 ${sample.reverse.toFixed(1)} · 중력부호 ${sample.sign} / 선가속도 ${sample.linearSign} · 지난 힘 ${S.force.toFixed(2)}\n화면각 ${pa}/${viewRot} · 롤 ${sample.lr?.toFixed(1)}° · 중립 ${sample.neutral?.toFixed(1)}° · 위치 ${S.position.toFixed(2)} · 준비 ${sample.ready}`;}
   S.lastSample=now;S.sensorStatus='connected';const becameReady=!S.motionReady&&sample.ready;S.motionReady=sample.ready;
@@ -271,6 +278,13 @@ function drawHud(pressure,br){
   if(S.phase!=='play')return;
   const R=clamp(height*.19,62,Math.min(width,height)*.25),cx=width*.5,cy=height*.55;
   const h=clamp(R*1.7,110,height*.62),x=Math.min(cx+Math.max(R*1.7,136),width-76),top=clamp(cy-h*.55,82,height-h-28);
+  if(!S.locked){
+    // Height step: only the height instrument; the push gauge and side bar wait for the lock (user, 2026-10-18).
+    const up=v=>heightDown()>0?1-v:v,t=S.heights[S.step],a=up(t-POSITION_TOL),b=up(t+POSITION_TOL);
+    drawVGauge(ctx,{x,top,h,title:'높이',value:up(S.position),band:[Math.min(a,b),Math.max(a,b)],fill:false,hot:heightOk(),colors:{coral:'#7fd1b9'}});
+    drawHint(ctx,{x:cx,y:height-104,text:S.cue,hot:S.cueStyle==='bad'});
+    return;
+  }
   const near=backDistance(S.position,S.step,pressure,axisTargets())<=1;
   drawVGauge(ctx,{x,top,h,title:'누르는 힘',value:pressure/1.35,band:[SWEET.min/1.35,SWEET.max/1.35],limit:SWEET.max/1.35,hot:near||pressure>SWEET.max});
   const mR=boxIn($('backMode')),zR=boxIn(press),gapL=mR.w?mR.right:20,gapR=zR.w?zR.left:width-20;
@@ -308,14 +322,18 @@ function frame(now){
       const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
       if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
     }
-    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.shotAim.height,S.step,shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    // One stamp in one place once organs pop: big '간 파열!', small fracture line under it (user, 2026-10-18).
+    const burstNow=!face&&S.tier>0&&S.organs.length>0&&shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay;
+    $('backCutLabel').classList.toggle('burst',burstNow);
+    if(burstNow){const html=`${organLabel(S.organs)} 파열!<small>${injuryLabel(S.tier,S.shotAim.height,S.step,false)}</small>`;if($('backCutLabel').innerHTML!==html)$('backCutLabel').innerHTML=html;}
+    else $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.shotAim.height,S.step,false):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
     app.classList.toggle('ambulance',S.tier>0&&shotTime>=timing.sirenAt);
     $('backEmergency').hidden=!(S.tier>0&&shotTime>=timing.sirenAt);
     if(shotTime>timing.end){
-      app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;
+      app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;$('backCutLabel').classList.remove('burst');
       if(S.tier){finish();}
       else if(S.kind==='ok'){
         S.results.push(S.outcome);if(S.results.length===3)finish();
@@ -329,22 +347,24 @@ function frame(now){
   $('backImpact').hidden=!(S.phase==='anim'&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   $('backImpactTail').textContent=S.tier===2?'작!':'적…';$('backImpactTail').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt+.05&&shotTime<therapistStyle(S.force,S.tier).impactAt+.65);
   $('backHurt').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
-  const distance=backDistance(S.position,S.step,pressure,axisTargets()),near=distance<=1;
+  const distance=S.locked?backDistance(S.position,S.step,pressure,axisTargets()):Math.abs(S.position-S.heights[S.step])/POSITION_TOL,near=distance<=1;
   if(S.phase==='play'&&now>=S.prepUntil&&(S.control==='touch'||S.motionReady)){
     if(near&&!wasNear){tone(880,1320,.06,.04);if(navigator.vibrate)navigator.vibrate(35);}
     const close=closenessOf(distance);if(close>.05&&now>nextPulse){if(T.tick)tone(520+520*close,480+480*close,.03,.012);nextPulse=now+560-450*close;}
   }
   wasNear=S.phase==='play'&&near;
+  $('backLock').classList.toggle('ready',S.phase==='play'&&!S.locked&&near);
   if(S.phase==='play'){
     let label;
     if(now<S.prepUntil)label='힘 빼세요. 손을 얹고 있어요…';
     else if(S.control==='motion'&&!S.motionReady)label='폰을 편하게 들고 잠깐 멈춰 주세요';
+    else if(!S.locked)label=near?'좋아요. 이 높이로 고정!':S.control==='motion'?'앞뒤로 기울여 민트 링 높이에 맞춰요':'위아래로 드래그해 민트 링 높이에 맞춰요';
     else if(pressure>SWEET.max)label='너무 깊어요. 폰 앞쪽을 조금 들어 주세요';
     else if(near)label=S.control==='motion'?'그 자리! 폰을 앞이나 뒤로 짧게 툭 밀어요':'그 자리! 화면을 휙 튕겨 툭';
     else if(pressureHint(S.position,S.step,pressure,axisTargets())==='position')label=S.control==='motion'?(S.step===2&&S.painHere===0?'천천히 훑어요. 틱 소리가 빨라지는 자리를 찾아요':(S.locked?'좌우로 기울여 민트 링에 손을 맞춰요':'좌우로 기울여 척추를 따라 민트 링에 맞춰요')):`${names[S.step]} 민트 링에 손을 맞춰 주세요`;
     else if(pressureHint(S.position,S.step,pressure,axisTargets())==='release')label=S.control==='motion'?'조금 깊어요. 폰 앞쪽을 살짝 들어요':'압박을 조금 빼 주세요';
     else label=S.control==='motion'?'폰 앞쪽을 천천히 낮춰 압박을 실어요':'위로 드래그해 힘을 더 실어요';
-    cue(label,pressure>SWEET.max?'bad':near?'good':'');
+    cue(label,S.locked&&pressure>SWEET.max?'bad':near?'good':'');
     if(S.control==='motion'){
       $('backMotionStatus').textContent=S.sensorStatus==='denied'?'센서가 꺼져 있어요. 다시 연결해 주세요.':S.lastSample&&now-S.lastSample>1800?'센서 연결이 끊겼어요. 자세를 다시 잡아 주세요.':!S.lastSample&&now-S.breathAt>2200?'동작 센서를 기다리고 있어요. Safari에서 센서를 연결해 주세요.':'폰을 가로로 편하게 들고 잠깐 멈춰 주세요.';
       $('backMotionNotice').hidden=!(S.sensorStatus==='denied'||S.lastSample&&now-S.lastSample>1800||!S.lastSample&&now-S.breathAt>2200);

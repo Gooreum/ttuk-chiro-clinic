@@ -190,13 +190,15 @@ function createOrgans(source,scene,art){
         e.shards.instanceMatrix.needsUpdate=true;
         e.shards.material.opacity=amount*(1-smooth(.5,.85,release));
       }
-      e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=group.visible&&e.hit;
-      e.tag.sprite.material.opacity=amount;e.tag.line.material.opacity=amount*(e.burst?.65:.25);
+      // No per-organ captions: they chased the swelling outline. The burst reads from one DOM stamp (user, 2026-10-18).
+      e.tag.setHot(e.burst);e.tag.sprite.visible=e.tag.line.visible=false;
     }
     markerPos.copy(spine.position);
     markerTag.sprite.visible=markerTag.line.visible=false;
     markerTag=markerTags[spine.seg-1];
     marker.visible=markerTag.sprite.visible=markerTag.line.visible=spine.on&&zoom>0&&spine.amount>.001;
+    // Once an organ pops the top stamp names the fracture too; a second caption hopping around the spine is noise.
+    if(burstIds.length)markerTag.sprite.visible=markerTag.line.visible=false;
     marker.material.opacity=amount*(.75+.25*Math.sin(fractureTime*9));marker.position.copy(markerPos);
     markerTag.sprite.material.opacity=amount;markerTag.line.material.opacity=amount;
     // Side close-up first (small crack), then it grows a little in the organ view.
@@ -223,39 +225,7 @@ function createOrgans(source,scene,art){
     const pixelAt=p=>2*(-p.clone().applyMatrix4(camera.matrixWorldInverse).z)*Math.tan(THREE.MathUtils.degToRad(camera.fov/2))/height;
     if(!group.visible)return;
     for(const e of entries)if(e.shards.visible)e.shards.quaternion.copy(camera.quaternion);
-    const bounds={left:width,right:0},occupied=[];
-    const shown=new Set(entries.filter(e=>e.hit));
-    for(const e of entries)if(!shown.has(e))e.tag.sprite.visible=e.tag.line.visible=false;
-    for(const e of entries){
-
-      if(shown.has(e))for(const x of [e.centre.x-e.size.x*.64,e.centre.x+e.size.x*.64])for(const z of [e.centre.z-e.size.z*.64,e.centre.z+e.size.z*.64]){
-        const p=project(new THREE.Vector3(x,e.centre.y,z));bounds.left=Math.min(bounds.left,p.x);bounds.right=Math.max(bounds.right,p.x);
-      }
-    }
-    for(const side of [-1,1]){
-      // The midline bowel follows the pressed side for its label only.
-      const tagSide=e=>e.side||entries.find(o=>o.hit&&o.side)?.side||-1;
-      const tags=entries.filter(e=>tagSide(e)===side&&shown.has(e)).map(e=>{const anchor=e.centre.clone();anchor.x+=side*e.size.x*.32;return {e,anchor,p:project(anchor)};}).sort((a,b)=>a.p.y-b.p.y);
-      const top=Math.min(105,height*.25),bottom=height-24;
-      // Use the actual mixed 24/30px heights; all five left-side labels fit a phone.
-      for(let i=0;i<tags.length;i++){
-        const half=tags[i].e.tag.height/2,prev=i?tags[i-1]:null;
-        tags[i].y=Math.max(top+half,Math.min(bottom-half,tags[i].p.y),prev?prev.y+(prev.e.tag.height+tags[i].e.tag.height)/2+8:0);
-      }
-      if(tags.length&&tags.at(-1).y+tags.at(-1).e.tag.height/2>bottom){
-        tags.at(-1).y=bottom-tags.at(-1).e.tag.height/2;
-        for(let i=tags.length-2;i>=0;i--)tags[i].y=Math.min(tags[i].y,tags[i+1].y-(tags[i].e.tag.height+tags[i+1].e.tag.height)/2-8);
-      }
-      for(const {e,anchor,p,y} of tags){
-        const tag=e.tag,half=tag.width/2;
-        const x=THREE.MathUtils.clamp((side<0?bounds.left:bounds.right)+side*(half+24),half+12,width-half-12);
-        tag.sprite.position.copy(unproject(x,y,p.z));const pixel=pixelAt(tag.sprite.position);
-        tag.sprite.scale.set(tag.width*pixel,tag.height*pixel,1);
-        occupied.push({left:x-half-6,right:x+half+6,top:y-tag.height/2-6,bottom:y+tag.height/2+6});
-        const points=tag.line.geometry.attributes.position;
-        [anchor,unproject(x-side*(half+10),y,p.z),unproject(x-side*half,y,p.z)].forEach((v,i)=>points.setXYZ(i,v.x,v.y,v.z));points.needsUpdate=true;
-      }
-    }
+    const occupied=[];
     if(marker.visible){
       const p=project(markerPos),pixel=pixelAt(markerPos);marker.scale.setScalar(46*pixel);
       const pill=document.getElementById('backCutLabel');
