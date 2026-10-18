@@ -56,3 +56,8 @@
 
 @media(prefers-reduced-motion:reduce){#backApp,#backApp *{transition:none!important;animation:none!important}}
 .lock-btn[hidden],.relock-btn[hidden]{display:none}
+.cut-label.burst{top:58px;padding:8px 24px 9px;background:var(--coral);border:3px solid #f4efe4;border-radius:14px;color:#f4efe4;
+  font:400 clamp(26px,6.5cqw,38px)/1.05 var(--display);text-align:center;white-space:nowrap;
+  box-shadow:0 0 0 5px #ff7a5950,0 0 40px #ff7a59aa,0 12px 28px #0f231fa0;animation:burstStamp .34s cubic-bezier(.2,1.7,.4,1) both}
+.cut-label.burst small{display:block;margin-top:3px;font:700 11px var(--body);letter-spacing:.04em;opacity:.88}
+@keyframes burstStamp{from{transform:translateX(-50%) scale(2.1) rotate(-8deg);opacity:0}to{transform:translateX(-50%) scale(1) rotate(-2deg);opacity:1}}

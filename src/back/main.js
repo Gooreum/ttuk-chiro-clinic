@@ -322,14 +322,18 @@ function frame(now){
       const text=speechFor(S.kind,S.tier,shotTime-timing.faceAt);
       if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}
     }
-    $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.shotAim.height,S.step,shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
+    // One stamp in one place once organs pop: big '간 파열!', small fracture line under it (user, 2026-10-18).
+    const burstNow=!face&&S.tier>0&&S.organs.length>0&&shotTime>=ORGAN_BEAT.burstAt+style.xrayDelay;
+    $('backCutLabel').classList.toggle('burst',burstNow);
+    if(burstNow){const html=`${organLabel(S.organs)} 파열!<small>${injuryLabel(S.tier,S.shotAim.height,S.step,false)}</small>`;if($('backCutLabel').innerHTML!==html)$('backCutLabel').innerHTML=html;}
+    else $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.shotAim.height,S.step,false):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
     app.classList.toggle('ambulance',S.tier>0&&shotTime>=timing.sirenAt);
     $('backEmergency').hidden=!(S.tier>0&&shotTime>=timing.sirenAt);
     if(shotTime>timing.end){
-      app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;
+      app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;$('backCutLabel').classList.remove('burst');
       if(S.tier){finish();}
       else if(S.kind==='ok'){
         S.results.push(S.outcome);if(S.results.length===3)finish();
