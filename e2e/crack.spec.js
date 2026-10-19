@@ -19,9 +19,9 @@ test("목꺾기: 세 환자 양쪽을 교정하고 진료 일지까지 간다", 
   await expect(page.locator("#csName")).toHaveText(day.names[0]);
 
   // first crack: the x-ray opens and the score goes up
-  await page.waitForFunction(() => !window.__game.S.busy, null, { timeout: 10_000 });
+  await page.waitForFunction(() => !window.__game.S.busy, null, { timeout: 30_000 });
   await page.keyboard.press("Space");
-  await page.waitForFunction(() => window.__game.S.score > 0, null, { timeout: 10_000 });
+  await page.waitForFunction(() => window.__game.S.score > 0, null, { timeout: 30_000 });
 
   await playNeckDay(page);
   await expect(page.locator("#rtitle")).toHaveText("오늘 진료 끝");

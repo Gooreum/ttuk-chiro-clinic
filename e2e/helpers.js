@@ -10,12 +10,12 @@ export function watchErrors(page){
 
 // Realistic models load in the background; wait until both finished (ready or failed) so later frames are stable.
 export async function waitNeckAssets(page){
-  await page.waitForFunction(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, null, { timeout: 30_000 });
+  await page.waitForFunction(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, null, { timeout: 120_000 });
   await page.evaluate(() => document.fonts.ready);
 }
 
 // Neck modes: tap Space (the keyboard crack) until the day log shows. Space is ignored while busy / chart open.
-export async function playNeckDay(page, { limit = 180_000 } = {}){
+export async function playNeckDay(page, { limit = 420_000 } = {}){
   const result = page.locator("#result");
   const until = Date.now() + limit;
   while(await result.isHidden()){

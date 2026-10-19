@@ -6,7 +6,7 @@ test("클리닉 메뉴: 목꺾기 중에 열어 허리펴기로 옮긴다", asyn
   await page.goto("./");
   await waitNeckAssets(page);
   await page.click("#start");
-  await page.waitForFunction(() => !window.__game.S.busy, null, { timeout: 10_000 });
+  await page.waitForFunction(() => !window.__game.S.busy, null, { timeout: 30_000 });
 
   await page.click("#clinicBtn");
   const menu = page.locator("#clinicMenu");

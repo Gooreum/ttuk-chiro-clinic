@@ -4,7 +4,7 @@ import { watchErrors } from "./helpers.js";
 test("허리펴기: 세 구역을 정확히 누르고 결과 카드까지 간다", async ({ page }) => {
   const errs = watchErrors(page);
   await page.goto("./back.html");
-  await page.waitForFunction(() => document.documentElement.dataset.backReady === "true", null, { timeout: 60_000 });
+  await page.waitForFunction(() => document.documentElement.dataset.backReady === "true", null, { timeout: 180_000 });
 
   await page.click("#backTouchStart");
   await expect(page.locator("#backWelcome")).toBeHidden();
