@@ -65,7 +65,7 @@ export async function createSideScene(canvas){
   ]);
   const suite = room.scene; suite.position.y = -.022; scene.add(suite);
   suite.traverse(o => { if(o.isMesh){ o.castShadow = o.receiveShadow = true; if(o.material) o.material.envMapIntensity = .16; } });
-  const xray = await createSideXray({scene, renderer});
+  const xray = await createSideXray({renderer, env});
   const roomBackground = scene.background.clone(), xrayBackground = new THREE.Color(0x0f231f);
 
   const fades = [];
@@ -248,7 +248,7 @@ export async function createSideScene(canvas){
     for(const m of fades){ m.opacity = 1 - film*.82; m.depthWrite = film < .05; }
     renderer.toneMappingExposure = 1 - film*.35;
     scene.background.copy(roomBackground).lerp(xrayBackground, film*.85);
-    xray.update({film, side, ...(xrayState || {})});
+    const released = xray.update({film, side, ...(xrayState || {})});
 
     // camera: side L from -x, side R from +x; the roll-over swings over the foot end and pulls back/up
     let az, el = CAM_ELEV, d;
@@ -264,6 +264,7 @@ export async function createSideScene(canvas){
     camera.lookAt(look);
     renderer.render(scene, camera);
     xray.render(renderer);
+    return {released};
   }
 
   function resize(width, height){
@@ -293,8 +294,9 @@ export async function createSideScene(canvas){
   renderer.compile(scene, camera);
   // draw every look once while the start card is up (the film and both sides), so no shader links mid-shot
   for(const side of ["L", "R"]){
-    render({side, film: 0}); render({side, film: 1, shotTime: 1, xrayState: {kind: "ok", time: 1.2}});
-    for(const tier of [0, 1, 2]) render({side, film: 1, shotTime: 1, kind: "over", forceTier: tier, xrayState: {kind: "over", tier, time: 1.5}});
+    render({side, film: 0});
+    for(const time of [1.2, 1.6]) render({side, film: 1, shotTime: 1, xrayState: {kind: "ok", time}});
+    for(const tier of [0, 1, 2]) for(const time of [1.5, 2.6]) render({side, film: 1, shotTime: 1, kind: "over", forceTier: tier, xrayState: {kind: "over", tier, time, force: tier ? 4 : 1}});
     render({side, roll: .8});
   }
   render({side: "L"}); st.shake = 0;

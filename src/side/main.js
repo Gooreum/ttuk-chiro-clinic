@@ -295,7 +295,6 @@ function frame(now){
     // a weak or over-rolled release keeps the full film (the joint sticking / the disc escaping is the joke); a miss flashes
     film=clinicFilm(shotTime,S.kind==='weak'||S.kind==='over'?'ok':S.kind,S.tier,S.force);
     if(film>.05&&!S.xraySoundPlayed){S.xraySoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
-    if(S.kind==='ok'&&shotTime>=1.25&&!S.releaseSoundPlayed){S.releaseSoundPlayed=true;tone(150,55,.2,.16);tone(520,1300,.5,.04,.06);clinicAudio.vib([45,30,70]);}
     if(S.tier&&shotTime>=.8+style.xrayDelay&&!S.fracSoundPlayed){S.fracSoundPlayed=true;if(S.sound)clinicAudio.crunch(S.tier,.6);}
     pressure=S.peakPressure*Math.max(0,1-shotTime/.35);
     // one stamp in one place for a disaster (big line + level/side), the plain caption otherwise (user 2026-10-18 rule)
@@ -341,9 +340,11 @@ function frame(now){
   app.dataset.phase=S.phase;app.dataset.injury=S.tier===2?'break':S.tier===1?'crack':'none';
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
   if(S.debugView){scene.render({now,...S.debugView});return;}
-  if(S.phase!=='paused')scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,
+  if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,
     kind:S.kind,forceTier:S.tier,shotTime,exit,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
-    xrayState:shotTime>=0?{kind:S.kind,tier:S.tier,time:shotTime,height:S.shotAim.height,roll:S.shotAim.side,feedback:S.outcome?.feedback}:null});
+    xrayState:shotTime>=0?{kind:S.kind,tier:S.tier,time:shotTime,height:S.shotAim.height,roll:S.shotAim.side,feedback:S.outcome?.feedback,force:S.force,target:xrayTarget(S.shotAim.height,side())}:null});
+    // the joint clicks home on the film: the neck mode's release crack (src/scene/xray.js updateXray returns true)
+    if(r?.released&&S.phase==='anim'&&!S.releaseSoundPlayed){S.releaseSoundPlayed=true;if(S.sound)clinicAudio.crackSound(2);clinicAudio.vib([45,30,70]);}}
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,side:side(),sideIdx:S.sideIdx,locked:S.locked,position:S.position,results:S.results.length});
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
