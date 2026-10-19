@@ -67,3 +67,19 @@ export function twistProfile(t,{kind='ok',tier=0,hit=.15}={}){
   const shiver=(P.shiver||0)*Math.sin(u*32)*Math.exp(-u*2.5)*up;
   return {pelvis:P.pre+(P.peak-P.pre)*up+(P.end-P.peak)*down+shiver,chest:pick(P.chest),drop:pick(P.drop)};
 }
+// A good thrust's slow-mo and camera punch (2026-10-19 "세개다 반영해봐", the neck mode's crack had them, this one not):
+// the shot clock runs at SLOW.rate for SLOW.len s from the hand landing, then on at full speed (everything after, the
+// x-ray, the line and the end of the side, comes SLOW.len·(1 − rate) later). punchProfile: 0..1, in fast, out slowly.
+export const SLOW={at:.15,len:.45,rate:.35};
+export function slowWarp(t){
+  if(!(t>SLOW.at))return t;
+  return t<SLOW.at+SLOW.len?SLOW.at+(t-SLOW.at)*SLOW.rate:t-SLOW.len*(1-SLOW.rate);
+}
+export function punchProfile(t){
+  if(!(t>=SLOW.at))return 0;
+  const u=t-SLOW.at;
+  return u<.1?ramp(0,.1,u):1-ramp(.1,.7,u);
+}
+// One more go per side after a mild miss (weak / over-rolled / missed, no crack or break): the side is not over yet
+// (2026-10-19, the neck mode retries the same side after a mild miss).
+export const canRetry=(kind,tier,retried)=>kind!=='ok'&&!tier&&!retried;
