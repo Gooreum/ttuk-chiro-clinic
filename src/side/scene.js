@@ -132,16 +132,18 @@ export async function createSideScene(canvas){
   patient.position.z = ther.position.z = BED_SHIFT;
   const bed = {pad: [pad.min.z, pad.max.z], head: headMin - CROWN + BED_SHIFT, foot: footMax + BED_SHIFT, shift: BED_SHIFT};
   // bind-pose rotations, so the per-frame nudges never accumulate
-  const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), ZAXIS = new THREE.Vector3(0, 0, 1);
-  function worldRotate(bone, angle){
+  const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), ZAXIS = new THREE.Vector3(0, 0, 1), XAXIS = new THREE.Vector3(1, 0, 0), YAXIS = new THREE.Vector3(0, 1, 0);
+  function worldRotate(bone, angle, axis = ZAXIS){
     if(!bone) return;
     bone.parent.getWorldQuaternion(_q2);
-    _q.setFromAxisAngle(ZAXIS, angle);
+    _q.setFromAxisAngle(axis, angle);
     bone.quaternion.premultiply(_q2.clone().invert().multiply(_q).multiply(_q2));
     bone.updateMatrixWorld(true);
   }
 
-  const NUDGE = [pBones.pelvis, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.spine_03, tBones.head].filter(Boolean), nudged = new Map();
+  const LIMBS = ["thigh_l", "thigh_r", "calf_l", "calf_r", "upperarm_l", "upperarm_r"];
+  const NUDGE = [pBones.pelvis, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.spine_03, tBones.head,
+    ...LIMBS.map(n => pBones[n]), ...["upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"].map(n => tBones[n])].filter(Boolean), nudged = new Map();
 
   // ---- the lumbar aim line on the patient's back, from the rig's L4/5 skin marker ----
   const L4 = {L: new THREE.Vector3(...marks.clips.lieL.mark_l4_L), R: new THREE.Vector3(...marks.clips.lieR.mark_l4_R)};
@@ -182,7 +184,7 @@ export async function createSideScene(canvas){
 
   const st = {shake: 0, t: null};
   function render({now = performance.now(), side = "L", roll = null, height = .5, position = .5, locked = false, pressure = 0, impulse = 0,
-    kind = "ok", forceTier = 0, shotTime = -1, exit = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
+    kind = "ok", forceTier = 0, shotTime = -1, exit = null, react = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
     const dt = st.t == null ? 1/60 : Math.min(.1, Math.max(0, (now - st.t)/1000)); st.t = now;
     const f = facing(side), other = side === "L" ? "R" : "L";
     // a paused action does not rewrite its bones every update, so undo last frame's nudges before re-posing
@@ -229,6 +231,34 @@ export async function createSideScene(canvas){
         worldRotate(pBones.head, -f*THREE.MathUtils.degToRad(40*smooth(.3, .6, e)));
         patientRoot.rotation.z = Math.sin(exit.t*18)*.02*(1 - e);
       }
+    }
+    // a hard thrust (core.js overReaction, user 2026-10-19 "환자가 확 돌아가면서 고통스러워 하는 표현이나 의사의 과장된
+    // 표현"): he whips round past the push, rolls, kicks and flails with his head thrown back; the therapist throws his
+    // hands up, leans away shaking his head and hops on the spot
+    if(react && roll == null && !exit){
+      const t = react.t, L = react.level/3, D = THREE.MathUtils.degToRad;
+      const on = smooth(0, .08, t)*(1 - smooth(2.6, 3.6, t));
+      const whip = (1 - Math.exp(-t*14))*(.55 + .45*Math.exp(-t*2.5)*Math.cos(t*17))*on;
+      const fl = Math.sin(t*13), fl2 = Math.sin(t*11 + 1.3), up = f > 0 ? "r" : "l", down = f > 0 ? "l" : "r";
+      worldRotate(pBones.pelvis, -f*D(20 + 50*L)*whip);
+      worldRotate(pBones.spine_02, f*D(10 + 35*L)*whip);
+      worldRotate(pBones["thigh_" + up], -D(25 + 35*L)*on*(.7 + .3*fl), XAXIS);
+      worldRotate(pBones["calf_" + up], D(30*L)*on*fl2, XAXIS);
+      worldRotate(pBones["calf_" + down], D(18*L)*on*fl, XAXIS);
+      worldRotate(pBones.upperarm_l, f*D(35 + 45*L)*on*(.75 + .25*fl));
+      worldRotate(pBones.upperarm_r, f*D(35 + 45*L)*on*(.75 + .25*fl2));
+      worldRotate(pBones.head, f*D(12 + 28*L)*on, YAXIS);
+      // the whole body rolls about its length (round a line along the pad) and jumps off the table once
+      const tilt = -f*D(14*L)*whip, hop = .045*react.level*Math.max(0, Math.sin(Math.PI*clamp01(t/.45)));
+      patientRoot.rotation.z = tilt; patientRoot.position.x += .9*Math.sin(tilt); patientRoot.position.y += .9*(1 - Math.cos(tilt)) + hop;
+      const arms = smooth(.3, .5, t)*(1 - smooth(2.6, 3.4, t));
+      worldRotate(tBones.upperarm_l, -f*D(100 + 20*L)*arms); worldRotate(tBones.upperarm_r, -f*D(100 + 20*L)*arms);
+      worldRotate(tBones.lowerarm_l, -f*D(25)*arms*Math.sin(t*9)); worldRotate(tBones.lowerarm_r, f*D(25)*arms*Math.sin(t*9));
+      worldRotate(tBones.spine_01, -f*D(14 + 10*L)*arms);
+      worldRotate(tBones.head, D(30)*arms*Math.sin(t*18), YAXIS);
+      therRoot.position.x += f*.14*arms;
+      const h = t - .6; if(h > 0 && h < .35) therRoot.position.y += .07*(.5 + .5*L)*Math.sin(Math.PI*h/.35);
+      if(t < .2) st.shake = Math.max(st.shake, .5 + .4*react.level);
     }
     if(shotTime >= 0 && impulse > .6) st.shake = Math.max(st.shake, forceTier === 2 ? 1.2 : forceTier ? .8 : .35);
 
@@ -278,6 +308,13 @@ export async function createSideScene(canvas){
     camera.updateMatrixWorld(); p.project(camera);
     return {x: (p.x + 1)/2*cssW, y: (1 - p.y)/2*cssH};
   }
+  const _bp = new THREE.Vector3();
+  /* a character's bone -> canvas-local CSS pixels (the scream / the therapist's line float there) */
+  function projectBone(who, name){
+    const b = (who === "therapist" ? tBones : pBones)[name]; if(!b) return null;
+    b.getWorldPosition(_bp); camera.updateMatrixWorld(); _bp.project(camera);
+    return {x: (_bp.x + 1)/2*cssW, y: (1 - _bp.y)/2*cssH};
+  }
   function dispose(){
     xray.dispose();
     scene.traverse(o => {
@@ -300,5 +337,5 @@ export async function createSideScene(canvas){
     render({side, roll: .8});
   }
   render({side: "L"}); st.shake = 0;
-  return {screenAxis: 1, bed, render, resize, dispose, projectPosition, renderer, scene, camera};
+  return {screenAxis: 1, bed, render, resize, dispose, projectPosition, projectBone, renderer, scene, camera};
 }

@@ -106,7 +106,7 @@ function applyPress(position,pressure,force=1){
   const now=performance.now(),br=breathState(now,S.breathAt,4.4);
   S.position=position;S.pressure=pressure;S.peakPressure=pressure;S.animAt=now;S.phase='anim';
   S.shotAim=aimAt(position);S.pending={at:now,aim:S.shotAim,pressure,force,exhale:T.breath&&br.exhale,sounded:false};
-  S.xraySoundPlayed=false;S.releaseSoundPlayed=false;S.fracSoundPlayed=false;
+  S.xraySoundPlayed=false;S.releaseSoundPlayed=false;S.fracSoundPlayed=false;S.screamed=false;S.docSaid=false;
   updateImpact();
   if(S.kind==='ok'){impactSound();S.pending.sounded=true;}
   sync();
@@ -286,7 +286,7 @@ function drawHud(pressure,br){
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
   if(S.pending&&now-S.pending.at>=130)settleImpact();
-  let pressure=S.pressure,impulse=0,shotTime=-1,film=0,roll=null;
+  let pressure=S.pressure,impulse=0,shotTime=-1,film=0,roll=null,react=null;
   const br=breathState(now,S.breathAt,4.4);
   if(S.phase==='play'&&br.exhale!==lastExhale){if(lastExhale!==null)domHud.floater(br.exhale?'후우~':'흐읍…',width*.5,height*.42,br.exhale?'breath out':'breath',1700);lastExhale=br.exhale;}
   if(S.phase==='anim'){
@@ -297,6 +297,14 @@ function frame(now){
     if(film>.05&&!S.xraySoundPlayed){S.xraySoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
     if(S.tier&&shotTime>=.8+style.xrayDelay&&!S.fracSoundPlayed){S.fracSoundPlayed=true;if(S.sound)clinicAudio.crunch(S.tier,.6);}
     pressure=S.peakPressure*Math.max(0,1-shotTime/.35);
+    // a hard thrust: the patient screams over his head, then the therapist overacts over his (core.js overReaction)
+    const ov=overReaction({kind:S.kind,tier:S.tier});
+    if(ov){
+      react={level:ov.level,t:shotTime};
+      const at=(who,dy,dx=0)=>{const p=scene.projectBone(who,'head')||{x:width*.5,y:height*.35};return {x:clamp(p.x+dx,110,width-110),y:clamp(p.y+dy,70,height-60)};};
+      if(shotTime>=.12&&!S.screamed){S.screamed=true;const p=at('patient',-115);domHud.floater(ov.scream,p.x,p.y,'scream lv'+ov.level,2200);}
+      if(shotTime>=.5&&!S.docSaid){S.docSaid=true;const p=at('therapist',110,70);domHud.floater(ov.doc,p.x,p.y,'doc',2000);}
+    }
     // one stamp in one place for a disaster (big line + level/side), the plain caption otherwise (user 2026-10-18 rule)
     const lv=lumbarAt(S.shotAim.height),where=`${lv} · ${SIDE_NAME[side()]} ${S.sideIdx+1}/2`,xt=shotTime-(S.tier?.45+style.xrayDelay:.7);
     const big=S.tier===2?`${lv} 골절!`:S.tier?`${lv} 금 갔어요!`:S.kind==='over'?'디스크 탈주!':'';
@@ -315,7 +323,8 @@ function frame(now){
   let exit=null;
   if(S.phase==='leave'){const t=(now-S.leaveAt)/1000;exit=S.exit?{kind:S.exit,t}:null;if(t>(S.exit?2.2:.6))finish(now);}
   if(S.gag&&now>S.gag.until){S.gag=null;$('sideGag').hidden=true;}
-  $('sideImpact').hidden=!(S.phase==='anim'&&shotTime>=0&&shotTime<.6);
+  // a hard thrust already has its stamp and the scream: no third word on top
+  $('sideImpact').hidden=!(S.phase==='anim'&&shotTime>=0&&shotTime<.6&&!react);
   $('sideHurt').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=.1&&shotTime<.6);
   const distance=S.locked?backDistance(S.position,0,pressure,[goal().roll]):Math.abs(S.position-goal().height)/POSITION_TOL,near=distance<=1;
   if(S.phase==='play'&&now>=S.prepUntil&&(S.control==='touch'||S.motionReady)){
@@ -341,7 +350,7 @@ function frame(now){
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
   if(S.debugView){scene.render({now,...S.debugView});return;}
   if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,
-    kind:S.kind,forceTier:S.tier,shotTime,exit,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
+    kind:S.kind,forceTier:S.tier,shotTime,exit,react,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
     xrayState:shotTime>=0?{kind:S.kind,tier:S.tier,time:shotTime,height:S.shotAim.height,roll:S.shotAim.side,feedback:S.outcome?.feedback,force:S.force,target:xrayTarget(S.shotAim.height,side())}:null});
     // the joint clicks home on the film: the neck mode's release crack (src/scene/xray.js updateXray returns true)
     if(r?.released&&S.phase==='anim'&&!S.releaseSoundPlayed){S.releaseSoundPlayed=true;if(S.sound)clinicAudio.crackSound(2);clinicAudio.vib([45,30,70]);}}
