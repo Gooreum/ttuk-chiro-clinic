@@ -52,9 +52,9 @@ describe('side-posture lumbar roll (user 2026-10-19 "이거는 좌우 두번해�
     expect(overReaction({kind:'over',tier:2})).toMatchObject({level:3,scream:'끄아아아악!!!'});
     for(const kind of ['ok','weak','miss'])expect(overReaction({kind})).toBeNull();
   });
-  it('maps the shot onto the clinic x-ray engine: Ln -> seg n+1, the up-side facet',()=>{
-    expect(xrayTarget(.78,'L')).toEqual({name:'side',seg:5,side:-1,xr:'rot'});
+  it('maps the shot onto the clinic x-ray engine: T11, T12 on top, so Ln -> seg n+2, the up-side facet',()=>{
+    expect(xrayTarget(.78,'L')).toEqual({name:'side',seg:6,side:-1,xr:'rot'});
     expect(xrayTarget(.78,'R').side).toBe(1);
-    expect(xrayTarget(0,'L').seg).toBe(2);expect(xrayTarget(1,'L').seg).toBe(6);
+    expect(xrayTarget(0,'L').seg).toBe(3);expect(xrayTarget(1,'L').seg).toBe(7);
   });
 });
