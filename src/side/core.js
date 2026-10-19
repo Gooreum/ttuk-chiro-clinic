@@ -46,8 +46,8 @@ export function overReaction({kind,tier=0}){
   if(kind==='over')return {level:1,scream:'끼야악?!',doc:'어… 어?'};
   return null;
 }
-// The clinic x-ray engine's target for this shot: its slots C2..C6 hold L1..L5 (side/xray.js), so Ln is seg n+1; the
-// worked facet is the up side, the patient's right when he lies on his left (engine side +1 = patient's left).
+// The clinic x-ray engine's target for this shot: its slots C1..C7 hold T11, T12, L1..L5 (side/xray.js), so Ln is seg
+// n+2; the worked facet is the up side, the patient's right when he lies on his left (engine side +1 = patient's left).
 export function xrayTarget(height,side){
-  return {name:'side',seg:Number(lumbarAt(height).slice(1))+1,side:side==='R'?1:-1,xr:'rot'};
+  return {name:'side',seg:Number(lumbarAt(height).slice(1))+2,side:side==='R'?1:-1,xr:'rot'};
 }

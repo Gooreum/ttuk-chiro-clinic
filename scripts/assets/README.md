@@ -453,10 +453,19 @@ Blender pose copy/paste flipped와 양의 루트 회전으로 반전하며 음�
 각 신발 최저 y, 몸통 실측 각도, 고정된 손바닥 피부 정점의 좌표·접촉 오차와 허벅지/환자 무릎 표면 거리를 기록한다.
 손바닥 정점 ID는 IK 전에 고르며 타깃 좌표로 대체하지 않는다.
 `SAVED_BLEND_ACTIONS`, `GLTF_ANIMATIONS`, `REIMPORT_ANIMATIONS`, `REIMPORT_SUPPORT`, `FINAL_GLB`가 보존·내보내기 검증이다.
-최종 캐릭터 각 1,000,000B 이하, 요추 400,000B 이하를 검사한다.
+최종 캐릭터 각 1,000,000B 이하, 요추 900,000B 이하를 검사한다.
 Round 2의 Blender 실행 결과·렌더는 아직 확인하지 않았다. 실제 수치는 다음 호스트 실행 로그로 판단한다.
 
 캐릭터 소스는 기존 MakeHuman/MPFB CC0 시스템 에셋(피부·머리·의상·shoes05)이다.
 요추는 `organs_build.py`와 같은 HTTP Range 방식으로 받는 BodyParts3D 3.0 obj_95의 실제 L1–L5·천골·디스크이며
 © DBCLS, CC BY 4.0이다. `lumbar.json`에 출처, 원점, 본체 중심과 관절 표면 추정점을 기록한다.
 참고 영상/시트는 자세 검토용이며 텍스처나 메시로 복제하지 않는다.
+
+요추 재생성만 실행: `SIDE_ONLY=lumbar bash scripts/assets/side_optimize.sh /private/tmp/side-lumbar-build`.
+`lumbar_build.py --fetch RAW`는 공식 BP3D 영문 목록에서 T11/T12 및 해당 디스크 ID를 해결해
+`RAW/lumbar_parts.json`에 기록한다. L1–S1 디스크 5개는 실제 중심 높이 순으로 배정하고 각 마디 사이인지 검사한다.
+T11–L5·Sacrum은 경추와 같은 Blender +Z 위/-Y 앞/+X 환자 왼쪽 좌표이며, 메타데이터도 이 좌표를 쓴다.
+`lumbar_cord.py`로 척추관을 측정해 conus/cauda equina와 Root_0..6을 추가한 뒤,
+수정하지 않은 `spine_bake.py`(64 samples)의 AO COLOR_0·안정된 부모 노드 규약으로 내보낸다.
+Cord/Root는 AO 음영 대신 중립 흰 COLOR_0를 보존한다. 최종 검사에서 모든 메시 COLOR_0와 노드를 검사한다.
+Blender 실행과 최종 용량/형태 검토는 샌드박스 밖 호스트에서 수행한다.

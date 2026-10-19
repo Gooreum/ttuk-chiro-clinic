@@ -26,6 +26,8 @@ const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x7fd1b9};
 const CAM_ELEV = 40, CAM_AZ = 128, CAM_FOV = 38;
 export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
+const SPINE_DEPTH = .075;                    // skin of the back to the vertebral bodies (m)
+const FILM_DIR = [.35, .8, -.45], FILM_D = .5;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const smooth = (a, b, x) => { const t = clamp01((x - a)/(b - a)); return t*t*(3 - 2*t); };
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
@@ -65,7 +67,7 @@ export async function createSideScene(canvas){
   ]);
   const suite = room.scene; suite.position.y = -.022; scene.add(suite);
   suite.traverse(o => { if(o.isMesh){ o.castShadow = o.receiveShadow = true; if(o.material) o.material.envMapIntensity = .16; } });
-  const xray = await createSideXray({renderer, env});
+  const xray = await createSideXray({scene, camera, env, renderer});
   const roomBackground = scene.background.clone(), xrayBackground = new THREE.Color(0x0f231f);
 
   const fades = [];
@@ -274,11 +276,13 @@ export async function createSideScene(canvas){
       const s = 1 + .08*Math.sin(now/1000*Math.PI*1.6); goalRing.scale.setScalar(s);
     }
 
-    // x-ray film (src/side/xray.js) over the lumbar spine
+    // x-ray film (src/side/xray.js): the neck mode's engine, the lumbar spine inside the patient under the aim, its body
+    // centre a hand's depth in from the skin of the back
     for(const m of fades){ m.opacity = 1 - film*.82; m.depthWrite = film < .05; }
     renderer.toneMappingExposure = 1 - film*.35;
     scene.background.copy(roomBackground).lerp(xrayBackground, film*.85);
-    const released = xray.update({film, side, ...(xrayState || {})});
+    const anchor = spinePoint(side, xrayState?.height ?? height); anchor.x += f*SPINE_DEPTH;
+    const released = xray.update({film, side, anchor, ...(xrayState || {})});
 
     // camera: side L from -x, side R from +x; the roll-over swings over the foot end and pulls back/up
     let az, el = CAM_ELEV, d;
@@ -289,18 +293,23 @@ export async function createSideScene(canvas){
     const dir = camDirAt(az, el);
     camera.position.copy(target).addScaledVector(dir, d);
     const look = target.clone();
+    // the film: the camera comes in close behind the worked side, the spine running across the screen (back/scene.js
+    // filmCamera, the neck mode turning to the side of the neck)
+    if(film > 0){
+      const fc = xray.focus(), fp = fc.clone().addScaledVector(new THREE.Vector3(-f*FILM_DIR[0], FILM_DIR[1], FILM_DIR[2]).normalize(), FILM_D);
+      camera.position.lerp(fp, film); look.lerp(fc, film);
+    }
     st.shake = Math.max(0, st.shake - dt*1.6);
     if(st.shake > 0){ const s = st.shake*st.shake*.012, t = now/1000; camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s; }
     camera.lookAt(look);
     renderer.render(scene, camera);
-    xray.render(renderer);
     return {released};
   }
 
   function resize(width, height){
     cssW = Math.max(1, width|0); cssH = Math.max(1, height|0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-    renderer.setSize(cssW, cssH, false); fitCamera(); xray.resize(cssW, cssH);
+    renderer.setSize(cssW, cssH, false); fitCamera();
   }
   /* aim (height 0..1 along L1..L5, roll position) -> canvas-local CSS pixels on the back */
   function projectPosition(side, height, position = .5, locked = false){
