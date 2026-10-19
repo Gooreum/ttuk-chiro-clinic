@@ -69,7 +69,8 @@ export async function createSideScene(canvas){
   const roomBackground = scene.background.clone(), xrayBackground = new THREE.Color(0x0f231f);
 
   const fades = [];
-  const cloth = {side_jeans: [0x2c4a43, 0x2a3345], side_shirt: [COL.paper, 0xf7f5ef]};
+  // patient jeans in denim blue: the old dark teal vanished into the teal pad (user 2026-10-19 "바지색이 침대색이랑 동일")
+  const cloth = {side_jeans: [0x3d5a99, 0x2a3345], side_shirt: [COL.paper, 0xf7f5ef]};
   function prepare(root, hair){
     const bones = {};
     // every skin of one character binds the same joints: one shared skeleton = one bone-texture upload per frame, not
@@ -113,6 +114,23 @@ export async function createSideScene(canvas){
     a.time = Math.min(t, a.getClip().duration - 1e-4); a.paused = true; mixer.update(0);
     return a;
   }
+  // keep him on the bed (user 2026-10-19 "환자 머리가 침대 밖을 벗어나선 안됨"): slide both characters toward the feet
+  // until the crown clears the pad's head end in every clip, the roll-over included
+  const pad = new THREE.Box3(), _hp = new THREE.Vector3(); suite.updateMatrixWorld(true);
+  suite.traverse(o => { if(o.isMesh && o.material?.name === "suite.leather") pad.expandByObject(o); });
+  let headMin = Infinity, footMax = -Infinity;
+  for(const name of Object.keys(P)){
+    const d = P[name].getClip().duration;
+    for(let i = 0; i <= 12; i++){
+      curP = pose(pMix, P, name, curP, d*i/12); patient.updateMatrixWorld(true);
+      headMin = Math.min(headMin, pBones.head.getWorldPosition(_hp).z);
+      for(const f of ["foot_l", "foot_r", "ball_l", "ball_r"]) if(pBones[f]) footMax = Math.max(footMax, pBones[f].getWorldPosition(_hp).z);
+    }
+  }
+  const CROWN = .22;          // head bone (skull base) to the crown, plus a little pillow room
+  const BED_SHIFT = Math.max(0, pad.min.z + .04 - (headMin - CROWN));
+  patient.position.z = ther.position.z = BED_SHIFT;
+  const bed = {pad: [pad.min.z, pad.max.z], head: headMin - CROWN + BED_SHIFT, foot: footMax + BED_SHIFT, shift: BED_SHIFT};
   // bind-pose rotations, so the per-frame nudges never accumulate
   const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), ZAXIS = new THREE.Vector3(0, 0, 1);
   function worldRotate(bone, angle){
@@ -127,6 +145,7 @@ export async function createSideScene(canvas){
 
   // ---- the lumbar aim line on the patient's back, from the rig's L4/5 skin marker ----
   const L4 = {L: new THREE.Vector3(...marks.clips.lieL.mark_l4_L), R: new THREE.Vector3(...marks.clips.lieR.mark_l4_R)};
+  L4.L.z += BED_SHIFT; L4.R.z += BED_SHIFT;
   const SPINE_Z0 = -.13, SPINE_LEN = .18;      // L1 .. L5 runs this far along z around the L4/5 marker
   const spinePoint = (side, h) => { const p = L4[side].clone(); p.z += SPINE_Z0 + clamp01(h)*SPINE_LEN; p.x -= facing(side)*.035; return p; };
 
@@ -138,8 +157,8 @@ export async function createSideScene(canvas){
 
   // ---- camera: across from the therapist, the mirror for side R; the roll-over swings around the foot end ----
   let cssW = 1, cssH = 1;
-  const FIT = side => [[0, .95, -.42], [0, .88, 1.25], [facing(side)*.07, 1.48, .17], [facing(side)*.45, .95, .42]].map(p => new THREE.Vector3(...p));
-  const target = new THREE.Vector3(0, 1.0, .32);
+  const FIT = side => [[0, .95, -.42], [0, .88, 1.25], [facing(side)*.07, 1.48, .17], [facing(side)*.45, .95, .42]].map(p => new THREE.Vector3(p[0], p[1], p[2] + BED_SHIFT));
+  const target = new THREE.Vector3(0, 1.0, .32 + BED_SHIFT);
   const camDirAt = (az, el) => { const A = THREE.MathUtils.degToRad(az), E = THREE.MathUtils.degToRad(el); return new THREE.Vector3(Math.cos(E)*Math.cos(A), Math.sin(E), Math.cos(E)*Math.sin(A)); };
   const AZ = {L: CAM_AZ, R: 180 - CAM_AZ};
   const dist = {L: 3, R: 3};
@@ -199,9 +218,9 @@ export async function createSideScene(canvas){
     if(exit){
       const e = clamp01(exit.t/1.4);
       if(exit.kind === "spin"){
-        const pivot = new THREE.Vector3(0, 0, .45), turn = Math.PI*4*smooth(0, 1, e)*f;
+        const pivot = new THREE.Vector3(0, 0, .45 + BED_SHIFT), turn = Math.PI*4*smooth(0, 1, e)*f;
         patientRoot.rotation.y = turn;
-        patientRoot.position.copy(pivot).add(new THREE.Vector3(0, 0, -.45).applyAxisAngle(new THREE.Vector3(0, 1, 0), turn));
+        patientRoot.position.copy(pivot).add(pivot.clone().negate().applyAxisAngle(new THREE.Vector3(0, 1, 0), turn));
         patientRoot.position.y += .35*Math.sin(Math.PI*Math.min(1, e*1.2));
       }else if(exit.kind === "twist"){
         therRoot.position.x += f*.6*smooth(0, .3, e);      // the therapist steps back so the wrung-out patient shows
@@ -279,5 +298,5 @@ export async function createSideScene(canvas){
     render({side, roll: .8});
   }
   render({side: "L"}); st.shake = 0;
-  return {screenAxis: 1, render, resize, dispose, projectPosition, renderer, scene, camera};
+  return {screenAxis: 1, bed, render, resize, dispose, projectPosition, renderer, scene, camera};
 }

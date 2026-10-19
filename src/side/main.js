@@ -350,4 +350,4 @@ try{scene=await createSideScene(canvas);resize();S.phase='ready';$('sideStart').
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
 if(import.meta.env.MODE==='shot')window.__sideShot={press:(position,pressure,force)=>applyPress(position,pressure,force),lock:(on=true)=>setLocked(on),aim:p=>{S.position=p;},flip,
-  snapshot:()=>({...S,results:[...S.results]}),view:v=>{S.debugView=v;$('sideWelcome').hidden=!!v;},goal:()=>goal(),project:(h,p,l)=>scene?.projectPosition(side(),h,p,l)};
+  snapshot:()=>({...S,results:[...S.results]}),view:v=>{S.debugView=v;$('sideWelcome').hidden=!!v;},goal:()=>goal(),bed:()=>scene?.bed,project:(h,p,l)=>scene?.projectPosition(side(),h,p,l)};
