@@ -29,3 +29,25 @@ export function balance(results){
   return {bonus:0,label:a.kind==='ok'&&b.kind==='ok'?'양쪽 온도차 있네요':''};
 }
 export const patientTotal=results=>Math.max(0,results.reduce((s,r)=>s+(r.points||0),0)+balance(results).bonus);
+// Sounds at the moment of the thrust (user 2026-10-19 "우두둑 소리도 안나는것 같은데"): every thrust cracks a recorded
+// bone sample, right or wrong, like the towel mode; a wrong one adds its joke sound on top.
+export function thrustSounds({kind,tier=0,perfect=false}){
+  if(tier)return [{fn:'crackSound',n:3},{fn:'crunch',tier}];
+  if(kind==='ok')return [{fn:'crackSound',n:perfect?3:2},{fn:'chime',perfect}];
+  if(kind==='over')return [{fn:'crackSound',n:3},{fn:'boing'}];
+  if(kind==='weak')return [{fn:'crackSound',n:1},{fn:'fizzle'}];
+  return [{fn:'crackSound',n:1},{fn:'knuckle'}];
+}
+// A hard thrust (user 2026-10-19 "엄청 세게 꺾거나 할때 우수꽝스러운 표현이 없음"): the patient whips round screaming,
+// the therapist overacts. Level scales the body animation (scene.js react); none for an ordinary thrust.
+export function overReaction({kind,tier=0}){
+  if(tier===2)return {level:3,scream:'끄아아아악!!!',doc:'나 아무것도 안 했다?'};
+  if(tier===1)return {level:2,scream:'으아아악!!',doc:'앗 뜨거!'};
+  if(kind==='over')return {level:1,scream:'끼야악?!',doc:'어… 어?'};
+  return null;
+}
+// The clinic x-ray engine's target for this shot: its slots C2..C6 hold L1..L5 (side/xray.js), so Ln is seg n+1; the
+// worked facet is the up side, the patient's right when he lies on his left (engine side +1 = patient's left).
+export function xrayTarget(height,side){
+  return {name:'side',seg:Number(lumbarAt(height).slice(1))+1,side:side==='R'?1:-1,xr:'rot'};
+}

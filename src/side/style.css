@@ -28,3 +28,14 @@
 @keyframes sideFlash{0%{opacity:.85}20%{opacity:0}35%{opacity:.6}55%{opacity:0}70%{opacity:.35}100%{opacity:0}}
 #sideApp[data-phase=leave] > .bottom,#sideApp[data-phase=leave] #sideHud{visibility:hidden}
 @media(prefers-reduced-motion:reduce){#sideApp,#sideApp *{transition:none!important;animation:none!important}}
+/* a hard thrust (main.js overReaction): the patient's scream over his head, shaking, and the therapist's line over his */
+#sideApp .float.scream{font-family:var(--display);color:var(--coral);font-size:34px;transform:translateX(-50%);text-shadow:0 3px 0 #0f231f,0 6px 16px #0f231fcc;
+  animation:scream 2.2s ease-out forwards}
+#sideApp .float.scream.lv2{font-size:42px}
+#sideApp .float.scream.lv3{font-size:52px}
+#sideApp .float.doc{font-family:var(--display);font-size:22px;color:#0f231f;background:var(--mint);padding:4px 12px;border-radius:12px;border:2px solid var(--paper);
+  transform:translateX(-50%) rotate(4deg);text-shadow:none;box-shadow:0 6px 16px #0f231f99;animation:docPop 2s cubic-bezier(.2,1.7,.4,1) forwards}
+@keyframes scream{0%{transform:translateX(-50%) scale(.3) rotate(-8deg);opacity:0}8%{transform:translateX(-50%) scale(1.25) rotate(4deg);opacity:1}
+  12%,20%,28%,36%,44%{transform:translateX(-52%) scale(1.1) rotate(-3deg)}16%,24%,32%,40%,48%{transform:translateX(-48%) scale(1.1) rotate(3deg)}
+  80%{opacity:1;transform:translateX(-50%) translateY(-18px) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-34px) scale(.95)}}
+@keyframes docPop{0%{transform:translateX(-50%) scale(.2) rotate(-12deg);opacity:0}12%{transform:translateX(-50%) scale(1.1) rotate(4deg);opacity:1}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px) rotate(4deg)}}

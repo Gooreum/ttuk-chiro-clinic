@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal} from '../src/side/core.js';
+import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget} from '../src/side/core.js';
 
 const goal={height:.78,roll:.6};
 const res=(side,kind,roll=.6,pressure=.6,points=80)=>({side,kind,roll,pressure,goalRoll:.6,points});
@@ -38,5 +38,23 @@ describe('side-posture lumbar roll (user 2026-10-19 "이거는 좌우 두번해�
       expect(g.height).toBeGreaterThan(.7);expect(g.height).toBeLessThan(.86);
       expect(g.roll).toBeGreaterThan(.5);
     }
+  });
+  it('cracks a recorded bone on every thrust, right or wrong (user 2026-10-19 "우두둑 소리도 안나는것 같은데")',()=>{
+    const cases=[{kind:'ok',perfect:true},{kind:'ok'},{kind:'weak'},{kind:'miss'},{kind:'over'},{kind:'over',tier:1},{kind:'over',tier:2}];
+    for(const c of cases)expect(thrustSounds(c).some(s=>s.fn==='crackSound'&&s.n>=1)).toBe(true);
+    expect(thrustSounds({kind:'ok',perfect:true})).toEqual([{fn:'crackSound',n:3},{fn:'chime',perfect:true}]);
+    expect(thrustSounds({kind:'over',tier:2})).toContainEqual({fn:'crunch',tier:2});
+    expect(thrustSounds({kind:'over',tier:1})).toContainEqual({fn:'crunch',tier:1});
+  });
+  it('overacts only on a hard thrust (user 2026-10-19 "엄청 세게 꺾거나 할때")',()=>{
+    expect(overReaction({kind:'over'}).level).toBe(1);
+    expect(overReaction({kind:'over',tier:1}).level).toBe(2);
+    expect(overReaction({kind:'over',tier:2})).toMatchObject({level:3,scream:'끄아아아악!!!'});
+    for(const kind of ['ok','weak','miss'])expect(overReaction({kind})).toBeNull();
+  });
+  it('maps the shot onto the clinic x-ray engine: Ln -> seg n+1, the up-side facet',()=>{
+    expect(xrayTarget(.78,'L')).toEqual({name:'side',seg:5,side:-1,xr:'rot'});
+    expect(xrayTarget(.78,'R').side).toBe(1);
+    expect(xrayTarget(0,'L').seg).toBe(2);expect(xrayTarget(1,'L').seg).toBe(6);
   });
 });
