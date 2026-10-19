@@ -51,3 +51,19 @@ export function overReaction({kind,tier=0}){
 export function xrayTarget(height,side){
   return {name:'side',seg:Number(lumbarAt(height).slice(1))+2,side:side==='R'?1:-1,xr:'rot'};
 }
+// The torso wring of a thrust (user 2026-10-19 "푸시할때 환자 몸이 안비틀림. 비틀림 효과 정상, 약함, 정상범주 오버, 과함에
+// 따라 다 다르게"): degrees the pelvis winds forward and the chest is held back, and the therapist's weight 0..1, over the
+// shot time t (s) with the hand landing at hit. Preload until hit, then a snap to the peak and a settle; a weak thrust
+// creeps up and goes slack, an over one stays wrung and shivers. Peaks and settles both rank weak < ok < over < tier 1 < 2.
+const TWIST={weak:{pre:4,peak:8,rise:.25,end:3,chest:[1,0],drop:[.3,0]},ok:{pre:6,peak:26,rise:.08,end:16,chest:[8,4],drop:[.6,.2]},
+  over:{pre:6,peak:48,rise:.1,end:36,chest:[14,10],drop:[.85,.4],shiver:2.5},1:{pre:6,peak:66,rise:.12,end:58,chest:[22,16],drop:[1,.5],shiver:4},
+  2:{pre:6,peak:86,rise:.14,end:78,chest:[30,22],drop:[1,.6],shiver:5}};
+const ramp=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+export function twistProfile(t,{kind='ok',tier=0,hit=.15}={}){
+  if(!Number.isFinite(t)||t<0)return {pelvis:0,chest:0,drop:0};
+  const P=TWIST[tier||(kind==='miss'?'weak':kind)]||TWIST.ok,u=t-hit;
+  if(u<0){const k=ramp(0,Math.max(.01,hit),t);return {pelvis:P.pre*k,chest:0,drop:0};}
+  const up=ramp(0,P.rise,u),down=ramp(P.rise,P.rise+.4,u),pick=([a,b])=>a*up+(b-a)*down;
+  const shiver=(P.shiver||0)*Math.sin(u*32)*Math.exp(-u*2.5)*up;
+  return {pelvis:P.pre+(P.peak-P.pre)*up+(P.end-P.peak)*down+shiver,chest:pick(P.chest),drop:pick(P.drop)};
+}

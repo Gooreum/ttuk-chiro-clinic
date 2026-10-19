@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget} from '../src/side/core.js';
+import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile} from '../src/side/core.js';
 
 const goal={height:.78,roll:.6};
 const res=(side,kind,roll=.6,pressure=.6,points=80)=>({side,kind,roll,pressure,goalRoll:.6,points});
@@ -56,5 +56,24 @@ describe('side-posture lumbar roll (user 2026-10-19 "이거는 좌우 두번해�
     expect(xrayTarget(.78,'L')).toEqual({name:'side',seg:6,side:-1,xr:'rot'});
     expect(xrayTarget(.78,'R').side).toBe(1);
     expect(xrayTarget(0,'L').seg).toBe(3);expect(xrayTarget(1,'L').seg).toBe(7);
+  });
+});
+
+describe('twistProfile',()=>{
+  const CASES=[{kind:'weak'},{kind:'ok'},{kind:'over'},{kind:'over',tier:1},{kind:'over',tier:2}];
+  const peak=c=>Math.max(...Array.from({length:200},(_,i)=>twistProfile(i/100,c).pelvis));
+  it('ranks weak < ok < over < tier 1 < tier 2 at the peak and once settled',()=>{
+    const peaks=CASES.map(peak),ends=CASES.map(c=>twistProfile(2,c).pelvis),drops=CASES.map(c=>twistProfile(2,c).drop);
+    for(let i=1;i<CASES.length;i++){expect(peaks[i]).toBeGreaterThan(peaks[i-1]);expect(ends[i]).toBeGreaterThan(ends[i-1]);expect(drops[i]).toBeGreaterThan(drops[i-1]);}
+  });
+  it('is still before the shot and on bad input',()=>{
+    for(const t of [-1,NaN,Infinity])expect(twistProfile(t,{kind:'ok'})).toEqual({pelvis:0,chest:0,drop:0});
+  });
+  it('only preloads before the hand lands',()=>{
+    expect(twistProfile(.1,{kind:'over',tier:2,hit:.55}).pelvis).toBeLessThanOrEqual(6);
+  });
+  it('an ok thrust overshoots then settles; a weak one goes slack',()=>{
+    expect(twistProfile(2,{kind:'ok'}).pelvis).toBeLessThan(peak({kind:'ok'}));
+    expect(twistProfile(2,{kind:'weak'}).pelvis).toBeLessThanOrEqual(peak({kind:'weak'})/2);
   });
 });
