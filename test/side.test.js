@@ -1,5 +1,7 @@
 import {describe,it,expect} from 'vitest';
-import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget} from '../src/side/core.js';
+import * as THREE from 'three';
+import {solveTwoBone} from '../src/side/ik.js';
+import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile} from '../src/side/core.js';
 
 const goal={height:.78,roll:.6};
 const res=(side,kind,roll=.6,pressure=.6,points=80)=>({side,kind,roll,pressure,goalRoll:.6,points});
@@ -56,5 +58,79 @@ describe('side-posture lumbar roll (user 2026-10-19 "이거는 좌우 두번해�
     expect(xrayTarget(.78,'L')).toEqual({name:'side',seg:6,side:-1,xr:'rot'});
     expect(xrayTarget(.78,'R').side).toBe(1);
     expect(xrayTarget(0,'L').seg).toBe(3);expect(xrayTarget(1,'L').seg).toBe(7);
+  });
+});
+
+describe('twistProfile',()=>{
+  const CASES=[{kind:'weak'},{kind:'ok'},{kind:'over'},{kind:'over',tier:1},{kind:'over',tier:2}];
+  const peak=c=>Math.max(...Array.from({length:200},(_,i)=>twistProfile(i/100,c).pelvis));
+  it('ranks weak < ok < over < tier 1 < tier 2 at the peak and once settled',()=>{
+    const peaks=CASES.map(peak),ends=CASES.map(c=>twistProfile(2,c).pelvis),drops=CASES.map(c=>twistProfile(2,c).drop);
+    for(let i=1;i<CASES.length;i++){expect(peaks[i]).toBeGreaterThan(peaks[i-1]);expect(ends[i]).toBeGreaterThan(ends[i-1]);expect(drops[i]).toBeGreaterThan(drops[i-1]);}
+  });
+  it('is still before the shot and on bad input',()=>{
+    for(const t of [-1,NaN,Infinity])expect(twistProfile(t,{kind:'ok'})).toEqual({pelvis:0,chest:0,drop:0});
+  });
+  it('only preloads before the hand lands',()=>{
+    expect(twistProfile(.1,{kind:'over',tier:2,hit:.55}).pelvis).toBeLessThanOrEqual(6);
+  });
+  it('an ok thrust overshoots then settles; a weak one goes slack',()=>{
+    expect(twistProfile(2,{kind:'ok'}).pelvis).toBeLessThan(peak({kind:'ok'}));
+    expect(twistProfile(2,{kind:'weak'}).pelvis).toBeLessThanOrEqual(peak({kind:'weak'})/2);
+  });
+});
+
+describe('side two-bone world IK',()=>{
+  function chain(){
+    const root=new THREE.Group(),parent=new THREE.Bone(),upper=new THREE.Bone(),lower=new THREE.Bone(),hand=new THREE.Bone();
+    root.position.set(.3,.8,-.2);root.rotation.set(.3,-.5,.4);root.scale.setScalar(.8);
+    parent.rotation.set(-.4,.2,.1);root.add(parent);parent.add(upper);upper.add(lower);lower.add(hand);
+    upper.position.set(.1,.1,0);lower.position.set(0,.3,0);hand.position.set(0,.25,0);
+    upper.rotation.set(.4,.1,-.2);lower.rotation.set(-.6,.2,.3);hand.rotation.set(.2,-.1,.3);
+    root.updateMatrixWorld(true);return {root,upper,lower,hand};
+  }
+  const pos=b=>b.getWorldPosition(new THREE.Vector3());
+  it('reaches within 1 mm under rotated and scaled ancestors',()=>{
+    const {upper,lower,hand}=chain(),start=pos(upper),q=hand.quaternion.clone();
+    const target=start.clone().add(new THREE.Vector3(-.12,.22,.14)),pole=start.clone().add(new THREE.Vector3(.5,.1,.5));
+    solveTwoBone(upper,lower,hand,target,pole);
+    expect(pos(hand).distanceTo(target)).toBeLessThan(.001);expect(hand.quaternion.equals(q)).toBe(true);
+  });
+  it('uses the actual parent through intermediate rotated joints',()=>{
+    const {root,upper,lower,hand}=chain(),elbowParent=new THREE.Bone(),wristParent=new THREE.Bone();
+    elbowParent.position.copy(lower.position);elbowParent.rotation.set(.3,-.2,.5);upper.add(elbowParent);elbowParent.add(lower);lower.position.set(0,0,0);
+    wristParent.position.copy(hand.position);wristParent.rotation.set(-.2,.4,.1);lower.add(wristParent);wristParent.add(hand);hand.position.set(0,0,0);
+    root.updateMatrixWorld(true);
+    const start=pos(upper),target=start.clone().add(new THREE.Vector3(.12,.2,-.1));
+    solveTwoBone(upper,lower,hand,target,start.clone().add(new THREE.Vector3(0,0,1)));
+    expect(pos(hand).distanceTo(target)).toBeLessThan(.001);
+  });
+  it('straightens toward an unreachable target without changing lengths',()=>{
+    const {upper,lower,hand}=chain(),start=pos(upper),a=start.distanceTo(pos(lower)),b=pos(lower).distanceTo(pos(hand));
+    const ray=new THREE.Vector3(.2,-.4,.6).normalize(),target=start.clone().addScaledVector(ray,2);
+    solveTwoBone(upper,lower,hand,target,start.clone().add(new THREE.Vector3(1,0,0)));
+    expect(pos(hand).distanceTo(start.clone().addScaledVector(ray,a+b))).toBeLessThan(.001);
+    expect(pos(lower).distanceTo(start.clone().addScaledVector(ray,a))).toBeLessThan(.001);
+  });
+  it('leaves the complete pose untouched at weight zero',()=>{
+    const {upper,lower,hand}=chain(),before=[upper,lower,hand].map(b=>b.quaternion.clone()),wrist=pos(hand);
+    solveTwoBone(upper,lower,hand,new THREE.Vector3(),new THREE.Vector3(1,1,1),0);
+    for(const [i,b] of [upper,lower,hand].entries())expect(b.quaternion.equals(before[i])).toBe(true);
+    expect(pos(hand).distanceTo(wrist)).toBe(0);
+  });
+  it('places the elbow on the selected pole side',()=>{
+    for(const sign of [-1,1]){
+      const {upper,lower,hand}=chain(),start=pos(upper),target=start.clone().add(new THREE.Vector3(0,.25,0));
+      solveTwoBone(upper,lower,hand,target,start.clone().add(new THREE.Vector3(sign,0,0)));
+      expect((pos(lower).x-start.x)*sign).toBeGreaterThan(.1);
+      expect(pos(hand).distanceTo(target)).toBeLessThan(.001);
+    }
+  });
+  it('blends local rotations from the current pose',()=>{
+    const full=chain(),half=chain(),start=pos(full.upper),target=start.clone().add(new THREE.Vector3(.1,.2,-.1)),pole=start.clone().add(new THREE.Vector3(1,0,1));
+    const before=[half.upper.quaternion.clone(),half.lower.quaternion.clone()];
+    solveTwoBone(full.upper,full.lower,full.hand,target,pole);
+    solveTwoBone(half.upper,half.lower,half.hand,target,pole,.5);
+    for(const [i,key] of ['upper','lower'].entries())expect(half[key].quaternion.angleTo(before[i].slerp(full[key].quaternion,.5))).toBeLessThan(1e-6);
   });
 });
