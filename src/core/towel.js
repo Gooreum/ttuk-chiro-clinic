@@ -36,6 +36,10 @@ export function towelKind(t, tg, rot = tg.aim || 0){
 }
 // a skewed tug: up to twice the tolerance off cracks the vertebra (1), further breaks it (2)
 export const skewTier = (rot, tg) => Math.abs(aimOff(rot, tg)) > 2 ? 2 : 1;
+// which wrong tugs call the ambulance: an over-pull and a break (a skew way off centre). A crack (taut, a skew just
+// off) costs a pain and the player tugs again, like the clinic's mild misses (2026-10-19 "세개다 반영해봐": the run
+// ended on the spot too often)
+export const towelEndsDay = (kind, tier) => kind === "over" || tier > 1;
 
 /* How far the head slides toward the therapist (m) after the tug: shoots out by STRETCH_RISE, holds trembling to
    STRETCH_HOLD (long enough to see the spine stretch on the x-ray), then springs back with a damped spring (a little

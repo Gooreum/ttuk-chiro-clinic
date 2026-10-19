@@ -10,7 +10,7 @@ import {ROSTER} from '../patient/roster.js';
 import {createSideScene,ROLL_S} from './scene.js';
 import {SWEET,POSITION_TOL,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
-import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget} from './core.js';
+import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget,slowWarp,punchProfile,canRetry} from './core.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
@@ -30,7 +30,7 @@ const coarse=matchMedia('(pointer: coarse)').matches;
 const preferMotion=coarse&&'DeviceMotionEvent' in window;
 const motion=new BackMotion();
 const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,pressure:.12,order:['L','R'],sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
-  locked:false,lockHeight:.5,shotAim:{height:.5,side:.5,locked:false},results:[],pending:null,animAt:0,rollAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,
+  locked:false,lockHeight:.5,shotAim:{height:.5,side:.5,locked:false},results:[],retried:[false,false],pending:null,animAt:0,rollAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,
   sound:true,music:store.get('chiroSideMusic',true),motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,
   cue:'',cueStyle:'',pausedAt:0,previousPhase:null,gag:null};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
@@ -63,7 +63,7 @@ function sync(){
   $('sideScore').textContent=String(S.score);
   $('sideLock').hidden=S.locked;$('sideRelock').hidden=!S.locked;
   $('sideFlip').hidden=S.phase!=='turn';
-  const el=$('sideMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 2회`);
+  const el=$('sideMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 4회`);
   [...el.querySelectorAll('i')].forEach((e,i)=>e.classList.toggle('on',i<S.mistakes));
   [...$('sideDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.sideIdx&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('sideZone').textContent=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`;
@@ -130,6 +130,13 @@ function endSide(now){
   }
   sync();
 }
+// a mild miss, the first on this side: the same side again, height first (core.js canRetry)
+function retrySide(now){
+  S.retried[S.sideIdx]=true;S.phase='play';S.locked=false;S.position=.5;S.pressure=.12;motion.recenter();S.motionReady=false;motion.position=.5;motion.neutral=null;
+  S.prepUntil=now+700;wasNear=false;cue('');
+  $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
+  gag('한 번 더! 이번엔 진짜로',false,1800);sync();
+}
 function flash(){const e=$('sideFlash');e.hidden=false;e.style.animation='none';void e.offsetWidth;e.style.animation='';setTimeout(()=>{e.hidden=true;},700);}
 function flip(){
   if(S.phase!=='turn')return;
@@ -168,7 +175,7 @@ async function start(useMotion=preferMotion){
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,order:sideOrder(Math.random()<.5?'L':'R'),sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
-    locked:false,results:[],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
+    locked:false,results:[],retried:[false,false],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
   $('sideWelcome').hidden=true;$('sideResult').hidden=true;$('sidePaused').hidden=true;$('sideControls').hidden=false;$('sideGag').hidden=true;
   $('sideMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
@@ -286,11 +293,13 @@ function drawHud(pressure,br){
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
   if(S.pending&&now-S.pending.at>=130)settleImpact();
-  let pressure=S.pressure,impulse=0,shotTime=-1,film=0,roll=null,react=null;
+  let pressure=S.pressure,impulse=0,shotTime=-1,film=0,roll=null,react=null,punch=0;
   const br=breathState(now,S.breathAt,4.4);
   if(S.phase==='play'&&br.exhale!==lastExhale){if(lastExhale!==null)domHud.floater(br.exhale?'후우~':'흐읍…',width*.5,height*.42,br.exhale?'breath out':'breath',1700);lastExhale=br.exhale;}
   if(S.phase==='anim'){
-    shotTime=(now-S.animAt)/1000;const timing=shotTiming(),style=therapistStyle(S.force,S.tier);
+    // a good thrust: slow-mo from the hand landing and a camera punch (core.js slowWarp, punchProfile)
+    const real=(now-S.animAt)/1000;shotTime=S.kind==='ok'?slowWarp(real):real;punch=S.kind==='ok'&&!reduced?punchProfile(real):0;
+    const timing=shotTiming(),style=therapistStyle(S.force,S.tier);
     impulse=pressProfile(shotTime,S.kind,S.tier,S.outcome.feedback,S.force);
     // a weak or over-rolled release keeps the full film (the joint sticking / the disc escaping is the joke); a miss flashes
     film=clinicFilm(shotTime,S.kind==='weak'||S.kind==='over'?'ok':S.kind,S.tier,S.force);
@@ -314,7 +323,7 @@ function frame(now){
     else label.textContent=S.kind==='ok'?(xt<.5?`${where} · 꽉 잠긴 관절`:`${where} · 관절이 열렸어요`):S.kind==='weak'?`${where} · 아직 잠겼어요`:S.tier||S.kind==='over'?`${where} · 너무 감았어요…`:`${where} · 빗나갔어요`;
     label.hidden=film<.3;
     if(shotTime>=timing.speechAt){const text=speechFor(shotTime-timing.speechAt);if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}}
-    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';endSide(now);shotTime=-1;film=0;}
+    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';if(canRetry(S.kind,S.tier,S.retried[S.sideIdx]))retrySide(now);else endSide(now);shotTime=-1;film=0;}
   }
   if(S.phase==='roll'){
     roll=(now-S.rollAt)/1000;
@@ -351,7 +360,7 @@ function frame(now){
   app.classList.toggle('xray-on',film>=.3);app.classList.toggle('xray-burst',film>=.3&&$('sideCutLabel').classList.contains('burst'));
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
   if(S.debugView){scene.render({now,...S.debugView});return;}
-  if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,
+  if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,punch,
     kind:S.kind,forceTier:S.tier,force:S.force,shotTime,exit,react,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
     xrayState:shotTime>=0?{kind:S.kind,tier:S.tier,time:shotTime,height:S.shotAim.height,roll:S.shotAim.side,feedback:S.outcome?.feedback,force:S.force,target:xrayTarget(S.shotAim.height,side())}:null});
     // the joint clicks home on the film: the neck mode's release crack (src/scene/xray.js updateXray returns true)

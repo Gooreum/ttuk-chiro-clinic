@@ -22,6 +22,7 @@ import {therapistStyle} from "../back/therapistMotion.js";
      position   0..1 pelvis roll once locked (0.5 = neutral, more = rolled toward the therapist)
      pressure   0..1 preload (the therapist leans in)
      impulse    -0.5..3 impact / shake profile (patient twist comes from shotTime)
+     punch      0..1 a good thrust's camera punch in (core.js punchProfile)
      kind       "ok" | "weak" | "miss" | "over"; forceTier 0..2; force is the measured thrust strength
      shotTime   seconds since thrust, -1 while aiming; therapistStyle(force, forceTier) sets the contact time
      react      null or {t, level}, the existing flail / hands-up reaction layered over the contact pose
@@ -33,6 +34,7 @@ const CAM_ELEV = 40, CAM_AZ = 128, CAM_FOV = 38;
 export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
 const SPINE_DEPTH = .075;                    // skin of the back to the vertebral bodies (m)
+const PUNCH = .2;   // share of the camera distance a good thrust's punch takes off
 const FILM_DIR = [.35, .8, -.45], FILM_D = .5;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const smooth = (a, b, x) => { const t = clamp01((x - a)/(b - a)); return t*t*(3 - 2*t); };
@@ -237,7 +239,7 @@ export async function createSideScene(canvas){
 
   const st = {shake: 0, t: null};
   function render({now = performance.now(), side = "L", roll = null, height = .5, position = .5, locked = false, pressure = 0, impulse = 0,
-    kind = "ok", forceTier = 0, force = 1, shotTime = -1, exit = null, react = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
+    kind = "ok", forceTier = 0, force = 1, shotTime = -1, exit = null, react = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null, punch = 0} = {}){
     const dt = st.t == null ? 1/60 : Math.min(.1, Math.max(0, (now - st.t)/1000)); st.t = now;
     const f = facing(side), other = side === "L" ? "R" : "L";
     // a paused action does not rewrite its bones every update, so undo last frame's nudges before re-posing
@@ -383,6 +385,7 @@ export async function createSideScene(canvas){
       const t = smooth(.15, ROLL_S - .15, roll), a0 = AZ[side], a1 = AZ[other];
       az = a0 + (a1 - a0)*t; el = CAM_ELEV + 10*Math.sin(Math.PI*t); d = (dist[side] + (dist[other] - dist[side])*t)*(1 + .2*Math.sin(Math.PI*t));
     }else{ az = camAz ?? AZ[side]; d = dist[side]*(1 - .08*clamp01(pressure) - (shotTime >= 0 ? .05 : 0)); el = camEl ?? CAM_ELEV - (shotTime >= 0 ? 6 : 0); }
+    d *= 1 - PUNCH*punch;   // a good thrust's camera punch (main.js, core.js punchProfile)
     const dir = camDirAt(az, el);
     camera.position.copy(target).addScaledVector(dir, d);
     const look = target.clone();

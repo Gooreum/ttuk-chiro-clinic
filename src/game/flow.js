@@ -9,7 +9,7 @@ import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
 import { PREP_MS, PREP_LINES } from "../core/cue.js";
-import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, towelReaction, FALL_HIT, OVER_XRAY, OVER_XRAY_HOLD, OVER_SIREN, skewTier } from "../core/towel.js";
+import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towelTags, towelReview, towelReaction, FALL_HIT, OVER_XRAY, OVER_XRAY_HOLD, OVER_SIREN, skewTier, towelEndsDay } from "../core/towel.js";
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { canvas } from "../scene/renderer.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
@@ -296,6 +296,8 @@ function towelAdjust(src){
    (scene/xray.js traction); the neck holds out until OK_HOLD so the x-ray still sees it long (user: "당기고 나서 환자 얼굴
    보이는 시간이 조금 더 길어야함. 그러고 나서 엑스레이가 나와야함", 2026-10-16; it was 0.55 s and the 1.3 s hold) */
 const TOWEL_XRAY_DELAY = 1.6, OK_HOLD = 2.7;
+const TOWEL_SLOW = 0.85;   // slow-mo on a good tug (game/loop.js: time × 1 − 0.72·slow, decays 2.2/s)
+const CRACK_HOLD = FRAC_AT/1000 + FRAC_HOLD, CRACK_BACK = FRAC_AT + FRAC_HOLD*1000 + 400;   // a crack tug: the neck holds out through the crack x-ray (FRAC_HOLD), the towel is back in hand once it has closed (ms)
 const STRETCH_OK = 0.07, STRETCH_OVER = 0.16, STRETCH_TAUT = 0.1;   // m the head snaps out (the neck takes 85%, core/towel.js BODY_SHARE): a good tug, past the limit, between them (taut) (core/towel.js stretchProfile)
 function towelSuccess(d, exhale){
   const target = S.target;
@@ -314,7 +316,10 @@ function towelSuccess(d, exhale){
   vib(perfect ? [45,40,45,40,80] : [45,50,45]);
   const now = performance.now();
   S.stretchAt = now; S.stretchPeak = STRETCH_OK*(perfect ? 1.2 : 1); S.stretchHold = OK_HOLD;
-  S.thrust = 0; S.shake = 0.6; S.slow = 0; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
+  // a short slow-mo and a camera punch on the head as it shoots out, like the clinic crack (2026-10-19 "세개다
+  // 반영해봐"): game/loop.js slows the stretch's clock and lets it catch up in the hold; S.zoom stays 0 (its dolly is
+  // the clinic's x-ray push)
+  S.thrust = 0; S.shake = 0.6; S.slow = TOWEL_SLOW; S.punch = 1; S.zoom = 0; S.xrayIn = TOWEL_XRAY_DELAY; S.fracLvl = 0;
   hideCoach();
   const react = pickReaction(target.react, perfect, Math.random, null);
   S.reaction = react;
@@ -338,9 +343,11 @@ function towelSuccess(d, exhale){
   setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT + x);
 }
 /* A wrong tug: "over" the neck goes giraffe and tears off the back, "skew" (off the left / right centre) the neck
-   wrenches to that side and a vertebra cracks or breaks, "slip" only the towel comes off. Over and skew end the day on
-   an ambulance like a clinic crack / break, and so does "taut" (over the band, short of the limit: a crack) (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스", "좌우 중심 초점이 안 맞으면
-   목이 그쪽으로 꺾이면서 빠지고 골절되던가 금이 가는", 2026-10-16); a slip costs a pain and the third ends the day. */
+   wrenches to that side and a vertebra cracks or breaks, "slip" only the towel comes off. Over and a skew break end the
+   day on an ambulance (user: "과하게 하면 목뼈가 빠져버리면서 앰뷸런스", "좌우 중심 초점이 안 맞으면 목이 그쪽으로 꺾이면서
+   빠지고 골절되던가 금이 가는", 2026-10-16). A crack ("taut", over the band short of the limit, or a skew just off) shows
+   its crack x-ray, then costs a pain and the player tugs again (core/towel.js towelEndsDay, 2026-10-19); so does a
+   slip, and the third pain ends the day. */
 function towelHurt(kind){
   const target = S.target, tok = ++hurtTok, idx = S.idx;
   const tier = kind === "skew" ? skewTier(S.cur.rot, S.towel) : kind === "taut" ? 1 : 0;
@@ -349,6 +356,16 @@ function towelHurt(kind){
   renderPain(); renderCombo();
   hideCoach();
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
+  // a crack that does not end the day: once its x-ray has closed, the doubt line and the towel back in the player's
+  // hands, or the third pain ends the day
+  const tugAgain = () => {
+    if(S.pain >= 3){
+      later(CRACK_BACK + 500, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
+      return;
+    }
+    later(CRACK_BACK - 200, () => { say(failLine(target.lines, S.fails.length), 2000, true); setFace("doubt"); });
+    later(CRACK_BACK, () => { S.busy = false; });
+  };
   const now = performance.now(), r = headScreen.r;
   const cw = () => canvas.clientWidth || innerWidth, ch = () => canvas.clientHeight || innerHeight;
   stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "조금 너무 팽팽했어요!" : "수건이 너무 느슨했어요",
@@ -385,8 +402,8 @@ function towelHurt(kind){
     floater(tier > 1 ? "아그작" : "으그적", -64, -r - 10); later(140, () => floater(tier > 1 ? "작!" : "적…", 44, -r - 34, "small"));
     later(250, () => say(towelLine(target.name, "skew"), 1500, true));
     later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = tier; S.fracT = 0; S.fracFired = false; S.shatterFired = false; });
-    callAmbulance(later, SIREN_AT, target, 0);
-    return;
+    if(towelEndsDay(kind, tier)){ callAmbulance(later, SIREN_AT, target, 0); return; }
+    return tugAgain();
   }
   if(kind === "taut"){
     // over the band but short of the limit (user: "정상과 과해요 사이에 있으면 뼈금가는 소리 우리 목꺾기에서 사용했던거
@@ -394,14 +411,13 @@ function towelHurt(kind){
     // there, the clinic's crack crunch (audio.js crunch tier 1), then the clinic's crack x-ray (scene/xray.js frac 1)
     flashOuch();
     crunch(1); vib([80, 30, 120]);
-    S.stretchAt = now; S.stretchPeak = STRETCH_TAUT; S.stretchHold = 99; S.xrayIn = 0;
+    S.stretchAt = now; S.stretchPeak = STRETCH_TAUT; S.stretchHold = CRACK_HOLD; S.xrayIn = 0;
     S.shake = 0.8; S.jitter = 0.8;
     faceRun([[0, "gasp"], [350, "ouch"], [SIREN_AT + 400, "dazed"]]);
     floater("빠직", -64, -r - 10); later(140, () => floater("금…", 44, -r - 34, "small"));
     later(250, () => say(towelLine(target.name, "taut"), 1500, true));
     later(FRAC_AT, () => { S.xray = 0.001; S.xrayHold = FRAC_HOLD; S.xrayAt = performance.now(); S.crackT = -1; S.fracLvl = 1; S.fracT = 0; S.fracFired = false; S.shatterFired = false; });
-    callAmbulance(later, SIREN_AT, target, 0);
-    return;
+    return tugAgain();
   }
   whoosh(); vib([60]);
   S.slipAt = now; S.shake = 0.4;

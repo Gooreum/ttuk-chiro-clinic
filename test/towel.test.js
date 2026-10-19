@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, neckWeight, neckPinch, NECK_OUT, PINCH, UPPER_SHARE, towelReaction, TOWEL_BURN, towelCool, aimOff, skewTier, AIM_TOL, AIM_SPREAD, OVER_SIREN, OVER_XRAY, OVER_XRAY_HOLD,
+import { TOWEL_FULL, towelTension, makeTowelTarget, towelDist, towelKind, stretchProfile, STRETCH_LEN, STRETCH_RISE, STRETCH_HOLD, stretchLen, fallProfile, letGoProfile, FALL_START, FALL_HIT, OVER_HOLD, GETUP_AT, GETUP_LEN, spineOffsets, discStretch, BODY_SHARE, neckWeight, neckPinch, NECK_OUT, PINCH, UPPER_SHARE, towelReaction, TOWEL_BURN, towelCool, aimOff, skewTier, towelEndsDay, AIM_TOL, AIM_SPREAD, OVER_SIREN, OVER_XRAY, OVER_XRAY_HOLD,
   TOWEL_STAMP, TOWEL_TAG, towelTags, towelLine, TOWEL_REVIEWS, towelReview } from "../src/core/towel.js";
 import { ROSTER, REVIEWS } from "../src/patient/roster.js";
 
@@ -200,6 +200,13 @@ describe("the left / right focus", () => {
     expect(aimOff(-3, {mid: 0, half: 1, limit: 1})).toBeCloseTo(-3/AIM_TOL);
     expect(skewTier(4 + 7*1.5, tg)).toBe(1);
     expect(skewTier(4 - 7*2.5, tg)).toBe(2);
+  });
+  it("only an over-pull and a break end the day; a crack (taut, a skew just off) is a pain and a retry", () => {
+    expect(towelEndsDay("over", 0)).toBe(true);
+    expect(towelEndsDay("skew", 2)).toBe(true);
+    expect(towelEndsDay("skew", 1)).toBe(false);
+    expect(towelEndsDay("taut", 1)).toBe(false);
+    expect(towelEndsDay("slip", 0)).toBe(false);
   });
   it("each patient's centre lies within the spread, the nervous one narrower, tension draws unchanged", () => {
     for(const r of [0, 0.5, 0.999]){

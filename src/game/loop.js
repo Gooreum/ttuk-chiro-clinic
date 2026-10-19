@@ -53,6 +53,8 @@ const NOD = 2*DEG;          // the chin lifts a little on the in-breath (head ti
 const qElbow = new THREE.Quaternion(), ELBOW_FOLLOW = 0.85;
 // visual-only head pose on top of the aim (never read by judging: distAt / S.input / S.cur stay as they are)
 const SETUP_EXT = 4*DEG;    // the therapist tips the chin up a little while setting up (slight extension)
+const PUNCH = 0.22;   // share of the way the camera punches in toward the head on a good tug (towel mode)
+let stretchLag = 0, lagFor = 0;   // s the slow-mo has held the stretch's clock back, for the tug at S.stretchAt
 const TOWEL_TURN = 0.35, SKEW_BEND = 0.6;   // towel mode: the head turns this share of the left / right aim; a skew bends the neck sideways this share of the wrench
 const ROCK = 14;            // degrees: the head is rocked side to side twice while the patient settles (S.prepUntil)
 let prepFrom = 0, prepTo = 0;
@@ -110,7 +112,11 @@ export function frame(now){
   if(towel) warmTowelXray(renderer);
   const hold = S.stretchHold || STRETCH_HOLD;
   if(S.stretchAt && now - S.stretchAt > stretchLen(hold)*1000) S.stretchAt = 0;
-  const stretch = S.stretchAt ? stretchProfile((now - S.stretchAt)/1000, S.stretchPeak, hold) : 0;
+  // a good tug's slow-mo (S.slow) slows the stretch's clock; the lag melts away once the slow-mo is over, inside the
+  // trembling hold, so the spring back and the x-ray (real time) stay in step
+  if(S.stretchAt !== lagFor){ lagFor = S.stretchAt; stretchLag = 0; }
+  stretchLag = S.slow > 0 ? stretchLag + rdt - dt : Math.max(0, stretchLag - rdt*0.5);
+  const stretch = S.stretchAt ? stretchProfile(Math.max(0, (now - S.stretchAt)/1000 - stretchLag), S.stretchPeak, hold) : 0;
   // an over-pull: the therapist goes over backwards (0 sitting .. 1 flat on his back), core/towel.js
   // (since an over-pull calls the ambulance he stays down: getup = Infinity)
   const fall = towel && S.overAt ? fallProfile((now - S.overAt)/1000, S.ambulance ? Infinity : undefined) : 0;
@@ -311,6 +317,13 @@ export function frame(now){
   // towel mode: the head shoots out toward the camera, so the camera backs off and rises with it to keep the head
   // and the long neck in frame
   if(stretch > 0 && tv < 0.5){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
+  // a good tug: a quick punch in on the head (in ~0.1 s, out over ~0.5 s) under the slow-mo
+  S.punch = Math.max(0, S.punch - rdt*1.6);
+  if(S.punch > 0 && !reduce){
+    const u = 1 - S.punch, pk = ease(u < 0.16 ? u/0.16 : 1 - (u - 0.16)/0.84);
+    head.localToWorld(faceW.set(0, 0.04, 0.02));
+    camPos.lerp(faceW, PUNCH*pk); camTgt.lerp(faceW, 0.3*pk);
+  }
   // an over-pull: the camera rises and looks past the head end so the therapist going over backwards is in frame
   // (handed to the x-ray dolly when it opens)
   if(fall > 0.001 && tv > 0.5){ const fv = ease(clamp(fall*1.4, 0, 1))*(1 - clamp(z/0.85, 0, 1)); camPos.lerp(_fallPos, fv); camTgt.lerp(_fallLook, fv); }

@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import * as THREE from 'three';
 import {solveTwoBone} from '../src/side/ik.js';
-import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile} from '../src/side/core.js';
+import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile,slowWarp,punchProfile,canRetry,SLOW} from '../src/side/core.js';
 
 const goal={height:.78,roll:.6};
 const res=(side,kind,roll=.6,pressure=.6,points=80)=>({side,kind,roll,pressure,goalRoll:.6,points});
@@ -132,5 +132,28 @@ describe('side two-bone world IK',()=>{
     solveTwoBone(full.upper,full.lower,full.hand,target,pole);
     solveTwoBone(half.upper,half.lower,half.hand,target,pole,.5);
     for(const [i,key] of ['upper','lower'].entries())expect(half[key].quaternion.angleTo(before[i].slerp(full[key].quaternion,.5))).toBeLessThan(1e-6);
+  });
+});
+
+describe('good thrust slow-mo and retry',()=>{
+  it('the shot clock slows from the hand landing, then runs on at full speed with a fixed lag',()=>{
+    expect(slowWarp(.1)).toBe(.1);
+    expect(slowWarp(SLOW.at+.2)).toBeCloseTo(SLOW.at+.2*SLOW.rate);
+    const lag=SLOW.len*(1-SLOW.rate);
+    expect(slowWarp(2)).toBeCloseTo(2-lag);
+    for(let t=0;t<3;t+=.01)expect(slowWarp(t+.01)).toBeGreaterThan(slowWarp(t));
+  });
+  it('the punch is 0 before the hand lands, peaks fast and is gone by the end',()=>{
+    expect(punchProfile(0)).toBe(0);
+    expect(punchProfile(SLOW.at+.1)).toBeCloseTo(1);
+    expect(punchProfile(SLOW.at+.8)).toBe(0);
+  });
+  it('one retry per side after a mild miss, none after a crack, a break or a success',()=>{
+    expect(canRetry('weak',0,false)).toBe(true);
+    expect(canRetry('over',0,false)).toBe(true);
+    expect(canRetry('miss',0,false)).toBe(true);
+    expect(canRetry('miss',0,true)).toBe(false);
+    expect(canRetry('over',1,false)).toBe(false);
+    expect(canRetry('ok',0,false)).toBe(false);
   });
 });

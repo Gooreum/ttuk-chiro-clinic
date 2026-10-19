@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 // window.__backShot expose the state. Headless Chromium has no motion sensors, so the game runs on its drag/key fallback.
 export default defineConfig({
   testDir: "e2e",
-  timeout: 240_000,
+  timeout: 480_000,
   expect: { timeout: 15_000 },
   workers: 1,
   reporter: [["list"]],
