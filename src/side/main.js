@@ -350,7 +350,7 @@ function frame(now){
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
   if(S.debugView){scene.render({now,...S.debugView});return;}
   if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,
-    kind:S.kind,forceTier:S.tier,shotTime,exit,react,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
+    kind:S.kind,forceTier:S.tier,force:S.force,shotTime,exit,react,goal:goal(),showGoal:S.control==='touch'||S.mistakes>0||!S.locked,film,
     xrayState:shotTime>=0?{kind:S.kind,tier:S.tier,time:shotTime,height:S.shotAim.height,roll:S.shotAim.side,feedback:S.outcome?.feedback,force:S.force,target:xrayTarget(S.shotAim.height,side())}:null});
     // the joint clicks home on the film: the neck mode's release crack (src/scene/xray.js updateXray returns true)
     if(r?.released&&S.phase==='anim'&&!S.releaseSoundPlayed){S.releaseSoundPlayed=true;if(S.sound)clinicAudio.crackSound(2);clinicAudio.vib([45,30,70]);}}

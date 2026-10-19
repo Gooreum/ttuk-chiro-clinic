@@ -3,6 +3,9 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import {createSideXray} from "./xray.js";
+import {twistProfile} from "./core.js";
+import {solveTwoBone} from "./ik.js";
+import {therapistStyle} from "../back/therapistMotion.js";
 
 /* Side-posture lumbar roll scene ("허리비틀기"): its own renderer, scene and camera, like back/scene.js.
    Patient01 lies on his side on the treatment table (public/models/side/patient.glb, scripts/assets/side_patient.py,
@@ -18,7 +21,10 @@ import {createSideXray} from "./xray.js";
      height     0..1 aim along the lumbar spine (L1..L5)
      position   0..1 pelvis roll once locked (0.5 = neutral, more = rolled toward the therapist)
      pressure   0..1 preload (the therapist leans in)
-     impulse    -0.5..3 the thrust profile; kind "ok" | "weak" | "miss" | "over", forceTier 0..2
+     impulse    -0.5..3 impact / shake profile (patient twist comes from shotTime)
+     kind       "ok" | "weak" | "miss" | "over"; forceTier 0..2; force is the measured thrust strength
+     shotTime   seconds since thrust, -1 while aiming; therapistStyle(force, forceTier) sets the contact time
+     react      null or {t, level}, the existing flail / hands-up reaction layered over the contact pose
      goal       {height, roll} the target ring */
 
 const BASE = import.meta.env.BASE_URL + "models/side/";
@@ -34,6 +40,16 @@ const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
 function loadGLB(loader, url){ return new Promise((res, rej) => loader.load(url, res, undefined, rej)); }
 const stdMat = m => m && (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial);
 const facing = side => side === "R" ? -1 : 1;
+// a copy of a colour map with its dark shading scaled toward white (keep = 1 unchanged, 0 flat white)
+function liftShade(map, keep){
+  const img = map.image, c = document.createElement("canvas"); c.width = img.width; c.height = img.height;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0);
+  const px = g.getImageData(0, 0, c.width, c.height), d = px.data;
+  for(let i = 0; i < d.length; i += 4) for(let k = 0; k < 3; k++) d[i + k] = 255 - (255 - d[i + k])*keep;
+  g.putImageData(px, 0, 0);
+  const t = map.clone(); t.image = c; t.needsUpdate = true;
+  return t;
+}
 
 export async function createSideScene(canvas){
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: "high-performance"});
@@ -96,6 +112,11 @@ export async function createSideScene(canvas){
       // the baked clothes come out white: colour them like the back mode (cream gown + dark jeans, white coat + navy jeans)
       const tint = cloth[m.name?.replace(/^(patient|therapist)\./, "")];
       if(tint){ m.color.copy(lin(tint[root === pg.scene ? 0 : 1])); m.roughness = .88; }
+      // "환자 겨드랑이 쪽 ... 검정색": do not show the dark inside of the open sleeve.
+      if(root === pg.scene && /^(patient\.)?side_shirt$/.test(m.name || "")) m.side = THREE.FrontSide;
+      // the MPFB tee bakes arms-down occlusion black under the sleeves; any raised arm (the patient's flail, the
+      // therapist's hands-up) shows it as a black armpit: keep a third of that shading on a private copy of the map
+      if(/side_shirt$/.test(m.name || "") && m.map?.image) m.map = liftShade(m.map, .35);
       m.transparent = true; m.depthWrite = true; fades.push(m);
     });
     return bones;
@@ -144,8 +165,38 @@ export async function createSideScene(canvas){
   }
 
   const LIMBS = ["thigh_l", "thigh_r", "calf_l", "calf_r", "upperarm_l", "upperarm_r"];
-  const NUDGE = [pBones.pelvis, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.spine_03, tBones.head,
-    ...LIMBS.map(n => pBones[n]), ...["upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r"].map(n => tBones[n])].filter(Boolean), nudged = new Map();
+  const ARM_BONES = ["upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r"];
+  const NUDGE = [...new Set([pBones.pelvis, pBones.spine_01, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.neck_01, tBones.head,
+    ...LIMBS.map(n => pBones[n]), ...ARM_BONES.flatMap(n => [pBones[n], tBones[n]])].filter(Boolean))], nudged = new Map();
+  const D = THREE.MathUtils.degToRad;
+  const contactFrames = {}, contacts = {shoulder: new THREE.Vector3(), hip: new THREE.Vector3(), patient: new THREE.Vector3()};
+  const centre = new THREE.Vector3(), pole = new THREE.Vector3(), raise = new THREE.Vector3(), headP = new THREE.Vector3(), direction = new THREE.Vector3(), normal = new THREE.Vector3();
+  const palmQ = new THREE.Quaternion(), palmWorld = new THREE.Quaternion(), palmMatrix = new THREE.Matrix4();
+  const palmD = new THREE.Vector3(), palmN = new THREE.Vector3(), palmCross = new THREE.Vector3();
+  // Knuckle positions define the actual palm frame, rather than assuming a hand-bone axis (MPFB l/r differ).
+  function palmFrame(bones, sd){
+    const d = bones["middle_01_" + sd].position.clone().normalize();
+    const n = new THREE.Vector3().subVectors(bones["index_01_" + sd].position, bones["pinky_01_" + sd].position).cross(d).multiplyScalar(sd === "l" ? -1 : 1).normalize();
+    return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(d, n, new THREE.Vector3().crossVectors(d, n))).invert();
+  }
+  const palms = {patient: {}, therapist: {}};
+  for(const sd of ["l", "r"]){ palms.patient[sd] = palmFrame(pBones, sd); palms.therapist[sd] = palmFrame(tBones, sd); }
+  function contactFrame(bone, offset, d, n){
+    const inv = bone.getWorldQuaternion(new THREE.Quaternion()).invert();
+    return {bone, offset: new THREE.Vector3(...offset).applyQuaternion(inv), d: new THREE.Vector3(...d).applyQuaternion(inv), n: new THREE.Vector3(...n).applyQuaternion(inv)};
+  }
+  function placeContact(frame, point, out){
+    frame.bone.getWorldQuaternion(palmWorld);
+    direction.copy(frame.d).applyQuaternion(palmWorld).normalize(); normal.copy(frame.n).applyQuaternion(palmWorld).normalize();
+    out.copy(frame.offset).applyQuaternion(palmWorld).add(point).addScaledVector(direction, -.05).addScaledVector(normal, -.02);
+  }
+  function orientPalm(bone, frame, weight = 1){
+    palmD.copy(direction).normalize(); palmN.copy(normal).addScaledVector(palmD, -normal.dot(palmD)).normalize();
+    palmMatrix.makeBasis(palmD, palmN, palmCross.crossVectors(palmD, palmN));
+    palmQ.setFromRotationMatrix(palmMatrix).multiply(frame);
+    bone.parent.getWorldQuaternion(palmWorld); palmQ.premultiply(palmWorld.invert());
+    bone.quaternion.slerp(palmQ, weight); bone.updateMatrixWorld(true);
+  }
 
   // ---- the lumbar aim line on the patient's back, from the rig's L4/5 skin marker ----
   const L4 = {L: new THREE.Vector3(...marks.clips.lieL.mark_l4_L), R: new THREE.Vector3(...marks.clips.lieR.mark_l4_R)};
@@ -186,11 +237,12 @@ export async function createSideScene(canvas){
 
   const st = {shake: 0, t: null};
   function render({now = performance.now(), side = "L", roll = null, height = .5, position = .5, locked = false, pressure = 0, impulse = 0,
-    kind = "ok", forceTier = 0, shotTime = -1, exit = null, react = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
+    kind = "ok", forceTier = 0, force = 1, shotTime = -1, exit = null, react = null, goal = {height: .78, roll: .6}, showGoal = true, film = 0, xrayState = null, camAz = null, camEl = null} = {}){
     const dt = st.t == null ? 1/60 : Math.min(.1, Math.max(0, (now - st.t)/1000)); st.t = now;
     const f = facing(side), other = side === "L" ? "R" : "L";
     // a paused action does not rewrite its bones every update, so undo last frame's nudges before re-posing
     for(const [b, q] of nudged) b.quaternion.copy(q);
+    patientRoot.position.set(0, 0, 0); patientRoot.rotation.set(0, 0, 0); therRoot.position.set(0, 0, 0);
     // body poses from the baked clips; the roll-over plays its clip at an exact time
     if(roll != null){
       curP = pose(pMix, P, "roll" + side + other, curP, roll);
@@ -200,24 +252,33 @@ export async function createSideScene(canvas){
       curT = pose(tMix, Tr, "setup" + side, curT, 0);
     }
     for(const b of NUDGE) nudged.set(b, b.quaternion.clone());
-    patient.updateMatrixWorld(true); ther.updateMatrixWorld(true);
-    // pelvis roll toward the therapist (+ thrust snap), the chest counter-rotates a little (the pre-tension)
+    patientRoot.updateMatrixWorld(true); therRoot.updateMatrixWorld(true);
     impulse = THREE.MathUtils.clamp(impulse, -.5, 3);
-    const over = forceTier ? (forceTier === 2 ? 2.2 : 1.5) : kind === "over" ? 1.3 : 1;
+    const hit = therapistStyle(force, forceTier).impactAt;
+    const tw = twistProfile(shotTime, {kind, tier: forceTier, hit}), top = f > 0 ? "r" : "l";
     if(roll == null){
+      if(!contactFrames[side]) contactFrames[side] = {
+        shoulder: contactFrame(pBones.spine_03, [.055*f, .025, -.005], [-.25*f, -.1, 1], [-.4*f, -1, -.04]),
+        hip: contactFrame(pBones.pelvis, [-.065*f, .075, -.02], [-.35*f, 0, -1], [.15*f, -1, 0]),
+        patient: contactFrame(pBones.pelvis, [.09*f, .075, -.10], [.2*f, 0, 1], [0, -1, 0])
+      };
       const r = locked ? (clamp01(position) - .5)*2 : 0;
-      const ang = THREE.MathUtils.degToRad(r*ROLL_DEG + Math.max(0, impulse)*9*over);
-      // +angle about z swings the top of the body toward -x; the patient faces +x on side L
-      worldRotate(pBones.pelvis, -f*ang);
-      worldRotate(pBones.spine_02, f*ang*.7);
-      // therapist: lean in with the preload, drop the body on the thrust
-      const lean = THREE.MathUtils.degToRad(pressure*7 + Math.max(0, impulse)*8*over);
-      // the baked setup buries his face in the patient's neck: lift the chest a touch and the head up over the shoulder
-      worldRotate(tBones.spine_03, -f*8*Math.PI/180); worldRotate(tBones.head, -f*26*Math.PI/180);
+      // "푸시할때 환자 몸이 안비틀림": hips wind forward while the chest stays back, with a distinct result curve.
+      const pel = D(r*ROLL_DEG + tw.pelvis), chest = D(tw.chest);
+      worldRotate(pBones.pelvis, -f*pel);
+      worldRotate(pBones.spine_01, f*pel*.45);
+      worldRotate(pBones.spine_02, f*(pel*.55 + chest));
+      // "의사 누를때 동작 개선": lift before contact, then put bounded body weight through the hip hand.
+      const wind = shotTime >= 0 && shotTime < hit ? Math.sin(Math.PI*clamp01((shotTime - Math.max(0, hit - .12))/Math.min(.12, hit))) : 0;
+      const second = kind === "over" && !forceTier ? Math.sin(Math.PI*clamp01((shotTime - hit - .22)/.28))*.18 : 0;
+      const drop = clamp01(tw.drop + second), lean = D(pressure*7 + drop*11 - wind*2);
+      // Lift only the neck/head; moving spine_03 used to break both baked shoulder contacts.
+      worldRotate(tBones.neck_01, -f*D(10)); worldRotate(tBones.head, -f*D(20));
       worldRotate(tBones.spine_01, f*lean*.6); worldRotate(tBones.spine_02, f*lean*.4);
-      therRoot.position.set(0, -Math.max(0, impulse)*.04*over, (clamp01(height) - .5)*.08);
-    }else therRoot.position.set(0, 0, 0);
-    patientRoot.position.set(0, -Math.max(0, impulse)*.006, 0); patientRoot.rotation.set(0, 0, 0);
+      const floor = Math.min(0, pad.max.y + .035 - tBones.pelvis.getWorldPosition(centre).y);
+      therRoot.position.set(-f*drop*(forceTier ? .045 : .022), Math.max(floor, wind*.02*(kind === "weak" ? .4 : 1) - drop*.05), (clamp01(height) - .5)*.08);
+    }
+    patientRoot.position.y = -Math.max(0, impulse)*.006;
     // exit gags: both sides perfect -> he spins up off the table like a swivel chair; lopsided -> he stays wrung out
     if(exit){
       const e = clamp01(exit.t/1.4);
@@ -238,29 +299,61 @@ export async function createSideScene(canvas){
     // 표현"): he whips round past the push, rolls, kicks and flails with his head thrown back; the therapist throws his
     // hands up, leans away shaking his head and hops on the spot
     if(react && roll == null && !exit){
-      const t = react.t, L = react.level/3, D = THREE.MathUtils.degToRad;
+      const t = react.t, L = react.level/3;
       const on = smooth(0, .08, t)*(1 - smooth(2.6, 3.6, t));
       const whip = (1 - Math.exp(-t*14))*(.55 + .45*Math.exp(-t*2.5)*Math.cos(t*17))*on;
       const fl = Math.sin(t*13), fl2 = Math.sin(t*11 + 1.3), up = f > 0 ? "r" : "l", down = f > 0 ? "l" : "r";
-      worldRotate(pBones.pelvis, -f*D(20 + 50*L)*whip);
-      worldRotate(pBones.spine_02, f*D(10 + 35*L)*whip);
       worldRotate(pBones["thigh_" + up], -D(25 + 35*L)*on*(.7 + .3*fl), XAXIS);
       worldRotate(pBones["calf_" + up], D(30*L)*on*fl2, XAXIS);
       worldRotate(pBones["calf_" + down], D(18*L)*on*fl, XAXIS);
-      worldRotate(pBones.upperarm_l, f*D(35 + 45*L)*on*(.75 + .25*fl));
-      worldRotate(pBones.upperarm_r, f*D(35 + 45*L)*on*(.75 + .25*fl2));
       worldRotate(pBones.head, f*D(12 + 28*L)*on, YAXIS);
       // the whole body rolls about its length (round a line along the pad) and jumps off the table once
       const tilt = -f*D(14*L)*whip, hop = .045*react.level*Math.max(0, Math.sin(Math.PI*clamp01(t/.45)));
       patientRoot.rotation.z = tilt; patientRoot.position.x += .9*Math.sin(tilt); patientRoot.position.y += .9*(1 - Math.cos(tilt)) + hop;
       const arms = smooth(.3, .5, t)*(1 - smooth(2.6, 3.4, t));
-      worldRotate(tBones.upperarm_l, -f*D(100 + 20*L)*arms); worldRotate(tBones.upperarm_r, -f*D(100 + 20*L)*arms);
-      worldRotate(tBones.lowerarm_l, -f*D(25)*arms*Math.sin(t*9)); worldRotate(tBones.lowerarm_r, f*D(25)*arms*Math.sin(t*9));
       worldRotate(tBones.spine_01, -f*D(14 + 10*L)*arms);
       worldRotate(tBones.head, D(30)*arms*Math.sin(t*18), YAXIS);
       therRoot.position.x += f*.14*arms;
       const h = t - .6; if(h > 0 && h < .35) therRoot.position.y += .07*(.5 + .5*L)*Math.sin(Math.PI*h/.35);
       if(t < .2) st.shake = Math.max(st.shake, .5 + .4*react.level);
+    }
+    if(roll == null){
+      patientRoot.updateMatrixWorld(true); therRoot.updateMatrixWorld(true);
+      const frames = contactFrames[side];
+      // "환자 겨드랑이 쪽 ... 매우 부자연스러움": rest the raised top arm along the flank, hand on the belly/hip.
+      pBones.pelvis.getWorldPosition(centre); centre.lerp(pBones["thigh_" + top].getWorldPosition(_hp), .45);
+      placeContact(frames.patient, centre, contacts.patient);
+      pole.copy(centre).add(new THREE.Vector3(.24*f, .08, -.32));
+      solveTwoBone(pBones["upperarm_" + top], pBones["lowerarm_" + top], pBones["hand_" + top], contacts.patient, pole);
+      orientPalm(pBones["hand_" + top], palms.patient[top]);
+      // The existing flail stays on top of the resting arm, including during a hard thrust.
+      if(react && !exit){
+        const t = react.t, L = react.level/3, on = smooth(0, .08, t)*(1 - smooth(2.6, 3.6, t));
+        worldRotate(pBones.upperarm_l, f*D(35 + 45*L)*on*(.75 + .25*Math.sin(t*13)));
+        worldRotate(pBones.upperarm_r, f*D(35 + 45*L)*on*(.75 + .25*Math.sin(t*11 + 1.3)));
+      }
+      // "의사 팔도 ...": shoulder hand holds back; the opposite forearm follows the winding iliac crest.
+      if(!exit){
+        const arms = react ? smooth(.3, .5, react.t)*(1 - smooth(2.6, 3.4, react.t)) : 0, weight = 1 - arms;
+        const shoulderHand = f > 0 ? "r" : "l", hipHand = f > 0 ? "l" : "r";
+        // the overact lets go and throws both hands up either side of his head, waving (the old whole-arm swing about
+        // one axis sent one hand round the back of his head again); the shoulder hand is always the head-end (-z) one
+        tBones.head.getWorldPosition(headP);
+        const wave = react ? Math.sin(react.t*9) : 0;
+        const hands = (contact, end) => { raise.set(f*.08, .3 + .04*wave*end, end*.26).add(headP); contact.lerp(raise, arms); };
+        pBones["upperarm_" + top].getWorldPosition(centre); placeContact(frames.shoulder, centre, contacts.shoulder);
+        hands(contacts.shoulder, -1);
+        tBones["upperarm_" + shoulderHand].getWorldPosition(pole); pole.x += .45*f*weight; pole.y -= .3; pole.z -= .08 + .4*arms;
+        solveTwoBone(tBones["upperarm_" + shoulderHand], tBones["lowerarm_" + shoulderHand], tBones["hand_" + shoulderHand], contacts.shoulder, pole);
+        orientPalm(tBones["hand_" + shoulderHand], palms.therapist[shoulderHand], weight);
+        pBones.pelvis.getWorldPosition(centre); centre.lerp(pBones["thigh_" + top].getWorldPosition(_hp), .45);
+        placeContact(frames.hip, centre, contacts.hip);
+        if(kind === "weak" && shotTime >= hit) contacts.hip.x += f*.02*smooth(hit, hit + .3, shotTime);
+        hands(contacts.hip, 1);
+        tBones["upperarm_" + hipHand].getWorldPosition(pole); pole.x += .38*f*weight; pole.y += .08 - .38*arms; pole.z += .5;
+        solveTwoBone(tBones["upperarm_" + hipHand], tBones["lowerarm_" + hipHand], tBones["hand_" + hipHand], contacts.hip, pole);
+        orientPalm(tBones["hand_" + hipHand], palms.therapist[hipHand], weight);
+      }
     }
     if(shotTime >= 0 && impulse > .6) st.shake = Math.max(st.shake, forceTier === 2 ? 1.2 : forceTier ? .8 : .35);
 
