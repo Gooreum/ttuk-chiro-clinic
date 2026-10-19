@@ -347,6 +347,8 @@ function frame(now){
   }
   drawHud(pressure,br);
   app.dataset.phase=S.phase;app.dataset.injury=S.tier===2?'break':S.tier===1?'crack':'none';
+  // the film up: words move off the spine to the side bands (style.css), the burst replaces the stamp
+  app.classList.toggle('xray-on',film>=.3);app.classList.toggle('xray-burst',film>=.3&&$('sideCutLabel').classList.contains('burst'));
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
   if(S.debugView){scene.render({now,...S.debugView});return;}
   if(S.phase!=='paused'){const r=scene.render({now,side:side(),roll,height:aim.height,position:aim.side,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,

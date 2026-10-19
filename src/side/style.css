@@ -39,3 +39,13 @@
   12%,20%,28%,36%,44%{transform:translateX(-52%) scale(1.1) rotate(-3deg)}16%,24%,32%,40%,48%{transform:translateX(-48%) scale(1.1) rotate(3deg)}
   80%{opacity:1;transform:translateX(-50%) translateY(-18px) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-34px) scale(.95)}}
 @keyframes docPop{0%{transform:translateX(-50%) scale(.2) rotate(-12deg);opacity:0}12%{transform:translateX(-50%) scale(1.1) rotate(4deg);opacity:1}80%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-16px) rotate(4deg)}}
+/* the film (user 2026-10-19 "말풍선이나 '골절' 때문에 척추가 잘 안보임"): the spine fills the middle 60% of the screen,
+   so while it is up the words sit in the side bands. The scream / doctor line / +points float over the people, who are
+   not on the film; a disaster keeps the one burst, not the stamp too. #sideSpeech is placed inline, hence !important. */
+#sideApp.xray-on .float,#sideApp.xray-on #sideImpact{visibility:hidden}
+#sideApp.xray-burst .stamp-card{opacity:0}
+#sideApp.xray-on .stamp-card{left:10%;top:60%;max-width:18%;padding:8px 10px 7px}
+#sideApp.xray-on .stamp-card b{font-size:24px}
+#sideApp.xray-on .stamp-card small{font-size:11px}
+#sideApp.xray-on .bubble{left:90%!important;top:82%!important;max-width:18%!important}
+#sideApp .cut-label.burst{left:10%;top:76px;max-width:19%;padding:7px 10px 8px;white-space:normal;font-size:clamp(18px,3.4cqw,24px)}
