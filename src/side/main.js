@@ -10,7 +10,7 @@ import {ROSTER} from '../patient/roster.js';
 import {createSideScene,ROLL_S} from './scene.js';
 import {SWEET,POSITION_TOL,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
-import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt} from './core.js';
+import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget} from './core.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
@@ -85,9 +85,12 @@ function updateImpact(){
   S.kind=S.outcome.kind;S.tier=S.outcome.tier;
   $('sideImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과회전!':FAIL_STAMP[S.outcome.feedback];
 }
+// every thrust cracks a recorded bone at once, right or wrong (core.js thrustSounds, user 2026-10-19 "우두둑 소리도 안나는것 같은데")
 function impactSound(){
-  if(S.kind==='ok'){if(S.sound){clinicAudio.crackSound(S.outcome.perfect?3:2);clinicAudio.chime(S.outcome.perfect);}clinicAudio.vib(S.outcome.perfect?[45,40,45,40,80]:[45,50,45]);}
-  else{if(S.tier){if(S.sound)clinicAudio.crunch(S.tier,1);}else if(S.sound){if(S.outcome.feedback==='finger')clinicAudio.knuckle();else clinicAudio.fizzle();}clinicAudio.vib(S.tier?[120,40,200]:[60]);}
+  if(S.sound)for(const s of thrustSounds({kind:S.kind,tier:S.tier,perfect:S.outcome.perfect})){
+    if(s.fn==='crackSound')clinicAudio.crackSound(s.n);else if(s.fn==='crunch')clinicAudio.crunch(s.tier,1);else if(s.fn==='chime')clinicAudio.chime(s.perfect);else clinicAudio[s.fn]();
+  }
+  clinicAudio.vib(S.kind==='ok'?(S.outcome.perfect?[45,40,45,40,80]:[45,50,45]):S.tier?[120,40,200]:[60]);
 }
 function settleImpact(){
   if(!S.pending)return;
