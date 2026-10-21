@@ -5,8 +5,8 @@ import { zzfxSamples } from "./zzfx.js";
 
 /* Bone sounds are recorded samples the user picked (public/audio, CREDITS.md; 2026-10-15). The synth pop stays as the
    fallback until they decode. Chime, tick, siren, boing, knuckle and the room tone are synthesis (the comic ones are
-   ZzFX, ./zzfx.js); the background music is public/audio/bgm.m4a, a chiptune rendered from a score
-   (scripts/audio/bgm.py, 2026-10-21). */
+   ZzFX, ./zzfx.js); the background music is public/audio/bgm.m4a, the user's pick "Spacious Stillness" (the
+   chiptune from scripts/audio/ lost to it, 2026-10-21). */
 let ac = null, noiseBuf = null, master = null, ambGain = null;
 const AUDIO = import.meta.env.BASE_URL + "audio/";
 const SAMPLES = { crack: "crack.wav", crackHard: "crack-hard.wav", break: "break.wav" };
@@ -39,7 +39,7 @@ function zz(params, vol = 1, delay = 0, rate = 1){
    phone) into a gain node (iOS ignores audio.volume). An element binds to one context for good, so a rebuilt context
    gets a new element that picks up where the old one was. */
 let music = null, musicGain = null, musicAt = 0;
-const MUSIC_PLAY = 0.22, MUSIC_REST = 0.14, MUSIC_DUCK = 0.06;
+const MUSIC_PLAY = 0.5, MUSIC_REST = 0.3, MUSIC_DUCK = 0.12;   // was 0.22/0.14/0.06: ~20 dB under the effects (2026-10-21)
 function ensureMusic(){
   if(music || !ac) return;
   try{
