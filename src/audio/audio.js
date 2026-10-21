@@ -1,10 +1,12 @@
 import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { crackPattern } from "../core/crackPattern.js";
+import { zzfxSamples } from "./zzfx.js";
 
 /* Bone sounds are recorded samples the user picked (public/audio, CREDITS.md; 2026-10-15). The synth pop stays as the
-   fallback until they decode. Chime, tick, siren, boing, knuckle and the room tone are synthesis; the background music
-   is public/audio/bgm.m4a. */
+   fallback until they decode. Chime, tick, siren, boing, knuckle and the room tone are synthesis (the comic ones are
+   ZzFX, ./zzfx.js); the background music is public/audio/bgm.m4a, a chiptune rendered from a score
+   (scripts/audio/bgm.py, 2026-10-21). */
 let ac = null, noiseBuf = null, master = null, ambGain = null;
 const AUDIO = import.meta.env.BASE_URL + "audio/";
 const SAMPLES = { crack: "crack.wav", crackHard: "crack-hard.wav", break: "break.wav" };
@@ -20,6 +22,18 @@ function sample(key, vol, rate = 1, delay = 0){
   s.buffer = sbuf[key]; s.playbackRate.value = rate; g.gain.value = vol;
   s.connect(g); g.connect(master); s.start(ac.currentTime + 0.005 + delay);
   return true;
+}
+/* ZzFX sounds (./zzfx.js parameter lists, randomness 0 so a list builds once and is cached). rate: playback rate
+   (pitch), delay: seconds. */
+const zzBuf = new Map();
+function zz(params, vol = 1, delay = 0, rate = 1){
+  if(!ac) return;
+  const key = params.join();
+  let b = zzBuf.get(key);
+  if(!b){ const d = zzfxSamples(ac.sampleRate, params); b = ac.createBuffer(1, d.length, ac.sampleRate); b.getChannelData(0).set(d); zzBuf.set(key, b); }
+  const s = ac.createBufferSource(), g = ac.createGain();
+  s.buffer = b; s.playbackRate.value = rate; g.gain.value = vol;
+  s.connect(g); g.connect(master); s.start(ac.currentTime + 0.005 + delay);
 }
 /* Background music: streamed through an <audio> element (a 3-minute track decoded whole would be tens of MB on a
    phone) into a gain node (iOS ignores audio.volume). An element binds to one context for good, so a rebuilt context
@@ -122,21 +136,27 @@ export function crackSound(n){
   let t = ac.currentTime + 0.01;
   for(const h of crackPattern(Math.random, n >= 3).hits){ t += h.dt; pop(t, h.freq, h.gain*0.85); }
 }
-/* Wrong cracks (core/fail.js kinds). dud: one weak low pop that fizzles out ("뚜…륵?").
-   finger: a high, dry double click (the therapist's own knuckle). over: a rubber-band "boing" with a wobble. */
+/* Wrong cracks (core/fail.js kinds). dud: one weak low pop that deflates with a "뿌우우" wah-wah (ZzFX saw, falling,
+   tremolo). finger: a high, dry double click (the therapist's own knuckle) and a cartoon "틱" blip. over: a rubber-band
+   "boing" with a wobble and a ZzFX spring "보잉잉잉" (the pitch resets every 70 ms). */
+const ZZ_DEFLATE = [1, 0, 330, .01, .18, .3, 2, 1, -.5, 0, 0, 0, .09, 0, 0, 0, 0, 1, 0, .5, 1200];
+const ZZ_BLIP = [1, 0, 2400, 0, 0, .04, 0, 1, -20];
+const ZZ_SPRING = [1, 0, 220, .01, .22, .3, 1, 1, 5, 0, 0, 0, .07, 0, 0, 0, 0, 1, 0, .3];
 export function fizzle(){
   if(!ac) return;
   const t = ac.currentTime + 0.01;
   pop(t, 520, 0.28);
-  tone(260, 110, 0.35, "triangle", 0.05, 0.08);
+  zz(ZZ_DEFLATE, 0.06, 0.08);
 }
 export function knuckle(){
   if(!ac) return;
   const t = ac.currentTime + 0.01;
   pop(t, 2600, 0.7); pop(t + 0.035, 3100, 0.45);
+  zz(ZZ_BLIP, 0.08, 0.005);
 }
 export function boing(){
   if(!ac) return;
+  zz(ZZ_SPRING, 0.07, 0.04);
   const t = ac.currentTime + 0.01, o = ac.createOscillator(), g = ac.createGain();
   const lfo = ac.createOscillator(), lg = ac.createGain();
   o.type = "sine";
@@ -145,10 +165,13 @@ export function boing(){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.6);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+0.62); lfo.start(t); lfo.stop(t+0.62);
 }
-/* Towel traction (core/towel.js). stretchSound: a soft rising, wobbly "쭈우욱" as the neck shoots out (the snap back
-   is the recorded bone crack, crackSound); whoosh: the towel slipping off ("쏙"). */
+/* Towel traction (core/towel.js). stretchSound: a soft rising, wobbly "쭈우욱" as the neck shoots out with a slide
+   whistle on top (ZzFX, 140 -> 670 Hz; the snap back is the recorded bone crack, crackSound); whoosh: the towel slipping
+   off ("쏙"). */
+const ZZ_WHISTLE = [1, 0, 140, .04, .45, .2, 0, 1, 1.7];
 export function stretchSound(){
   if(!ac) return;
+  zz(ZZ_WHISTLE, 0.045);
   const t = ac.currentTime + 0.01, o = ac.createOscillator(), g = ac.createGain();
   const lfo = ac.createOscillator(), lg = ac.createGain();
   o.type = "triangle";
@@ -159,18 +182,21 @@ export function stretchSound(){
 }
 /* The therapist landing flat on his back with his stool (towel over-pull, game/flow.js): a deep body thump, a dull
    knock of the stool's base a beat later, a little rattle of the casters. */
+const ZZ_THUMP = [1, 0, 80, 0, .05, .35, 1, 1, -1.5, 0, 0, 0, 0, .3, 0, 0, 0, 1, 0, 0, 500];
 export function thud(){
   if(!ac) return;
+  zz(ZZ_THUMP, 0.35);
   tone(110, 38, 0.38, "sine", 0.22);
   tone(70, 30, 0.5, "triangle", 0.12, 0.01);
   const t = ac.currentTime + 0.01;
   pop(t + 0.09, 260, 0.5); pop(t + 0.16, 900, 0.25); pop(t + 0.2, 1400, 0.18);
 }
+const ZZ_SWISH = [1, 0, 900, .05, .08, .22, 0, 1, -4, 0, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, 1200];
 export function whoosh(){
   if(!ac) return;
   if(S.game !== "towel"){
     tone(900, 120, 0.35, "triangle", 0.05);
-    tone(1800, 300, 0.25, "sine", 0.025, 0.03);
+    zz(ZZ_SWISH, 0.12, 0.02);
     return;
   }
   const t=ac.currentTime+0.01, duration=0.48;
@@ -238,7 +264,12 @@ export function tone(f1, f2, dur, type, vol, delay=0){
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t+0.01); g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02);
 }
-export const chime = big => { tone(1046, 1046, 0.5, "sine", 0.06, 0.25); tone(1318, 1318, 0.6, "sine", 0.05, 0.36); if(big) tone(1568, 1568, 0.8, "sine", 0.05, 0.48); };
+/* Success jingle "띠-링(-링)": C6 E6 (G6, C7 on a PERFECT) triangle blips with a short echo (ZzFX), from 0.25 s. */
+const zzBell = f => [1, 0, f, .005, .05, .35, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, .07];
+export const chime = big => {
+  zz(zzBell(1046), 0.1, 0.25); zz(zzBell(1318), 0.09, 0.36);
+  if(big){ zz(zzBell(1568), 0.09, 0.47); zz(zzBell(2093), 0.07, 0.58); }
+};
 // true if the browser took the pattern (false: no API, blocked, an in-app browser). Pulses under ~30ms barely register
 // on many Android motors (user: "우두둑 할땐 안옴", 2026-10-15)
 export const vib = p => { try{ return !!(navigator.vibrate && navigator.vibrate(p)); }catch(e){ return false; } };
