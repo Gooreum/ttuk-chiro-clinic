@@ -39,8 +39,8 @@ import { tractionPose, PresentedClock } from "./towelMotion.js";
 
    A hard wrong crack (game/flow.js hurt, core/fail.js forceTier) opens the x-ray still pressed (crackT < 0) with
    frac = {lvl, t}: FRAC_HIT s in, a jagged crack zips across the stuck vertebra with a white flash and the column
-   jolts; at SHATTER_AT the bone comes apart in clipped shards: lvl 1 crumbles (the stuck vertebra and its neighbours
-   rain down the screen, top first, and the column above sinks into the hole), lvl 2 blows up (five vertebrae flung
+   jolts; at SHATTER_AT the bone comes apart in clipped shards: lvl 1 bursts (the stuck vertebra and its neighbours
+   flung out every which way, and the column above sinks into the hole), lvl 2 blows up (five vertebrae flung
    out like shrapnel, then the whole column, every vertebra, disc and root, flies off in all directions: blowAway).
    The discs in the wreck go flat and red, dust and chips fly, the cord runs hot. A cartoon warning. */
 
@@ -270,7 +270,7 @@ gapGlow.renderOrder = 1001; root.add(gapGlow);
 // A hard wrong crack breaks the bone apart, harder the harder it was cracked (user: "존나 쎄게 꺾으면 뼈 파편처럼 튀어버리고
 // 적당히 꺾으면 우수수 떨어져버리고 약하게 꺾으면 으악 이렇게만", 2026-10-17): every vertebra in reach is cut into eight
 // pieces, the octants of three slanted planes through its centre, each the vertebra's own geometry clipped to its cell
-// so it reads as real bone. lvl 1 (금): the stuck one and its neighbours crumble and rain down the screen, top first;
+// so it reads as real bone. lvl 1 (금): the stuck one and its neighbours burst out every which way;
 // lvl 2 (골절): five vertebrae blow apart, the shards flung out like shrapnel, tumbling.
 const CUT = [[1, 0.35, 0.2], [-0.25, 1, 0.3], [0.2, -0.3, 1]].map(v => new THREE.Vector3(...v).normalize());
 const shards = [];
@@ -805,19 +805,13 @@ function fracture(frac, sv, stuck, side, amount, throb){
     if(p.mat.vertexColors !== v.mat.vertexColors){ p.mat.vertexColors = v.mat.vertexColors; p.mat.needsUpdate = true; }
     p.mat.emissive.copy(COL.coral).multiplyScalar((p.who ? 0.3 : 0.5) + 0.6*Math.exp(-4*t) + 0.15*throb);
     _d.copy(p.dir).applyQuaternion(v.g.quaternion);
-    p.m.position.copy(v.g.position);
-    let turn;
-    if(hard){
-      // flung out, slowing a little, falling a little, tumbling the whole time
-      const tt = Math.min(t, 2.5), speed = (p.who ? 0.4 : 0.6)*(0.7 + 0.6*p.r);
-      p.m.position.addScaledVector(_d, speed*(1 - Math.exp(-1.2*tt))/1.2).addScaledVector(_dn, 0.08*tt*tt);
-      turn = (p.who ? 9 : 14)*p.spin*tt;
-    }else{
-      // the cracks open, then each piece lets go a moment apart and drops, turning over as it falls
-      const fall = Math.min(Math.max(0, t - 0.12 - 0.05*p.r - 0.03*(p.k % 4)), 2);
-      p.m.position.addScaledVector(_d, 0.004*(1 - Math.exp(-8*t)) + 0.006*fall).addScaledVector(_dn, 0.28*fall*fall);
-      turn = 1.6*p.spin*fall;
-    }
+    p.m.position.copy(v.g.position); p.m.scale.set(1, 1, 1);
+    // both tiers throw the pieces out every which way (user: "우수수가아니라 파편이 온사방으로 다튀어야한다고", 2026-10-21);
+    // a break throws them harder and further, and the rest of the column goes too (blowAway)
+    const tt = Math.min(t, 2.5), speed = (hard ? (p.who ? 0.45 : 0.7) : (p.who ? 0.22 : 0.34))*(0.7 + 0.6*p.r);
+    p.m.position.addScaledVector(_d, speed*(1 - Math.exp(-1.2*tt))/1.2).addScaledVector(_dn, (hard ? 0.08 : 0.12)*tt*tt);
+    const turn = (hard ? (p.who ? 9 : 14) : 8)*p.spin*tt;
+    glitch(p.m, t, p.k*13 + p.who*7);
     p.m.quaternion.copy(v.g.quaternion).multiply(_q.setFromAxisAngle(p.axis, turn));
     p.m.updateWorldMatrix(true, false);
     CUT.forEach((c, i) => p.mat.clippingPlanes[i].setFromNormalAndCoplanarPoint(_o.copy(c).multiplyScalar(p.signs[i]), ORIGIN).applyMatrix4(p.m.matrixWorld));
@@ -830,18 +824,28 @@ function fracture(frac, sv, stuck, side, amount, throb){
   const t = Math.max(0, bt);
   chips.forEach(c => {
     c.s.visible = true;
-    if(hard) c.s.position.copy(_h).addScaledVector(c.v, 4*(1 - Math.exp(-2*t))).addScaledVector(_dn, 0.05*t*t);
-    else c.s.position.copy(_h).addScaledVector(c.v, 0.4*(1 - Math.exp(-4*t))).addScaledVector(_dn, 0.25*t*t);
+    c.s.position.copy(_h).addScaledVector(c.v, (hard ? 4 : 2.4)*(1 - Math.exp(-2*t))).addScaledVector(_dn, 0.05*t*t);
     c.s.material.opacity = amount*Math.max(0, 1 - t/1.8);
     c.s.scale.setScalar(0.0065 + 0.0025*(c.v.length() > 0.02 ? 1 : 0));
   });
   dust.forEach((d, i) => {
     d.s.visible = true;
-    if(hard) d.s.position.copy(_h).addScaledVector(d.v, 3.5*(1 - Math.exp(-2.5*t)));
-    else d.s.position.copy(_h).addScaledVector(d.v, 0.5*(1 - Math.exp(-3*t))).addScaledVector(_dn, (d.puff ? 0.04 : 0.2 + 0.05*(i % 3))*t*t);
+    d.s.position.copy(_h).addScaledVector(d.v, (hard ? 3.5 : 2)*(1 - Math.exp(-2.5*t)));
     d.s.material.opacity = amount*Math.max(0, 1 - t/(d.puff ? 1.2 : 1.8))*(d.puff ? 0.5 : 1);
     d.s.scale.setScalar(d.puff ? 0.012 + (hard ? 0.05 : 0.025)*Math.min(1, t*1.5) : 0.0035 + 0.0015*(d.v.length() > 0.035 ? 1 : 0));
   });
+}
+/* Deliberately broken physics-game look for flying bone (user: "그래픽도존나깨지고", picked "일부러 깨지게", like Goat
+   Simulator, 2026-10-21): a flying piece stretches out along one axis and squashes, and every few frames it snaps to
+   a slightly wrong place, as if the physics glitched. Deterministic per piece; scale/position only, so it is visual. */
+const _gs = new THREE.Vector3();
+function glitch(o, t, seed){
+  const h = x => { const v = Math.sin(x*12.9898 + seed*78.233)*43758.5453; return v - Math.floor(v); };
+  const ramp = Math.min(1, t*3), step = Math.floor(t*14);
+  const ax = ((seed % 3) + 3) % 3, wob = 1 + ramp*(1.6*h(step*0.37 + 1) + 0.6*Math.sin(t*23 + seed));
+  _gs.set(1, 1, 1).setComponent(ax, wob).setComponent((ax + 1) % 3, 1/Math.sqrt(wob));
+  o.scale.multiply(_gs);
+  if(h(step + 0.5) > 0.72) o.position.x += ramp*0.012*(h(step + 2.1) - 0.5), o.position.y += ramp*0.012*(h(step + 3.3) - 0.5);
 }
 /* A break (tier 2) does not stop at the shrapnel: the blast runs up and down the column and everything else goes
    too, every vertebra, disc and nerve root flung off in its own direction, tumbling, out of the film (user: "쎄게
@@ -866,6 +870,7 @@ function blowAway(bt, stuck, reach, amount, throb){
     p.g.position.addScaledVector(_fd, speed*(1 - Math.exp(-1.2*tt))/1.2).addScaledVector(_dn, 0.08*tt*tt);
     _fa.set(Math.sin(a*1.7), Math.cos(a*0.9), e).normalize();
     p.g.quaternion.multiply(_q.setFromAxisAngle(_fa, (h > 0.5 ? 1 : -1)*(6 + 8*h)*tt));
+    glitch(p.g, t, n*5 + 3);
     if(!p.m.visible) return;
     p.mat.opacity = amount;
     p.mat.emissive.copy(COL.coral).multiplyScalar((0.25 + 0.5*Math.exp(-4*t) + 0.1*throb));
