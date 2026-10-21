@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { assetLoad } from "../platform/analytics.js";
 import { clamp } from "../lib/math.js";
 import { spineOffsets, discStretch } from "../core/towel.js";
 import { spinePose, spineOf } from "../core/spine.js";
@@ -365,8 +366,10 @@ function part(gltf, name, mat){
   const m = new THREE.Mesh(geo, mat); m.renderOrder = 999; g.add(m);
   return {g, m, mat, home: c.clone(), base: mat.color.clone()};
 }
+// keep "Promise.all" as the first line: scripts/build/clinic-effects.mjs rewrites it to "return Promise.all" for the back/side modes
+let spineT0 = 0;
 export function loadSpine(){
-  Promise.all([loadModel("spine/cervical.glb"), getEnv()]).then(([gltf, env]) => {
+  Promise.all([(spineT0 = performance.now(), loadModel("spine/cervical.glb")), getEnv()]).then(([gltf, env]) => {
     gltf.scene.updateMatrixWorld(true);
     for(let i = 0; i < 7; i++){ const p = part(gltf, `C${i+1}`, boneMat()); p.mat.envMap = env; V.push(p); }
     for(let i = 1; i < 7; i++){
@@ -418,9 +421,11 @@ export function loadSpine(){
     V[0].m.onAfterRender = presented;
     ready = true;
     document.documentElement.dataset.spine = "ready";
+    assetLoad("spine", true, spineT0);
   }).catch(err => {
     console.warn("spine model not loaded, x-ray shows the film only", err);
     document.documentElement.dataset.spine = "failed";
+    assetLoad("spine", false, spineT0, err && err.message);
   });
 }
 

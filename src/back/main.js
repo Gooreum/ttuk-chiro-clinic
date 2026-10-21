@@ -1,3 +1,4 @@
+import "../boot.js";
 import "../ui/clinic-hud.css";
 import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
 import {makeHud} from '../ui/hudDom.js';
@@ -18,6 +19,8 @@ import {rankTitle} from '../core/scoring.js';
 import {T,saveT} from '../tuning.js';
 import {store} from '../lib/store.js';
 import {mountMonetize} from '../ui/monetize.js';
+import {track,screenView,firstSuccess,askReview,markReady,bootFail} from '../platform/analytics.js';
+import {EV,runOutcome} from '../core/analytics.js';
 
 const $=id=>document.getElementById(id), app=$('backApp'),canvas=$('backCanvas'),press=$('backPress'),hud=$('backHud'),ctx=hud.getContext('2d');
 const domHud=makeHud(app);
@@ -111,6 +114,9 @@ function settleImpact(){
   updateImpact();const early=S.pending.sounded;S.pending=null;
   if(!early||S.kind!=='ok')impactSound();
   S.reaction=pickReaction(patient.react,S.outcome.perfect,Math.random,S.previousReaction);
+  const tryNo=S.painHere+1,aimMs=S.animAt-S.prepUntil;
+  track(EV.attempt,{zone_no:S.step+1,result:S.kind==='ok'?'ok':S.outcome.feedback||S.kind,tier:S.tier,force:S.force,perfect:!!S.outcome.perfect,pts:S.kind==='ok'?S.outcome.points:0,organs:S.organs.length,try_no:tryNo,aim_ms:aimMs});
+  if(S.kind==='ok')firstSuccess({game:'back',zone_no:S.step+1,aim_ms:aimMs});
   if(S.kind==='ok'){
     S.score+=S.outcome.points;S.streak=S.outcome.streak;
     domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');
@@ -150,7 +156,11 @@ function finish(){
   $('backRank').textContent=rankTitle(S.score/3,S.tier?3:S.mistakes);
   $('backBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('backResult').hidden=false;sync();
-  monetize.showResult({endedBad:!complete,used:S.continued});
+  const outcome=runOutcome({ambulance:!!S.tier,pain:S.mistakes,complete});
+  track(EV.runEnd,{game:'back',outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:S.continued,run_ms:performance.now()-S.runAt,rank:$('backRank').textContent});
+  if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
+  screenView('result',{outcome});
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,used:S.continued,skipInterstitial:asked}));
 }
 // 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
 // zone again with the misses cleared; the zones already done keep their points.
@@ -161,6 +171,7 @@ function continueRun(){
   Object.assign(S,{phase:'play',continued:true,locked:false,position:.5,mistakes:0,streak:0,painHere:0,fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,
     prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
   $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backResult').hidden=true;$('backControls').hidden=false;
+  track(EV.runStart,{game:'back',how:'continue',zone_no:S.step+1});screenView('play');
   sync();
 }
 const monetize=mountMonetize({continueBtn:$('backContinueAd'),buyBtn:$('backBuyAdFree'),onContinue:continueRun});
@@ -176,6 +187,8 @@ async function start(useMotion=preferMotion){
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
+  track(EV.runStart,{game:'back',how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
+  track(EV.patientStart,{zone_no:1,of:3});
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeSideTargets(),heights:makeBackTargets(),locked:false,results:[],fails:[],continued:false,
     holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
@@ -350,8 +363,8 @@ function frame(now){
       app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;$('backCutLabel').classList.remove('burst');
       if(S.tier){finish();}
       else if(S.kind==='ok'){
-        S.results.push(S.outcome);if(S.results.length===3)finish();
-        else{S.step++;S.painHere=0;S.phase='play';S.nearSaid=false;S.prepUntil=now+700;S.locked=false;S.position=.5;motion.position=.5;motion.neutral=null;}
+        S.results.push(S.outcome);track(EV.patientDone,{zone_no:S.step+1,label:'done',pts:S.outcome.points,fails:S.painHere});if(S.results.length===3)finish();
+        else{S.step++;track(EV.patientStart,{zone_no:S.step+1,of:3});S.painHere=0;S.phase='play';S.nearSaid=false;S.prepUntil=now+700;S.locked=false;S.position=.5;motion.position=.5;motion.neutral=null;}
       }else if(S.mistakes>=3)finish();else{S.phase='play';S.prepUntil=now+700;S.missAt=now;S.missAim=S.shotAim;}
       sync();face=false;shotTime=-1;
     }
@@ -397,9 +410,10 @@ function frame(now){
   if(mark){for(const [id,a] of [['backMissMark',S.missAim],['backAnswer',{side:S.missAim.locked?S.targets[S.step]:.5,height:S.heights[S.step]}]]){const point=scene.projectPosition(a.side,a.height);$(id).style.left=point.x+'px';$(id).style.top=point.y+'px';}}
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
-try{scene=await createBackScene(canvas);resize();S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
-  $('backStart').textContent='진료 시작';document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(frame);
-}catch(error){console.error('허리 진료실을 불러오지 못했어요',error);$('backLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('backStart').textContent='다시 불러오기';$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
+const sceneT0=performance.now();
+try{scene=await createBackScene(canvas);resize();track(EV.assetLoad,{asset:'back_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
+  $('backStart').textContent='진료 시작';document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(t=>{frame(t);markReady();});
+}catch(error){console.error('허리 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('backLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('backStart').textContent='다시 불러오기';$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
 if(import.meta.env.MODE==='shot')window.__backShot={press:(position,pressure,force)=>applyPress(position,pressure,force),lock:(on=true)=>setLocked(on),aim:p=>{S.position=p;},snapshot:()=>({...S,results:[...S.results]}),project:p=>scene?.projectPosition(p),metrics:()=>scene?.metrics(),timeline:()=>({...reactionTiming(S.kind,S.tier,S.force,S.organs.length>0),...therapistStyle(S.force,S.tier)})};

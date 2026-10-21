@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { assetLoad } from "../platform/analytics.js";
 import { slipPose } from "./towelMotion.js";
 import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
@@ -400,12 +401,14 @@ function loadTowelCharacters(){
   return towelAssetsP;
 }
 export function loadRealAssets(){
-  const [first, ...rest] = Object.keys(MODELS);
+  const [first, ...rest] = Object.keys(MODELS), t0 = performance.now();
   loadPatientModel(first).then(() => {
     document.documentElement.dataset.head = "ready";
+    assetLoad("patient_first", true, t0);
   }).catch(err => {
     console.warn("realistic patient not loaded, keeping primitives", first, err);
     document.documentElement.dataset.head = "failed";
+    assetLoad("patient_first", false, t0, err && err.message);
   }).then(() => rest.reduce((p, id) => p.then(() => loadPatientModel(id).catch(err => {
     console.warn("realistic patient not loaded, keeping primitives", id, err);
   })), Promise.resolve()));
@@ -418,9 +421,11 @@ export function loadRealAssets(){
     Object.values(made).forEach(m => crackFadeMats.push(m));
     syncArms();
     document.documentElement.dataset.hands = "ready";
+    assetLoad("arms", true, t0);
   }).catch(err => {
     console.warn("realistic arms not loaded, keeping primitives", err);
     document.documentElement.dataset.hands = "failed";
+    assetLoad("arms", false, t0, err && err.message);
   });
 }
 /* Arm materials: baked skin (diffuse x occlusion) with the face's soft sheen; the sleeve and its hem keep the shirt's

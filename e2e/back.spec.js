@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { watchErrors } from "./helpers.js";
+import { watchErrors, expectFunnel } from "./helpers.js";
 
 test("허리펴기: 세 구역을 정확히 누르고 결과 카드까지 간다", async ({ page }) => {
   const errs = watchErrors(page);
@@ -26,5 +26,6 @@ test("허리펴기: 세 구역을 정확히 누르고 결과 카드까지 간다
   expect(s.results).toHaveLength(3);
   expect(s.mistakes).toBe(0);
   await expect(page.locator("#backResultSteps li")).toHaveCount(3);
+  await expectFunnel(page, { mode: "back", attempts: 3 });
   errs.check();
 });

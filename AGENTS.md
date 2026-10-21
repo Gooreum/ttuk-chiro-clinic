@@ -34,6 +34,7 @@
 | `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간·교정 후 반응·반대쪽 전환 스크린샷 5장 |
 | `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
 | `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
+| `docs/analytics.md` | 이벤트 이름·파라미터 표, 전환 지표, 리뷰·전면광고 규칙(6-2) |
 | `apps-in-toss.config.ts`, `toss/icon-600.png` | 앱인토스 테스트 배포. `npm run build:toss`가 `dist/`를 `ttuk-chiro.ait`로 묶는다(커밋 안 함). appName `ttuk-chiro`, 표시 이름·아이콘(정확히 600×600)은 콘솔에서 관리. 배포는 `npx ait deploy --profile dev --location ./ttuk-chiro.ait` → QR 테스트 환경만, 공개 안 됨. 아직 SDK API(광고·햅틱·방향 고정)는 코드에서 안 쓴다. 사용자: "테스트앱으로 등록까지해둬"(2026-10-17) |
 | `.github/workflows/pages.yml` | main에 push하면 테스트 → 빌드 → GitHub Pages 배포 |
 | `LICENSE` | © 2026 Gooreum, All rights reserved(무단 복제·수정·배포 금지). 외부 에셋은 `CREDITS.md`의 각 라이선스. 타이틀의 "© 2026 Gooreum · 크레딧"에서 CC BY 출처를 보여 준다 |
@@ -213,6 +214,17 @@
 - 보상형 "광고 보고 이어하기": 통증 3번이나 구급차로 끝난 판에서 한 번만. 목꺾기·목뽑기는 끝난 환자를 처음부터 다시(그 환자 점수는 빼고 통증 0), 허리펴기는 그 구역을 다시(실수 0, 앞 구역 점수 유지, 높이 고정을 풀고 높이부터 다시 맞춘다. 사용자: "pr 다 머지해", 2026-10-18 main의 높이 고정과 합치며 정함). 광고를 끝까지 봐야(`userEarnedReward`) 이어 간다.
 - 전면 "한판더": 이어하기를 권하지 않는 결과 카드에서만, 세션 시작 후·직전 광고 후 2분(`INTERSTITIAL_GAP_MS`) 지나야.
 - 결제 "광고 제거"(비소모성): 산 뒤로는 전면 광고가 안 나오고 이어하기는 광고 없이 된다. 이 폰의 localStorage `chiroAdFree`에 두고, 시작할 때 결제 대기 주문은 지급·완료 처리하고 완료/환불 주문으로 복구·회수한다(빈 목록·실패는 바꾸지 않음). 서버가 없어 다른 기기 복구는 토스 주문 목록에 기댄다. 2026-10-17 현재 정산 정보 검토 중이라 상품을 아직 못 만들어 `adFreeSku`가 비어 있고 버튼이 숨어 있다.
+
+### 6-2. 이벤트 기록·리뷰 요청·로드 실패 (2026-10-21)
+- 앱인토스 '추천 미니앱' 기준에 맞춘다. 이벤트 표와 규칙은 `docs/analytics.md`에 있다.
+- 이벤트 이름은 `core/analytics.js` `EV`에만 둔다. 전송은 `platform/analytics.js`가 한다(토스 `Analytics.log`와 GA4 `G-91N1SBGRDE`에 같은 이름으로 보낸다).
+- 개인정보는 넣지 않는다. 촬영 빌드는 `window.__events`에 쌓고 e2e(`expectFunnel`)가 확인한다.
+- 세 페이지 모두 `src/boot.js`를 가장 먼저 import한다. 그래야 부팅 중 오류도 기록되고, 첫 프레임 전에 오류가 나면 `ui/loadFail.js`의 다시 시도 카드가 뜬다.
+- SDK 로더는 `platform/sdk.js` 하나다. toss.js와 analytics.js가 같이 쓴다.
+- 핵심 행동은 `run_complete`(한 판 완주)다. 완주 직후 토스 리뷰를 기기당 한 번 요청한다(`chiroReviewAsked`). 리뷰를 요청한 카드에서는 전면광고를 건너뛴다.
+- 전면광고 전에는 "잠시 뒤 광고가 1개 나와요"를 1.6초 띄운다(`ui/monetize.js` `adNotice`).
+- 화면 이벤트 함수는 `screenView`다. `screen`으로 import하면 `window.screen`(화면 방향·`orientation.lock`)을 가린다.
+- `scene/xray.js` `loadSpine`의 첫 줄은 `Promise.all`로 둔다. 허리 모드 빌드(`scripts/build/clinic-effects.mjs`)가 이 글자를 찾아 `return Promise.all`로 바꾼다. 앞에 한 줄을 넣었다가 허리비틀기 진료실이 안 열렸다(2026-10-21).
 
 ## 7. 톤 & 디자인
 - 병맛: 과장되고 엉뚱하게(목 아래는 거의 그대로인데 목부터 확 당겨지고, 치료사가 훌러덩 넘어지고, 나이 든 환자는 한참 욕하다 시원해한다. 환자들이 황당한 대사를 한다. 목이 9cm 넘게 늘어나면 혓바닥 같아 징그럽다는 지적으로 6cm까지만, 2026-10-16). 사용자: "전반적으로 우리 게임은 병맛 느낌으로 가야해"(2026-10-15). 예전 기준은 "코믹하지만 깔끔하게"였다. 화면 정리(가독성·팔레트·폰트)는 그대로 깔끔하게 둔다.

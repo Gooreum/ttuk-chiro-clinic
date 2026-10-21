@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { watchErrors, waitNeckAssets, playNeckDay } from "./helpers.js";
+import { watchErrors, waitNeckAssets, playNeckDay, expectFunnel } from "./helpers.js";
 
 test("목꺾기: 세 환자 양쪽을 교정하고 진료 일지까지 간다", async ({ page }) => {
   const errs = watchErrors(page);
@@ -30,5 +30,6 @@ test("목꺾기: 세 환자 양쪽을 교정하고 진료 일지까지 간다", 
   expect(res.map(r => r.name)).toEqual(day.names);
   res.forEach(r => expect(r.stars).toBeGreaterThan(0));
   expect(Number(await page.locator("#rtotal").textContent())).toBeGreaterThan(0);
+  await expectFunnel(page, { mode: "crack", attempts: 6 });
   errs.check();
 });
