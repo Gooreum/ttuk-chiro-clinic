@@ -2,6 +2,19 @@
    bad end) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
 import { isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/toss.js";
 import { continueOffer } from "../core/monetize.js";
+import { track } from "../platform/analytics.js";
+import { EV } from "../core/analytics.js";
+
+export const AD_NOTICE_MS = 1600;
+/* The interstitial is announced first (the Toss recommend guide: no ad without warning). */
+function adNotice(){
+  track(EV.adNotice, { format: "interstitial" });
+  const el = document.createElement("div");
+  el.className = "ad-notice"; el.setAttribute("role", "status");
+  el.textContent = "잠시 뒤 광고가 1개 나와요";
+  document.body.appendChild(el);
+  return new Promise(r => setTimeout(() => { el.remove(); r(); }, AD_NOTICE_MS));
+}
 
 export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   continueBtn.hidden = true; buyBtn.hidden = true;
@@ -18,6 +31,7 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   continueBtn.addEventListener("click", async () => {
     if(busy) return;
     busy = true; continueBtn.disabled = true;
+    track(EV.click, { target: "continue_ad", ad_free: adFree() });
     const ok = await watchRewarded();
     busy = false; continueBtn.disabled = false;
     if(ok){ continueBtn.hidden = true; onContinue(); }
@@ -31,12 +45,13 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   });
   onAdFreeChange(() => { renderBuy(); if(!continueBtn.hidden) continueBtn.textContent = label(); });
   return {
-    // after the day log opens: offer the continue, or show an interstitial when there is none to offer
-    async showResult({ endedBad, used }){
+    // after the day log opens: offer the continue, or show an interstitial when there is none to offer and the
+    // card did not just ask for a review
+    async showResult({ endedBad, used, skipInterstitial }){
       const offer = continueOffer({ endedBad, used }) && (canWatchRewarded() || adFree());
       continueBtn.hidden = !offer; continueBtn.textContent = label();
       renderBuy();
-      if(!offer) await maybeInterstitial();
+      if(!offer && !skipInterstitial) await maybeInterstitial(adNotice);
     }
   };
 }

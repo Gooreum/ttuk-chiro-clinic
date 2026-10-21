@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { watchErrors, waitNeckAssets, playNeckDay } from "./helpers.js";
+import { watchErrors, waitNeckAssets, playNeckDay, expectFunnel } from "./helpers.js";
 
 test("목뽑기: ?mode=towel 에서 세 환자를 당기고 일지까지 간다", async ({ page }) => {
   const errs = watchErrors(page);
@@ -17,5 +17,6 @@ test("목뽑기: ?mode=towel 에서 세 환자를 당기고 일지까지 간다"
   await expect(page.locator("#rlist li")).toHaveCount(3);
   const res = await page.evaluate(() => window.__game.S.results.map(r => r.name));
   expect(res).toEqual(names);
+  await expectFunnel(page, { mode: "towel", attempts: 3 });
   errs.check();
 });

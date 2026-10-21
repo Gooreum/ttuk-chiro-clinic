@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { watchErrors } from "./helpers.js";
+import { watchErrors, expectFunnel } from "./helpers.js";
 
 // 허리비틀기 (user 2026-10-19 "이거는 좌우 두번해야돼"): one side, roll over, the other side, then the result card —
 // never the card after one side.
@@ -25,5 +25,6 @@ test("허리비틀기: 한쪽 → 돌아눕기 → 반대쪽 → 결과 카드",
   const s = await page.evaluate(() => window.__sideShot.snapshot());
   expect(s.results.map(r => r.side).sort()).toEqual(["L", "R"]);
   await expect(page.locator("#sideResultSteps li")).toHaveCount(3);   // two sides + the symmetry bonus
+  await expectFunnel(page, { mode: "side", attempts: 2 });
   errs.check();
 });

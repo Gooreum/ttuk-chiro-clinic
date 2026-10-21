@@ -18,6 +18,8 @@ import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 import { mountMonetize } from "../ui/monetize.js";
+import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
+import { EV, runOutcome } from "../core/analytics.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite.
@@ -44,6 +46,18 @@ function showBanner(no, name, trait){
   $("#bnNo").textContent = no; $("#bnName").textContent = name; $("#bnTrait").textContent = trait;
   $("#banner").classList.add("show");
   clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>$("#banner").classList.remove("show"), 2300);
+}
+/* analytics (docs/analytics.md): patients by roster order only, no names */
+const mode = () => S.game === "towel" ? "towel" : "crack";
+const who = () => ({ patient_no: S.idx + 1, roster: S.target ? S.target.look && S.target.look.model || S.target.age : null, trait: S.target && S.target.trait || "none" });
+function pushResult(r){
+  S.results.push(r);
+  track(EV.patientDone, { ...who(), label: r.ambulance ? "ambulance" : r.stars ? "done" : "quit", pts: r.pts, stars: r.stars, fails: r.fails.length });
+}
+function logAttempt(result, extra){
+  const p = { ...who(), side_no: S.game === "towel" ? null : S.sideIdx + 1, result, try_no: S.painHere + 1, aim_ms: performance.now() - S.patientStart, ...extra };
+  track(EV.attempt, p);
+  if(result === "ok") firstSuccess({ game: mode(), patient_no: S.idx + 1, aim_ms: p.aim_ms });
 }
 function loadPatient(){
   S.busy = true;
@@ -74,6 +88,7 @@ function loadPatient(){
       $("#csPlan").textContent = "처방: 수건 견인 · 목 쭈욱";
     }else renderChartSheet(target, S.idx, S.patients.length, S.idx < SHOW_ZONE_UNTIL ? "링 안의 초록 구역에 맞춰 보세요" : "");
     openChart(true);
+    track(EV.patientStart, { ...who(), of: S.patients.length });
     // prep (core/cue.js PREP_MS, 98-video reference): the patient settles, the hands palpate and rock the head
     // (loop.js reads S.prepUntil), the therapist says to relax. S.busy stays on, so nothing aims or judges until it ends.
     // The breath clock starts now so the chest keeps rising through the prep; patientStart (nervous tightening,
@@ -86,6 +101,7 @@ function loadPatient(){
     setTimeout(() => {
       if(tok !== loadTok || S.phase !== "play") return;
       S.busy = false; S.patientStart = performance.now(); closeChart();
+      track(EV.aimStart, { ...who(), control: S.mode });
       // towel practice: how to play, on the first patients
       if(S.game === "towel" && S.idx < SHOW_ZONE_UNTIL) coach(S.mode === "tilt" ? "폰을 젖혀 장력, 좌우로 기울여 중심을 초록에 맞추고 숨 내쉴 때 툭!" : "위아래로 장력, 좌우로 중심을 초록에 맞추고 휙 쓸어 당겨요", 3200);
     }, PREP_MS);
@@ -140,10 +156,11 @@ function success(d, exhale){
   hurtTok++;   // a wrong crack's lines still pending must not talk over the reaction
   const r = scoreSuccess(d, exhale, S.streak, S.painHere);
   const {perfect, base, comboBonus, pts} = r;
+  logAttempt("ok", { perfect, exhale: !!exhale, dist: d, pts });
   S.streak = r.streak;
   S.score += pts;
   S.sidePts.push(pts); S.sideStars.push(r.stars);
-  if(S.sideIdx === 1) S.results.push({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD",
+  if(S.sideIdx === 1) pushResult({name:target.name, age:target.age, pts: S.sidePts[0] + S.sidePts[1], stars: patientStars(S.sideStars), label: perfect ? "PERFECT" : "GOOD",
     fails: [...S.fails], tiers: [...S.tiers], lines: target.lines});
   $("#score").textContent = S.score; renderCombo();
 
@@ -214,11 +231,12 @@ function callAmbulance(later, at, target, pts){
     stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
     S.input.rot = 0; S.input.bend = 0;
   });
-  later(at + AMBULANCE_END - SIREN_AT, () => { S.results.push({name:target.name, age:target.age, pts, stars:0, label:"구급차 이송", ambulance:true,
+  later(at + AMBULANCE_END - SIREN_AT, () => { pushResult({name:target.name, age:target.age, pts, stars:0, label:"구급차 이송", ambulance:true,
     fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
 }
 function hurt(msg, kind, force = 0){
   const target = S.target, tok = ++hurtTok, idx = S.idx, side = S.sideIdx, tier = forceTier(force);
+  logAttempt(kind, { tier, force, dist: distNorm() });
   S.busy = true;
   S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(tier);
   renderPain(); renderCombo();
@@ -277,7 +295,7 @@ function hurt(msg, kind, force = 0){
   later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   // the third one ends the day, a beat later so the gag and the patient's line still land
   if(S.pain >= 3){
-    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
+    later(3600, () => { pushResult({name:target.name, age:target.age, pts: S.sidePts.reduce((a, b) => a + b, 0), stars:0, label:"통증으로 중단",
       fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
     return;
   }
@@ -305,9 +323,10 @@ function towelSuccess(d, exhale){
   hurtTok++;
   const r = scoreSuccess(d, exhale, S.streak, S.painHere);
   const {perfect, base, comboBonus, pts} = r;
+  logAttempt("ok", { perfect, exhale: !!exhale, tension: towelTension(S.cur.bend), pts });
   S.streak = r.streak;
   S.score += pts;
-  S.results.push({name:target.name, age:target.age, pts, stars: r.stars, label: perfect ? "PERFECT" : "GOOD", fails: [...S.fails], lines: target.lines});
+  pushResult({name:target.name, age:target.age, pts, stars: r.stars, label: perfect ? "PERFECT" : "GOOD", fails: [...S.fails], lines: target.lines});
   $("#score").textContent = S.score; renderCombo();
   // the recorded bone crack right on the tug (user: "우두둑 소리는 잡아당기자 마자", 2026-10-15; at the x-ray it fell
   // flat), with a soft "쭈우욱" as the neck shoots out and trembles; the see-through x-ray then shows the spine stretched
@@ -351,6 +370,7 @@ function towelSuccess(d, exhale){
 function towelHurt(kind){
   const target = S.target, tok = ++hurtTok, idx = S.idx;
   const tier = kind === "skew" ? skewTier(S.cur.rot, S.towel) : kind === "taut" ? 1 : 0;
+  logAttempt(kind, { tier, tension: towelTension(S.cur.bend) });
   S.busy = true;
   S.pain++; S.painHere++; S.streak = 0; S.fails.push(kind); S.tiers.push(tier);
   renderPain(); renderCombo();
@@ -360,7 +380,7 @@ function towelHurt(kind){
   // hands, or the third pain ends the day
   const tugAgain = () => {
     if(S.pain >= 3){
-      later(CRACK_BACK + 500, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
+      later(CRACK_BACK + 500, () => { pushResult({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], tiers: [...S.tiers], lines: target.lines}); finish(); });
       return;
     }
     later(CRACK_BACK - 200, () => { say(failLine(target.lines, S.fails.length), 2000, true); setFace("doubt"); });
@@ -428,7 +448,7 @@ function towelHurt(kind){
   later(600, () => floater("흠…", -(r + 40), -r*0.5, "breath", 1700));
   later(4600, () => { if(!S.busy){ say(target.lines.doubt, 1600); floater("?", r + 24, -r - 10, "small", 1200); } });
   if(S.pain >= 3){
-    later(3600, () => { S.results.push({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
+    later(3600, () => { pushResult({name:target.name, age:target.age, pts: 0, stars:0, label:"통증으로 중단", fails: [...S.fails], lines: target.lines}); finish(); });
     return;
   }
   setTimeout(() => { S.busy = false; }, 1100);
@@ -466,7 +486,13 @@ function finish(){
   renderClinicLinks($("#resultClinics"), clinicNow());
   $("#result").hidden = false;
   if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
-  monetize.showResult({ endedBad: S.ambulance || S.pain >= 3, used: S.continued });
+  const complete = !S.ambulance && S.pain < 3 && S.results.length >= S.patients.length;
+  const outcome = runOutcome({ ambulance: S.ambulance, pain: S.pain, complete });
+  track(EV.runEnd, { game: mode(), outcome, score, patients: S.results.length, pain: S.pain, best: isBest, continued: S.continued, run_ms: performance.now() - S.runAt, rank: $("#rank").textContent });
+  if(complete) track(EV.runComplete, { game: mode(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
+  screenView("result", { outcome });
+  // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= 3, used: S.continued, skipInterstitial: asked }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
    comes back from the start with the pain count cleared. Their points so far come off (they are earned again). */
@@ -475,6 +501,8 @@ function continueRun(){
   const r = S.results.pop();
   if(r) S.score -= r.pts || 0;
   hurtTok++; S.continued = true;
+  track(EV.runStart, { game: mode(), how: "continue", patient_no: S.idx + 1 });
+  screenView("play");
   S.pain = 0; S.streak = 0; S.ambulance = false;
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = String(S.score); renderPain(); renderCombo();
@@ -508,6 +536,9 @@ async function start(game){
   layout();
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.game = game === "towel" ? "towel" : "clinic";
+  setMode(mode()); S.runAt = performance.now();
+  track(EV.runStart, { game: mode(), how: S.phase === "result" ? "again" : "start", control: S.mode });
+  screenView("play");
   S.patients = makePatients();
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
@@ -524,4 +555,5 @@ const clinicNow = () => S.game === "towel" ? "towel" : "crack";
 mountClinicMenu({ chip: $("#clinicBtn"), menu: $("#clinicMenu"), current: clinicNow });
 // index.html?mode=towel (from the 클리닉 menu): 목뽑기 is the main start button
 if(new URLSearchParams(location.search).get("mode") === "towel"){ $("#startTowel").className = "btn"; $("#start").className = "btn ghost"; }
+screenView("title");
 { const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? `최고 기록 ${b}점` : "최고 기록 —"; }

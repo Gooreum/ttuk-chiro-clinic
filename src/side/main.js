@@ -1,3 +1,4 @@
+import "../boot.js";
 import "../ui/clinic-hud.css";
 import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
 import {makeHud} from '../ui/hudDom.js';
@@ -16,6 +17,8 @@ import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
 import {T,saveT} from '../tuning.js';
 import {store} from '../lib/store.js';
+import {track,screenView,firstSuccess,askReview,markReady,bootFail} from '../platform/analytics.js';
+import {EV,runOutcome} from '../core/analytics.js';
 
 /* 허리비틀기 (side-posture lumbar roll, user 2026-10-19): the back mode's two-stage aim on a patient lying on his side.
    Front/back tilt picks the height along L1..L5, 고정 locks it, then the left/right tilt rolls the pelvis toward the
@@ -96,7 +99,9 @@ function settleImpact(){
   if(!S.pending)return;
   updateImpact();const early=S.pending.sounded;S.pending=null;
   if(!early||S.kind!=='ok')impactSound();
-  const label=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`;
+  const label=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`,aimMs=S.animAt-S.prepUntil;
+  track(EV.attempt,{side_no:S.sideIdx+1,result:S.kind==='ok'?'ok':S.outcome.feedback||S.kind,tier:S.tier,force:S.force,perfect:!!S.outcome.perfect,pts:S.kind==='ok'?S.outcome.points:0,retry:!!S.retried[S.sideIdx],aim_ms:aimMs});
+  if(S.kind==='ok')firstSuccess({game:'side',side_no:S.sideIdx+1,aim_ms:aimMs});
   if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');domHud.stamp(S.outcome.perfect?'PERFECT':'성공',label,'dud');}
   else{S.mistakes++;S.streak=0;domHud.stamp(S.tier?FORCE_STAMP[S.tier]:FAIL_STAMP[S.outcome.feedback],label,S.tier===2?'break':S.outcome.feedback);}
   cue(S.kind==='ok'?'뚝. 골반이 풀렸어요.':S.tier?'잠깐… 방금 소리가 이상한데요.':'조금 빗나갔어요.',S.kind==='ok'?'good':'bad');sync();
@@ -116,6 +121,7 @@ function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&S.locked&&!
 function shotTiming(){const d=therapistStyle(S.force,S.tier).xrayDelay;return S.tier?{speechAt:2.6+d,end:4.8+d}:S.kind!=='miss'?{speechAt:2.5,end:4.3}:{speechAt:1.5,end:3.2};}
 function endSide(now){
   const g=goal();
+  track(EV.patientDone,{side_no:S.sideIdx+1,label:S.kind==='ok'?'done':S.tier?'ambulance':'miss',pts:S.kind==='ok'?S.outcome.points:0});
   S.results.push({side:side(),kind:S.kind,tier:S.tier,points:S.kind==='ok'?S.outcome.points:0,perfect:!!S.outcome.perfect,roll:S.shotAim.side,pressure:S.peakPressure,goalRoll:g.roll,level:lumbarAt(S.shotAim.height)});
   $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
   if(S.sideIdx===0){
@@ -162,6 +168,12 @@ function finish(){
   $('sideRank').textContent=rankTitle(S.score/2,tier?3:S.mistakes);
   $('sideBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('sideResult').hidden=false;sync();
+  const complete=done&&!tier;
+  const outcome=runOutcome({ambulance:tier>0,pain:S.mistakes,complete});
+  track(EV.runEnd,{game:'side',outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
+  if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
+  screenView('result',{outcome});
+  askReview(complete);
 }
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;
@@ -174,6 +186,7 @@ async function start(useMotion=preferMotion){
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
+  track(EV.runStart,{game:'side',how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,order:sideOrder(Math.random()<.5?'L':'R'),sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
     locked:false,results:[],retried:[false,false],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
@@ -368,9 +381,10 @@ function frame(now){
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,side:side(),sideIdx:S.sideIdx,locked:S.locked,position:S.position,results:S.results.length});
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
-try{scene=await createSideScene(canvas);resize();S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
-  $('sideStart').textContent='진료 시작';document.documentElement.dataset.sideReady='true';raf=requestAnimationFrame(frame);
-}catch(error){console.error('허리비틀기 진료실을 불러오지 못했어요',error);$('sideLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('sideStart').textContent='다시 불러오기';$('sideStart').disabled=false;$('sideStart').addEventListener('click',()=>location.reload(),{once:true});}
+const sceneT0=performance.now();
+try{scene=await createSideScene(canvas);resize();track(EV.assetLoad,{asset:'side_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
+  $('sideStart').textContent='진료 시작';document.documentElement.dataset.sideReady='true';raf=requestAnimationFrame(t=>{frame(t);markReady();});
+}catch(error){console.error('허리비틀기 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('sideLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('sideStart').textContent='다시 불러오기';$('sideStart').disabled=false;$('sideStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
 if(import.meta.env.MODE==='shot')window.__sideShot={press:(position,pressure,force)=>applyPress(position,pressure,force),lock:(on=true)=>setLocked(on),aim:p=>{S.position=p;},flip,

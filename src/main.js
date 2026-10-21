@@ -1,3 +1,4 @@
+import "./boot.js";
 import "./ui/clinic-hud.css";
 /* Boot. Import order matters: the scene is built by module side effects, and room meshes must be added
    before the patient so the scene graph matches the single-file prototype. */
@@ -17,6 +18,7 @@ import { setFace } from "./game/flow.js";
 import { readColors } from "./ui/ring.js";
 import { frame } from "./game/loop.js";
 import { S } from "./game/state.js";
+import { markReady } from "./platform/analytics.js";
 
 readColors();
 loadRealAssets();
@@ -24,6 +26,7 @@ loadSpine();
 applyLook(ROSTER[0]);
 setFace("rest");
 layout();
-requestAnimationFrame(frame);
+// load_ready once the first frame has drawn (an error in it instead shows the 다시 시도 card)
+requestAnimationFrame(t => { frame(t); markReady(); });
 // e2e/shot build only (`npm run build:shot`): tests read the game state; the normal build drops this line.
 if(__FORCE_HIT__) window.__game = { S };
