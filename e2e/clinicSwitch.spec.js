@@ -23,6 +23,7 @@ test("클리닉 메뉴: 목꺾기 중에 열어 허리펴기로 옮긴다", asyn
   expect(await page.evaluate(() => window.__game.S.score)).toBe(before);
   await expect(menu).toBeVisible();
 
+  errs.leaving();
   await menu.locator("a", { hasText: "허리펴기" }).click();
   await expect(page).toHaveURL(/back\.html$/);
   await expect(page.locator("#backWelcome")).toBeVisible();
