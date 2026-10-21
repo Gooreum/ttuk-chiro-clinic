@@ -25,9 +25,9 @@ The following derivatives are shared by the clinic, towel and back modes. The or
 | `public/audio/crack.wav` | "neck_crack_pure.aif" by Halleck, https://freesound.org/s/21915/ | **CC BY 4.0** (https://creativecommons.org/licenses/by/4.0/). 수정: 모노 44.1kHz 16bit로 변환, 앞뒤 무음 자르기, 음량 정규화 |
 | `public/audio/crack-hard.wav` | "Breaking Bones.mp3" by MonkeyFacebook532, https://freesound.org/s/265351/ | CC0. 같은 방식으로 변환 |
 | `public/audio/break.wav` | "genickbruch.wav" by huluvu42, https://freesound.org/s/87570/ | CC0. 같은 방식으로 변환 |
-| `public/audio/bgm.m4a` | "Spacious Stillness" — 사용자 제공(2026-10-15) | 출처·라이선스 미확인. 앱인토스 출시 전 상업 이용 가능 여부 확인 필요. AAC 96kbps로 다시 인코딩 |
+| `public/audio/bgm.m4a` | 직접 작곡·합성한 칩튠(2026-10-21). 악보 `scripts/audio/song.py`, 합성 `scripts/audio/bgm.py` | 이 프로젝트 저작물. 외부 음원·샘플·생성 모델 없음. 예전 곡 "Spacious Stillness"(사용자 제공, 출처 미확인)를 대체 |
 
-사이렌·차임·틱·고무줄·손가락 소리와 녹음 로드 전 폴백 뚝 소리는 WebAudio 합성(`src/audio/audio.js`)이다.
+사이렌·차임·틱·고무줄·손가락 소리와 녹음 로드 전 폴백 뚝 소리는 WebAudio 합성(`src/audio/audio.js`)이다. 차임·뾰잉·뚜륵·손가락·쭈욱·쿵·휙의 만화 소리 층은 ZzFX v1.4.0(Frank Force, MIT, https://github.com/KilledByAPixel/ZzFX)의 샘플 생성 함수(`src/audio/zzfx.js`, 라이선스 전문 포함)로 만든다.
 
 ## 3D assets
 
