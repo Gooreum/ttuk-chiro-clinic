@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:shot": "vite build --mode shot",
+    "build:cases": "vite build --mode cases",
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "vite build --mode shot && playwright test",

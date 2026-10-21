@@ -21,7 +21,7 @@ if(q.get("debug") === "1") common.debug_mode = true;   // GA4 DebugView
 
 let gtag = null;
 function startGa(){
-  if(__FORCE_HIT__ || local || !GA_ID) return;
+  if(__FORCE_HIT__ || __CASES__ || local || !GA_ID) return;
   window.dataLayer = window.dataLayer || [];
   gtag = window.gtag = function(){ window.dataLayer.push(arguments); };
   gtag("js", new Date());

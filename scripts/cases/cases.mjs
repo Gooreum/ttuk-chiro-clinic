@@ -60,7 +60,7 @@ export const CASES = [
     { patient: "박대리", steps: [{ pos: { d: 3.5 }, src: "snap", hold: 0, force: 0, after: "ms:2200" }], tail: 1 }),
   T("clinic-crisis-crack", "clinic", "crisis", "목꺾기 금: 잘못 꺾은 데다 세게 (으그적 → 구급차)",
     "목표에서 벗어난 채 폰을 세게 흔든다(꺾는 세기 2.5 이상).",
-    "'으그적' 뼈 소리와 목이 평소보다 더 꺾이고, X-ray에서 목뼈에 지그재그 금이 가며 우수수 떨어진다. 통증 횟수와 상관없이 구급차 사이렌과 경광등, '구급차가 왔어요' 결과.",
+    "'으그적' 뼈 소리와 목이 평소보다 더 꺾이고, X-ray에서 목뼈에 지그재그 금이 가더니 위아래 마디까지 파편이 사방으로 튀어 날아간다. 통증 횟수와 상관없이 구급차 사이렌과 경광등, '구급차가 왔어요' 결과.",
     ["금", "구급차", "세게", "X-ray"],
     { patient: "박대리", steps: [{ pos: { d: 1.5 }, force: 3, after: "result" }], tail: 4, timeout: 120 }),
   T("clinic-crisis-break", "clinic", "crisis", "목꺾기 골절: 잘못 꺾은 데다 아주 세게 (아그작 → 구급차)",

@@ -518,9 +518,11 @@ let listening = false;
    un-awaited, so the user gesture is still alive. Await them only afterwards. Do not reorder. */
 async function start(game){
   let perm = null, operm = null, fs = null;
+  if(!__CASES__){
   try{ if(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") perm = DeviceMotionEvent.requestPermission(); }catch(e){}
   try{ if(window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === "function") operm = DeviceOrientationEvent.requestPermission(); }catch(e){}
   try{ if(isTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) fs = document.documentElement.requestFullscreen(); }catch(e){}
+  }
   ensureAudio();
   try{ if(perm) await perm; }catch(e){}
   try{ if(operm) await operm; }catch(e){}
