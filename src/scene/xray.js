@@ -40,8 +40,9 @@ import { tractionPose, PresentedClock } from "./towelMotion.js";
    A hard wrong crack (game/flow.js hurt, core/fail.js forceTier) opens the x-ray still pressed (crackT < 0) with
    frac = {lvl, t}: FRAC_HIT s in, a jagged crack zips across the stuck vertebra with a white flash and the column
    jolts; at SHATTER_AT the bone comes apart in clipped shards: lvl 1 crumbles (the stuck vertebra and its neighbours
-   rain down the screen, top first), lvl 2 blows up (five vertebrae flung out like shrapnel, tumbling). The column
-   above sinks into the hole, the discs in the wreck go flat and red, dust and chips fly, the cord runs hot. A cartoon warning. */
+   rain down the screen, top first, and the column above sinks into the hole), lvl 2 blows up (five vertebrae flung
+   out like shrapnel, then the whole column, every vertebra, disc and root, flies off in all directions: blowAway).
+   The discs in the wreck go flat and red, dust and chips fly, the cord runs hot. A cartoon warning. */
 
 const SC = 1.5;                       // a little over real size so it reads on a phone
 const C1_Z = -0.125;                   // pivot z of the atlas (just under the skull base)
@@ -786,7 +787,7 @@ function fracture(frac, sv, stuck, side, amount, throb){
   const top = Math.max(0, stuck - reach);
   _d.copy(sv.g.position).sub(V[0].g.position).normalize();
   const drop = (hard ? 0.016 : 0.009)*(1 - Math.exp(-5*bt)*Math.cos(13*bt));
-  for(let j = 0; j < top; j++){ V[j].g.position.addScaledVector(_d, drop); if(D[j]) D[j].g.position.addScaledVector(_d, drop); }
+  if(!hard) for(let j = 0; j < top; j++){ V[j].g.position.addScaledVector(_d, drop); if(D[j]) D[j].g.position.addScaledVector(_d, drop); }
   for(let j = top; j <= stuck + reach; j++){
     const d = D[j]; if(!d) continue;
     d.g.scale.y *= 1 - 0.55*split; d.g.scale.x *= 1 + 0.25*split; d.g.scale.z *= 1 + 0.2*split;
@@ -808,9 +809,9 @@ function fracture(frac, sv, stuck, side, amount, throb){
     let turn;
     if(hard){
       // flung out, slowing a little, falling a little, tumbling the whole time
-      const tt = Math.min(t, 2.5), speed = (p.who ? 0.16 : 0.26)*(0.7 + 0.6*p.r);
-      p.m.position.addScaledVector(_d, speed*(1 - Math.exp(-1.6*tt))/1.6).addScaledVector(_dn, 0.06*tt*tt);
-      turn = (p.who ? 5 : 8)*p.spin*tt;
+      const tt = Math.min(t, 2.5), speed = (p.who ? 0.4 : 0.6)*(0.7 + 0.6*p.r);
+      p.m.position.addScaledVector(_d, speed*(1 - Math.exp(-1.2*tt))/1.2).addScaledVector(_dn, 0.08*tt*tt);
+      turn = (p.who ? 9 : 14)*p.spin*tt;
     }else{
       // the cracks open, then each piece lets go a moment apart and drops, turning over as it falls
       const fall = Math.min(Math.max(0, t - 0.12 - 0.05*p.r - 0.03*(p.k % 4)), 2);
@@ -821,6 +822,7 @@ function fracture(frac, sv, stuck, side, amount, throb){
     p.m.updateWorldMatrix(true, false);
     CUT.forEach((c, i) => p.mat.clippingPlanes[i].setFromNormalAndCoplanarPoint(_o.copy(c).multiplyScalar(p.signs[i]), ORIGIN).applyMatrix4(p.m.matrixWorld));
   });
+  if(hard) blowAway(bt, stuck, reach, amount, throb);
   // the glow in the hole, the splinters and the dust: blown out on a break, sifting down when it crumbles
   gapGlow.position.copy(_h);
   gapGlow.material.opacity = amount*split*(0.8 + 0.2*throb);
@@ -839,6 +841,34 @@ function fracture(frac, sv, stuck, side, amount, throb){
     else d.s.position.copy(_h).addScaledVector(d.v, 0.5*(1 - Math.exp(-3*t))).addScaledVector(_dn, (d.puff ? 0.04 : 0.2 + 0.05*(i % 3))*t*t);
     d.s.material.opacity = amount*Math.max(0, 1 - t/(d.puff ? 1.2 : 1.8))*(d.puff ? 0.5 : 1);
     d.s.scale.setScalar(d.puff ? 0.012 + (hard ? 0.05 : 0.025)*Math.min(1, t*1.5) : 0.0035 + 0.0015*(d.v.length() > 0.035 ? 1 : 0));
+  });
+}
+/* A break (tier 2) does not stop at the shrapnel: the blast runs up and down the column and everything else goes
+   too, every vertebra, disc and nerve root flung off in its own direction, tumbling, out of the film (user: "쎄게
+   실패했을 때 뼈가 그냥 온 사방으로 다 튀면서 그냥 다 날라가버려야 한다니까 ... 병맛이라고 이 게임은", 2026-10-21).
+   Each part leaves a moment after the one nearer the break, so it reads as a chain reaction. Visual only. */
+const _fd = new THREE.Vector3(), _fa = new THREE.Vector3();
+function blowAway(bt, stuck, reach, amount, throb){
+  const parts = [];
+  V.forEach((p, i) => { if(Math.abs(i - stuck) > reach) parts.push([p, i]); });
+  D.forEach((p, i) => { if(p) parts.push([p, i + 0.5]); });
+  R.forEach((r, i) => { if(r){ if(r.L) parts.push([r.L, i + 0.4]); if(r.R) parts.push([r.R, i + 0.6]); } });
+  TV.forEach((p, i) => parts.push([p, 7 + i]));
+  TD.forEach((p, i) => parts.push([p, 7.5 + i]));
+  parts.forEach(([p, at], n) => {
+    const t = bt - 0.035*Math.abs(at - stuck);
+    if(t <= 0) return;
+    const h = (n*37 + 11) % 97 / 97, a = n*2.39996 + 0.7, e = ((n*7) % 11)/11 - 0.5;
+    // outward from the break, plus a wild sideways throw of its own
+    _fd.copy(p.g.position).sub(_h); if(_fd.lengthSq() < 1e-8) _fd.set(0, 1, 0);
+    _fd.normalize().multiplyScalar(0.6).add(_fa.set(Math.cos(a), e*1.8, Math.sin(a))).normalize();
+    const tt = Math.min(t, 2.5), speed = 0.28 + 0.35*h;
+    p.g.position.addScaledVector(_fd, speed*(1 - Math.exp(-1.2*tt))/1.2).addScaledVector(_dn, 0.08*tt*tt);
+    _fa.set(Math.sin(a*1.7), Math.cos(a*0.9), e).normalize();
+    p.g.quaternion.multiply(_q.setFromAxisAngle(_fa, (h > 0.5 ? 1 : -1)*(6 + 8*h)*tt));
+    if(!p.m.visible) return;
+    p.mat.opacity = amount;
+    p.mat.emissive.copy(COL.coral).multiplyScalar((0.25 + 0.5*Math.exp(-4*t) + 0.1*throb));
   });
 }
 /* Pivot z of the gap under vertebra i (where the release wave rings). Rough spacing until the model is in. */
