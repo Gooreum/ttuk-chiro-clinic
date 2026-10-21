@@ -3,6 +3,7 @@ __pycache__/
 node_modules/
 dist/
 dist-shot/
+dist-cases/
 .ai-bouncer-tasks/
 .venv/
 

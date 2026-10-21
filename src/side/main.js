@@ -387,5 +387,6 @@ try{scene=await createSideScene(canvas);resize();track(EV.assetLoad,{asset:'side
 }catch(error){console.error('허리비틀기 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('sideLoadNote').textContent='진료실을 불러오지 못했어요. 다시 열어 주세요.';$('sideStart').textContent='다시 불러오기';$('sideStart').disabled=false;$('sideStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
 addEventListener('pageshow',e=>{if(e.persisted&&scene){cancelAnimationFrame(raf);resize();raf=requestAnimationFrame(frame);}});
-if(import.meta.env.MODE==='shot')window.__sideShot={press:(position,pressure,force)=>applyPress(position,pressure,force),lock:(on=true)=>setLocked(on),aim:p=>{S.position=p;},flip,
+if(import.meta.env.MODE==='shot'||__CASES__)window.__sideShot={press:(position,pressure,force)=>applyPress(position,pressure,force),lock:(on=true)=>setLocked(on),aim:p=>{S.position=p;},flip,
   snapshot:()=>({...S,results:[...S.results]}),view:v=>{S.debugView=v;$('sideWelcome').hidden=!!v;},goal:()=>goal(),bed:()=>scene?.bed,project:(h,p,l)=>scene?.projectPosition(side(),h,p,l)};
+if(__CASES__)import("../dev/caseBack.js");

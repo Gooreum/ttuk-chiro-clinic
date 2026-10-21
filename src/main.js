@@ -29,4 +29,6 @@ layout();
 // load_ready once the first frame has drawn (an error in it instead shows the 다시 시도 card)
 requestAnimationFrame(t => { frame(t); markReady(); });
 // e2e/shot build only (`npm run build:shot`): tests read the game state; the normal build drops this line.
-if(__FORCE_HIT__) window.__game = { S };
+if(__FORCE_HIT__ || __CASES__) window.__game = { S };
+// case build only (`npm run build:cases`): ?case=<id> replays a scripted case live (src/dev/caseRunner.js)
+if(__CASES__) import("./dev/caseNeck.js");
