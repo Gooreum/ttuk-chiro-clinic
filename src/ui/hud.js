@@ -22,7 +22,7 @@ export function floater(text, dx, dy, cls, ms = 1000){
   domHud.floater(text, headScreen.x + dx,
     Math.min(headScreen.y + dy, (canvas.clientHeight || innerHeight) - 56), cls, ms);
 }
-export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i)=>el.classList.toggle("on", i < S.pain)); }
+export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i)=>{ el.classList.toggle("on", i < S.pain); el.hidden = i >= S.painMax; }); }
 export function renderDots(){
   const d = $("#dots"); d.textContent = "";
   S.patients.forEach((p, i) => { const e = document.createElement("i"); if(i < S.idx) e.className = "done"; else if(i === S.idx) e.className = "now"; d.appendChild(e); });

@@ -61,3 +61,24 @@
 #fade.on{opacity:1}
 
 @media (prefers-reduced-motion:reduce){#banner{transition:none}#app.siren::before{animation-duration:1.4s}}
+
+/* 영업 일지 (core/campaign.js, ui/campaign.js): the title button, the day list, the story card before a day */
+.campaign-btn{display:grid;gap:2px;line-height:1.1}
+.campaign-btn small{font-family:var(--body);font-size:12px;font-weight:600;opacity:.8}
+.card.days{max-width:460px;gap:12px}
+.card.days h2{margin:0;font-family:var(--display);font-weight:400;font-size:26px;color:var(--paper)}
+.card.days .sub{font-size:11px;letter-spacing:.1em;color:var(--muted)}
+.days-lead{margin:4px 0 0;font-size:13px;color:var(--muted)}
+#dayList{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+#dayList button{width:100%;display:grid;grid-template-columns:3.2em minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;font:600 14px var(--body);color:var(--paper);background:rgba(244,239,228,.06);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer}
+#dayList button b{font-family:var(--display);font-weight:400;font-size:15px;color:var(--mint)}
+#dayList button i{font-style:normal;color:var(--coral);letter-spacing:2px;font-size:13px}
+#dayList button:disabled{opacity:.45;cursor:default}
+#dayList button.next{border-color:var(--mint);background:rgba(138,223,191,.12)}
+.story-lines{display:grid;gap:4px;margin:0;padding:0;list-style:none}
+.story-lines li{font-size:14px;line-height:1.45}
+.story-lines li::before{content:"- ";color:var(--coral-deep);font-weight:700}
+.story-rules{display:flex;flex-wrap:wrap;gap:5px}
+.story-rules i{font-style:normal;font-size:12px;font-weight:700;color:var(--paper-ink);border:1px solid #b9b19f;border-radius:999px;padding:2px 9px}
+.story-rules i.warn{color:var(--coral-deep);border-color:var(--coral-deep)}
+.day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;border-radius:8px;padding:8px 10px}

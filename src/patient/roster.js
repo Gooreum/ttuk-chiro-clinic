@@ -57,12 +57,13 @@ export const REVIEWS = {
 };
 /* Each patient is adjusted on both sides: the complaint side (p.side) first, then the opposite side.
    Every side rolls its own target angle. rand is injectable for tests.
-   A day sees PER_DAY patients drawn from the roster in random order (5 of the same loop dragged, user 2026-10-16). */
+   A day sees PER_DAY patients drawn from the roster in random order (5 of the same loop dragged, user 2026-10-16).
+   fixed: a 영업 일지 day's patients (core/campaign.js dayRoster), taken as given in that order. */
 export const PER_DAY = 3;
-export function makePatients(rand = Math.random, count = PER_DAY){
-  const pool = ROSTER.slice();
-  for(let i = pool.length - 1; i > 0; i--){ const j = Math.floor(rand()*(i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
-  return pool.slice(0, count).map(p => {
+export function makePatients(rand = Math.random, count = PER_DAY, fixed = null){
+  const pool = fixed ? fixed.slice() : ROSTER.slice();
+  if(!fixed) for(let i = pool.length - 1; i > 0; i--){ const j = Math.floor(rand()*(i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  return pool.slice(0, fixed ? pool.length : count).map(p => {
     const big = p.trait === "flexible", old = p.trait === "elder";
     const roll = side => {
       const mag = big ? 44 + rand()*9 : old ? 24 + rand()*10 : 28 + rand()*14;

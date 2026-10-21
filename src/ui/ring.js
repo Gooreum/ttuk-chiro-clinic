@@ -4,7 +4,6 @@ import { clamp } from "../lib/math.js";
 import { T } from "../tuning.js";
 import { S } from "../game/state.js";
 import { curTolMul } from "../game/feel.js";
-import { SHOW_ZONE_UNTIL } from "../patient/roster.js";
 import { headScreen } from "./hud.js";
 import { aimHist } from "../input/motion.js";
 import { towelTension, aimOff } from "../core/towel.js";
@@ -72,7 +71,7 @@ export function drawRing(now, c, zone, br){
   ctx.fillText("왼쪽", cx - R*0.82, cy - 8); ctx.fillText("오른쪽", cx + R*0.82, cy - 8);
 
   // target zone (first patients)
-  if(S.idx < SHOW_ZONE_UNTIL){
+  if(S.idx < S.zoneUntil){
     const m = T.tol * curTolMul(now);
     ctx.beginPath();
     ctx.ellipse(cx + target.rot*ax, cy - target.bend*ay, target.tolR*m*ax, target.tolB*m*ay, 0, 0, Math.PI*2);

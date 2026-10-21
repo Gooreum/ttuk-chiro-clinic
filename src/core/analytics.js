@@ -18,6 +18,7 @@ export const EV = {
   patientDone: "patient_done",    // a patient (both sides) or a back zone is finished
   runEnd: "run_end",              // the result card opens
   runComplete: "run_complete",    // conversion: a run played through to the end (every patient, no bad end)
+  dayEnd: "day_end",              // 영업 일지: a campaign day ended (cleared or not, stars)
   firstSuccess: "first_success",  // conversion step: the very first good crack on this device
   click: "ui_click",              // buttons and chips: again, clinic, tune, music, chart, center
   adEvent: "ad_event",            // full-screen ads: request / loaded / show / impression / clicked / dismissed / reward / error

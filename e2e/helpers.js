@@ -1,11 +1,21 @@
 import { expect } from "@playwright/test";
 
 // Fails the test on any page error or console error (same rule as scripts/shot.py).
+// leaving(): call right before a link to another page. The page being left aborts the models still loading in the
+// background, and GLTFLoader logs "Couldn't load texture blob:..." as its blob URLs die; only that one is dropped.
 export function watchErrors(page){
   const errors = [];
+  let left = false;
   page.on("pageerror", e => errors.push(`pageerror: ${e.message}`));
-  page.on("console", m => { if(m.type() === "error") errors.push(`console: ${m.text()}`); });
-  return { check: () => expect(errors, errors.join("\n")).toEqual([]) };
+  page.on("console", m => {
+    if(m.type() !== "error") return;
+    if(left && /Couldn't load texture blob:/.test(m.text())) return;
+    errors.push(`console: ${m.text()}`);
+  });
+  return {
+    check: () => expect(errors, errors.join("\n")).toEqual([]),
+    leaving(){ expect(errors, errors.join("\n")).toEqual([]); left = true; }
+  };
 }
 
 // Realistic models load in the background; wait until both finished (ready or failed) so later frames are stable.
