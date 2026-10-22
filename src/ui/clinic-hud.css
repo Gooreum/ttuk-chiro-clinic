@@ -388,6 +388,13 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(.dex-new,.total,.rank){grid-column:2;grid-row:auto}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(#rlist){grid-row:2 / span 8}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>.rank{padding-left:0;justify-content:center}
+  /* 34차: 보스 날(환자 4~5명) 클리어 카드는 오른쪽 칸에 결말·출근 도장·진료비·버튼 셋이 몰려 이 날 다시·영업 일지가 카드 밖으로 밀렸다(345px 카드에 410~426px). 왼쪽 목록 밑 빈자리로 결말 한 줄을 내린다 */
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>#dayOutro{grid-column:1;grid-row:2 / span 9;align-self:end;margin:0;padding:3px 8px;font-size:11px;line-height:1.25}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)){row-gap:2px;padding-top:8px;padding-bottom:8px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)):has(#dayOutro:not([hidden]))>#rlist{margin-bottom:46px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn:not(.ghost){padding:4px 8px;font-size:16px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn.ghost{padding:3px 6px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .total b{font-size:22px}
   /* 30차: 보스 러시 카드는 보스 목록(.rush-list)과 환자 목록(#rlist)이 같은 칸에 겹쳐 글자가 뒤엉켰다(환자가 많으면 645px). 보스 결과가 핵심이라 환자 목록은 접는다 */
   #result .card.log>.rush-list~#rlist{display:none}
   #result .card.log>.rush-list{gap:3px}
