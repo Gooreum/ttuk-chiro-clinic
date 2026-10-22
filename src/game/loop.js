@@ -185,7 +185,7 @@ export function frame(now){
   // (snap back, flash, pulse down the cord) and as a coral throb after a wrong crack. See scene/xray.js.
   if(S.xrayIn > 0){
     S.xrayIn -= rdt;
-    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = S.overAt ? OVER_XRAY_HOLD : 2.4; S.crackT = 0; S.xrayAt = now; }
+    if(S.xrayIn <= 0){ S.xrayIn = 0; S.xray = 0.001; S.xrayHold = S.overAt ? OVER_XRAY_HOLD : 2.4; S.crackT = 0; S.xrayAt = now; $("#banner").classList.remove("show"); }
   }
   if(S.xrayHold > 0){ S.xrayHold -= rdt; S.xray = Math.min(1, S.xray + rdt*5); } else S.xray = Math.max(0, S.xray - rdt*2.5);
   if(S.crackT >= 0) S.crackT += rdt;
@@ -315,7 +315,10 @@ export function frame(now){
   if(!reduce){ camPos.x += Math.sin(now*0.0004)*0.012; camPos.y += Math.sin(now*0.00053)*0.008; }
   // swing round to the side of the neck: the spine lies across the landscape screen, the canal (and the cord in it)
   // shows between the bodies and the arches
-  const orbitX = (target ? -target.side : 1)*0.2;
+  // towel mode: always the same side. The tug has no side (it is one pull straight back), but the patient's random turn side
+  // used to flip this swing, so a -1 patient got the close over-the-head view and a +1 patient a far diagonal one with the
+  // spine pushed to the lower right (21차 P1). The clinic still swings to the side of the neck being cracked.
+  const orbitX = towel ? 0.2 : (target ? -target.side : 1)*0.2;
   // clinic: the dolly ends exactly on the disc (0.92 left 8% of the far resting camera/gaze, ~10 cm off at this range, so the
   // stuck disc drifted up toward the HUD chips); towel keeps its own framing
   const zk = towel ? 0.92 : 1;
