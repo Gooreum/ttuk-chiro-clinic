@@ -352,3 +352,33 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) #intro .starts-label{margin:2px 0 1px}
   :where(.clinic-app) #intro .daily-btn small{max-width:84px}
 }
+
+/* 28차 플레이테스트: 667x375에서 목 모드 결과 카드(자유·오늘의 도전·주간·심야·일지)가 한 칸으로 쌓여 345px보다 130~330px 길었고(진료비·자랑하기·합계가 스크롤 밑), 고정 주 버튼이 그 줄들을 덮었다.
+   짧은 가로 화면에서는 두 칸으로 나눈다: 왼쪽 일지(제목·환자 목록·합계·등급), 오른쪽 보상·버튼. 환자 한 명은 이름·별·점수를 한 줄에. 고정 버튼은 한 장에 다 들어오므로 쓰지 않는다 */
+@media (orientation:landscape) and (max-height:430px){
+  #result .card.log{max-width:640px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:18px;row-gap:4px;align-content:start;align-items:start;padding:10px 16px}
+  #result .card.log>*{min-width:0;grid-column:2}
+  #result .card.log>:is(div:first-child,.dex-new,#rlist,.rush-list,.total,.rank){grid-column:1}
+  #result .card.log>div:first-child{grid-row:1;order:0}
+  #result .card.log>.dex-new{grid-row:2;font-size:12px}
+  #result .card.log>:is(#rlist,.rush-list){grid-row:3 / span 4;align-self:start}
+  #result .card.log>.total{grid-row:7;min-height:0;align-self:end}
+  #result .card.log>.total+.rank,#result .card.log>.rank{grid-row:7;margin:0;height:auto;padding-left:38px;align-self:center;font-size:17px;pointer-events:none;display:flex;align-items:center}
+  #result .card.log #dayOutro{order:0}
+  #result .card.log li{grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;padding-bottom:3px;align-items:baseline}
+  #result .card.log li .who{grid-column:1;grid-row:1}
+  #result .card.log li .stars{grid-column:2;grid-row:1;font-size:12px;letter-spacing:1px}
+  #result .card.log li .pts{grid-column:3;grid-row:1}
+  #result .card.log li .rev{grid-row:2;font-size:11.5px;line-height:1.3}
+  #result .card.log li .tags{grid-row:3}
+  #result .card.log .btn{position:static;padding:6px 8px;font-size:16px;box-shadow:0 3px 0 var(--coral-deep)}
+  #result .card.log .btn.ghost{padding:5px 6px;font-size:13px;box-shadow:none}
+  /* 18차의 종이색 그림자(고정 버튼 뒤를 가리던 것)가 한 장 배치에서는 아래 클리닉 칩 줄을 덮었다 */
+  #result .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again){position:static;box-shadow:0 3px 0 var(--coral-deep)}
+  #result .card.log .btn.buy{font-size:11px;padding:3px 6px}
+  #result .card.log :is(#again,#nextDay,#continueAd){font-size:18px;padding:8px}
+  #result .card.log .total b{font-size:26px}
+  #result .card.log .coin-line{padding:2px 8px;font-size:12px}
+  #result .card.log .clinic-switch{gap:4px}
+  #result .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
+}
