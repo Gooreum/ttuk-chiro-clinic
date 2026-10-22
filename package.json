@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "vite build --mode shot && playwright test",
+    "docs:story": "node scripts/docs/story.mjs",
     "build:toss": "vite build --mode toss && ait build"
   },
   "dependencies": {

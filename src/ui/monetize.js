@@ -1,5 +1,5 @@
 /* Apps-in-Toss result-card buttons, shared by the three modes: "광고 보고 이어하기" (rewarded, once per run after a
-   bad end) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
+   bad end, or "광고 보고 마지막 환자 다시" after a boss day under its beat) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
 import { isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/toss.js";
 import { continueOffer } from "../core/monetize.js";
 import { track } from "../platform/analytics.js";
@@ -21,7 +21,8 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   if(!isToss) return { showResult(){} };
   restorePurchases();
   let busy = false;
-  const label = () => adFree() ? "이어하기" : "광고 보고 이어하기";
+  let retry = false;   // a boss-day miss: the same button replays the last patient
+  const label = () => retry ? (adFree() ? "마지막 환자 다시" : "광고 보고 마지막 환자 다시") : adFree() ? "이어하기" : "광고 보고 이어하기";
   async function renderBuy(){
     buyBtn.hidden = !canBuyAdFree();
     if(buyBtn.hidden) return;
@@ -31,7 +32,7 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   continueBtn.addEventListener("click", async () => {
     if(busy) return;
     busy = true; continueBtn.disabled = true;
-    track(EV.click, { target: "continue_ad", ad_free: adFree() });
+    track(EV.click, { target: retry ? "boss_retry_ad" : "continue_ad", ad_free: adFree() });
     const ok = await watchRewarded();
     busy = false; continueBtn.disabled = false;
     if(ok){ continueBtn.hidden = true; onContinue(); }
@@ -47,8 +48,9 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue }){
   return {
     // after the day log opens: offer the continue, or show an interstitial when there is none to offer and the
     // card did not just ask for a review
-    async showResult({ endedBad, used, skipInterstitial }){
-      const offer = continueOffer({ endedBad, used }) && (canWatchRewarded() || adFree());
+    async showResult({ endedBad, bossMiss, used, skipInterstitial }){
+      retry = !endedBad && !!bossMiss;
+      const offer = continueOffer({ endedBad, bossMiss, used }) && (canWatchRewarded() || adFree());
       continueBtn.hidden = !offer; continueBtn.textContent = label();
       renderBuy();
       if(!offer && !skipInterstitial) await maybeInterstitial(adNotice);

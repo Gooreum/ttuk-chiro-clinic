@@ -21,7 +21,7 @@ import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 import { mountMonetize } from "../ui/monetize.js";
-import { quietDay } from "../core/monetize.js";
+import { quietDay, bossMissed } from "../core/monetize.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
 import { EV, runOutcome } from "../core/analytics.js";
 
@@ -503,15 +503,17 @@ function finish(){
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
-  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, used: S.continued, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && bossMissed(DAYS[S.day].beat, complete, avg), used: S.continued, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
-   comes back from the start with the pain count cleared. Their points so far come off (they are earned again). */
+   comes back from the start with the pain count cleared. Their points so far come off (they are earned again).
+   After a boss day under its beat every patient is done (S.idx is past the end), so the last one comes back. */
 function continueRun(){
   if(S.phase !== "result") return;
   $("#nextDay").hidden = $("#toDays").hidden = $("#dayOutro").hidden = true;
   const r = S.results.pop();
   if(r) S.score -= r.pts || 0;
+  S.idx = Math.min(S.idx, S.patients.length - 1);
   hurtTok++; S.continued = true;
   track(EV.runStart, { game: mode(), day: dayNo(), how: "continue", patient_no: S.idx + 1 });
   screenView("play");
@@ -580,13 +582,13 @@ function dayEnd(complete, avg){
   if(after !== before) store.set(CAMPAIGN_KEY, after);
   const next = cleared ? nextDay(after, S.day) : -1;
   const out = $("#dayOutro");
-  out.textContent = cleared ? d.outro : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. 반듯 정골원이 웃고 있어요.` : `${dayLabel(S.day)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  out.textContent = cleared ? d.outro : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${d.lose}` : `${dayLabel(S.day)}를 못 버텼어요. 다시 문 열어 봐요.`;
   out.hidden = false;
   $("#nextDay").hidden = next < 0;
   $("#toDays").hidden = false;
   $("#again").textContent = cleared ? "이 날 다시" : "다시 도전";
   $("#campaignSub").textContent = campaignLabel(after);
-  track(EV.dayEnd, { day: S.day + 1, cleared, stars: cleared ? dayStars(avg) : 0, score: S.score });
+  track(EV.dayEnd, { day: S.day + 1, cleared, stars: cleared ? dayStars(avg) : 0, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
 }
 $("#campaignBtn").addEventListener("click", openDays);
 $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S.phase === "result") $("#result").hidden = false; });

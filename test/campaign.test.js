@@ -76,6 +76,7 @@ describe("campaign", () => {
     const boss = DAYS.findIndex(d => d.beat);
     expect(boss).toBe(13);
     expect(DAYS.filter(d => d.beat).length).toBe(7);   // one boss per chapter from 2장
+    expect(DAYS.filter(d => d.beat).every(d => d.lose)).toBe(true);   // each boss has its own miss line
     const later = DAYS.filter(d => d.beat && d.ch >= 3).map(d => d.beat);
     expect(later).toEqual([...later].sort((a, b) => a - b));   // from 3장 on, every boss is harder than the last
     expect(dayClears(boss, true, DAYS[boss].beat - 1)).toBe(false);

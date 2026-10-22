@@ -11,7 +11,7 @@ import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
 import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,nextDay} from '../core/campaign.js';
-import {quietDay} from '../core/monetize.js';
+import {quietDay,bossMissed} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
 import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
@@ -169,7 +169,7 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;
@@ -177,16 +177,18 @@ function dayEnd(complete,avg){
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
   $('backResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
-  $('backDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${patient.name}이 웃고 있어요.`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  $('backDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose}`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
   $('backDayOutro').hidden=false;$('backToDays').hidden=false;
   $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
   $('backAgain').textContent=cleared?'이 날 다시':'다시 도전';
-  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score});
+  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
 }
 // 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
-// zone again with the misses cleared; the zones already done keep their points.
+// zone again with the misses cleared; the zones already done keep their points. After a boss day under its beat all
+// three zones are done, so the last zone comes back without its points.
 function continueRun(){
   if(S.phase!=='result')return;
+  if(S.results.length===3){const r=S.results.pop();S.score-=r.points||0;}
   stopSound();lastSpeech='';domHud.hideSpeech();
   motion.position=.5;motion.neutral=null;
   Object.assign(S,{phase:'play',continued:true,locked:false,position:.5,mistakes:0,streak:0,painHere:0,fails:[],holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,
