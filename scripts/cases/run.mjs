@@ -102,7 +102,9 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
   }, night);
   if (campaign) return page.evaluate(({ day, story, hard, quest, list, interlude }) => {
     if (quest || list) {
-      localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
+      const quests = { "박대리1": 3, "최교수1": 1 };
+      if (quest && /3$/.test(quest)) { quests[quest.replace(/3$/, "1")] = 2; quests[quest.replace(/3$/, "2")] = 2; }
+      localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests }));
       document.getElementById("campaignBtn").click();
       document.getElementById("questOpen").click();
       if (list) return;

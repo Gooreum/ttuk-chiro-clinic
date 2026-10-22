@@ -91,7 +91,7 @@ ITEMS.forEach(i => w(`- ${i.name} (${i.price}): ${i.line}`));
 w("");
 w("## 단골 의뢰 게시판", "",
   `- 영업 일지에서 단골을 만나면 의뢰가 올라온다. 의뢰 ${QUESTS.length}개, 의뢰마다 제약은 하나다.`,
-  "- 열리는 때: 의뢰에 나오는 환자가 모두 영업 일지 깬 날에 나온 뒤. 2편은 1편을 깨야 열린다.",
+  "- 열리는 때: 의뢰에 나오는 환자가 모두 영업 일지 깬 날에 나온 뒤. 2편은 1편, 3편(연작 결말)은 2편을 깨야 열린다.",
   `- 평균 점수 의뢰는 별 3개 컷보다 ${QUEST_GAP}점 아래가 기준이다(꺾기 수에 따라 컷이 옮겨진다). 나머지는 완주하면 깬다.`,
   "- 별은 영업 일지 날과 같은 컷이다. 저장은 chiroCampaign.quests. 광고 이어하기와 역경은 없다.", "");
 QUESTS.forEach((q, n) => {
@@ -100,7 +100,7 @@ QUESTS.forEach((q, n) => {
   if (q.mods?.noisy) rules.push("호흡 안내 없음");
   if (q.beat) rules.push(`평균 ${q.beat}점 이상`);
   w(`### 의뢰 ${n + 1} ${q.who} ${q.ep}편 ${q.title}`, "", `- 제약: ${RULE_NAME[q.rule]} (${rules.join(" · ")})`,
-    `- 열리는 때: ${dayLabel(questUnlockDay(q))}를 깬 뒤${q.ep > 1 ? ` · ${q.who} 1편을 깬 뒤` : ""}`,
+    `- 열리는 때: ${dayLabel(questUnlockDay(q))}를 깬 뒤${q.ep > 1 ? ` · ${q.who} ${q.ep - 1}편을 깬 뒤` : ""}`,
     `- 환자: ${q.patients.map(nm => { const p = who(nm); return p ? `${nm}(${p.age})` : nm; }).join(", ")}`, "- 시작 카드:");
   q.intro.forEach(l => w(`  - ${l}`));
   w(`- ${q.who} 첫마디: "${q.lines[q.who]}"`, `- 깼을 때: ${q.outro}`, `- 도감 뒷이야기: ${TALES[q.id]}`, "");

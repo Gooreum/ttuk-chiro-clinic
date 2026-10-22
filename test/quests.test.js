@@ -9,9 +9,9 @@ const ALL = [...ROSTER, ...CAST];
 const save = (cleared, quests) => readProgress({cleared, stars: Array(cleared).fill(2), quests});
 
 describe("단골 의뢰", () => {
-  it("has 48 quests with unique ids, known patients and one constraint each", () => {
-    expect(QUESTS.length).toBe(48);
-    expect(new Set(QUESTS.map(q => q.id)).size).toBe(48);
+  it("has 64 quests with unique ids, known patients and one constraint each", () => {
+    expect(QUESTS.length).toBe(64);
+    expect(new Set(QUESTS.map(q => q.id)).size).toBe(64);
     QUESTS.forEach(q => {
       expect(["clinic", "towel"]).toContain(q.game);   // 허리 pages read their day from DAYS
       expect(q.patients).toContain(q.who);
@@ -28,6 +28,7 @@ describe("단골 의뢰", () => {
       expect(JSON.stringify(q)).not.toMatch(/[\u{1F300}-\u{1FAFF}☀-➿]/u);   // no emoji
     });
     expect(QUESTS.filter(q => q.ep === 2).length).toBe(16);
+    expect(QUESTS.filter(q => q.ep === 3).length).toBe(16);   // 2편이 있는 단골 모두 3편(완결)이 있다
     Object.keys(RULE_NAME).forEach(r => expect(QUESTS.filter(q => q.rule === r).length, r).toBeGreaterThanOrEqual(4));
   });
   it("sets beat quests under their three-star cut by the quest gap", () => {
@@ -56,7 +57,24 @@ describe("단골 의뢰", () => {
     expect(questOpen(save(5, {"박대리1": 1}), second)).toBe(false);   // 박팀장 not met yet
     QUESTS.forEach(q => expect(questUnlockDay(q)).toBeGreaterThanOrEqual(0));
     const opens = QUESTS.filter(q => questOpen(save(56, Object.fromEntries(QUESTS.map(x => [x.id, 1]))), q));
-    expect(opens.length).toBe(48);
+    expect(opens.length).toBe(64);
+  });
+ it("opens a 3편 only after the 2편 is cleared, like the 2편 after the 1편", () => {
+    const third = QUESTS.find(q => q.id === "박대리3");
+    const done = Object.fromEntries(QUESTS.map(x => [x.id, 1]));
+    expect(questOpen(save(56, {"박대리1": 1}), third)).toBe(false);   // 2편 not cleared
+    expect(questOpen(save(56, {"박대리2": 1}), third)).toBe(true);
+    expect(questOpen(save(56, done), third)).toBe(true);
+    // every 3편 has a 2편 by the same regular, and a harder-or-equal constraint than a plain tight/noisy quest is preferred
+    QUESTS.filter(q => q.ep === 3).forEach(q => {
+      expect(QUESTS.some(x => x.who === q.who && x.ep === 2), q.id).toBe(true);
+      expect(q.id).toBe(`${q.who}3`);
+    });
+    const hard = QUESTS.filter(q => q.ep === 3 && ["pain1", "pain2", "many", "beat"].includes(q.rule)).length;
+    expect(hard).toBeGreaterThanOrEqual(12);
+    // the original 48 keep their numbers (analytics quest_no): 3편 are appended at the end
+    expect(QUESTS.slice(0, 48).every(q => q.ep < 3)).toBe(true);
+    expect(QUESTS.slice(48).every(q => q.ep === 3)).toBe(true);
   });
   it("saves stars by id and keeps the best, leaving a miss alone", () => {
     const q = QUESTS[0];

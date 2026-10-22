@@ -24,7 +24,7 @@ export function renderQuests(prog, onPick){
     const li = document.createElement("li"), b = document.createElement("button");
     b.type = "button"; b.dataset.q = q.id;
     const who = document.createElement("b"); who.textContent = q.who;
-    const t = document.createElement("span"); t.textContent = `${q.title} · ${GAME_NAME[q.game]} · ${RULE_NAME[q.rule]}`;
+    const t = document.createElement("span"); t.textContent = `${q.ep}편${q.ep >= 3 ? " 완결" : ""} ${q.title} · ${GAME_NAME[q.game]} · ${RULE_NAME[q.rule]}`;
     const st = document.createElement("i"), s = questStars(prog, q);
     st.textContent = s ? "★".repeat(s) + "☆".repeat(3 - s) : "";
     b.append(who, t, st);
@@ -35,14 +35,14 @@ export function renderQuests(prog, onPick){
   const left = QUESTS.length - open.length;
   // why the rest is shut: the regular has not shown up yet (the day is not cleared) or the first episode is not cleared
   const waitEp1 = QUESTS.filter(q => !questOpen(prog, q) && prog.cleared > questUnlockDay(q)).length;
-  const why = waitEp1 === left ? "1편을 깨면 올라와요" : waitEp1 ? "1편을 깨거나 단골이 영업 일지에 나오면 올라와요" : "단골이 영업 일지에 나오면 올라와요";
+  const why = waitEp1 === left ? "앞 편을 깨면 올라와요" : waitEp1 ? "앞 편을 깨거나 단골이 영업 일지에 나오면 올라와요" : "단골이 영업 일지에 나오면 올라와요";
   $("#questLocked").textContent = left ? `잠긴 의뢰 ${left}개 · ${why}` : "";
   $("#questLocked").hidden = !left;
   $("#quests").hidden = false;
 }
 
 export function showQuestStory(q){
-  $("#storyNo").textContent = `단골 의뢰 · ${q.who} ${q.ep}편`;
+  $("#storyNo").textContent = `단골 의뢰 · ${q.who} ${q.ep}편${q.ep >= 3 ? " · 완결" : ""}`;
   $("#story .card").classList.remove("hard-on");
   $("#storyGo").textContent = "의뢰 시작";
   $("#storyHard").hidden = true;
