@@ -1,0 +1,22 @@
+/* 진료실 꾸미기 상점 (ui/shop.js): the same card look as the 영업 일지 day list */
+#shopList{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+#shopList button{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 10px;text-align:left;font:600 14px var(--body);color:var(--paper);background:rgba(244,239,228,.06);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer}
+#shopList button b{font-family:var(--display);font-weight:400;font-size:15px;color:var(--mint)}
+#shopList button small{grid-column:1;font-size:12px;font-weight:500;color:var(--muted)}
+#shopList button i{grid-row:1 / span 2;grid-column:2;font-style:normal;font-variant-numeric:tabular-nums;color:var(--coral);font-size:14px;text-align:right}
+#shopList button.have{border-color:var(--mint);background:rgba(138,223,191,.12)}
+#shopList button.have i{color:var(--mint)}
+#shopList button.poor i{color:var(--muted)}
+#shopList button:disabled{cursor:default}
+#shopList button.flash{animation:shopFlash .5s}
+@keyframes shopFlash{0%{background:rgba(255,122,89,.45)}100%{background:rgba(244,239,228,.06)}}
+.shop-coins{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.shop-coins b{font-family:var(--display);font-weight:400;font-size:26px;color:var(--mint);font-variant-numeric:tabular-nums}
+.shop-help{margin:0;padding:0;list-style:none;display:grid;gap:2px;font-size:12px;color:var(--muted)}
+.shop-help li::before{content:"- "}
+.shop-help-title{margin:0;font:600 12px var(--body);color:var(--paper)}
+.coin-line{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:10px;font:600 14px var(--body);color:var(--paper);border:1px dashed var(--mint);border-radius:10px;padding:8px 12px}
+.coin-line b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--mint);font-variant-numeric:tabular-nums}
+.coin-line small{font-size:12px;font-weight:500;color:var(--muted)}
+#storyCoupon.on{background:var(--mint);color:var(--room-deep)}
+#shopBtn{font-size:14px;padding:7px 6px}

@@ -89,7 +89,11 @@ async function setupNeck(page, towel) {
     window.__cs = { S, adjust: flow.adjust, feel, tw };
   });
 }
-async function startNeck(page, towel, patient, campaign, night) {
+async function startNeck(page, towel, patient, campaign, night, shop) {
+  if (shop) {
+    await page.evaluate(s => { localStorage.setItem("chiroShop", JSON.stringify({ coins: s.coins, owned: s.owned })); dispatchEvent(new Event("chiro-shop")); if (s.open) document.getElementById("shopBtn").click(); }, shop);
+    if (shop.open) return;
+  }
   if (night) return page.evaluate((kind) => {
     localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
     document.getElementById("campaignBtn").click();
@@ -222,7 +226,7 @@ async function record(browser, c) {
       localStorage.setItem("chiroDex", JSON.stringify({ met: { "박대리": { first: "2026-10-22", n: 3, ok: 2 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 }, "이라이더": { first: "2026-10-22", n: 2, ok: 0 }, "정작가": { first: "2026-10-22", n: 1, ok: 1 }, "김사장": { first: "2026-10-22", n: 1, ok: 0 } }, fails: { over: { first: "2026-10-22", n: 2 }, crack: { first: "2026-10-22", n: 1 }, "t-slip": { first: "2026-10-22", n: 1 } } }));
       document.getElementById("dexBtn").click();
     });
-    else if (isNeck) await startNeck(page, towel, c.patient, c.campaign, c.night);
+    else if (isNeck) await startNeck(page, towel, c.patient, c.campaign, c.night, c.shop);
     else await page.click(c.mode === "back" ? "#backTouchStart" : "#sideTouchStart");
     const steps = c.steps;
     for (let i = 0; i < steps.length; i++) {

@@ -75,10 +75,19 @@ function campaignBegin({ day, story, hard, quest, list }){
   if(!story) $("storyGo").click();
 }
 
+/* 진료실 꾸미기 cases: a saved shop (coins, bought props); open: stop on the shop card */
+function shopBegin(shop){
+  localStorage.setItem("chiroShop", JSON.stringify({ coins: shop.coins, owned: shop.owned }));
+  dispatchEvent(new Event("chiro-shop"));
+  if(shop.open) $("shopBtn").click();
+}
+
 runCase({
   ready: () => waitFor(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, 150000, "에셋 로드").then(() => document.fonts.ready),
   begin(c){
     if(c.dex){ dexBegin(); return; }
+    if(c.shop) shopBegin(c.shop);
+    if(c.shop && c.shop.open) return;
     if(c.night){ nightBegin(c.night); return; }
     if(c.campaign){ campaignBegin(c.campaign); return; }
     $(c.mode === "towel" ? "startTowel" : "start").click();

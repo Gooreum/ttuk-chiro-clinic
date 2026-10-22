@@ -7,6 +7,7 @@ import { ROSTER } from "./patient/roster.js";
 import "./scene/renderer.js";
 import "./scene/textures.js";
 import "./scene/room.js";
+import "./scene/shopProps.js";
 import "./scene/patientModel.js";
 import { applyLook } from "./scene/look.js";
 import { loadRealAssets } from "./scene/realAssets.js";
