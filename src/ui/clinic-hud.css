@@ -268,6 +268,20 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch{gap:4px}
   :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch .chip{padding:4px 7px;font-size:10.5px}
   :where(.clinic-app) .card.log,:where(.clinic-app) .card.days{gap:8px}
+  /* 18차: 실패·구급차 카드는 별 칩·도감 줄 때문에 등급 한 줄("면허 재시험 대상")이 아래 고정 버튼 밑에 잘렸다. 합계 줄 왼쪽 빈자리로 올린다 */
+  /* 18차: 결과 카드가 짧은 가로 화면 한 장에 안 들어가 진료비 줄(보상)이 아래 고정 버튼 밑에 숨어 있었다. 간격을 조인다 */
+  :where(.clinic-app) .card.log{padding:12px 16px;gap:5px}
+  :where(.clinic-app) .card.log h2{font-size:24px}
+  :where(.clinic-app) .card.log ul{gap:5px}
+  :where(.clinic-app) .card.log li{padding-bottom:4px}
+  :where(.clinic-app) .card.log .day-outro{padding:5px 9px;font-size:12.5px;line-height:1.4}
+  :where(.clinic-app) .card.log .coin-line{padding:3px 10px;font-size:12.5px}
+  :where(.clinic-app) .card.log .coin-line b{font-size:17px}
+  :where(.clinic-app) .card.log li{gap:0 10px;padding-bottom:3px}
+  :where(.clinic-app) .card.log .day-outro{line-height:1.3}
+  :where(.clinic-app) .card.log .total{position:relative;z-index:1;min-height:30px}
+  :where(.clinic-app) .card.log ul+.rank{font-size:17px}
+  :where(.clinic-app) .card.log .total+.rank{margin-top:-30px;height:30px;padding-left:38px;display:flex;align-items:center;font-size:19px;line-height:1.1;pointer-events:none}
   /* 8차 플레이테스트: 결말 한 줄이 아래 고정 버튼 밑에 가려져 안 읽혔다. 제목 바로 밑으로 올린다 */
   /* 8차 플레이테스트: 보스 사연 카드는 규칙 칩 둘째 줄이 고정 버튼 밑에 가려졌다. 짧은 가로 화면에서 카드를 조인다 */
   :where(.clinic-app) .card.story{padding:12px 16px;gap:6px}
@@ -292,6 +306,10 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   /* 9차 플레이테스트: 허리펴기·허리비틀기 결과 카드도 목 모드처럼 결말 한 줄을 위로, 주 버튼을 아래에 고정한다(버튼이 접힌 화면 밖에 있었다) */
   :where(.clinic-app) .card.log .day-outro:not([hidden]){order:-1}
   :where(.clinic-app) .card.log [id$="NextDay"]:not([hidden]),:where(.clinic-app) .card.log:not(:has([id$="NextDay"]:not([hidden]))) [id$="ContinueAd"]:not([hidden]),:where(.clinic-app) .card.log:not(:has([id$="NextDay"]:not([hidden]))):not(:has([id$="ContinueAd"]:not([hidden]))) [id$="Again"]{position:sticky;bottom:0;z-index:1}
+  /* 18차: 아래에 고정된 주 버튼 뒤로 진료비 줄·합계가 반쯤 비쳐 잘린 점선 상자처럼 보였다. 버튼 둘레를 종이색으로 덮는다 */
+  :where(.clinic-app) .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again,[id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){box-shadow:0 4px 0 var(--coral-deep),0 14px 0 6px var(--paper,#f4efe4)}
+  /* 18차: 상점·의뢰 게시판·계절 목록은 줄이 길어 맨 아래 돌아가기 버튼이 늘 잘려 있었다. 아래에 고정한다 */
+  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
 }
 /* 56일 클리어 뒤 심야 진료·보스 러시가 보이면 짧은 가로 화면에서 아래 줄(진료 시간·최고 기록)이 잘려 한 단계 더 줄인다 */
 @media (orientation:landscape) and (max-height:430px){
