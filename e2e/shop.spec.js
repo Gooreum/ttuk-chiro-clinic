@@ -49,6 +49,8 @@ test("진료실 꾸미기: 코인으로 소품을 사면 저장되고 방에 놓
 test("진료비: 영업 일지 날을 마치면 코인을 받고, 통증 칸 +1권은 한 장 쓴다", async ({ page }) => {
   const errs = watchErrors(page);
   await page.addInitScript(() => { if(!localStorage.getItem("chiroShop")) localStorage.setItem("chiroShop", JSON.stringify({ coins: 10, owned: ["pain1", "pain1"] })); });
+  // already stamped today (a future date never stamps), so the attendance line and its coins stay out of this count
+  await page.addInitScript(() => localStorage.setItem("chiroAttend", JSON.stringify({ last: "2099-12-31", streak: 1, total: 1 })));
   await page.goto("./");
   await waitNeckAssets(page);
   await tap(page, "#campaignBtn");
@@ -66,7 +68,7 @@ test("진료비: 영업 일지 날을 마치면 코인을 받고, 통증 칸 +1�
   await page.evaluate(() => { window.__game.S.patients.length = 1; });
 
   await playNeckDay(page);
-  await expect(page.locator(".coin-line")).toBeVisible();
+  await expect(page.locator(".coin-line:not(.attend-line)")).toBeVisible();
   const gain = Number((await page.locator(".coin-line b").innerText()).replace("+", ""));
   expect(gain).toBeGreaterThan(20);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chiroShop")).coins)).toBe(10 + gain);
