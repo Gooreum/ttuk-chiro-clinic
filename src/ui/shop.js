@@ -21,11 +21,12 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) 
 export function mountShop(){
   const app = $("#app");
   const sub = el("span", null, ""); sub.id = "shopSub";
-  const titleBtn = el("button", "btn ghost", "진료실 꾸미기 · "); titleBtn.id = "shopBtn"; titleBtn.type = "button"; titleBtn.appendChild(sub);
-  const daysBtn = el("button", "btn ghost", "진료실 꾸미기"); daysBtn.id = "daysShop"; daysBtn.type = "button";
+  const titleBtn = el("button", "btn ghost chip-btn", "진료실 꾸미기"); titleBtn.id = "shopBtn"; titleBtn.type = "button"; titleBtn.appendChild(sub);
+  const daysBtn = el("button", "btn ghost chip-btn", "진료실 꾸미기"); daysBtn.id = "daysShop"; daysBtn.type = "button";
   const starts = document.querySelector("#intro .starts"), close = $("#daysClose");
-  if(starts) starts.insertAdjacentElement("afterend", titleBtn);
-  if(close) close.insertAdjacentElement("beforebegin", daysBtn);
+  const tRow = document.querySelector("#titleChips"), dRow = document.querySelector("#daysChips");
+  if(tRow) tRow.appendChild(titleBtn); else if(starts) starts.insertAdjacentElement("afterend", titleBtn);
+  if(dRow) dRow.appendChild(daysBtn); else if(close) close.insertAdjacentElement("beforebegin", daysBtn);
 
   const ov = el("div", "overlay"); ov.id = "shop"; ov.hidden = true;
   const card = el("div", "card days");

@@ -677,6 +677,7 @@ $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; if(
 $("#nextDay").addEventListener("click", () => {
   $("#result").hidden = true;
   if(endingPending){ endingPending = false; showEnding(); track(EV.click, { target: "ending" }); return; }
+  if(S.day + 1 >= DAYS.length) return;   // no day after the last (the button is hidden then; the ending card is the way out)
   openStory(S.day + 1);
 });
 $("#endingClose").addEventListener("click", () => { $("#ending").hidden = true; openDays(); });

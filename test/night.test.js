@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { NIGHT_POOL, NIGHT_UNLOCK, NIGHT_PAIN, nightOpen, kstDate, nightSeed, nightRand, nightTier, nightMods, nightPatient, nightCount, nightRecord, nightRank, TIGHT_MIN } from "../src/core/night.js";
+import { NIGHT_POOL, NIGHT_UNLOCK, NIGHT_PAIN, nightOpen, kstDate, nightSeed, nightRand, nightTier, nightMods, nightPatient, nightCount, nightRecord, nightRank, TIGHT_MIN, DEEP_MIN, DEEP_FROM } from "../src/core/night.js";
 import { ROSTER, makePatients } from "../src/patient/roster.js";
 import { CAST } from "../src/patient/cast.js";
 import { tolMul, tightFactor } from "../src/core/feel.js";
@@ -65,9 +65,18 @@ describe("night: difficulty", () => {
     let last = 1;
     for(let i = 0; i < 200; i++){
       const t = nightMods(i).tight ?? 1;
-      expect(t).toBeLessThanOrEqual(last); expect(t).toBeGreaterThanOrEqual(TIGHT_MIN); last = t;
+      expect(t).toBeLessThanOrEqual(last); expect(t).toBeGreaterThanOrEqual(DEEP_MIN); last = t;
     }
-    expect(nightMods(200).tight).toBe(TIGHT_MIN);
+    expect(nightMods(5 * DEEP_FROM - 1).tight).toBeGreaterThanOrEqual(TIGHT_MIN);   // before the 41st patient the floor is half
+    expect(nightMods(200).tight).toBe(DEEP_MIN);
+  });
+  it("from the 41st patient the zone goes below half, still deterministic and never under the deep floor", () => {
+    expect(nightMods(39).tight).toBe(0.51);
+    expect(nightMods(40).tight).toBe(0.47);
+    expect(nightMods(40)).toEqual(nightMods(40));
+    expect(nightMods(40).noisy).toBe(true);
+    expect(nightMods(60).tight).toBeLessThan(TIGHT_MIN);
+    expect(nightMods(500).tight).toBe(DEEP_MIN);
   });
   it("a numeric mods.tight is the zone factor (tightFactor), booleans keep 0.8 / 0.7", () => {
     expect(tightFactor(nightMods(10))).toBeCloseTo(0.86);

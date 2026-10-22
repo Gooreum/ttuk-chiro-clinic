@@ -2,7 +2,8 @@
    영업 일지 one (#story), so game/questFlow.js only has to route its buttons. */
 import { $ } from "../lib/dom.js";
 import "./quests.css";
-import { QUESTS, RULE_NAME, questOpen, questStars, questOrder } from "../core/quests.js";
+import { QUESTS, RULE_NAME, questOpen, questStars, questOrder, questUnlockDay } from "../core/quests.js";
+import { DAYS } from "../core/campaign.js";
 
 const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기"};
 
@@ -13,8 +14,14 @@ export function renderQuests(prog, onPick){
   $("#questLead").textContent = open.length
     ? `열린 의뢰 ${open.length}/${QUESTS.length} · 별 ${stars}/${QUESTS.length * 3}`
     : "영업 일지 1일차를 깨면 첫 의뢰가 올라와요";
+  let lastCh = 0;
   open.forEach(i => {
-    const q = QUESTS[i], li = document.createElement("li"), b = document.createElement("button");
+    const q = QUESTS[i], ch = DAYS[questUnlockDay(q)].ch;
+    if(ch !== lastCh){   // grouped by the chapter the regular first shows up in
+      lastCh = ch;
+      const h = document.createElement("li"); h.className = "chHead"; h.textContent = `${ch}장 단골`; list.appendChild(h);
+    }
+    const li = document.createElement("li"), b = document.createElement("button");
     b.type = "button"; b.dataset.q = q.id;
     const who = document.createElement("b"); who.textContent = q.who;
     const t = document.createElement("span"); t.textContent = `${q.title} · ${GAME_NAME[q.game]} · ${RULE_NAME[q.rule]}`;
@@ -26,7 +33,10 @@ export function renderQuests(prog, onPick){
     li.appendChild(b); list.appendChild(li);
   });
   const left = QUESTS.length - open.length;
-  $("#questLocked").textContent = left ? `잠긴 의뢰 ${left}개 · 단골이 영업 일지에 나오면 올라와요` : "";
+  // why the rest is shut: the regular has not shown up yet (the day is not cleared) or the first episode is not cleared
+  const waitEp1 = QUESTS.filter(q => !questOpen(prog, q) && prog.cleared > questUnlockDay(q)).length;
+  const why = waitEp1 === left ? "1편을 깨면 올라와요" : waitEp1 ? "1편을 깨거나 단골이 영업 일지에 나오면 올라와요" : "단골이 영업 일지에 나오면 올라와요";
+  $("#questLocked").textContent = left ? `잠긴 의뢰 ${left}개 · ${why}` : "";
   $("#questLocked").hidden = !left;
   $("#quests").hidden = false;
 }

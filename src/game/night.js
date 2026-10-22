@@ -61,7 +61,7 @@ export function renderNightBtn(prog){
   const open = nightOpen(prog);
   for(const [btn, sub] of [["#nightBtn", "#nightSub"], ["#daysNight", "#daysNightSub"]]){
     const b = $(btn), s = $(sub);
-    if(b) b.disabled = !open;
+    if(b){ b.disabled = !open; b.hidden = !open; }
     if(s) s.textContent = open ? NIGHT_OPEN : NIGHT_LOCKED;
   }
 }

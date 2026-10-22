@@ -83,13 +83,19 @@ export function showStory(day, hard = false, canHard = false){
   const lines = hard ? [d.intro[0], hardRule()] : d.intro;
   lines.forEach(line => { const li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
   const rules = $("#storyRules"); rules.textContent = "";
-  const chip = (text, warn) => { const i = document.createElement("i"); i.textContent = text; if(warn) i.className = "warn"; rules.appendChild(i); };
+  const seen = new Set();
+  const chip = (text, warn) => { if(seen.has(text)) return; seen.add(text); const i = document.createElement("i"); i.textContent = text; if(warn) i.className = "warn"; rules.appendChild(i); };
   chip(GAME_NAME[d.game]);
   chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : d.game === "side" ? `${d.patients[0]} · 좌우 한 번씩` : `환자 ${d.patients.length}명`);
   chip(`통증 ${d.painMax}번이면 영업 끝`, d.painMax < 3);
-  if(d.game !== "back" && d.game !== "side") chip(d.zone ? `초록 구역 안내 ${d.zone}명` : "구역 안내 없음", !d.zone);
+  const noisy = !!(d.mods && d.mods.noisy), noZone = d.game !== "back" && d.game !== "side" && !d.zone;
+  // 안내가 둘 다 없는 날은 칩 하나로 (8장 7일 같은 날에 "구역 안내 없음"과 "숨 안내 없음"이 나란히 떴다)
+  if(noZone && noisy) chip("구역·숨 안내 없음", true);
+  else{
+    if(d.game !== "back" && d.game !== "side") chip(d.zone ? `초록 구역 안내 ${d.zone}명` : "구역 안내 없음", !d.zone);
+    if(noisy) chip("숨 안내 없음", true);
+  }
   if(d.mods && d.mods.tight) chip(d.mods.tighter ? "구역이 아주 좁아요" : "구역이 좁아요", true);
-  if(d.mods && d.mods.noisy) chip("숨 안내 없음", true);
   if(d.beat) chip(hard ? `역경 · 평균 ${d.beat}점 넘기기` : `보스 · 평균 ${d.beat}점 넘기기`, true);
   $("#story").hidden = false;
 }

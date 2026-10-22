@@ -67,7 +67,7 @@ export function renderRushBtn(prog){
   const open = rushOpen(prog);
   for(const [btn, sub] of [["#rushBtn", "#rushSub"], ["#daysRush", "#daysRushSub"]]){
     const b = $(btn), s = $(sub);
-    if(b) b.disabled = !open;
+    if(b){ b.disabled = !open; b.hidden = !open; }
     if(s) s.textContent = open ? RUSH_OPEN : RUSH_LOCKED;
   }
 }
