@@ -23,6 +23,7 @@ export const EV = {
   click: "ui_click",              // buttons and chips: again, clinic, tune, music, chart, center
   adEvent: "ad_event",            // full-screen ads: request / loaded / show / impression / clicked / dismissed / reward / error
   adNotice: "ad_notice",          // the "광고가 나와요" notice before an interstitial
+  painAd: "pain_ad",              // 영업 일지 story card: the rewarded "통증 칸 +1" (click / granted / fail)
   purchase: "iap_purchase",       // 광고 제거: start / success / fail / restore (not GA4's reserved ecommerce "purchase")
   review: "review_request"        // the Toss review prompt was asked for (whether it shows is up to Toss)
 };

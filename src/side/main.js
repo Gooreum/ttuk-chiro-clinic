@@ -46,7 +46,7 @@ let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandsc
 const dayQ=Number(new URLSearchParams(location.search).get('day')),
   DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='side'?dayQ:-1,dayDef=DAY>=0?DAYS[DAY]:null;
 const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax:4,dayNo=DAY>=0?DAY+1:null;
+const painMax=dayDef?dayDef.painMax+(new URLSearchParams(location.search).get('pain')==='1'?1:0):4,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&['anim','turn','roll','leave'].includes(t.phase)?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 const side=()=>S.order[S.sideIdx], goal=()=>S.goals[S.sideIdx];
 const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{height:position,side:.5,locked:false};
@@ -185,11 +185,11 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/2);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/2)}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;
-  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg));
+  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg,dayDef));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
   $('sideResult').querySelector('.sub').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
@@ -197,7 +197,7 @@ function dayEnd(complete,avg){
   $('sideDayOutro').hidden=false;$('sideToDays').hidden=false;
   $('sideNextDay').hidden=next<0;if(next>=0)$('sideNextDay').href=`index.html?story=${next}`;
   $('sideAgain').textContent=cleared?'이 날 다시':'다시 도전';
-  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
+  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg,dayDef):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
 }
 // 광고 보고 이어하기, once a run: the fixed side stays, the failed ones are redone with the pain reset (core.js continuePlan).
 function continueRun(){
@@ -209,7 +209,7 @@ function continueRun(){
   else{S.sideIdx=p.sideIdx;endRoll(now);S.sideIdx=p.sideIdx;S.prepUntil=now+PREP_MS;gag('다시 손 얹어요. 이번엔 살살',false,2200);}
   track(EV.runStart,{game:'side',how:'continue',control:S.motionEnabled?'tilt':'touch'});screenView('play');sync();
 }
-const monetize=mountMonetize({continueBtn:$('sideContinueAd'),buyBtn:$('sideBuyAdFree'),onContinue:continueRun});
+const monetize=mountMonetize({continueBtn:$('sideContinueAd'),buyBtn:$('sideBuyAdFree'),onContinue:continueRun,leave:[$('sideNextDay'),$('sideAgain'),$('sideToDays')]});
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;
   if(useMotion){

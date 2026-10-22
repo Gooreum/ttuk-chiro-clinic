@@ -45,7 +45,7 @@ const names=['등 위쪽','등 가운데','허리'];
 const dayQ=Number(new URLSearchParams(location.search).get('day')),
   DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='back'?dayQ:-1,dayDef=DAY>=0?DAYS[DAY]:null;
 const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax:3,dayNo=DAY>=0?DAY+1:null;
+const painMax=dayDef?dayDef.painMax+(new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-height shove names where it actually landed.
 // An overload that also missed the ring bursts the organs there, one side only if it missed left/right
@@ -169,11 +169,11 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3)}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;
-  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg));
+  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg,dayDef));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
   $('backResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
@@ -181,7 +181,7 @@ function dayEnd(complete,avg){
   $('backDayOutro').hidden=false;$('backToDays').hidden=false;
   $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
   $('backAgain').textContent=cleared?'이 날 다시':'다시 도전';
-  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
+  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg,dayDef):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
 }
 // 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
 // zone again with the misses cleared; the zones already done keep their points. After a boss day under its beat all
@@ -197,7 +197,7 @@ function continueRun(){
   track(EV.runStart,{game:'back',how:'continue',zone_no:S.step+1});screenView('play');
   sync();
 }
-const monetize=mountMonetize({continueBtn:$('backContinueAd'),buyBtn:$('backBuyAdFree'),onContinue:continueRun});
+const monetize=mountMonetize({continueBtn:$('backContinueAd'),buyBtn:$('backBuyAdFree'),onContinue:continueRun,leave:[$('backNextDay'),$('backAgain'),$('backToDays')]});
 // Invoke both iOS permission APIs synchronously inside the start tap, as in neck adjustment.
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;

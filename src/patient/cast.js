@@ -156,7 +156,7 @@ const CAST_DEF = [
           ahh:"도장이 찍히는 느낌이오", after:"반대쪽도 도장 찍겠소", done:"청결 인증은 신중히 보겠소", idle:"결재 기다리는데…",
           dud:"이건 접수 불가요", finger:"손가락 소독은 했소?", stop:"잠깐! 검토 중이오!", doubt:"이번엔 서류대로 하게", quit:"감사 결과 보고합니다",
           fail:["이건 시정 조치요", "감사 점수는 낮겠소", "내 목도 공문이 필요하오"]}},
-  {base:"김사장", name:"도깨비영감", age:81, cc:"동네 전설. 사실은 소문만 무성한 그냥 영감이에요.", seg:6, side:1, tolR:5.2, tolB:3.8, breath:5.4, burn:3.4, trait:"elder",
+  {base:"김사장", name:"도깨비영감", age:88, cc:"동네 전설. 사실은 소문만 무성한 그냥 영감이에요.", seg:6, side:1, tolR:5.2, tolB:3.8, breath:5.4, burn:3.4, trait:"elder",
    gown:0x6a3f3f,
    lines:{start:"내가 이 동네 도깨비라네. 목이 뻣뻣하구먼", near:"어허, 거기 방망이 휘두르던 데야", ouch:"어이쿠 도깨불이야!", jolt:"깜짝이야!", sigh:"허허…", what:"방금 내가 뭐 했나?",
           ahh:"허허… 도술이 따로 없구먼", after:"반대쪽도 요술이네", done:"효자손 두고 가네", idle:"밤이 되기 전에 가야 하는데",
