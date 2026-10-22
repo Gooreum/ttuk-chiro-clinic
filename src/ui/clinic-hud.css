@@ -117,6 +117,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .stamp-card small{font-size:13px;font-weight:700;color:var(--ink);text-align:center;text-wrap:balance}
 :where(.clinic-app) .stamp-card.show{opacity:1;animation:stampIn .32s cubic-bezier(.2,1.6,.4,1)}
 :where(.clinic-app) .stamp-card.over.show b{animation:wob .9s ease-out}
+:where(.clinic-app) .stamp-card.tuck{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}
 :where(.clinic-app) .stamp-card.dud{border-color:var(--bone)}
 :where(.clinic-app) .stamp-card.dud b{color:var(--bone)}
 :where(.clinic-app) .stamp-card.break b{font-size:54px}
