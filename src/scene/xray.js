@@ -443,7 +443,13 @@ const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
 /* Seconds of "pressure" after the x-ray opens, before the release. Exported for the camera push in game/loop.js. */
 export const XRAY_PRE = 0.55;
 const _c = new THREE.Color(), _tc = new THREE.Color(), _dc = new THREE.Color();
-const AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1), _sq = new THREE.Quaternion();
+const AX_X = new THREE.Vector3(1, 0, 0), AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1), _sq = new THREE.Quaternion();
+/* The camera looks at the neck from the side. A turn about the neck's own axis (rot) or the front-back axis (facet) hardly
+   shows from there, so only the flat neck's snap read (user: "처음에 뼈 맞추는건 애니메이션이 괜찮더니 가면 갈수록 별로다",
+   2026-10-22: disc, muscle, facet and rot patients showed almost no bone moving). Every symptom also holds the stuck vertebra out
+   of line in the side view (a step back, a tip) that snaps into place with the same overshoot. back: model units (~1.5 mm per
+   0.001), tip: radians about the left-right axis. */
+const SIDE_SLIP = {disc: {back: 0.0085, tip: -0.34}, muscle: {back: 0.0075, tip: 0.3}, facet: {back: 0.0078, tip: -0.32}, rot: {back: 0.007, tip: 0.3}, flat: {back: 0.0032, tip: -0.14}};
 const DISC_H = 0.0075;     // a disc's rest height (model units; the stuck-disc lift above uses the same)
 const SEP_AT = 0.3, SEP_GAP = 0.045;   // an over-pull's x-ray: s until the neck tears off at C7/T1, how far it goes (model units, ~7 cm shown)
 const smooth01 = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
@@ -561,6 +567,11 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   if(kind === "rot"){ twist(AX_Y, 0.34*off*side); sv.g.position.x += 0.0018*off*side; }
   if(kind === "facet"){ twist(AX_Z, -0.24*off*side); sv.g.position.x += 0.0015*off*side; }
   if(kind === "muscle"){ twist(AX_Y, 0.12*off*side); }
+  if(!traction){
+    const slip = SIDE_SLIP[kind] || SIDE_SLIP.rot;
+    sv.g.position.z -= slip.back*off;
+    twist(AX_X, slip.tip*off);
+  }
 
   // The disc under the stuck vertebra is the main event. Pressed: nearly flat, bulging out sideways, the column above
   // sitting down on it and trembling. Released: it springs past its full height and settles in damped bounces,
