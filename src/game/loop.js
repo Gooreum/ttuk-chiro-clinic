@@ -11,7 +11,7 @@ import {
   torso, collar, bodyParts, pivot, head, neckMesh, lids, eyesOpen, brows, mouthFlat, mouthSmile, mouthO, hands, forearms,
   UP, tmpA, tmpB, xrayMats, crackFadeMats, ringMat, waveMat, waveRing, sparks
 } from "../scene/patientModel.js";
-import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_PRE, FRAC_HIT, SHATTER_AT } from "../scene/xray.js";
+import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_AIM, XRAY_PRE, FRAC_HIT, SHATTER_AT } from "../scene/xray.js";
 import { tone, vib, crunch } from "../audio/audio.js";
 import { say, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
@@ -304,7 +304,11 @@ export function frame(now){
   // aim at the stuck disc (the x-ray's subject); a slow push in on it while the pressure builds
   // (towel mode: the bottom of the neck, so the whole stretched neck and the top of the back, where an over-pull tears
   // it off at C7/T1, are both in frame)
-  pivot.localToWorld(neckW.set(0, -0.01, towel ? XRAY_LEVEL(S.overAt ? 6 : 5) + (S.overAt ? 0.02 : 0) : target ? XRAY_LEVEL(target.seg - 1) : -0.03));
+  // (the clinic aims at where the stuck disc sits on this patient's own bent neck: straight and reversed necks move it)
+  if(towel) neckW.set(0, -0.01, XRAY_LEVEL(S.overAt ? 6 : 5) + (S.overAt ? 0.02 : 0));
+  else if(target) XRAY_AIM(target, target.seg - 1, neckW);
+  else neckW.set(0, -0.01, -0.03);
+  pivot.localToWorld(neckW);
   const push = S.crackT >= 0 ? ease(clamp(S.crackT/XRAY_PRE, 0, 1)) : 0;
   tv += ((towel && S.phase === "play" ? 1 : 0) - tv)*(1 - Math.exp(-rdt*3));
   camPos.copy(camBase).lerp(TV_POS, ease(tv));
