@@ -5,7 +5,7 @@ import { tolMul, distAt, closenessOf, deltaGain, breathState } from "../core/fee
 import { towelTension, towelDist, aimOff } from "../core/towel.js";
 
 /* Game-side wrappers over src/core/feel.js, reading the current patient and tuning. */
-export const curTolMul = now => S.target ? tolMul(S.target.trait, now - S.patientStart) : 1;
+export const curTolMul = now => S.target ? tolMul(S.target.trait, now - S.patientStart, !!(S.mods && S.mods.tight)) : 1;
 // towel mode (core/towel.js): the distance is the towel's tension off the band (the aim's vertical axis) or the aim off
 // the patient's centre (its horizontal axis), whichever is worse
 export const distAtNow = (rot, bend, now = performance.now()) => S.game === "towel" && S.towel ? Math.max(towelDist(towelTension(bend), S.towel), Math.abs(aimOff(rot, S.towel)))

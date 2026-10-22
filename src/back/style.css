@@ -61,3 +61,7 @@
   box-shadow:0 0 0 5px #ff7a5950,0 0 40px #ff7a59aa,0 12px 28px #0f231fa0;animation:burstStamp .34s cubic-bezier(.2,1.7,.4,1) both}
 .cut-label.burst small{display:block;margin-top:3px;font:700 11px var(--body);letter-spacing:.04em;opacity:.88}
 @keyframes burstStamp{from{transform:translateX(-50%) scale(2.1) rotate(-8deg);opacity:0}to{transform:translateX(-50%) scale(1) rotate(-2deg);opacity:1}}
+/* 영업 일지 day (back.html?day=N) */
+#backApp .day-no{margin:0;font:600 13px 'IBM Plex Sans KR',sans-serif;color:var(--coral,#ff7a59)}
+#backApp .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;color:#17312c;border-radius:8px;padding:8px 10px}
+#backApp a.btn{display:block;text-align:center;text-decoration:none}

@@ -4,7 +4,8 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath } from "./feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
-import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, nextDay } from "../core/campaign.js";
+import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, nextDay, dayLabel, dayClears, dayOpen } from "../core/campaign.js";
+import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel } from "../ui/campaign.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
@@ -20,6 +21,7 @@ import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 import { mountMonetize } from "../ui/monetize.js";
+import { quietDay } from "../core/monetize.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
 import { EV, runOutcome } from "../core/analytics.js";
 
@@ -51,7 +53,8 @@ function showBanner(no, name, trait){
 }
 /* analytics (docs/analytics.md): patients by roster order only, no names */
 const mode = () => S.game === "towel" ? "towel" : "crack";
-const dayNo = () => S.day >= 0 ? S.day + 1 : null;   // 영업 일지 day (1..7) on run events, null (dropped) otherwise
+const TIGHT = 0.8;   // 영업 일지 mods.tight: every zone this much narrower (core/feel.js tolMul for the crack)
+const dayNo = () => S.day >= 0 ? S.day + 1 : null;   // 영업 일지 day (1..56, across chapters) on run events, null (dropped) otherwise
 const who = () => ({ patient_no: S.idx + 1, roster: S.target ? S.target.look && S.target.look.model || S.target.age : null, trait: S.target && S.target.trait || "none" });
 function pushResult(r){
   S.results.push(r);
@@ -76,6 +79,7 @@ function loadPatient(){
     $("#pcc").textContent = target.cc;
     $("#pseg").textContent = S.game === "towel" ? "목뽑기 · 장력 맞추고 툭" : sideLabel(target);
     S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
+    if(S.towel && S.mods.tight) S.towel = {...S.towel, half: S.towel.half*TIGHT, aimTol: S.towel.aimTol*TIGHT};
     S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
     const tr = target.trait ? TRAITS[target.trait] : null;
     $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
@@ -466,7 +470,7 @@ function finish(){
   if(isBest) store.set(key, score);
   const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
   $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : "환자들이 도망갔어요") : towel ? "목뽑기 끝" : "오늘 진료 끝";
-  $("#rdate").textContent = campaign ? `영업 일지 · ${S.day + 1}일차 ${DAYS[S.day].title}` : "오늘의 진료 일지";
+  $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)} ${DAYS[S.day].title}` : "오늘의 진료 일지";
   $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
@@ -499,7 +503,7 @@ function finish(){
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
-  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, used: S.continued, skipInterstitial: asked }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, used: S.continued, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
    comes back from the start with the pain count cleared. Their points so far come off (they are earned again). */
@@ -548,11 +552,11 @@ async function start(game, day = -1){
   S.day = day >= 0 && day < DAYS.length ? day : -1;
   const d = S.day >= 0 ? DAYS[S.day] : null;
   S.game = (d ? d.game : game) === "towel" ? "towel" : "clinic";
-  S.painMax = d ? d.painMax : 3; S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL;
+  S.painMax = d ? d.painMax : 3; S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
   setMode(mode()); S.runAt = performance.now();
   track(EV.runStart, { game: mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
-  S.patients = d ? makePatients(Math.random, 0, dayRoster(S.day, ROSTER)) : makePatients();
+  S.patients = d ? makePatients(Math.random, 0, dayRoster(S.day, [...ROSTER, ...CAST])) : makePatients();
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
@@ -571,25 +575,36 @@ let storyDay = 0;
 function openDays(){ renderDays(progress(), day => { $("#days").hidden = true; storyDay = day; showStory(day); }); }
 function dayEnd(complete, avg){
   if(S.day < 0) return;
-  const before = progress(), after = afterDay(before, S.day, complete, dayStars(avg));
+  const cleared = dayClears(S.day, complete, avg), d = DAYS[S.day];
+  const before = progress(), after = afterDay(before, S.day, cleared, dayStars(avg));
   if(after !== before) store.set(CAMPAIGN_KEY, after);
-  const next = complete ? nextDay(after, S.day) : -1;
+  const next = cleared ? nextDay(after, S.day) : -1;
   const out = $("#dayOutro");
-  out.textContent = complete ? DAYS[S.day].outro : `${S.day + 1}일차를 못 버텼어요. 다시 문 열어 봐요.`;
+  out.textContent = cleared ? d.outro : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. 반듯 정골원이 웃고 있어요.` : `${dayLabel(S.day)}를 못 버텼어요. 다시 문 열어 봐요.`;
   out.hidden = false;
   $("#nextDay").hidden = next < 0;
   $("#toDays").hidden = false;
-  $("#again").textContent = complete ? "이 날 다시" : "다시 도전";
+  $("#again").textContent = cleared ? "이 날 다시" : "다시 도전";
   $("#campaignSub").textContent = campaignLabel(after);
-  track(EV.dayEnd, { day: S.day + 1, cleared: complete, stars: complete ? dayStars(avg) : 0, score: S.score });
+  track(EV.dayEnd, { day: S.day + 1, cleared, stars: cleared ? dayStars(avg) : 0, score: S.score });
 }
 $("#campaignBtn").addEventListener("click", openDays);
 $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S.phase === "result") $("#result").hidden = false; });
-$("#storyGo").addEventListener("click", () => start("clinic", storyDay));
+// 허리펴기 days run on back.html (src/back/main.js reads ?day); its start card takes the tap for the sensor permission
+$("#storyGo").addEventListener("click", () => {
+  if(DAYS[storyDay].game === "back"){ location.href = `back.html?day=${storyDay}`; return; }
+  start("clinic", storyDay);
+});
 $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; openDays(); });
 $("#nextDay").addEventListener("click", () => { $("#result").hidden = true; storyDay = S.day + 1; showStory(storyDay); });
 $("#toDays").addEventListener("click", () => { $("#result").hidden = true; openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
+// back.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
+{
+  const q = new URLSearchParams(location.search), sd = Number(q.get("story"));
+  if(q.has("story") && dayOpen(progress(), sd)){ storyDay = sd; showStory(sd); }
+  else if(q.has("days")) openDays();
+}
 const clinicNow = () => S.game === "towel" ? "towel" : "crack";
 mountClinicMenu({ chip: $("#clinicBtn"), menu: $("#clinicMenu"), current: clinicNow });
 // index.html?mode=towel (from the 클리닉 menu): 목뽑기 is the main start button

@@ -2,14 +2,15 @@ import { expect } from "@playwright/test";
 
 // Fails the test on any page error or console error (same rule as scripts/shot.py).
 // leaving(): call right before a link to another page. The page being left aborts the models still loading in the
-// background, and GLTFLoader logs "Couldn't load texture blob:..." as its blob URLs die; only that one is dropped.
+// background: GLTFLoader logs "Couldn't load texture blob:..." as its blob URLs die and a model fetch cut off mid-way
+// rejects with "Failed to fetch" (허리 진료실을 불러오지 못했어요). Only those two are dropped.
 export function watchErrors(page){
   const errors = [];
   let left = false;
   page.on("pageerror", e => errors.push(`pageerror: ${e.message}`));
   page.on("console", m => {
     if(m.type() !== "error") return;
-    if(left && /Couldn't load texture blob:/.test(m.text())) return;
+    if(left && /Couldn't load texture blob:|Failed to fetch/.test(m.text())) return;
     errors.push(`console: ${m.text()}`);
   });
   return {

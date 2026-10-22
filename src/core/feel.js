@@ -1,9 +1,11 @@
 import { clamp } from "../lib/math.js";
 
 /* Tolerance multiplier: nervous patients tighten up to 40% over 24 s. */
-export function tolMul(trait, elapsed){
-  if(trait === "nervous") return Math.max(0.6, 1 - elapsed/24000);
-  return 1;
+/* tight: a 영업 일지 day that narrows every zone (core/campaign.js mods.tight) */
+export function tolMul(trait, elapsed, tight = false){
+  const t = tight ? 0.8 : 1;
+  if(trait === "nervous") return t*Math.max(0.6, 1 - elapsed/24000);
+  return t;
 }
 /* Normalised distance to the target; d <= 1 is the success zone. m = T.tol * tolMul. */
 export function distAt(rot, bend, target, m){
