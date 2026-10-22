@@ -4,6 +4,19 @@
 import { ROSTER } from "./roster.js";
 
 const CAST_DEF = [
+  // 1장 개업 첫 주 (2026-10-22 9차 플레이테스트: 1장 7일이 기본 환자 5명만 돌았다)
+  {base:"정작가", name:"문약사", age:36, cc:"동네 약국 약사. 약봉지 포장만 하다 목이 굳었어요.", seg:4, side:1, tolR:7.2, tolB:5.2, breath:3.8, burn:1.0, trait:"stiff",
+   gown:0xf0f2ee,
+   lines:{start:"약국 문 잠시 닫고 왔어요. 복약 지도는 이따 해 드릴게요", near:"어, 거기 하루 세 번 식후 결리는 데예요", ouch:"아야! 이건 부작용 아닌가요!", jolt:"헙!", sigh:"후우…", what:"방금 그 소리 처방전에 없는데요?",
+          ahh:"와… 소화제 먹은 것처럼 시원해요", after:"반대쪽도 용법대로 풀렸어요", done:"약국 오시면 박카스 하나 드릴게요", idle:"손님 오면 종 울릴 텐데…",
+          dud:"…효능이 확인되지 않았습니다", finger:"선생님 손가락은 병원 가셔야겠어요", stop:"잠깐요! 유효기간 확인이요!", doubt:"이번엔 정량으로 부탁해요", quit:"오늘은 약 드시고 쉬세요",
+          fail:["이건 이상 반응으로 신고해야겠어요", "약보다 센 건 처음이에요", "제 목은 처방 불가예요"]}},
+  {base:"김사장", name:"허통장", age:61, cc:"동네 통장. 전단지를 나눠 주느라 목이 계속 한쪽이에요.", seg:5, side:-1, tolR:6, tolB:4.5, breath:4.4, burn:2.6, trait:"elder",
+   gown:0xc7a15a,
+   lines:{start:"통장이 왔어. 이 집 소문 반상회에서 들었지", near:"어어, 거기 전단지 끼우던 데야", ouch:"아이고 반장님 살려!", jolt:"어이쿠!", sigh:"허허…", what:"어? 방금 방송 나왔나?",
+          ahh:"어허… 우리 동네에서 제일 시원하구먼", after:"반대쪽도 동네 소문대로네", done:"반상회에 광고해 줄게. 공짜로", idle:"전단지 돌릴 시간인데",
+          dud:"어? 오늘 방송 안 나오네", finger:"자네 손가락 통장 도장 찍어야겠어", stop:"잠깐! 회람판 돌려야 해!", doubt:"이번엔 동네 평판대로 해 봐", quit:"반상회에서 말 좀 하겠네",
+          fail:["이건 동네 소문 나겠어", "나 통장이야, 다 알아", "내 목은 회람판에 못 올려"]}},
   {base:"박대리", name:"오인턴", age:24, cc:"인턴 첫 주. 상사 눈치 보느라 고개를 못 들어요.", seg:4, side:-1, tolR:8.5, tolB:6, breath:3.4, burn:0.8, trait:"nervous",
    gown:0x7fb0a0,
    lines:{start:"저 정규직 전환 걸려 있어요… 살살요", near:"아 거기 결려요… 아니 괜찮아요", ouch:"으앗 죄송합니다!", jolt:"헙!", sigh:"하…", what:"방금 그거… 제가 잘못한 거 아니죠?",
@@ -184,6 +197,8 @@ const CAST_DEF = [
    drops them when a prop wig replaces them). realSkin: multiplies the realistic head and neck skin. The final-boss trio
    shared 김사장's face, so each gets its own silhouette: a long white beard, a silver wig with gold glasses, and horns. */
 const CAST_LOOK = {
+  "문약사":     {gown:0xf0f2ee, realGown:true, glasses:false, props:["glassesBig"], realSkin:0xfff0e6},
+  "허통장":     {realGown:true, hair:"bald", hairCol:0xd8d4cc, props:["tuftBald", "browsWhite"], realSkin:0xf6d8c4},
   "뚝할배":     {gown:0x34416b, realGown:true, hair:"bald", hairCol:0xf0eee8, props:["beardLong", "browsWhite", "hairWhiteSides", "topknot"], realHair:{col:0xffffff, lift:0xdcdad2}, realSkin:0xfff0e4},
   "도깨비영감": {realGown:true, hair:"bald", hairCol:0xeeeeee, props:["hairWild", "browsWhite", "hornSmall", "stacheWhite"], realHair:{col:0xffffff, lift:0xdcdad2, hide:true}, realSkin:0xf0a090},
   "메가회장":   {realGown:true, hair:"bald", hairCol:0xc9ccd2, props:["hairSilver", "glassesGold", "stacheGrey"], realHair:{col:0xbfc3ca, lift:0x6a6c72, hide:true}, realSkin:0xffe9dc},

@@ -160,14 +160,14 @@ function applyPress(position,pressure,force=1){
 function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&S.locked&&!S.pending&&performance.now()>=S.prepUntil){ensureSound();applyPress(S.position,S.pressure,force);}}
 function finish(){
   S.phase='result';cancelInput();$('backControls').hidden=true;$('backMotionNotice').hidden=true;
-  const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=complete&&S.score>best;
+  const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=DAY<0&&complete&&S.score>best;
   if(record)store.set('chiroBackMotionBest',S.score);
   $('backResultTitle').textContent=S.tier?'구급차가 왔어요':complete?'허리까지 시원하게.':'오늘은 여기까지만.';
   $('backReview').textContent='“'+reviewLine({name:patient.name,stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('backTotal').textContent=S.score;
   $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('li');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
   $('backRank').textContent=rankTitle(S.score/3,S.tier||S.mistakes>=painMax?3:S.mistakes);
-  $('backBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
+  $('backBest').textContent=DAY>=0?'':record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('backResult').hidden=false;sync();
   const outcome=runOutcome({ambulance:!!S.tier,pain:S.mistakes,complete});
   track(EV.runEnd,{game:'back',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:S.continued,run_ms:performance.now()-S.runAt,rank:$('backRank').textContent});
@@ -183,7 +183,7 @@ function dayEnd(complete,avg){
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
   $('backResultTitle').textContent=`${dayLabel(DAY)}${HARD?' 역경':''} ${dayDef.title}`;
-  $('backDayOutro').textContent=(cleared?(HARD?`역경 통과! ${dayDef.hardOutro||dayDef.outro}`:dayDef.outro):complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.'}`:`${dayLabel(DAY)}${HARD?' 역경':''}를 못 버텼어요. 다시 문 열어 봐요.`)+(HARD&&!cleared?' 역경엔 이어하기가 없어요.':'');
+  $('backDayOutro').textContent=(cleared?(HARD?`역경 통과! ${dayDef.hardOutro||dayDef.outro}`:dayDef.outro):complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.'}`:`${dayLabel(DAY)}${HARD?' 역경을':'를'} 못 버텼어요. 다시 문 열어 봐요.`)+(HARD&&!cleared?' 역경엔 이어하기가 없어요.':'');
   $('backDayOutro').hidden=false;$('backToDays').hidden=false;
   $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
   $('backAgain').textContent=cleared?'이 날 다시':'다시 도전';

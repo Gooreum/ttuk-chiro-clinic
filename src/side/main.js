@@ -172,7 +172,7 @@ function finish(){
   S.phase='result';cancelInput();$('sideControls').hidden=true;$('sideMotionNotice').hidden=true;
   const done=canLeave(S.results),b=balance(S.results);
   S.score=Math.max(0,S.score+b.bonus);
-  const best=store.get('chiroSideBest',0),record=done&&!S.results.some(r=>r.tier)&&S.score>best;
+  const best=store.get('chiroSideBest',0),record=DAY<0&&done&&!S.results.some(r=>r.tier)&&S.score>best;
   if(record)store.set('chiroSideBest',S.score);
   const tier=Math.max(0,...S.results.map(r=>r.tier));
   $('sideResultTitle').textContent=tier?'허리가 비명을 질렀어요':S.results.every(r=>r.kind==='ok')?'양쪽 다 풀렸어요.':'한쪽은 아직 꼬여 있어요.';
@@ -182,7 +182,7 @@ function finish(){
   if(b.label){const e=document.createElement('li');e.textContent=`${b.label} ${b.bonus>0?'+':''}${b.bonus||''}`;rows.push(e);}
   $('sideResultSteps').replaceChildren(...rows);
   $('sideRank').textContent=rankTitle(S.score/2,tier||S.mistakes>=painMax?3:S.mistakes);
-  $('sideBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
+  $('sideBest').textContent=DAY>=0?'':record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('sideResult').hidden=false;sync();
   const complete=runComplete(S.results,S.mistakes,painMax,!!dayDef);
   const outcome=runOutcome({ambulance:tier>0,pain:S.mistakes,complete});
@@ -199,7 +199,7 @@ function dayEnd(complete,avg){
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
   $('sideResult').querySelector('.sub').textContent=`${dayLabel(DAY)}${HARD?' 역경':''} ${dayDef.title}`;
-  $('sideDayOutro').textContent=(cleared?(HARD?`역경 통과! ${dayDef.hardOutro||dayDef.outro}`:dayDef.outro):complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.'}`:`${dayLabel(DAY)}${HARD?' 역경':''}를 못 버텼어요. 다시 문 열어 봐요.`)+(HARD&&!cleared?' 역경엔 이어하기가 없어요.':'');
+  $('sideDayOutro').textContent=(cleared?(HARD?`역경 통과! ${dayDef.hardOutro||dayDef.outro}`:dayDef.outro):complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.'}`:`${dayLabel(DAY)}${HARD?' 역경을':'를'} 못 버텼어요. 다시 문 열어 봐요.`)+(HARD&&!cleared?' 역경엔 이어하기가 없어요.':'');
   $('sideDayOutro').hidden=false;$('sideToDays').hidden=false;
   $('sideNextDay').hidden=next<0;if(next>=0)$('sideNextDay').href=`index.html?story=${next}`;
   $('sideAgain').textContent=cleared?'이 날 다시':'다시 도전';

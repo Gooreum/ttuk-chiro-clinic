@@ -7,9 +7,9 @@ import { FAIL_TAG, FORCE_TAG } from "../src/core/fail.js";
 const empty = () => readDex(null);
 
 describe("dex: catalog", () => {
-  it("has the 32 patients of the roster and the cast, each in some campaign day", () => {
-    expect(DEX_PATIENTS).toHaveLength(32);
-    expect(new Set(DEX_PATIENTS.map(p => p.name)).size).toBe(32);
+  it("has the 34 patients of the roster and the cast, each in some campaign day", () => {
+    expect(DEX_PATIENTS).toHaveLength(34);
+    expect(new Set(DEX_PATIENTS.map(p => p.name)).size).toBe(34);
     DEX_PATIENTS.forEach(p => expect(firstChapter(p.name)).toBeGreaterThan(0));
     expect(DAYS.length).toBeGreaterThan(0);
   });
@@ -72,7 +72,7 @@ describe("dex: counts and title", () => {
   it("counts and titles by what is collected", () => {
     let d = empty();
     expect(dexTitle(d)).toBe("");
-    expect(dexCounts(d)).toEqual({ met: 0, patients: 32, fails: 0, kinds: 10 });
+    expect(dexCounts(d)).toEqual({ met: 0, patients: 34, fails: 0, kinds: 10 });
     DEX_PATIENTS.slice(0, 5).forEach(p => { d = dexMeet(d, p.name, "x"); });
     expect(dexTitle(d)).toBe("단골 수집가");
     DEX_PATIENTS.slice(5, 16).forEach(p => { d = dexMeet(d, p.name, "x"); });
