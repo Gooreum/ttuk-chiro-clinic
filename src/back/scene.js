@@ -30,6 +30,7 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
    The scene detects the end of a thrust itself and plays the cushion rebound (over: an exaggerated trampoline bounce
    and a ripple through the shirt) and the ring pulses. */
 
+const PUNCH = .2;   // share of the way the camera punches in on the hands on a good press
 const BASE = import.meta.env.BASE_URL + "models/back/";
 export const BACK_Z0 = -0.05, BACK_LEN = 0.6;
 export const RING_POS = [0.18, 0.50, 0.82];
@@ -445,7 +446,7 @@ export async function createBackScene(canvas, view = {}){
     return new THREE.Vector3(x, hf.palm(x, z) + contactLift - depth + patientRoot.position.y, z);
   }
 
-  function render({now = performance.now(), position = 0.5, height = 0.5, heights = TARGETS, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, locked=false, showTargets=true, revealTarget=false} = {}){
+  function render({now = performance.now(), position = 0.5, height = 0.5, heights = TARGETS, pressure = 0, impulse = 0, kind = "ok", step = 0, completed = 0, shotTime=-1, forceTier=0, faceVisible=false, faceTime=0, breath=0, peakPressure=0, feedback='dud',faceName='rest',force=1, organs=[], targets=TARGETS, locked=false, showTargets=true, revealTarget=false, punch=0} = {}){
     if(faceVisible){
       reaction.update({time:faceTime,kind,forceTier,now,faceName,force});
       renderer.render(reaction.scene,reaction.camera);return;
@@ -536,6 +537,7 @@ export async function createBackScene(canvas, view = {}){
     const leanZoom=smooth(.15,.6,loaded)*.48*(1-film);
     camera.position.lerp(handLook.clone().add(camBase.clone().sub(camTarget).multiplyScalar(.72)),leanZoom);
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
+    camera.position.lerp(handLook,PUNCH*punch*(1-film));   // a good press's camera punch in on the hands (main.js, core.js punchProfile)
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(height)));
     if(organs.length)focus.copy(xray.fractureFocus());
     const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(height)));

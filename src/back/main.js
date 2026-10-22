@@ -1,6 +1,6 @@
 import "../boot.js";
 import "../ui/clinic-hud.css";
-import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
+import {drawVGauge,drawHBar,drawHint,leftGaugeX} from '../ui/gauge.js';
 import {makeHud} from '../ui/hudDom.js';
 import {mountClinicMenu,renderClinicLinks} from '../ui/clinicSwitch.js';
 import {clamp} from '../lib/math.js';
@@ -13,7 +13,7 @@ import {CAST} from '../patient/cast.js';
 import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
+import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot,slowWarp,punchProfile} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -343,7 +343,7 @@ function drawHud(pressure,br){
   ctx.setTransform(hudDpr,0,0,hudDpr,0,0);ctx.clearRect(0,0,width,height);
   if(S.phase!=='play')return;
   const R=clamp(height*.19,62,Math.min(width,height)*.25),cx=width*.5,cy=height*.55;
-  const h=clamp(R*1.7,110,height*.62),x=43,top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2)
+  const h=clamp(R*1.7,110,height*.62),x=leftGaugeX(app),top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2), past the notch / island (gauge.js)
   if(!S.locked){
     // Height step: only the height instrument; the push gauge and side bar wait for the lock (user, 2026-10-18).
     const up=v=>heightDown()>0?1-v:v,t=S.heights[S.step],a=up(t-TOL),b=up(t+TOL);
@@ -364,14 +364,17 @@ function drawHud(pressure,br){
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
   if(S.pending&&now-S.pending.at>=130)settleImpact();
-  let pressure=S.pressure,impulse=0,shotTime=-1,face=false;
+  let pressure=S.pressure,impulse=0,shotTime=-1,face=false,punch=0;
   const br=breathState(now,S.breathAt,4.4);
   if(S.phase==='play'&&br.exhale!==lastExhale){
     if(lastExhale!==null)domHud.floater(br.exhale?'후우~':'흐읍…',width*.5,height*.42,br.exhale?'breath out':'breath',1700);
     lastExhale=br.exhale;
   }
   if(S.phase==='anim'){
-    shotTime=(now-S.animAt)/1000;const timing=reactionTiming(S.kind,S.tier,S.force,S.organs.length>0),style=therapistStyle(S.force,S.tier);
+    const style=therapistStyle(S.force,S.tier),real=(now-S.animAt)/1000;
+    // a good press: slow-mo from the hand landing and a camera punch, like the other three modes (core.js slowWarp, punchProfile)
+    shotTime=S.kind==='ok'?slowWarp(real,style.impactAt):real;punch=S.kind==='ok'&&!reduced?punchProfile(real,style.impactAt):0;
+    const timing=reactionTiming(S.kind,S.tier,S.force,S.organs.length>0);
     if(style.power>.3&&shotTime>=.10&&!S.jumpSoundPlayed){S.jumpSoundPlayed=true;if(S.sound)clinicAudio.whoosh();}
     if(!S.pending&&shotTime>=style.impactAt&&!S.impactSoundPlayed){
       S.impactSoundPlayed=true;
@@ -442,7 +445,7 @@ function frame(now){
   const mark=S.phase==='play'&&S.missAt>0&&now-S.missAt<3000;
   $('backMissMark').hidden=!mark;$('backAnswer').hidden=!mark;
   const aim=S.phase==='anim'?S.shotAim:aimAt(S.position);
-  if(S.phase!=='paused')scene.render({now,position:aim.side,height:aim.height,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,kind:S.kind,step:S.step,completed:S.results.length,
+  if(S.phase!=='paused')scene.render({now,position:aim.side,height:aim.height,locked:aim.locked,pressure:Math.min(1,pressure),impulse:reduced?impulse*.3:impulse,punch,kind:S.kind,step:S.step,completed:S.results.length,
     shotTime,forceTier:S.tier,faceVisible:face,faceTime:face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:0,breath:br.fill,peakPressure:S.peakPressure,feedback:S.outcome?.feedback,force:S.force,faceName:S.phase==='anim'?faceFor(face?shotTime-reactionTiming(S.kind,S.tier,S.force,S.organs.length>0).faceAt:shotTime):'rest',organs:S.organs,targets:S.targets,heights:S.heights,showTargets:S.control==='touch'||S.step<2,revealTarget:S.painHere>0});
   // Read-only DOM diagnostics for browser extensions that isolate the page's JS globals.
   if(import.meta.env.MODE==='shot')app.dataset.shot=JSON.stringify({phase:S.phase,position:S.position,locked:S.locked,targets:S.targets,heights:S.heights,points:S.heights.map(h=>scene.projectPosition(.5,h))});

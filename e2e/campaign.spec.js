@@ -112,7 +112,7 @@ test("영업 일지: 5장 허리비틀기 날은 side.html?day로 넘어가 그�
   await page.goto("./?story=29");
   await expect(page.locator("#story")).toBeVisible();
   await expect(page.locator("#storyRules")).toContainText("허리비틀기");
-  await expect(page.locator("#storyRules")).toContainText("이스쿠터 · 좌우 한 번씩");
+  await expect(page.locator("#storyRules")).toContainText("이스쿠터 · 좌우 양쪽");
   errs.leaving();
   await page.click("#storyGo");
   await page.waitForURL(/side\.html\?day=29$/);

@@ -94,3 +94,18 @@ export function pressProfile(t,kind='ok',tier=0,feedback='dud',force=1){
 export function formatRank(score, mistakes){
   return mistakes >= 3 ? '침대도 쉬고 싶대요' : score >= 330 ? '손끝에서 오케스트라' : score >= 250 ? '허리까지 시원한 원장님' : '오늘도 한 뚝 배웠어요';
 }
+// A good thrust's slow-mo and camera punch, back and side modes (2026-10-19 side, 2026-10-22 back: one rule set for
+// all four modes, the neck modes have them too): the shot clock runs at SLOW.rate for SLOW.len s from the hand landing
+// (at, the therapist's impactAt), then on at full speed, so everything after (the x-ray, the line, the end of the shot)
+// comes SLOW.len·(1 − rate) later. punchProfile: 0..1, in fast, out slowly.
+export const SLOW={at:.15,len:.45,rate:.35};
+const ease=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+export function slowWarp(t,at=SLOW.at){
+  if(!(t>at))return t;
+  return t<at+SLOW.len?at+(t-at)*SLOW.rate:t-SLOW.len*(1-SLOW.rate);
+}
+export function punchProfile(t,at=SLOW.at){
+  if(!(t>=at))return 0;
+  const u=t-at;
+  return u<.1?ease(0,.1,u):1-ease(.1,.7,u);
+}

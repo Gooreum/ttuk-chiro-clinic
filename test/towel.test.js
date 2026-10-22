@@ -201,11 +201,11 @@ describe("the left / right focus", () => {
     expect(skewTier(4 + 7*1.5, tg)).toBe(1);
     expect(skewTier(4 - 7*2.5, tg)).toBe(2);
   });
-  it("only an over-pull and a break end the day; a crack (taut, a skew just off) is a pain and a retry", () => {
+  it("an over-pull, a crack and a break end the day (same as a clinic crack); only a slip is a retry", () => {
     expect(towelEndsDay("over", 0)).toBe(true);
     expect(towelEndsDay("skew", 2)).toBe(true);
-    expect(towelEndsDay("skew", 1)).toBe(false);
-    expect(towelEndsDay("taut", 1)).toBe(false);
+    expect(towelEndsDay("skew", 1)).toBe(true);
+    expect(towelEndsDay("taut", 1)).toBe(true);
     expect(towelEndsDay("slip", 0)).toBe(false);
   });
   it("each patient's centre lies within the spread, the nervous one narrower, tension draws unchanged", () => {
