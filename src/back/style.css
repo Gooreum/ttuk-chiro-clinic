@@ -52,7 +52,7 @@
 #backApp[data-injury=break] .back-impact{font-size:40px}
 #backApp[data-injury=break] .back-impact-echo{font-size:29px}
 .slam-wide .back-impact{left:23%;top:43%}
-.slam-wide .back-impact-echo{left:29%;top:58%}
+.slam-wide .back-impact-echo{left:31%;top:70%}
 
 @media(prefers-reduced-motion:reduce){#backApp,#backApp *{transition:none!important;animation:none!important}}
 .lock-btn[hidden],.relock-btn[hidden]{display:none}

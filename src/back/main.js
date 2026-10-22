@@ -413,7 +413,7 @@ function frame(now){
   }
   S.faceVisible=face;if(!face){domHud.hideSpeech();lastSpeech='';}app.classList.toggle('face-closeup',face);
   const emergency=S.phase==='anim'&&S.tier>0&&S.sirenPlayed;app.classList.toggle('ambulance',emergency);$('backEmergency').hidden=!emergency;
-  $('backImpact').hidden=!(S.phase==='anim'&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
+  $('backImpact').hidden=!(S.phase==='anim'&&S.kind==='ok'&&!S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   $('backImpactTail').textContent=S.tier===2?'작!':'적…';$('backImpactTail').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt+.05&&shotTime<therapistStyle(S.force,S.tier).impactAt+.65);
   $('backHurt').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   const distance=S.locked?backDistance(S.position,S.step,pressure,axisTargets(),TOL):Math.abs(S.position-S.heights[S.step])/TOL,near=distance<=1;
