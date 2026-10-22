@@ -456,14 +456,21 @@ let popped = false;
 const _gq = Array.from({length: 6}, () => new THREE.Quaternion()), _gp = Array.from({length: 6}, () => new THREE.Vector3());
 const _gl = new Array(6).fill(0), _gy = new Array(6).fill(0), _gm = new THREE.Matrix4(), _top = new THREE.Vector3();
 let poseFor = null, pose = null;
-function bendSpine(target, parts){
+const move = (pos, quat, y) => {
+  for(let i = 5; i >= 0; i--){
+    if(y > _gy[i] + 1e-5){ pos.sub(_gp[i]).applyQuaternion(_gq[i]).add(_gp[i]); pos.y += _gl[i]; if(quat) quat.premultiply(_gq[i]); }
+  }
+};
+let shx = 0, shz = 0, y0 = 0, y1 = 1;
+let allParts = null, allTorn = null;
+/* The patient's gap transforms (pose only, no parts touched): same result every call for the same patient. */
+function poseChain(target){
   // campaign cast patients (patient/cast.js) wear a regular's spine: look it up by base, cache by their own name
   if(poseFor !== target.name){
     poseFor = target.name; const prof = spineOf(target.base || target.name); pose = spinePose(prof);
     // the degenerate neck grows its spurs: C6 first, then C5, then C7
     SPURS.forEach((m, i) => { m.visible = i < Math.round(prof.spurs*SPURS.length); });
   }
-  const cu = cordMat.uniforms;
   for(let i = 0; i < 6; i++){
     const d = D[i + 1], g = pose[i];
     _gy[i] = d ? d.home.y : levelY[i + 1];
@@ -473,14 +480,13 @@ function bendSpine(target, parts){
   }
   // pivots move with the gaps below them
   for(let i = 5; i >= 0; i--) for(let j = i - 1; j >= 0; j--){ _gp[j].sub(_gp[i]).applyQuaternion(_gq[i]).add(_gp[i]); _gp[j].y += _gl[i]; }
-  const move = (pos, quat, y) => {
-    for(let i = 5; i >= 0; i--){
-      if(y > _gy[i] + 1e-5){ pos.sub(_gp[i]).applyQuaternion(_gq[i]).add(_gp[i]); pos.y += _gl[i]; if(quat) quat.premultiply(_gq[i]); }
-    }
-  };
   // where C1 ends up: shear it back over its rest place, fading to nothing at the bottom gap
   _top.copy(V[0].home); move(_top, null, V[0].home.y);
-  const y0 = _gy[5], y1 = V[0].home.y, shx = V[0].home.x - _top.x, shz = V[0].home.z - _top.z;
+  y0 = _gy[5]; y1 = V[0].home.y; shx = V[0].home.x - _top.x; shz = V[0].home.z - _top.z;
+}
+function bendSpine(target, parts){
+  poseChain(target);
+  const cu = cordMat.uniforms;
   parts.forEach(p => {
     const y = p.home.y;
     move(p.g.position, p.g.quaternion, y);
@@ -535,7 +541,9 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   const level = levelY[stuck];
 
   // reset to the healthy pose, then bend it by symptom
-  const all = [...V, ...D.filter(Boolean), ...R.flatMap(r => [r.L, r.R]).filter(Boolean), ...TV, ...TD, ...(torn ? [torn] : [])];
+  // built once the model is in (torn arrives with it); no per-frame arrays
+  if(!allParts || allTorn !== torn){ allTorn = torn; allParts = [...V, ...D.filter(Boolean), ...R.flatMap(r => [r.L, r.R]).filter(Boolean), ...TV, ...TD, ...(torn ? [torn] : [])]; }
+  const all = allParts;
   all.forEach(p => {
     p.g.position.copy(p.home); p.g.rotation.set(0, 0, 0); p.g.scale.set(1, 1, 1);
     p.mat.opacity = amount; p.mat.emissive.setRGB(0, 0, 0); p.mat.color.copy(p.base); p.m.visible = true;
@@ -588,10 +596,11 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   if(kind === "flat"){
     // straight neck: every vertebra pushed onto the line C1-C7 and a little past it; they fall back into the curve
     // one after another, outward from the stuck level
-    const a = V[0].home, b = V[6].home;
+    // the line and the way back are on the patient's own (bent) neck, not the textbook one
+    const a = V[0].g.position.z, b = V[6].g.position.z;
     V.forEach((v, i) => {
-      const lin = a.z + (b.z - a.z)*i/6, o = traction ? off : 1 - snapAt(ct, 0.06*Math.abs(i - stuck));
-      v.g.position.z += (lin - v.home.z - 0.005*Math.sin(Math.PI*i/6))*o;
+      const lin = a + (b - a)*i/6, o = traction ? off : 1 - snapAt(ct, 0.06*Math.abs(i - stuck));
+      v.g.position.z += (lin - v.g.position.z - 0.005*Math.sin(Math.PI*i/6))*o;
     });
   }
 
@@ -893,3 +902,20 @@ function blowAway(bt, stuck, reach, amount, throb){
 }
 /* Pivot z of the gap under vertebra i (where the release wave rings). Rough spacing until the model is in. */
 export const XRAY_LEVEL = i => ready ? root.position.z - levelY[clamp(i, 0, 6)]*SC : -0.118 + i*0.0335 + 0.0167;
+/* Where the gap under vertebra i actually sits on this patient's bent neck (pivot space, written into out):
+   the camera aims here, so a curved or straight neck keeps its stuck disc in frame. Rough spacing until the model is in. */
+const _aim = new THREE.Vector3();
+export function XRAY_AIM(target, i, out){
+  i = clamp(i, 0, 6);
+  if(!ready || !target) return out.set(0, -0.01, XRAY_LEVEL(i));
+  poseChain(target);
+  const d = D[i];
+  if(d) _aim.copy(d.home); else _aim.copy(V[i].home).add(V[Math.min(i + 1, 6)].home).multiplyScalar(0.5).setY(levelY[i]);
+  const hx = _aim.x, hy = _aim.y, hz = _aim.z;
+  move(_aim, null, hy);
+  const k = clamp((hy - y0)/(y1 - y0), 0, 1);
+  _aim.x += shx*k; _aim.z += shz*k;
+  // only how far the bend moved it (model -> pivot: M +y -> -z, M +z -> +y, M +x -> +x, scaled SC), so a textbook
+  // neck frames exactly as before
+  return out.set((_aim.x - hx)*SC, -0.01 + (_aim.z - hz)*SC, root.position.z - (levelY[i] + _aim.y - hy)*SC);
+}
