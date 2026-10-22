@@ -276,6 +276,16 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) .card.story .story-lines li{font-size:13px;line-height:1.35;word-break:keep-all}
   :where(.clinic-app) .card.story .story-rules{gap:4px}
   :where(.clinic-app) .card.story .story-rules i{font-size:11px;padding:1px 8px}
+  /* 13차 플레이테스트: 보스 날은 규칙 칩이 2~3줄이라 한 칸 카드가 화면보다 커져 `일지로`가 잘렸다. 짧은 가로 화면에서 사연 카드를 두 칸으로 나눈다(왼쪽 제목·사연, 오른쪽 칩·버튼) */
+  :where(.clinic-app) #story .card.story{max-width:720px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);column-gap:16px;row-gap:5px;align-content:start}
+  :where(.clinic-app) #story .card.story>*{min-width:0}
+  :where(.clinic-app) #story .card.story>div:first-child{grid-column:1/-1}
+  :where(.clinic-app) #story .card.story .story-lines{grid-column:1;grid-row:2/span 6;align-self:start}
+  :where(.clinic-app) #story .card.story .story-rules,:where(.clinic-app) #story .card.story .btn{grid-column:2}
+  :where(.clinic-app) #story .card.story .btn{padding:7px 8px;font-size:16px}
+  :where(.clinic-app) #story .card.story #storyGo{position:static;font-size:19px;padding:8px}
+  :where(.clinic-app) #story .card.story #storyHard{font-size:14px;padding:6px}
+  :where(.clinic-app) #story .card.story .story-rules{margin-top:0}
   :where(.clinic-app) .card.log>div:first-child{order:-2}
   :where(.clinic-app) .card.log #dayOutro{order:-1}
   :where(.clinic-app) .card.log #nextDay:not([hidden]),:where(.clinic-app) .card.log:not(:has(#nextDay:not([hidden]))) #continueAd:not([hidden]),:where(.clinic-app) .card.log:not(:has(#nextDay:not([hidden]))):not(:has(#continueAd:not([hidden]))) #again,:where(.clinic-app) #storyGo{position:sticky;bottom:0;z-index:1}
