@@ -7,7 +7,7 @@ import { NIGHT_POOL, mulberry32 } from "./night.js";
 import { BOSS_RULES } from "./boss.js";
 
 export const WEEKLY_KEY = "chiroWeekly";
-export const WEEKLY_UNLOCK = 7;      // campaign days cleared (the end of 2장) before the challenge opens
+export const WEEKLY_UNLOCK = 7;      // campaign days cleared (the end of 1장) before the challenge opens
 export const WEEKLY_BONUS = 60;      // 진료비 for the first clear of a week (a normal run pays ~90-110, the cap is 160)
 export const WEEKLY_TIGHT = 0.75;
 const DAY_MS = 86400000;
