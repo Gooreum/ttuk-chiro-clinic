@@ -215,7 +215,7 @@ async function record(browser, c) {
   const isNeck = c.mode === "clinic" || c.mode === "towel";
   const towel = c.mode === "towel";
   const base = isNeck ? DEV : SHOT;
-  const url = c.mode === "clinic" ? `${base}/index.html` : c.mode === "towel" ? `${base}/index.html?mode=towel` : c.mode === "back" ? `${base}/back.html` : `${base}/side.html`;
+  const url = c.mode === "clinic" ? `${base}/index.html` : c.mode === "towel" ? `${base}/index.html?mode=towel` : c.mode === "back" ? `${base}/back.html${c.query ? "?" + c.query : ""}` : `${base}/side.html${c.query ? "?" + c.query : ""}`;
   const tmp = path.join(OUT, "tmp", c.id);
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, recordVideo: { dir: tmp, size: { width: W, height: H } } });
