@@ -13,7 +13,7 @@ import {
 } from "../scene/patientModel.js";
 import { updateXray, warmTowelXray, XRAY_LEVEL, XRAY_AIM, XRAY_PRE, FRAC_HIT, SHATTER_AT } from "../scene/xray.js";
 import { tone, vib, crunch } from "../audio/audio.js";
-import { say, headScreen, projectHead, floater } from "../ui/hud.js";
+import { say, hideSpeech, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
 import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
@@ -202,6 +202,7 @@ export function frame(now){
         crunch(S.fracLvl, 0.6); vib(S.fracLvl > 1 ? [60, 30, 90] : [50]);
         S.shake = Math.max(S.shake, 0.5);
         // the camera is in on the neck, so the head is off screen: put it top centre
+        hideSpeech();   // 26차: the speech bubble sat on the "C5 골절!" tag at top centre
         const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
         floater(`C${target.seg} ${S.fracLvl > 1 ? "골절!" : "금 감"}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
       }
