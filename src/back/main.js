@@ -22,6 +22,7 @@ import {rankTitle} from '../core/scoring.js';
 import {T,saveT} from '../tuning.js';
 import {store} from '../lib/store.js';
 import {mountMonetize} from '../ui/monetize.js';
+import {mountCoinReward} from '../ui/shop.js';
 import {track,screenView,firstSuccess,askReview,markReady,bootFail} from '../platform/analytics.js';
 import {EV,runOutcome} from '../core/analytics.js';
 
@@ -173,6 +174,7 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
+  coinReward.show({runKey:S.runAt,avg:S.score/3,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/3),hard:false,game:'back',day:dayNo||0});
   askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3,dayDef),hard:HARD}));
 }
 function dayEnd(complete,avg){
@@ -202,6 +204,7 @@ function continueRun(){
   sync();
 }
 const monetize=mountMonetize({continueBtn:$('backContinueAd'),buyBtn:$('backBuyAdFree'),onContinue:continueRun,leave:[$('backNextDay'),$('backAgain'),$('backToDays')]});
+const coinReward=mountCoinReward($('backContinueAd'));   // 진료비 (core/shop.js)
 // Invoke both iOS permission APIs synchronously inside the start tap, as in neck adjustment.
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;

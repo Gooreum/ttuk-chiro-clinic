@@ -25,6 +25,7 @@ import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 import { mountMonetize, mountPainAd } from "../ui/monetize.js";
 import { quietDay, bossMissed } from "../core/monetize.js";
+import { mountShop, mountCoupon, mountCoinReward } from "../ui/shop.js";
 import { nightBegin, nightFeed, nightResult, nightContinue, renderNightBtn } from "./night.js";
 import { nightOpen } from "../core/night.js";
 import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush } from "./rush.js";
@@ -519,6 +520,7 @@ export function finish(){
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
+  coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night, cleared: deferAd, hard: S.hard, game: S.night ? "night" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
   askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!(S.night || S.rush), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
@@ -549,6 +551,7 @@ function continueRun(){
 }
 const monetize = mountMonetize({ continueBtn: $("#continueAd"), buyBtn: $("#buyAdFree"), onContinue: continueRun, leave: [$("#nextDay"), $("#again"), $("#toDays")] });
 const painAd = mountPainAd({ btn: $("#storyPain") });
+mountShop(); const coupon = mountCoupon(); const coinReward = mountCoinReward($("#nextDay"));   // 진료실 꾸미기 상점·통증 칸 +1권·진료비 줄
 
 let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
@@ -604,7 +607,7 @@ $("#again").addEventListener("click", () => {
 /* 영업 일지 (core/campaign.js): title button -> day list -> story card -> 영업 시작 (the tap that runs start()) */
 const progress = () => readProgress(store.get(CAMPAIGN_KEY, null));
 let storyDay = 0, storyHard = false, endingPending = false;
-const openStory = (day, hard = false) => { qf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); };
+const openStory = (day, hard = false) => { qf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
 function openDays(){ renderNightBtn(progress()); renderRushBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }); }
 const qf = mountQuests({ start, back: openDays });
 function dayEnd(complete, avg){
@@ -637,7 +640,7 @@ $("#storyGo").addEventListener("click", () => {
   if(qf.sel >= 0) return qf.go();
   const page = { back: "back.html", side: "side.html" }[DAYS[storyDay].game];
   if(page) dexMet(DAYS[storyDay].patients[0]);   // back / side days run on their own page: the day's patient still goes in the dex
-  const pain = painAd.take(storyDay);   // 1 when the 통증 칸 +1 ad was watched on this card
+  const pain = painAd.take(storyDay) || coupon.take(storyDay);   // 1 when the 통증 칸 +1 ad was watched (or a 통증 칸 +1권 spent) on this card
   if(page){ location.href = `${page}?day=${storyDay}${storyHard ? "&hard=1" : ""}${pain ? "&pain=1" : ""}`; return; }
   start("clinic", storyDay, storyHard, pain);
 });

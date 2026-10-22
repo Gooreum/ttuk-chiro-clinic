@@ -7,6 +7,7 @@ import { ROSTER } from "../../src/patient/roster.js";
 import { CAST } from "../../src/patient/cast.js";
 import { rushPlan, rushDays, RUSH_PAIN } from "../../src/core/rush.js";
 import { DEX_PATIENTS, DEX_FAILS } from "../../src/core/dex.js";
+import { ITEMS, RUN_COIN_CAP, COUPON_MAX } from "../../src/core/shop.js";
 import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
 
 const ALL = [...ROSTER, ...CAST];
@@ -73,6 +74,12 @@ w("## 환자 도감 (수집 기록)", "",
   "- 환자는 진료실에 들어오면(허리 날은 영업 시작에) 적힌다. 못 만난 환자는 실루엣과 '???'이고 몇 장에서 오는지만 보인다.",
   "- 실패 연출은 처음 겪을 때 적힌다. 결과 카드에 '도감에 새로 적혔어요'가 뜬다.", "");
 DEX_FAILS.forEach(f => w(`- ${f.name} (${GAME[f.game] || "공통"}): ${f.desc}`));
+w("");
+w("## 진료비와 진료실 꾸미기", "",
+  `- 한 판이 끝나면 진료비를 받는다. 평균 점수 × 0.9, 완주 못 하면 절반, 그날을 깨면 +15, 역경은 × 1.3, 한 판 최대 ${RUN_COIN_CAP}. 허리 모드도 받는다.`,
+  "- 토스 빌드에서는 결과 카드에 '광고 보고 진료비 2배'가 한 판에 한 번 뜬다(역경 제외).",
+  `- 타이틀과 영업 일지의 \`진료실 꾸미기\`에서 산다. 소품은 목 진료실 벽과 바닥에 놓이고, 통증 칸 +1권은 최대 ${COUPON_MAX}장 들고 영업 일지 사연 카드에서 한 장 쓴다(의뢰·역경 제외). 저장은 chiroShop.`, "");
+ITEMS.forEach(i => w(`- ${i.name} (${i.price}): ${i.line}`));
 w("");
 w("## 단골 의뢰 게시판", "",
   `- 영업 일지에서 단골을 만나면 의뢰가 올라온다. 의뢰 ${QUESTS.length}개, 의뢰마다 제약은 하나다.`,
