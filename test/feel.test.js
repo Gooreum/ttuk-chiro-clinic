@@ -1,8 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { tolMul, distAt, closenessOf, deltaGain, breathState } from "../src/core/feel.js";
+import { tolMul, tightFactor, distAt, closenessOf, deltaGain, breathState } from "../src/core/feel.js";
 
 const target = {rot: 30, bend: -10, tolR: 9, tolB: 6};
 
+describe("tightFactor", () => {
+  it("is 1 plain, 0.8 tight, 0.7 tighter", () => {
+    expect(tightFactor(undefined)).toBe(1);
+    expect(tightFactor({})).toBe(1);
+    expect(tightFactor({tight: true})).toBe(0.8);
+    expect(tightFactor({tight: true, tighter: true})).toBe(0.7);
+    expect(tolMul("stiff", 0, 0.7)).toBe(0.7);
+    expect(tolMul("stiff", 0, true)).toBe(0.8);
+    expect(tolMul("nervous", 60000, 0.7)).toBeCloseTo(0.42, 10);
+  });
+});
 describe("tolMul", () => {
   it("nervous tightens linearly down to 0.6", () => {
     expect(tolMul("nervous", 0)).toBe(1);

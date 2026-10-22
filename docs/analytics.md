@@ -43,6 +43,7 @@
 | `day_end` | 영업 일지 한 일차가 끝남(클리어 여부, 보스 날은 평균 `beat` 이상이어야 클리어) | `day`(1~56, 장을 넘어 이어지는 번호. 허리펴기 날은 `game: back`, 허리비틀기 날은 `game: side`), `hard`(역경이면 1), `cleared`, `stars`, `score`, `run_ms`(시작부터 이날 끝까지, 이어하기 포함. 실측 플레이타임 산정용, docs/economy.md) |
 | `review_request` | 한 판 완주 직후 토스 리뷰 요청(기기당 1번, `chiroReviewAsked`) | `supported`, `error` |
 | `ad_notice` | 전면광고 전 "잠시 뒤 광고가 1개 나와요"(1.6초) | `format` |
+| `pain_ad` | 영업 일지 사연 카드의 "광고 보고 통증 칸 +1"(통증 2칸 이하 날, 역경 제외) | `day`, `step`(`click`/`granted`/`fail`) |
 | `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
 | `iap_purchase` | 광고 제거 결제 | `step`(`start`/`success`/`fail`/`restore`/`revoke`), `code` |
 

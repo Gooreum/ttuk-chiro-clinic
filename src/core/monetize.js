@@ -15,6 +15,11 @@ export const continueOffer = ({ endedBad, bossMiss, used }) => !!(endedBad || bo
 export const BOSS_RETRY_GAP = 8;
 export const bossMissed = (beat, complete, avg) => !!beat && !!complete && avg < beat && beat - avg <= BOSS_RETRY_GAP;
 
+/* 영업 일지 story card: "광고 보고 통증 칸 +1" (rewarded, optional). Only on a plain day with 2 or fewer pain slots, once
+   per day; 역경 never gets it (an ad must not undo the difficulty the player chose; user goal 2026-10-22 "중간중간에 과금요소 잘 넣는다"). */
+export const PAIN_AD_MAX = 2;
+export const painAdOffer = ({ painMax, hard, used }) => !hard && !used && painMax >= 1 && painMax <= PAIN_AD_MAX;
+
 export const interstitialDue = (lastAt, now, adFree) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS;
 
 /* Completed / refunded orders -> owns the sku? null when the list says nothing about it (an empty or failed lookup

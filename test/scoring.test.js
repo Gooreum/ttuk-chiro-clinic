@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../src/core/scoring.js";
+import { scoreSuccess, rankTitle, patientStars, crackAvg, comboOf, comboAvg, COMBO_CAP } from "../src/core/scoring.js";
 
 describe("scoreSuccess", () => {
   it("base is 100 - 40d, PERFECT below 0.35", () => {
@@ -18,6 +18,19 @@ describe("scoreSuccess", () => {
     expect(r.comboBonus).toBe(20);
     expect(r.pts).toBe(80 + 20);
     expect(scoreSuccess(0.5, false, 0, 0).comboBonus).toBe(0);
+  });
+  it("caps the streak bonus at COMBO_CAP", () => {
+    expect(COMBO_CAP).toBe(20);
+    expect([1, 2, 3, 4, 9].map(comboOf)).toEqual([0, 10, 20, 20, 20]);
+    const r = scoreSuccess(0.5, false, 8, 0);
+    expect(r.comboBonus).toBe(20);
+    expect(r.pts).toBe(80 + 20);
+  });
+  it("averages a clean run's bonus by crack count", () => {
+    expect(comboAvg(2)).toBe(5);
+    expect(comboAvg(3)).toBe(10);
+    expect(comboAvg(6)).toBe(15);
+    expect(comboAvg(10)).toBe(17);   // bounded: a long day no longer adds 40+ points
   });
   it("a success after pain resets the streak", () => {
     const r = scoreSuccess(0.2, false, 4, 1);

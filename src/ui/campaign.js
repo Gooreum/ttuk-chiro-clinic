@@ -2,7 +2,7 @@
    to start(); the story card's 영업 시작 is the tap that starts the run, so the iOS permission calls in start() stay
    inside a user gesture (AGENTS.md 3-5). */
 import { $ } from "../lib/dom.js";
-import { DAYS, CHAPTERS, dayOpen, dayLabel, dayInChapter, dayDef } from "../core/campaign.js";
+import { DAYS, CHAPTERS, dayOpen, dayLabel, dayInChapter, dayDef, hardOpen, HARD_GAMES } from "../core/campaign.js";
 
 const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기"};
 
@@ -23,7 +23,11 @@ export function renderDays(prog, onPick, ch = 0){
     const first = DAYS.findIndex(d => d.ch === c.no), t = document.createElement("button");
     t.type = "button"; t.dataset.ch = String(c.no);
     t.disabled = !dayOpen(prog, first);
-    t.textContent = t.disabled ? `${c.no}장` : `${c.no}장 ${c.title}`;   // a locked chapter keeps its title a surprise
+    // every 목꺾기·목뽑기 day of the chapter beaten on 역경 with three stars: a small star on the tab
+    const hardDays = DAYS.map((d, i) => i).filter(i => DAYS[i].ch === c.no && HARD_GAMES.includes(DAYS[i].game));
+    const allHard = !t.disabled && hardDays.length > 0 && hardDays.every(i => prog.hard && prog.hard[i] >= 3);
+    t.textContent = t.disabled ? `${c.no}장` : `${c.no}장 ${c.title}${allHard ? " ★" : ""}`;   // a locked chapter keeps its title a surprise
+    if(allHard) t.classList.add("hard-all");
     if(c.no === shownCh) t.classList.add("on");
     t.onclick = () => renderDays(prog, onPick, c.no);
     tabs.appendChild(t);
@@ -44,6 +48,7 @@ export function renderDays(prog, onPick, ch = 0){
     // a day beaten on 역경 shows those stars instead (three plain stars are what opened it)
     const hs = prog.hard && prog.hard[i];
     if(hs){ st.textContent = "역경 " + "★".repeat(hs) + "☆".repeat(3 - hs); st.className = "hard"; }
+    else if(hardOpen(prog, i)){ st.textContent += " 역경"; st.className = "hard-open"; }   // three stars: 역경 is open (discoverability)
     b.append(no, t, st);
     b.disabled = !dayOpen(prog, i);
     if(i === prog.cleared) b.classList.add("next");
@@ -64,7 +69,9 @@ export function showStory(day, hard = false, canHard = false){
   $("#storyHard").textContent = hard ? "보통으로 돌아가기" : "역경 모드 · 더 빡세게";
   $("#storyTitle").textContent = d.title;
   const ul = $("#storyLines"); ul.textContent = "";
-  const lines = hard ? [...d.intro, "역경: 같은 날을 한 번 더. 이번엔 원장님 손이 아무 도움도 못 받아요."] : d.intro;
+  // 역경 repeats only the day's situation line plus its real rules (the plain intro's numbers would contradict them)
+  const hardRule = () => "역경: " + [`통증 ${d.painMax}번이면 끝`, d.zone ? `구역 안내 ${d.zone}명` : "구역 안내 없음", d.mods && d.mods.tight ? "구역도 좁아요" : "", d.beat ? `평균 ${d.beat}점` : ""].filter(Boolean).join(", ") + ".";
+  const lines = hard ? [d.intro[0], hardRule()] : d.intro;
   lines.forEach(line => { const li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
   const rules = $("#storyRules"); rules.textContent = "";
   const chip = (text, warn) => { const i = document.createElement("i"); i.textContent = text; if(warn) i.className = "warn"; rules.appendChild(i); };
@@ -72,7 +79,7 @@ export function showStory(day, hard = false, canHard = false){
   chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : d.game === "side" ? `${d.patients[0]} · 좌우 한 번씩` : `환자 ${d.patients.length}명`);
   chip(`통증 ${d.painMax}번이면 영업 끝`, d.painMax < 3);
   if(d.game !== "back" && d.game !== "side") chip(d.zone ? `초록 구역 안내 ${d.zone}명` : "구역 안내 없음", !d.zone);
-  if(d.mods && d.mods.tight) chip("구역이 좁아요", true);
+  if(d.mods && d.mods.tight) chip(d.mods.tighter ? "구역이 아주 좁아요" : "구역이 좁아요", true);
   if(d.mods && d.mods.noisy) chip("숨 안내 없음", true);
   if(d.beat) chip(hard ? `역경 · 평균 ${d.beat}점 넘기기` : `보스 · 평균 ${d.beat}점 넘기기`, true);
   $("#story").hidden = false;

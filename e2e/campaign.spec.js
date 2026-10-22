@@ -138,7 +138,7 @@ test("영업 일지: 별 3개 날은 역경으로 다시 열리고 더 빡센 �
   await expect(page.locator("#storyNo")).toHaveText("1장 1일차 · 역경");
   await expect(page.locator("#storyRules")).toContainText("구역 안내 없음");
   await expect(page.locator("#storyRules")).toContainText("구역이 좁아요");
-  await expect(page.locator("#storyRules")).toContainText("역경 · 평균 95점 넘기기");
+  await expect(page.locator("#storyRules")).toContainText("역경 · 평균 98점 넘기기");
   await page.click("#storyGo");
   const s = await page.evaluate(() => { const S = window.__game.S; return { day: S.day, hard: S.hard, zone: S.zoneUntil, tight: !!S.mods.tight }; });
   expect(s).toEqual({ day: 0, hard: true, zone: 0, tight: true });

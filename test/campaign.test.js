@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { DAYS, CHAPTERS, dayRoster, dayStars, readProgress, dayOpen, afterDay, nextDay, dayLabel, dayInChapter, chapterOf, dayClears, hardOpen, hardDay, dayDef, afterHard, HARD_BEAT, HARD_GAMES } from "../src/core/campaign.js";
+import { DAYS, CHAPTERS, dayRoster, dayStars, readProgress, dayOpen, afterDay, nextDay, dayLabel, dayInChapter, chapterOf, dayClears, hardOpen, hardDay, dayDef, afterHard, HARD_BEAT, HARD_GAMES, STAR_CUTS, cutShift, cracksOf } from "../src/core/campaign.js";
+import { scoreSuccess } from "../src/core/scoring.js";
 import { ROSTER } from "../src/patient/roster.js";
 import { CAST } from "../src/patient/cast.js";
 import { quietDay, ONBOARD_DAYS } from "../src/core/monetize.js";
@@ -27,7 +28,7 @@ describe("campaign", () => {
     expect(DAYS.filter(d => d.ch === 3 && d.game === "back").length).toBe(4);
     expect(DAYS[29]).toMatchObject({ch: 5, game: "side", patients: ["이스쿠터"]});   // 5장 허리비틀기 demo day
     expect(DAYS.flatMap((d, i) => d.game === "side" ? [i] : [])).toEqual([29, 33, 47, 53]);   // 3차 플레이테스트: 대칭이 주제인 날
-    expect(DAYS[55]).toMatchObject({ch: 8, beat: 114});   // 뚝할배 closes the story
+    expect(DAYS[55]).toMatchObject({ch: 8, beat: 111});   // 뚝할배 closes the story
     expect(DAYS[55].patients.at(-1)).toBe("뚝할배");
   });
   it("gives regulars the day's start line without touching the roster", () => {
@@ -72,15 +73,17 @@ describe("campaign", () => {
     DAYS.forEach((d, i) => {
       if(!HARD_GAMES.includes(d.game)) return;
       const h = hardDay(i);
-      expect(h.painMax).toBe(Math.max(1, d.painMax - 1));
+      expect(h.painMax).toBe(d.painMax === 1 ? 1 : Math.max(2, d.painMax - 1));   // never more than the plain day
+      expect(h.painMax).toBeLessThanOrEqual(d.painMax);
+      expect(!!h.mods.tighter).toBe(!!(d.mods && d.mods.tight));   // an already tight day gets tighter, not the same again
       expect(h.zone).toBe(0);
       expect(h.mods.tight).toBe(true);
-      expect(h.beat).toBe(d.beat ? d.beat + 6 : HARD_BEAT);
+      expect(h.beat).toBe(d.beat ? d.beat + 6 : HARD_BEAT + cutShift(d));
       expect(DAYS[i].mods?.tight || false).toBe(!!(d.mods && d.mods.tight));   // the plain day is untouched
     });
     expect(dayDef(first, false)).toBe(DAYS[first]);
-    expect(dayClears(first, true, HARD_BEAT - 1, hardDay(first))).toBe(false);
-    expect(dayClears(first, true, HARD_BEAT, hardDay(first))).toBe(true);
+    expect(dayClears(first, true, hardDay(first).beat - 1, hardDay(first))).toBe(false);
+    expect(dayClears(first, true, hardDay(first).beat, hardDay(first))).toBe(true);
     p = afterHard(p, first, true, 2);
     expect(p.hard[first]).toBe(2);
     expect(afterHard(p, first, true, 1).hard[first]).toBe(2);
@@ -88,6 +91,29 @@ describe("campaign", () => {
     expect(afterDay(p, first, true, 3).hard[first]).toBe(2);   // a plain replay keeps the hard stars
     expect(readProgress({cleared: 56, stars: Array(56).fill(3), hard: [9]}).hard[0]).toBe(3);
     expect(readProgress({cleared: 56, stars: Array(56).fill(2), hard: [3]}).hard[0]).toBe(0);   // only on 3-star days
+  });
+  it("keeps the same skill at the same stars on every mode and day length", () => {
+    // a clean run: every crack first try at distance d, exhale on a share e of them (the combo cap is in scoreSuccess)
+    const run = (def, d, e) => { let ex = 0, s = 0; const n = cracksOf(def); for(let k = 1; k <= n; k++){ ex += e; s += scoreSuccess(d, Math.floor(ex + 1e-9) > Math.floor(ex - e + 1e-9), k - 1, 0).pts; } return s / n; };
+    DAYS.forEach(def => {
+      expect(dayStars(run(def, 0.8, 0.25), def)).toBe(1);   // sloppy
+      expect(dayStars(run(def, 0.5, 0.5), def)).toBe(2);    // clean
+      expect(dayStars(run(def, 0.3, 0.8), def)).toBe(3);    // good
+    });
+  });
+  it("shifts the star cuts with the crack count (6 cracks = the base cuts)", () => {
+    const base = DAYS.find(d => d.game === "clinic" && d.patients.length === 3);
+    expect(cutShift(base)).toBe(0);
+    expect(dayStars(STAR_CUTS.three, base)).toBe(3);
+    expect(dayStars(STAR_CUTS.three - 1, base)).toBe(2);
+    const side = DAYS.find(d => d.game === "side");
+    expect(cutShift(side)).toBe(-10);
+    expect(dayStars(STAR_CUTS.three - 10, side)).toBe(3);
+    expect(dayStars(100)).toBe(2);   // no def: the base cuts
+    DAYS.forEach(d => expect(Math.abs(cutShift(d))).toBeLessThanOrEqual(10));
+  });
+  it("keeps every boss beat under that day's three-star cut", () => {
+    DAYS.filter(d => d.beat).forEach(d => expect(d.beat).toBeLessThan(STAR_CUTS.three + cutShift(d)));
   });
   it("reads a broken save as a fresh start", () => {
     expect(readProgress({cleared: "x"}).cleared).toBe(0);
@@ -111,6 +137,18 @@ describe("campaign", () => {
     expect(dayClears(boss, true, DAYS[boss].beat)).toBe(true);
     expect(dayClears(boss, false, 200)).toBe(false);
     expect(dayClears(0, true, 10)).toBe(true);
+  });
+  it("orders modes and patients per the 4th playtest", () => {
+    expect(DAYS.slice(7, 14).map(d => d.game)).toEqual(["clinic", "towel", "clinic", "clinic", "clinic", "towel", "clinic"]);   // 2장: no two 목꺾기 days in a row at the start
+    expect(DAYS[26]).toMatchObject({ch: 4, title: "일몰 단체", game: "towel"});   // 4장 6일차 breaks the 목꺾기 run before the boss
+    const backNames = DAYS.filter(d => d.game === "back").map(d => d.patients[0]);
+    expect(backNames.filter(n => n === "근육왕").length).toBeLessThanOrEqual(3);
+    expect(ALL.find(p => p.name === "도깨비영감").age).toBe(ALL.find(p => p.name === "뚝할배").age);
+  });
+  it("gives every boss a 역경 clear line that replaces the plain outro", () => {
+    DAYS.filter(d => d.beat).forEach(d => expect(typeof d.hardOutro).toBe("string"));
+    const boss = DAYS.findIndex(d => d.beat);
+    expect(hardDay(boss).hardOutro).toBe(DAYS[boss].hardOutro);
   });
   it("keeps onboarding and boss days free of interstitials", () => {
     expect(ONBOARD_DAYS).toBe(3);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS } from "../src/core/monetize.js";
+import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer } from "../src/core/monetize.js";
 
 describe("monetize", () => {
   it("offers one continue after a bad end", () => {
@@ -16,6 +16,13 @@ describe("monetize", () => {
     expect(bossMissed(undefined, true, 10)).toBe(false);
     expect(bossMissed(100, true, 100 - BOSS_RETRY_GAP)).toBe(true);
     expect(bossMissed(100, true, 100 - BOSS_RETRY_GAP - 1)).toBe(false);   // far off: start the day over
+  });
+  it("offers the pain +1 ad on plain days with 2 or fewer pain slots, once", () => {
+    expect(painAdOffer({ painMax: 1, hard: false, used: false })).toBe(true);
+    expect(painAdOffer({ painMax: 2, hard: false, used: false })).toBe(true);
+    expect(painAdOffer({ painMax: 3, hard: false, used: false })).toBe(false);
+    expect(painAdOffer({ painMax: 2, hard: true, used: false })).toBe(false);   // 역경: no ad undoes the difficulty
+    expect(painAdOffer({ painMax: 2, hard: false, used: true })).toBe(false);
   });
   it("spaces interstitials and skips them when ad-free", () => {
     expect(interstitialDue(0, INTERSTITIAL_GAP_MS - 1, false)).toBe(false);
