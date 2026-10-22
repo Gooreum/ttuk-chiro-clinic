@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue } from "../src/core/monetize.js";
+import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue, quietDay, ONBOARD_DAYS } from "../src/core/monetize.js";
 
 describe("monetize", () => {
   it("offers one continue after a bad end", () => {
@@ -47,5 +47,19 @@ describe("monetize", () => {
     expect(ownsSku([{ orderId: "1", sku, status: "COMPLETED" }], sku)).toBe(true);
     expect(ownsSku([{ orderId: "1", sku, status: "REFUNDED" }], sku)).toBe(false);
     expect(ownsSku([{ orderId: "1", sku, status: "REFUNDED" }, { orderId: "2", sku, status: "COMPLETED" }], sku)).toBe(true);
+  });
+  // 35차: AGENTS.md 4절 광고 위치 서술을 코드 값으로 못 박는다
+  it("keeps the interstitial rules from AGENTS.md", () => {
+    expect(INTERSTITIAL_GAP_MS).toBe(4 * 60 * 1000);
+    expect(ONBOARD_DAYS).toBe(3);
+    expect([0, 1, 2].map(d => quietDay(d, false))).toEqual([true, true, true]);   // 첫 3일
+    expect(quietDay(3, false)).toBe(false);
+    expect(quietDay(27, true)).toBe(true);                                         // 보스 날
+    expect(quietDay(-1, false)).toBe(false);                                       // 자유 진료·의뢰·계절은 그대로
+    expect(quietDay(-1, true)).toBe(false);
+  });
+  it("never offers a continue to 역경 and never lets a used one come back", () => {
+    expect(painAdOffer({ painMax: 1, hard: true, used: false })).toBe(false);
+    expect(continueOffer({ endedBad: true, bossMiss: true, used: true })).toBe(false);
   });
 });

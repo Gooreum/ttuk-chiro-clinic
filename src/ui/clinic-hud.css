@@ -312,6 +312,16 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   /* 18차: 상점·의뢰 게시판·계절 목록은 줄이 길어 맨 아래 돌아가기 버튼이 늘 잘려 있었다. 아래에 고정한다 */
   :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
 }
+/* 35차: 사연 카드에 보상 버튼(광고 보고 통증 칸 +1, 통증 칸 +1권)과 역경 버튼이 함께 뜨면 오른쪽 칸이 26px 넘쳐 일지로가 잘렸다. 그 경우에만 오른쪽 칸을 둘로 쪼개 통증 둘, 역경·일지로를 짝지어 한 줄에 둔다 */
+@media (orientation:landscape) and (max-height:430px){
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden])){grid-template-columns:minmax(0,1.25fr) minmax(0,.5fr) minmax(0,.5fr)}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden]))>:is(.story-rules,.btn){grid-column:2 / span 2}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden])) :is(#storyPain,#storyCoupon,#storyHard,#storyBack):not([hidden]){font-size:13px;padding:5px 4px}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden]))>#storyPain:not([hidden]):has(+#storyCoupon:not([hidden])){grid-column:2}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden]))>#storyPain:not([hidden])+#storyCoupon:not([hidden]){grid-column:3}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden]))>#storyHard:not([hidden]):has(+#storyBack){grid-column:2}
+  #story .card.story:has(:is(#storyPain,#storyCoupon):not([hidden]))>#storyHard:not([hidden])+#storyBack{grid-column:3}
+}
 /* 56일 클리어 뒤 심야 진료·보스 러시가 보이면 짧은 가로 화면에서 아래 줄(진료 시간·최고 기록)이 잘려 한 단계 더 줄인다 */
 @media (orientation:landscape) and (max-height:430px){
   :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])){gap:6px}
@@ -395,10 +405,34 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn:not(.ghost){padding:4px 8px;font-size:16px}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn.ghost{padding:3px 6px}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .total b{font-size:22px}
+  /* 35차: 환자 5명 + 도감 새 기록 + 출근 도장 + 보상 광고 버튼(진료비 2배·이어하기/마지막 환자 다시)이 겹친 카드는 오른쪽 칸이 12~39px 넘쳐 클리닉 칩·영업 일지가 스크롤 밑으로 갔다.
+     오른쪽 칸을 둘로 쪼개 짝이 되는 작은 버튼(영업 일지·광고 제거, 자랑하기·랭킹 보기)을 한 줄에 둔다 */
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)){grid-template-columns:minmax(0,1.15fr) minmax(0,.5fr) minmax(0,.5fr)}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:not(:is(div:first-child,#rlist,#dayOutro)){grid-column:2 / span 2}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(#toDays,#shareBtn):not([hidden]):has(+:is(#buyAdFree,#rankBtn):not([hidden])){grid-column:2}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(#toDays,#shareBtn):not([hidden])+:is(#buyAdFree,#rankBtn):not([hidden]){grid-column:3}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn.ghost{font-size:12px;padding:3px 4px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) :is(.coin-line,.dex-new){padding-top:1px;padding-bottom:1px;font-size:11.5px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>.total b{font-size:20px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>.rank{font-size:15px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)){row-gap:1px;padding-top:6px;padding-bottom:6px}
+  /* 35차: 다음 날이 있는 클리어 카드는 자랑하기·다시 도전, 영업 일지·광고 제거를 각각 한 줄에 둔다(보스 날 5명 + 자랑하기가 겹치면 24px 넘쳤다) */
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)):has(#nextDay:not([hidden])):not(:has(#rankBtn:not([hidden])))>#shareBtn:not([hidden]){grid-column:2}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)):has(#nextDay:not([hidden])):has(#shareBtn:not([hidden])):not(:has(#rankBtn:not([hidden])))>#shareBtn~#again{grid-column:3}
+  /* 35차: 이어하기·마지막 환자 다시(보상형 광고)가 떠 있으면 같은 코랄색 '다시 도전'이 그 버튼과 위계가 같아 보였다. 보상 버튼이 주, 다시는 윤곽 버튼으로 내린다 */
+  #result .card.log:has(:is(#continueAd,#nextDay):not([hidden])):has(#rlist) button#again.btn:not(.ghost){background:transparent;color:var(--paper-ink);border:2px solid var(--paper-ink);box-shadow:none;font-size:14px;padding:2px 8px;line-height:1.2}
   /* 30차: 보스 러시 카드는 보스 목록(.rush-list)과 환자 목록(#rlist)이 같은 칸에 겹쳐 글자가 뒤엉켰다(환자가 많으면 645px). 보스 결과가 핵심이라 환자 목록은 접는다 */
   #result .card.log>.rush-list~#rlist{display:none}
   #result .card.log>.rush-list{gap:3px}
   #result .card.log>.rush-list li{grid-template-columns:minmax(0,1fr) auto;font-size:12.5px;padding-bottom:2px}
+}
+
+/* 35차: 740x360(높이 365 이하)에서는 5명 카드에 보상 광고 버튼이 둘 붙으면 6px가 더 넘쳐 버튼 안쪽 여백을 한 번 더 줄인다 */
+@media (orientation:landscape) and (max-height:365px){
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .btn:not(.ghost){padding-top:3px;padding-bottom:3px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) .clinic-switch .chip{padding-top:2px;padding-bottom:2px}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)) :is(.coin-line,.dex-new){line-height:1.15}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)){row-gap:0;padding-top:4px;padding-bottom:4px}
 }
 
 /* 31차 플레이테스트: 667x375·740x360·844x390에서 허리펴기·허리비틀기 결과 카드는 한 칸이라 마지막 줄(허리 점수·좌우 대칭 +30·영업 일지 링크)이 하단 고정 주 버튼 뒤로 잘렸다.
