@@ -38,6 +38,7 @@
 | `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
 | `docs/analytics.md` | 이벤트 이름·파라미터 표, 전환 지표, 리뷰·전면광고 규칙(6-2) |
 | `apps-in-toss.config.ts`, `toss/icon-600.png` | 앱인토스 테스트 배포. `npm run build:toss`가 `dist/`를 `ttuk-chiro.ait`로 묶는다(커밋 안 함). appName `ttuk-chiro`, 표시 이름·아이콘(정확히 600×600)은 콘솔에서 관리. 배포는 `npx ait deploy --profile dev --location ./ttuk-chiro.ait` → QR 테스트 환경만, 공개 안 됨. 아직 SDK API(광고·햅틱·방향 고정)는 코드에서 안 쓴다. 사용자: "테스트앱으로 등록까지해둬"(2026-10-17) |
+| `capacitor.config.ts`, `android/`, `ios/`, `src/platform/{ads,admob}.js` | 스토어 앱(Capacitor 8) 빌드. `npm run build:app`이 `vite build --mode app`(`__APP__`)으로 `dist/`를 만들고 `cap sync`한다. 광고는 `ads.js` 하나로 들어가 토스면 `toss.js`, 앱이면 `admob.js`(`@capacitor-community/admob`, 지금은 Google 테스트 광고 ID, 실제 ID `REAL_IDS` 비어 있음)를 쓴다. 규칙(`core/monetize.js`)은 토스와 같고 앱에는 광고 제거 결제가 없다. 사용자: "웹버전에선 광고못넣는다쳐도 앱버전에선 토스앱처럼 광고넣을수있는거아니가"(2026-10-22). 남은 사람 단계·정책 확인은 `docs/app-ads.md` |
 | `.github/workflows/pages.yml` | main에 push하면 테스트 → 빌드 → GitHub Pages 배포 |
 | `LICENSE` | © 2026 Gooreum, All rights reserved(무단 복제·수정·배포 금지). 외부 에셋은 `CREDITS.md`의 각 라이선스. 타이틀의 "© 2026 Gooreum · 크레딧"에서 CC BY 출처를 보여 준다 |
 | `AGENTS.md` / `CLAUDE.md` | 이 문서 (Codex용) / 이 문서를 import (Claude Code용) |

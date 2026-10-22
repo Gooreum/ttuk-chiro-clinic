@@ -39,7 +39,7 @@
 
 ## 2. 수익 구조 (지금 코드)
 
-토스 빌드에만 있다(`npm run build:toss`). 웹·GitHub Pages에는 없다.
+토스 빌드(`npm run build:toss`)와 스토어 앱 빌드(`npm run build:app`, AdMob, `docs/app-ads.md`)에 있다. 웹·GitHub Pages에는 없다. 앱은 같은 규칙을 쓰되 광고 제거 결제가 없고, AdMob 계정 재활성화·스토어 계정 인증이 끝나야 실제로 돈다.
 
 | 지점 | 종류 | 규칙 |
 |---|---|---|
