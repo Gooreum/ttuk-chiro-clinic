@@ -87,7 +87,7 @@ export function showStory(day, hard = false, canHard = false){
   const seen = new Set();
   const chip = (text, warn) => { if(seen.has(text)) return; seen.add(text); const i = document.createElement("i"); i.textContent = text; if(warn) i.className = "warn"; rules.appendChild(i); };
   chip(GAME_NAME[d.game]);
-  chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : d.game === "side" ? `${d.patients[0]} · 좌우 한 번씩` : `환자 ${d.patients.length}명`);
+  chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : d.game === "side" ? `${d.patients[0]} · 좌우 양쪽` : `환자 ${d.patients.length}명`);
   chip(`통증 ${d.painMax}번이면 영업 끝`, d.painMax < 3);
   const noisy = !!(d.mods && d.mods.noisy), noZone = d.game !== "back" && d.game !== "side" && !d.zone;
   // 안내가 둘 다 없는 날은 칩 하나로 (8장 7일 같은 날에 "구역 안내 없음"과 "숨 안내 없음"이 나란히 떴다)

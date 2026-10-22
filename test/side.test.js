@@ -142,19 +142,22 @@ describe('good thrust slow-mo and retry',()=>{
     const lag=SLOW.len*(1-SLOW.rate);
     expect(slowWarp(2)).toBeCloseTo(2-lag);
     for(let t=0;t<3;t+=.01)expect(slowWarp(t+.01)).toBeGreaterThan(slowWarp(t));
+    // the back mode starts it where its therapist's hand lands (therapistStyle impactAt)
+    expect(slowWarp(.5,.4)).toBeCloseTo(.4+.1*SLOW.rate);
+    expect(punchProfile(.3,.4)).toBe(0);
   });
   it('the punch is 0 before the hand lands, peaks fast and is gone by the end',()=>{
     expect(punchProfile(0)).toBe(0);
     expect(punchProfile(SLOW.at+.1)).toBeCloseTo(1);
     expect(punchProfile(SLOW.at+.8)).toBe(0);
   });
-  it('one retry per side after a mild miss, none after a crack, a break or a success',()=>{
-    expect(canRetry('weak',0,false)).toBe(true);
-    expect(canRetry('over',0,false)).toBe(true);
-    expect(canRetry('miss',0,false)).toBe(true);
-    expect(canRetry('miss',0,true)).toBe(false);
-    expect(canRetry('over',1,false)).toBe(false);
-    expect(canRetry('ok',0,false)).toBe(false);
+  it('a mild miss retries the same side (no cap, the pain limit ends it); a crack, a break or a success does not',()=>{
+    expect(canRetry('weak',0)).toBe(true);
+    expect(canRetry('over',0)).toBe(true);
+    expect(canRetry('miss',0)).toBe(true);
+    expect(canRetry('over',1)).toBe(false);
+    expect(canRetry('miss',2)).toBe(false);
+    expect(canRetry('ok',0)).toBe(false);
   });
 });
 
@@ -167,9 +170,10 @@ describe('runComplete / continuePlan (영업 일지 허리비틀기 날)', () =>
     expect(runComplete([r('L', 'ok'), r('R', 'ok')], 3, 3, true)).toBe(false);
     expect(runComplete([r('L', 'ok')], 0, 3, true)).toBe(false);
   });
-  it('a free run only needs both sides without a fracture', () => {
-    expect(runComplete([r('L', 'weak'), r('R', 'miss')], 2, 4, false)).toBe(true);
-    expect(runComplete([r('L', 'ok'), r('R', 'over', 1)], 1, 4, false)).toBe(false);
+  it('a free run follows the same rule as a story day (one rule set for all modes)', () => {
+    expect(runComplete([r('L', 'ok'), r('R', 'ok')], 2, 3, false)).toBe(true);
+    expect(runComplete([r('L', 'weak'), r('R', 'miss')], 2, 3, false)).toBe(false);
+    expect(runComplete([r('L', 'ok'), r('R', 'over', 1)], 1, 3, false)).toBe(false);
   });
   it('continue keeps the fixed side and redoes the failed one without teleporting', () => {
     const g = [{ height: .1 }, { height: .2 }];
