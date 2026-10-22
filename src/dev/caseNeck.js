@@ -65,7 +65,9 @@ function endingBegin(){   // 엔딩 카드: 55일 클리어 저장 -> 영업 일
   showEnding();
 }
 function questBegin({ id, story, list }){
-  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
+  const quests = { "박대리1": 3, "최교수1": 1 };
+  if(id && /3$/.test(id)){ quests[id.replace(/3$/, "1")] = 2; quests[id.replace(/3$/, "2")] = 2; }   // 3편(완결)은 앞 두 편을 깬 저장에서만 열린다
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests }));
   $("campaignBtn").click();
   $("questOpen").click();
   if(list) return;
