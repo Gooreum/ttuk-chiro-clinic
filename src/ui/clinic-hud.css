@@ -339,3 +339,5 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 @media (orientation:landscape) and (max-height:365px){
   :where(.clinic-app) #intro .campaign-btn small{display:none}   /* 740x360: 56일 클리어 카드가 12px 넘쳤다 */
 }
+:where(.clinic-app) .starts-label{margin:6px 0 4px;font-size:11px;color:var(--muted);text-align:center}
+.towel-key{white-space:nowrap}

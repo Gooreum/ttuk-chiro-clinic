@@ -85,7 +85,7 @@ function sync(){
   [...$('sideDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.sideIdx&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('sideZone').textContent=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`;
   $('sideMode').innerHTML=!S.locked
-    ?(S.control==='motion'?'<b>앞뒤로 기울여</b> 높이 · <b>높이 고정</b>':'<b>위아래 드래그</b>로 높이 · <b>높이 고정</b> · 스페이스')
+    ?(S.control==='motion'?'<b>앞뒤로 기울여</b> 높이 · <b>높이 고정</b>':'<b>위아래 드래그</b>로 높이 · <b>높이 고정</b> <span class="towel-key">· 스페이스</span>')
     :S.control==='motion'?'<b>오른쪽으로 기울여</b> 비틀기 · <b>앞쪽 낮춰</b> 밀착 · <b>짧게 툭</b>'
     :'<b>좌우 드래그</b> 비틀기 · <b>위로</b> 밀착 · <b>휙 튕겨서</b> 툭';
   center.disabled=S.phase!=='play';

@@ -99,10 +99,10 @@ function sync(){
   [...$('backDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.step&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('backZone').textContent=names[S.step]+' '+(S.step+1)+'/3';
   $('backMode').innerHTML=!S.locked
-    ?(S.control==='motion'?'<b>앞뒤로 기울여</b> 높이 · <b>높이 고정</b>':'<b>위아래 드래그</b>로 높이 · <b>높이 고정</b> · 스페이스')
+    ?(S.control==='motion'?'<b>앞뒤로 기울여</b> 높이 · <b>높이 고정</b>':'<b>위아래 드래그</b>로 높이 · <b>높이 고정</b> <span class="towel-key">· 스페이스</span>')
     :S.control==='motion'
     ?'<b>좌우로 기울여</b> 위치 · <b>앞쪽 낮춰</b> 힘 · <b>앞뒤로 툭</b>'
-    :'<b>드래그</b>로 위치·힘 · <b>휙 튕겨서</b> 누르기 · 스페이스';
+    :'<b>드래그</b>로 위치·힘 · <b>휙 튕겨서</b> 누르기 <span class="towel-key">· 스페이스</span>';
   press.disabled=S.phase!=='play';
   const now=performance.now(),problem=S.sensorStatus==='denied'||S.lastSample&&now-S.lastSample>1800||!S.lastSample&&now-S.breathAt>2200;
   $('backMotionNotice').hidden=S.phase!=='play'||S.control!=='motion'||!problem;
