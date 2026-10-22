@@ -6,7 +6,7 @@ import "./shop.css";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { SHOP_KEY, ITEMS, readShop, count, owns, coinsFor, doubleOffer, add, buy, spend } from "../core/shop.js";
-import { isToss, canWatchRewarded, watchRewarded, adFree } from "../platform/toss.js";
+import { adsOn as isToss, canWatchRewarded, watchRewarded, adFree } from "../platform/ads.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
 

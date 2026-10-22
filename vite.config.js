@@ -5,10 +5,11 @@ import {clinicEffects} from "./scripts/build/clinic-effects.mjs";
 // __FORCE_HIT__ is true only in `vite build --mode shot` (scripts/shot.py); the normal build drops the branch.
 // __CASES__ is true only in `vite build --mode cases` (npm run build:cases): the case site replays scenarios live (src/dev/caseRunner.js).
 // __TOSS__ is true only in `vite build --mode toss` (npm run build:toss): Apps-in-Toss ads and purchase (src/platform/toss.js).
+// __APP__ is true only in `vite build --mode app` (npm run build:app): Capacitor store apps, AdMob ads (src/platform/admob.js).
 export default defineConfig(({ mode }) => ({
   base: "./",
   plugins:[clinicEffects()],
-  define: { __FORCE_HIT__: JSON.stringify(mode === "shot"), __TOSS__: JSON.stringify(mode === "toss"), __CASES__: JSON.stringify(mode === "cases") },
+  define: { __FORCE_HIT__: JSON.stringify(mode === "shot"), __TOSS__: JSON.stringify(mode === "toss"), __CASES__: JSON.stringify(mode === "cases"), __APP__: JSON.stringify(mode === "app") },
   build: { rollupOptions: { input: { main: "index.html", back: "back.html", side: "side.html" } }, outDir: mode === "shot" ? "dist-shot" : mode === "cases" ? "dist-cases" : "dist", emptyOutDir: true },
   test: { environment: "node", include: ["test/**/*.test.js"] }
 }));

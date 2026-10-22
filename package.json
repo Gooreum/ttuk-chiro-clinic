@@ -12,14 +12,21 @@
     "test": "vitest run",
     "e2e": "vite build --mode shot && playwright test",
     "docs:story": "node scripts/docs/story.mjs",
+    "build:app": "vite build --mode app && cap sync",
     "build:toss": "vite build --mode toss && ait build"
   },
   "dependencies": {
     "@apps-in-toss/web-framework": "3.7.0",
+    "@capacitor-community/admob": "^8.2.1",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "three": "0.149.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
+    "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vitest": "^5.0.4"
   }
