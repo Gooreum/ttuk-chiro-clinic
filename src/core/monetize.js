@@ -7,8 +7,13 @@ export const INTERSTITIAL_GAP_MS = 120000;
 export const ONBOARD_DAYS = 3;
 export const quietDay = (day, boss) => Number.isInteger(day) && day >= 0 && (day < ONBOARD_DAYS || !!boss);
 
-// the run ended badly and the one continue of this run is still unused
-export const continueOffer = ({ endedBad, used }) => !!endedBad && !used;
+// the run ended badly (or a boss day was played through under its beat) and the one continue of this run is still unused
+export const continueOffer = ({ endedBad, bossMiss, used }) => !!(endedBad || bossMiss) && !used;
+/* 영업 일지 boss day played to the end with an average under its beat: the rewarded continue replays only the last
+   patient (or 허리펴기's last zone) instead of the whole day (user goal 2026-10-22 "중간중간에 과금요소 잘 넣는다") */
+// Only a near miss gets the ad offer: a big gap means the day needs a fresh try, not one more patient.
+export const BOSS_RETRY_GAP = 8;
+export const bossMissed = (beat, complete, avg) => !!beat && !!complete && avg < beat && beat - avg <= BOSS_RETRY_GAP;
 
 export const interstitialDue = (lastAt, now, adFree) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS;
 

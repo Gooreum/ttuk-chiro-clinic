@@ -40,7 +40,7 @@
 | `patient_done` | 환자(또는 구역·쪽) 끝 | `label`(`done`/`quit`/`ambulance`/`miss`), `pts`, `stars`, `fails` |
 | `run_end` | 결과 카드 | `game`, `outcome`(`complete`/`pain`/`ambulance`/`quit`), `score`, `patients`, `pain`, `best`, `continued`, `run_ms`, `rank` |
 | `run_complete` | **핵심 행동**: 한 판을 끝까지(모든 환자, 구급차·통증 종료 없이) | `game`, `day`(영업 일지일 때만), `score`, `continued`, `run_ms` |
-| `day_end` | 영업 일지 한 일차가 끝남(클리어 여부, 보스 날은 평균 `beat` 이상이어야 클리어) | `day`(1~56, 장을 넘어 이어지는 번호. 허리펴기 날은 `game: back`), `cleared`, `stars`, `score` |
+| `day_end` | 영업 일지 한 일차가 끝남(클리어 여부, 보스 날은 평균 `beat` 이상이어야 클리어) | `day`(1~56, 장을 넘어 이어지는 번호. 허리펴기 날은 `game: back`), `cleared`, `stars`, `score`, `run_ms`(시작부터 이날 끝까지, 이어하기 포함. 실측 플레이타임 산정용, docs/economy.md) |
 | `review_request` | 한 판 완주 직후 토스 리뷰 요청(기기당 1번, `chiroReviewAsked`) | `supported`, `error` |
 | `ad_notice` | 전면광고 전 "잠시 뒤 광고가 1개 나와요"(1.6초) | `format` |
 | `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
