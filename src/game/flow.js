@@ -31,10 +31,13 @@ import { mountShop, mountCoupon, mountCoinReward } from "../ui/shop.js";
 import { nightBegin, nightFeed, nightResult, nightContinue, renderNightBtn } from "./night.js";
 import { nightOpen, nightCount } from "../core/night.js";
 import { rushStats } from "../core/rush.js";
-import { dayShareText, nightShareText, rushShareText, weeklyShareText, leaderboardScore } from "../core/share.js";
+import { dayShareText, nightShareText, rushShareText, weeklyShareText, dailyShareText, leaderboardScore } from "../core/share.js";
 import { shareResult, submitScore, openRanking, leaderboardOn } from "../platform/share.js";
+import { dailyLabel } from "../core/daily.js";
+import { paintAttend } from "../ui/attend.js";
 import { bossRules, hasRule, bossCues, liveLine, tauntTrips, timerPenalty, bossPts, swapDue, sideSlot } from "../core/boss.js";
 import { mountBoss } from "./boss.js";
+import { dailyBegin, dailyPrep, dailyContinue, dailyResult, dailyBest, dailyStreak, mountDaily } from "./daily.js";
 import { weeklyBegin, weeklyPrep, weeklyContinue, weeklyResult, weeklyBest, renderWeeklyBtn, mountWeekly } from "./weekly.js";
 import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush } from "./rush.js";
 import { dexMet, dexDone, dexFailSeen, dexResult, mountDex } from "./dex.js";
@@ -75,11 +78,11 @@ const dayNo = () => S.day >= 0 ? S.day + 1 : null;   // 영업 일지 day (1..56
 const who = () => ({ patient_no: S.idx + 1, roster: S.target ? S.target.look && S.target.look.model || S.target.age : null, trait: S.target && S.target.trait || "none" });
 function pushResult(r){
   dexDone(r);
-  S.results.push(S.night || S.rush || S.weekly ? { ...r, game: S.game } : r);   // 심야 진료 mixes both games: the day log rows need to know which
+  S.results.push(S.night || S.rush || S.weekly || S.daily ? { ...r, game: S.game } : r);   // 심야 진료 mixes both games: the day log rows need to know which
   track(EV.patientDone, { ...who(), label: r.ambulance ? "ambulance" : r.stars ? "done" : "quit", pts: r.pts, stars: r.stars, fails: r.fails.length });
 }
 function logAttempt(result, extra){
-  const p = { ...who(), side_no: S.game === "towel" ? null : S.sideIdx + 1, result, try_no: S.painHere + 1, aim_ms: performance.now() - S.patientStart, ...extra };
+  const p = { ...who(), side_no: S.game === "towel" ? null : S.sideIdx + 1, result, try_no: S.painHere + 1, aim_ms: performance.now() - S.patientStart, since_start_ms: performance.now() - S.runAt, ...extra };
   track(EV.attempt, p);
   if(result === "ok") firstSuccess({ game: mode(), patient_no: S.idx + 1, aim_ms: p.aim_ms });
 }
@@ -89,6 +92,7 @@ function loadPatient(){
   setTimeout(() => {
     rushPrep();   // 보스 러시: this patient's game and mods first
     weeklyPrep();   // 주간 챌린지: likewise
+    dailyPrep();   // 오늘의 도전: likewise
     S.sidePts = []; S.sideStars = []; S.fails = []; S.tiers = [];
     S.bossTaunt = false; S.bossSwap = false; S.bossReady = false;   // 보스 특수 규칙 (core/boss.js) restart with every patient
     const target = aimAt(0);
@@ -507,14 +511,14 @@ function towelHurt(kind){
 
 export function finish(){
   S.phase = "result"; S.busy = true; setAmbient(); closeChart();
-  const mixed = !!(S.night || S.weekly || S.rush);   // both neck games in one run: the last patient's game says nothing about the run
+  const mixed = !!(S.night || S.weekly || S.rush || S.daily);   // both neck games in one run: the last patient's game says nothing about the run
   const score = S.score, towel = S.game === "towel" && !mixed, key = towel ? "chiroTowelBest" : "chiroBest";
   const best = store.get(key, 0);
   const campaign = S.day >= 0;
-  const isBest = !campaign && !S.night && !S.rush && !S.weekly && !(S.quest >= 0) && !(S.season >= 0) && score > best && S.pain < S.painMax && !S.ambulance;   // 심야 진료 keeps its own record (game/night.js)
+  const isBest = !campaign && !S.night && !S.rush && !S.weekly && !S.daily && !(S.quest >= 0) && !(S.season >= 0) && score > best && S.pain < S.painMax && !S.ambulance;   // 심야 진료 keeps its own record (game/night.js)
   if(isBest) store.set(key, score);
   // towel: one tug per patient. 심야 진료 and 보스 러시 count the treated patients only (the unplayed rest of an endless / 26-patient run would drag the average, and its coins, to nothing), 주간 챌린지 its whole line-up
-  const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
+  const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly || S.daily ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
   $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝";
   $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)}${S.hard ? " 역경" : ""} ${DAYS[S.day].title}` : "오늘의 진료 일지";
   $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
@@ -543,19 +547,19 @@ export function finish(){
   $("#result").hidden = false;
   if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
   const complete = !S.ambulance && S.pain < S.painMax && S.results.length >= S.patients.length;
-  $("#again").textContent = "다시 진료하기";
+  $("#again").textContent = "한 판 더";   // the free-play primary button: straight into the next run
   dayEnd(complete, avg);
   if(S.night) nightResult();
-  rushResult(); weeklyResult(complete); dexResult();
+  rushResult(); weeklyResult(complete); dailyResult(complete); dexResult();
   const outcome = runOutcome({ ambulance: S.ambulance, pain: S.pain, complete });
   track(EV.runEnd, { game: mode(), day: dayNo(), outcome, score, patients: S.results.length, pain: S.pain, best: isBest, continued: S.continued, run_ms: performance.now() - S.runAt, rank: $("#rank").textContent });
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
-  coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night || !!S.rush, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
+  coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night || !!S.rush, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : S.daily ? "daily" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
   shareCard(complete, avg, deferAd);
-  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly || S.daily), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
 }
 /* 자랑하기 / 랭킹 보기 on the result card (platform/share.js, rules core/share.js): night and rush always, a 영업 일지 day only when
    cleared. 랭킹 보기 needs the Toss game-center leaderboard (Toss build); the 심야 진료 patient count is the one score submitted. */
@@ -574,6 +578,9 @@ function shareCard(complete, avg, cleared){
   }else if(S.weekly){
     const best = weeklyBest(S.weekly.week);
     if(best > 0){ shareWhere = "weekly"; shareText = weeklyShareText({ best, rule: S.weekly.set.rule.name, label: S.weekly.set.label, ambulances: amb }); }
+  }else if(S.daily){
+    const best = dailyBest(S.daily.date);
+    if(best > 0){ shareWhere = "daily"; shareText = dailyShareText({ best, rule: S.daily.set.rule.name, label: dailyLabel(S.daily.date), streak: dailyStreak(), ambulances: amb }); }
   }else if(S.day >= 0 && cleared){
     shareWhere = "day"; shareText = dayShareText({ label: dayLabel(S.day), title: DAYS[S.day].title, avg, ambulances: amb, hard: S.hard });
   }
@@ -598,9 +605,9 @@ function continueRun(){
   if(r) S.score -= r.pts || 0;
   S.idx = Math.min(S.idx, S.patients.length - 1);
   hurtTok++; S.continued = true;
-  track(EV.runStart, { game: S.night ? "night" : S.rush ? "rush" : S.weekly ? "weekly" : mode(), day: dayNo(), how: "continue", patient_no: S.idx + 1 });
+  track(EV.runStart, { game: S.night ? "night" : S.rush ? "rush" : S.weekly ? "weekly" : S.daily ? "daily" : mode(), day: dayNo(), how: "continue", patient_no: S.idx + 1 });
   screenView("play");
-  if(S.night) nightContinue(); else if(S.rush) rushContinue(); else if(S.weekly) weeklyContinue(); else S.pain = 0;   // 심야 진료: +1 pain slot, the pain taken stays
+  if(S.night) nightContinue(); else if(S.rush) rushContinue(); else if(S.weekly) weeklyContinue(); else if(S.daily) dailyContinue(); else S.pain = 0;   // 심야 진료: +1 pain slot, the pain taken stays
   S.streak = 0; S.ambulance = false;
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = String(S.score); renderPain(); renderCombo();
@@ -646,10 +653,10 @@ async function start(game, day = -1, hard = false, extraPain = 0, quest = -1, se
   S.painMax = (d ? d.painMax : 3) + (d && !S.hard ? extraPain : 0); S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
   S.boss = bossRules(d); S.bossLine = d && d.bossTaunt || ""; S.bossLive = d && d.bossLive || {}; S.bossBy = d && d.bossBy || "";
   setMode(mode()); S.runAt = performance.now();
-  track(EV.runStart, { game: game === "night" || game === "rush" || game === "weekly" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
+  track(EV.runStart, { game: game === "night" || game === "rush" || game === "weekly" || game === "daily" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
-  const nb = nightBegin(game), rb = rushBegin(game), wb = weeklyBegin(game);   // each also clears its own state when it is not the run being started
-  S.patients = nb || rb || wb || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients());
+  const nb = nightBegin(game), rb = rushBegin(game), wb = weeklyBegin(game), db = dailyBegin(game);   // each also clears its own state when it is not the run being started
+  S.patients = nb || rb || wb || db || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients());
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
@@ -665,7 +672,7 @@ $("#nightBtn").addEventListener("click", () => { if(nightOpen(progress())) start
 // a 영업 일지 day goes back through its story card (so the 통증 칸 +1 ad is on offer again); free play restarts at once
 $("#again").addEventListener("click", () => {
   if(S.day >= 0 && S.day < DAYS.length){ $("#result").hidden = true; openStory(S.day, S.hard); return; }
-  start(S.night ? "night" : S.rush ? "rush" : S.weekly ? "weekly" : S.game, S.day, S.hard, 0, S.quest, S.season);
+  start(S.night ? "night" : S.rush ? "rush" : S.weekly ? "weekly" : S.daily ? "daily" : S.game, S.day, S.hard, 0, S.quest, S.season);
 });
 /* 영업 일지 (core/campaign.js): title button -> day list -> story card -> 영업 시작 (the tap that runs start()) */
 const progress = () => readProgress(store.get(CAMPAIGN_KEY, null));
@@ -728,7 +735,7 @@ $("#endingClose").addEventListener("click", () => { $("#ending").hidden = true; 
 $("#toDays").addEventListener("click", () => { $("#result").hidden = true; if(S.quest >= 0) qf.list(); else if(S.season >= 0) sf.list(); else openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
 renderNightBtn(progress());
-mountRush({ start }); mountWeekly({ start }); mountBoss({ swap: swapAim }); mountDex();
+mountRush({ start }); mountWeekly({ start }); mountDaily({ start }); paintAttend(); mountBoss({ swap: swapAim }); mountDex();
 // back.html's and side.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
 {
   const q = new URLSearchParams(location.search), sd = Number(q.get("story"));

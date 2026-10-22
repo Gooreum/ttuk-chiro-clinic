@@ -9,6 +9,8 @@ import { SHOP_KEY, ITEMS, readShop, count, owns, coinsFor, doubleOffer, add, buy
 import { adsOn as isToss, canWatchRewarded, watchRewarded, adFree } from "../platform/ads.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
+import { stampAttend } from "./attend.js";
+import { attendStampLine } from "../core/attend.js";
 
 export const loadShop = () => readShop(store.get(SHOP_KEY, null));
 function saveShop(st){
@@ -119,6 +121,8 @@ export function mountCoinReward(anchor){
   const line = el("p", "coin-line"), amt = el("b", null, "+0"), tot = el("small", null, "");
   line.append(el("span", null, "진료비"), amt); line.appendChild(tot);
   const dbl = el("button", "btn ghost", ""); dbl.type = "button"; dbl.hidden = true;
+  const att = el("p", "coin-line attend-line"); att.hidden = true;   // 출근 도장 (core/attend.js): shown on the first finished run of a KST day
+  anchor.insertAdjacentElement("beforebegin", att);
   anchor.insertAdjacentElement("beforebegin", line);
   anchor.insertAdjacentElement("beforebegin", dbl);
   let key = null, paid = 0, doubled = false, hard = false, busy = false, meta = {};
@@ -144,7 +148,11 @@ export function mountCoinReward(anchor){
   return {
     show({ runKey, avg, complete, cleared, hard: h, game, day }){
       const earned = coinsFor({ avg, complete, cleared, hard: h });
-      if(runKey !== key){ key = runKey; paid = 0; doubled = false; }
+      if(runKey !== key){
+        key = runKey; paid = 0; doubled = false; att.hidden = true;
+        const m = complete || earned > 0 ? stampAttend() : null;
+        if(m){ att.textContent = attendStampLine(m); att.hidden = false; }
+      }
       hard = !!h;
       const gain = doubled ? 0 : Math.max(0, earned - paid);
       meta = { game, day: day == null ? 0 : day, hard: h ? 1 : 0 };

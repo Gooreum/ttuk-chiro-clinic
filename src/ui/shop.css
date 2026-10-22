@@ -20,3 +20,4 @@
 .coin-line small{font-size:12px;font-weight:500;color:#6b7774}
 #storyCoupon.on{background:var(--mint);color:var(--room-deep)}
 #shopBtn{font-size:14px;padding:7px 6px}
+.attend-line{justify-content:center;border-color:#c9822b;color:#7a4a10}   /* 출근 도장: the cream card's amber, one line */

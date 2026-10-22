@@ -339,5 +339,15 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 @media (orientation:landscape) and (max-height:365px){
   :where(.clinic-app) #intro .campaign-btn small{display:none}   /* 740x360: 56일 클리어 카드가 12px 넘쳤다 */
 }
-:where(.clinic-app) .starts-label{margin:6px 0 4px;font-size:11px;color:var(--muted);text-align:center}
+:where(.clinic-app) .starts-label{margin:6px 0 4px;font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
+/* 오늘의 도전: a coral pill on the label line (no extra row, so the short landscape title still fits) */
+:where(.clinic-app) .daily-btn{font-family:var(--body);font-weight:700;font-size:11.5px;line-height:1.15;padding:2px 10px;border-radius:999px;border:1px solid var(--coral);background:rgba(255,122,89,.14);color:var(--paper);display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap;cursor:pointer}
+:where(.clinic-app) .daily-btn[hidden]{display:none}
+:where(.clinic-app) .daily-btn small{font-size:10.5px;font-weight:600;color:var(--coral);max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .towel-key{white-space:nowrap}
+
+/* 오늘의 도전 알약이 같은 줄에 앉아도 짧은 가로 화면 타이틀이 한 칸도 늘지 않게 라벨 줄 여백을 줄인다 */
+@media (orientation:landscape) and (max-height:430px){
+  :where(.clinic-app) #intro .starts-label{margin:2px 0 1px}
+  :where(.clinic-app) #intro .daily-btn small{max-width:84px}
+}

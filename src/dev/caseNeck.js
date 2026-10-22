@@ -73,7 +73,8 @@ function weeklyRule(id){   // case build only: shift the clock by whole weeks so
   const off = (w - cur) * 7 * 86400000, real = Date.now.bind(Date);
   Date.now = () => real() + off;
 }
-function nightBegin(kind){   // 심야 진료 / 보스 러시 / 주간 챌린지: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
+function nightBegin(kind){   // 심야 진료 / 보스 러시 / 주간 챌린지: 56일 클리어 저장 -> 영업 일지 -> 심야 진료. 오늘의 도전은 저장 없이 타이틀 버튼
+  if(kind === "daily"){ localStorage.setItem("chiroAttend", JSON.stringify({ last: "2000-01-01", streak: 6, total: 6 })); $("dailyBtn").click(); return; }   // 연속 6일(2000년은 어제가 아니라 끊김): 도장은 1일째로 찍힌다
   const weekly = kind === "weekly", n = weekly ? 7 : 56;   // 주간 챌린지 opens after 2장
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(2), hard: Array(n).fill(0) }));
   $("campaignBtn").click();

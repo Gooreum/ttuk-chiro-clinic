@@ -95,6 +95,7 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
     if (shop.open) return;
   }
   if (night) return page.evaluate((kind) => {
+    if (kind === "daily") { localStorage.setItem("chiroAttend", JSON.stringify({ last: "2000-01-01", streak: 6, total: 6 })); document.getElementById("dailyBtn").click(); return; }
     const n = kind === "weekly" ? 7 : 56;
     localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(2), hard: Array(n).fill(0) }));
     document.getElementById("campaignBtn").click();
