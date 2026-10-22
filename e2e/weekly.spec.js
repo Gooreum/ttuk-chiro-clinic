@@ -3,7 +3,7 @@ import { watchErrors, waitNeckAssets } from "./helpers.js";
 
 const SAVE = n => JSON.stringify({ cleared: n, stars: Array(n).fill(3), hard: Array(n).fill(0) });
 
-test("주간 챌린지: 2장(7일) 전에는 타이틀과 영업 일지 양쪽에서 숨어 있다", async ({ page }) => {
+test("주간 챌린지: 1장(7일)을 깨기 전에는 타이틀과 영업 일지 양쪽에서 숨어 있다", async ({ page }) => {
   const errs = watchErrors(page);
   await page.addInitScript(v => localStorage.setItem("chiroCampaign", v), SAVE(6));
   await page.goto("./");
