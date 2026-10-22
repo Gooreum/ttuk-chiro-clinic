@@ -10,6 +10,7 @@ import { rushPlan, rushDays, RUSH_PAIN } from "../../src/core/rush.js";
 import { DEX_PATIENTS, DEX_FAILS } from "../../src/core/dex.js";
 import { ITEMS, RUN_COIN_CAP, COUPON_MAX } from "../../src/core/shop.js";
 import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
+import { TALES } from "../../src/core/tales.js";
 
 const ALL = [...ROSTER, ...CAST];
 const GAME = { clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기" };
@@ -74,7 +75,8 @@ w("");
 w("## 환자 도감 (수집 기록)", "",
   `- 타이틀과 영업 일지의 \`환자 도감\` 버튼. 환자 ${DEX_PATIENTS.length}명과 실패 연출 ${DEX_FAILS.length}종을 모은다. 저장은 chiroDex.`,
   "- 환자는 진료실에 들어오면(허리 날은 영업 시작에) 적힌다. 못 만난 환자는 실루엣과 '???'이고 몇 장에서 오는지만 보인다.",
-  "- 실패 연출은 처음 겪을 때 적힌다. 결과 카드에 '도감에 새로 적혔어요'가 뜬다.", "");
+  "- 실패 연출은 처음 겪을 때 적힌다. 결과 카드에 '도감에 새로 적혔어요'가 뜬다.",
+  `- 뒷이야기: 단골 의뢰 ${QUESTS.length}개마다 후일담 한 줄이 있고(core/tales.js), 그 의뢰를 깨면 환자 카드에 적힌다. 못 깬 편은 회색 '단골 의뢰를 깨면 적혀요.'. 의뢰 결과 카드에는 '도감에 뒷이야기가 적혔어요'가 뜬다. 칭호: 6개 귀 밝은 단골, 절반 뒷이야기 수집가, 전부 뒷이야기 박사.`, "");
 DEX_FAILS.forEach(f => w(`- ${f.name} (${GAME[f.game] || "공통"}): ${f.desc}`));
 w("");
 w("## 진료비와 진료실 꾸미기", "",
@@ -97,7 +99,7 @@ QUESTS.forEach((q, n) => {
     `- 열리는 때: ${dayLabel(questUnlockDay(q))}를 깬 뒤${q.ep > 1 ? ` · ${q.who} 1편을 깬 뒤` : ""}`,
     `- 환자: ${q.patients.map(nm => { const p = who(nm); return p ? `${nm}(${p.age})` : nm; }).join(", ")}`, "- 시작 카드:");
   q.intro.forEach(l => w(`  - ${l}`));
-  w(`- ${q.who} 첫마디: "${q.lines[q.who]}"`, `- 깼을 때: ${q.outro}`, "");
+  w(`- ${q.who} 첫마디: "${q.lines[q.who]}"`, `- 깼을 때: ${q.outro}`, `- 도감 뒷이야기: ${TALES[q.id]}`, "");
 });
 
 w("## 환자 도감", "", "- 대사 키: 시작 start, 가까움 near, 교정 직후 sigh, 첫 반응 what/after, 두 번째 반응 ahh/done, 실패 fail, 중단 quit.", "");

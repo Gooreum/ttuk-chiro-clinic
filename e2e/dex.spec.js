@@ -49,3 +49,20 @@ test("환자 도감: 잘못 꺾으면 실패 연출이 적히고 결과 카드�
   await expect(page.locator(".dex-new")).toContainText("도감에 새로 적혔어요");
   errs.check();
 });
+
+test("환자 도감: 단골 의뢰를 깬 편만 뒷이야기가 적히고 못 깬 편은 잠겨 있다", async ({ page }) => {
+  const errs = watchErrors(page);
+  const dex = { met: { "박대리": { first: "2026-10-22", n: 2, ok: 1 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 } }, fails: {} };
+  const camp = { cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3 } };
+  await page.addInitScript(([d, c]) => { localStorage.setItem("chiroDex", d); localStorage.setItem("chiroCampaign", c); }, [JSON.stringify(dex), JSON.stringify(camp)]);
+  await page.goto("./");
+  await waitNeckAssets(page);
+  await expect(page.locator("#dexSub")).toContainText("뒷이야기 1");
+  await page.click("#dexBtn");
+  await expect(page.locator("#dexLead")).toContainText("뒷이야기 1/48");
+  await expect(page.locator("#dexList .tale:not(.lock)")).toHaveCount(1);
+  await expect(page.locator("#dexList .tale:not(.lock)")).toContainText("1편 야근 후유증");
+  await expect(page.locator("#dexList .tale.lock")).toHaveCount(3);
+  expect(await page.evaluate(() => window.__events.find(e => e.name === "dex_open").tales)).toBe(1);
+  errs.check();
+});

@@ -46,7 +46,7 @@
 | `night_end` | 심야 진료가 끝남(통증·구급차, 이어하기 뒤 다시 끝나면 한 번 더) | `date`, `count`(끝까지 진료한 환자 수), `score`, `tier`(도달한 단계, 5명마다 1), `outcome`(`pain`/`ambulance`), `continued`, `best`(오늘 기록 경신), `run_ms` |
 | `weekly_start` | 주간 챌린지(그 주 고정 환자 3~4명 + 변형 규칙 1개) 시작 | `week`(주 번호, KST 월요일 시작), `rule`(`tight`/`timer`/`noisy`/`taunt`/`pain1`/`shrink`/`fake`/`swap`), `try_no`(이번 주 몇 번째 도전) |
 | `weekly_end` | 주간 챌린지가 끝남(이어하기 뒤 다시 끝나면 한 번 더) | `week`, `rule`, `score`, `complete`(끝까지 진료), `outcome`(`complete`/`pain`/`ambulance`), `best`(주 기록 경신), `first_clear`(이번 주 첫 클리어 보너스), `continued`, `run_ms` |
-| `dex_open` | 환자 도감을 엶 | `met`(만난 환자 수), `fails`(본 실패 연출 수), `from`(title/days) |
+| `dex_open` | 환자 도감을 엶 | `met`(만난 환자 수), `fails`(본 실패 연출 수), `tales`(적힌 뒷이야기 수), `from`(title/days) |
 | `rush_start` | 보스 러시 시작 | `bosses`(6), `patients` |
 | `rush_end` | 보스 러시가 끝남 | `reached`(도달한 보스), `cleared`(이긴 보스 수), `score`, `outcome`, `continued`, `best`, `run_ms` |
 | `day_end` | 영업 일지 한 일차가 끝남(클리어 여부, 보스 날은 평균 `beat` 이상이어야 클리어) | `day`(1~56, 장을 넘어 이어지는 번호. 허리펴기 날은 `game: back`, 허리비틀기 날은 `game: side`), `hard`(역경이면 1), `cleared`, `stars`, `score`, `run_ms`(시작부터 이날 끝까지, 이어하기 포함. 실측 플레이타임 산정용, docs/economy.md) |

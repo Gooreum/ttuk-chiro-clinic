@@ -6,8 +6,9 @@ import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { S } from "./state.js";
 import { CAMPAIGN_KEY, readProgress } from "../core/campaign.js";
-import { QUESTS, afterQuest, questClears, questStarsOf } from "../core/quests.js";
+import { QUESTS, afterQuest, questClears, questStarsOf, questStars } from "../core/quests.js";
 import { renderQuests, showQuestStory } from "../ui/quests.js";
+import { renderDexBtn } from "./dex.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
 
@@ -40,6 +41,13 @@ export function mountQuests({ start, back }){
       const out = $("#dayOutro");
       out.textContent = cleared ? q.outro : complete ? `평균 ${Math.round(avg)}점. ${q.beat}점을 못 넘었어요. 손 풀고 다시 와요.` : "의뢰를 못 버텼어요. 다시 문 열어 봐요.";
       out.hidden = false;
+      document.querySelectorAll(".tale-new").forEach(e => e.remove());
+      if(cleared && questStars(before, q) === 0){   // 뒷이야기: 처음 깬 의뢰는 도감 카드에 한 줄이 적힌다
+        const p = document.createElement("p"); p.className = "dex-new tale-new";
+        p.textContent = `도감에 뒷이야기가 적혔어요: ${q.who} ${q.ep}편`;
+        $("#rlist").before(p);
+      }
+      renderDexBtn();
       $("#nextDay").hidden = true;
       $("#toDays").hidden = false;
       $("#again").textContent = cleared ? "이 의뢰 다시" : "다시 도전";
