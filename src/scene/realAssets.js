@@ -160,13 +160,14 @@ function placeBody(gltf, env, g, model){
       // plain standard skin: the body covers a lot of screen, the sheen of the face and hands would cost fill rate
       m = new THREE.MeshStandardMaterial({map: src.map, roughness: 0.58, metalness: 0, envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalMap = src.normalMap; m.normalScale.copy(src.normalScale); m.roughness = 0.65; }
+      m.userData.bodySkin = true;       // castTone() tints it with the head
       xrayMats.push(m);                 // the neck fades under the x-ray like the head
     }else{
       // ambient-occlusion map as the base colour, multiplied by the palette colour: folds without the original print
       m = new THREE.MeshStandardMaterial({map: src.map, normalMap: src.normalMap, roughness: 0.9, metalness: 0, envMap: env, envMapIntensity: 0.15});
       m.color = model.towelStage ? src.color.clone() : (name.endsWith(".pants") ? mats.pants : mats.gown).color;
       if(model.towelStage) m.normalScale.copy(src.normalScale);     // shared: follows the patient's gown colour
-      if(name.endsWith(".shirt")) crackFadeMats.push(m);
+      if(name.endsWith(".shirt")){ crackFadeMats.push(m); m.userData.shirt = m.color.clone(); }
     }
     if(model.towelStage) finishTowelCharacter(m, src);
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
@@ -1092,6 +1093,24 @@ export function restorePrimitiveHead(){
   hiddenPrims.forEach(o => { o.visible = o.userData.wasVisible; });
   hiddenPrims = [];
 }
+/* 영업 일지 cast (patient/cast.js) look overrides on a shared body: realHair {col, lift} recolours the hair cards (lift =
+   flat emissive, so white hair works on a dark texture; a texture can only be darkened by a colour), realSkin tints the
+   head and neck skin. Always reset, since patients share a model. */
+function castTone(cur, look){
+  const h = look && look.realHair, tint = new THREE.Color(look && look.realSkin || 0xffffff);
+  if(cur.hair){
+    cur.hair.visible = !(h && h.hide);
+    if(h){ cur.hair.color.setHex(h.col); cur.hair.emissive.setHex(h.lift || 0); }
+    else cur.hair.emissive.setHex(0);
+  }
+  if(cur.skin) cur.skin.color.copy(tint);
+  (cur.bodyMeshes || []).forEach(o => {
+    const m = o.material;
+    if(m.userData.bodySkin) m.color.copy(tint);
+    // the detailed (towel stage) shirt keeps its authored colour, so a cast gown has to be asked for (look.realGown)
+    if(cur.towelStage && m.userData.shirt) m.color.copy(look && look.realGown ? new THREE.Color(look.gown) : m.userData.shirt);
+  });
+}
 /* Realistic head + body of patient `id` (null: primitives). */
 export function setRealPatient(id, look){
   wantModel = id; lastLook = look || lastLook;
@@ -1105,6 +1124,7 @@ export function setRealPatient(id, look){
     hiddenPrims = primitiveHeadParts();
     hiddenPrims.forEach(o => { o.userData.wasVisible = o.visible; o.visible = false; });
     if(look && cur.hair) cur.hair.color.setHex(cur.towelStage ? 0xffffff : look.hairTint || 0xffffff);
+    castTone(cur, look);
   }
   syncArms();
 }

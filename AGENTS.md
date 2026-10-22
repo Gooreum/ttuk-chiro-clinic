@@ -206,6 +206,7 @@
   - 열림: 의뢰 환자 전원이 영업 일지에서 나온 날을 깬 뒤(`questUnlockDay`), 2편은 1편 클리어 후. 게시판은 열린 의뢰만 보이고 나머지는 개수만 보인다.
   - 의뢰는 `S.day = -1`, `S.quest = N`인 런이다(`flow.js` `start(…, quest)`). 날 별·보스 광고·최고 기록·역경과 무관하고, 끝나면 `game/questFlow.js` `end`가 `chiroCampaign.quests`({id: 별})에 최고 별을 남긴다. 통증 +1 광고·이어하기 규칙은 자유 진료와 같다.
   - 사연 카드는 영업 일지의 `#story`를 재사용한다(`ui/quests.js` `showQuestStory`). 이벤트 `quest_start`/`quest_end`. 케이스 `quest-board`, `quest-story-rider`(`campaign: {list|quest, story}`). 문서는 `docs/story.md`의 의뢰 절. 테스트 `test/quests.test.js`, e2e `e2e/quests.spec.js`.
+- 캠페인 환자 외형 차별화(2026-10-22, 5차 플레이테스트 "최종 보스 셋이 다 김사장 얼굴"): 캠페인 환자는 로스터 몸·얼굴을 빌리지만 `patient/cast.js` `CAST_LOOK`으로 `look`을 덮어쓴다. `props`는 `scene/castProps.js`의 소품 이름(수염·뿔·안경·머리띠·가발 등, 기본·실사 머리 모두 `head` 아래에 붙고 X-ray 때 같이 흐려진다), `realHair {col, lift, hide}`는 실사 머리카락 색(어두운 텍스처 위 흰머리는 `lift` 발광으로), `realSkin`은 머리·목 피부 곱셈 틴트, `realGown`은 수건 스테이지 셔츠를 가운 색으로 칠한다(원래는 모델 고유색). 적용은 `scene/realAssets.js` `castTone`이 환자를 바꿀 때마다 초기화하고 다시 한다. 시점이 정수리 쪽이라 턱 수염은 가장자리만 보이니 새 캐릭터는 정수리·이마·안경 쪽에 눈에 띄는 요소를 둔다. 소품 좌표는 기본 머리(얼굴 +y, 정수리 -z) 기준이며 실사 머리는 더 좁아서(가로 약 0.85배) 머리카락 껍데기는 x·y를 0.82로 줄인다.
 
 - 한 판은 환자 3명(`PER_DAY`)이다. 5명 로스터에서 매 판 랜덤으로 뽑는다(사용자: "다섯명 너무 많지 않나 동일한 시나리오자나", 2026-10-16).
 - 새 환자는 2.2초 준비 시간(`PREP_MS`) 뒤에 조준할 수 있다. 그동안은 판정하지 않는다.
