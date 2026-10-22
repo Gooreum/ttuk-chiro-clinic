@@ -306,8 +306,18 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 /* 11차 플레이테스트: 짧은 가로 화면(667x375)에서 칩 3개가 3줄로 꺾이고 56일 클리어 뒤 카드에 스크롤이 생겼다. 칩은 낱말이 아니라 줄 단위로 한 줄씩, 넘치면 말줄임 */
 @media (orientation:landscape) and (max-height:430px){
   :where(.clinic-app) #intro .lead>p.legal{display:block;font-size:9.5px;margin:0}
-  :where(.clinic-app) #intro .chips-row{gap:4px;flex-wrap:nowrap}
+  :where(.clinic-app) #intro .chips-row{gap:4px;flex-wrap:nowrap;min-width:0}   /* .lead는 grid라 칩 줄의 min-content가 칸을 밀어냈다(계절 손님까지 4개) */
+  /* 15차: 칩 4개를 한 줄에 넣으면 '진료실 꾸미기'·부제가 잘린다. 4개일 때만 2x2 */
+  :where(.clinic-app) #intro .chips-row:has(> .chip-btn:not([hidden]) ~ .chip-btn:not([hidden]) ~ .chip-btn:not([hidden]) ~ .chip-btn:not([hidden])){display:grid;grid-template-columns:1fr 1fr}
+  /* 2x2가 한 줄 늘어 56일 클리어 카드(심야·러시 줄)가 넘쳤다: 격자 칩은 부제를 숨기고 심야·러시 부제는 한 줄 */
+  :where(.clinic-app) #intro .chips-row:has(> .chip-btn:not([hidden]) ~ .chip-btn:not([hidden]) ~ .chip-btn:not([hidden]) ~ .chip-btn:not([hidden])) .chip-btn :is(small,#shopSub){display:none}
+  :where(.clinic-app) #intro .chips-row .chip-btn{padding-block:3px}
+  :where(.clinic-app) #intro .campaign-btn small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   :where(.clinic-app) #intro .chips-row .chip-btn{padding:4px 4px;font-size:11.5px;line-height:1.15;min-width:0}
   :where(.clinic-app) #intro .chips-row .chip-btn small{font-size:10px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  :where(.clinic-app) #intro .chips-row .chip-btn{white-space:nowrap}
+  :where(.clinic-app) #intro .chips-row .chip-btn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #intro .chips-row #shopBtn{font-size:11.5px;padding:4px}   /* shop.css의 #shopBtn(14px)이 id라 위 규칙을 이긴다 */
+}
+@media (orientation:landscape) and (max-height:365px){
+  :where(.clinic-app) #intro .campaign-btn small{display:none}   /* 740x360: 56일 클리어 카드가 12px 넘쳤다 */
 }

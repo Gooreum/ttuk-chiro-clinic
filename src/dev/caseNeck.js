@@ -74,7 +74,21 @@ function questBegin({ id, story, list }){
   document.querySelector('#questList button[data-q="' + id + '"]').click();
   if(!story) $("storyGo").click();
 }
-function campaignBegin({ day, story, hard, quest, list, interlude }){
+function seasonBegin({ season, story, list }){   // 계절 손님: 1장 클리어 저장 + 겨울 고정 -> 영업 일지 -> 계절 손님 (앞 편을 깬 저장이면 그 편이 열린다)
+  window.__forceSeason = "winter";
+  const eps = {};
+  const no = season ? +season.slice(-1) : 1;
+  for(let i = 1; i < no; i++) eps["winter" + i] = 2;
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), hard: Array(7).fill(0) }));
+  localStorage.setItem("chiroSeason", JSON.stringify({ eps, bonus: {} }));
+  $("campaignBtn").click();
+  $("daysSeason").click();
+  if(list) return;
+  document.querySelector('#seasonList button[data-s="' + season + '"]').click();
+  if(!story) $("storyGo").click();
+}
+function campaignBegin({ day, story, hard, quest, list, interlude, season }){
+  if(season || (list === "season")) return seasonBegin({ season, story, list: list === "season" });
   if(quest || list) return questBegin({ id: quest, story, list });
   // hard: the day itself cleared with three stars, so its 역경 button shows, and pressed
   const n = hard ? day + 1 : day;

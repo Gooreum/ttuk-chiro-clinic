@@ -10,6 +10,7 @@ import { rushPlan, rushDays, RUSH_PAIN } from "../../src/core/rush.js";
 import { DEX_PATIENTS, DEX_FAILS } from "../../src/core/dex.js";
 import { ITEMS, RUN_COIN_CAP, COUPON_MAX } from "../../src/core/shop.js";
 import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
+import { SEASON_EPS, SEASON_NAME, SEASON_DRESS, SEASON_BONUS, RULE_NAME as SEASON_RULE } from "../../src/core/season.js";
 import { INTERLUDES } from "../../src/core/interlude.js";
 import { TALES } from "../../src/core/tales.js";
 
@@ -104,6 +105,22 @@ QUESTS.forEach((q, n) => {
     `- 환자: ${q.patients.map(nm => { const p = who(nm); return p ? `${nm}(${p.age})` : nm; }).join(", ")}`, "- 시작 카드:");
   q.intro.forEach(l => w(`  - ${l}`));
   w(`- ${q.who} 첫마디: "${q.lines[q.who]}"`, `- 깼을 때: ${q.outro}`, `- 도감 뒷이야기: ${TALES[q.id]}`, "");
+});
+
+w("## 계절 손님", "",
+  `- 1장(7일)을 깨면 열린다. 실제 달(KST)의 계절 4편만 열려 있고 다른 계절은 '???'와 편 수만 보인다. 봄 3~5월, 여름 6~8월, 가을 9~11월, 겨울 12~2월.`,
+  `- 계절 편 ${SEASON_EPS.length}개(계절당 4편), 앞 편을 깨야 다음 편이 열린다. 마지막 편은 단골 네 명 연속이다. 저장은 chiroSeason(캠페인 저장과 따로).`,
+  `- 한 계절 4편을 모두 깨면 진료비 +${SEASON_BONUS}을 계절당 한 번 받는다. 환자는 계절 옷(가운 색·소품)을 입고 온다. 광고 이어하기와 역경은 없다.`, "");
+SEASON_EPS.forEach((e, n) => {
+  const rules = [GAME[e.game], `통증 ${e.painMax}칸`, "구역 안내 없음"];
+  if (e.mods?.tight) rules.push("좁은 구역");
+  if (e.mods?.noisy) rules.push("호흡 안내 없음");
+  if (e.beat) rules.push(`평균 ${e.beat}점 이상`);
+  w(`### ${SEASON_NAME[e.season]} ${e.no}편 ${e.title}`, "", `- 제약: ${SEASON_RULE[e.rule]} (${rules.join(" · ")})`,
+    `- 환자: ${e.patients.join(", ")}`, "- 시작 카드:");
+  e.intro.forEach(l => w(`  - ${l}`));
+  const who1 = Object.keys(e.lines)[0];
+  w(`- ${who1} 첫마디: "${e.lines[who1]}"`, `- 깼을 때: ${e.outro}`, "");
 });
 
 w("## 환자 도감", "", "- 대사 키: 시작 start, 가까움 near, 교정 직후 sigh, 첫 반응 what/after, 두 번째 반응 ahh/done, 실패 fail, 중단 quit.", "");
