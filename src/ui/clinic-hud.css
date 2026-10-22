@@ -267,6 +267,9 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) .card.log>div:first-child{order:-2}
   :where(.clinic-app) .card.log #dayOutro{order:-1}
   :where(.clinic-app) .card.log #nextDay:not([hidden]),:where(.clinic-app) .card.log:not(:has(#nextDay:not([hidden]))) #continueAd:not([hidden]),:where(.clinic-app) .card.log:not(:has(#nextDay:not([hidden]))):not(:has(#continueAd:not([hidden]))) #again,:where(.clinic-app) #storyGo{position:sticky;bottom:0;z-index:1}
+  /* 9차 플레이테스트: 허리펴기·허리비틀기 결과 카드도 목 모드처럼 결말 한 줄을 위로, 주 버튼을 아래에 고정한다(버튼이 접힌 화면 밖에 있었다) */
+  :where(.clinic-app) .card.log .day-outro:not([hidden]){order:-1}
+  :where(.clinic-app) .card.log [id$="NextDay"]:not([hidden]),:where(.clinic-app) .card.log:not(:has([id$="NextDay"]:not([hidden]))) [id$="ContinueAd"]:not([hidden]),:where(.clinic-app) .card.log:not(:has([id$="NextDay"]:not([hidden]))):not(:has([id$="ContinueAd"]:not([hidden]))) [id$="Again"]{position:sticky;bottom:0;z-index:1}
 }
 /* 56일 클리어 뒤 심야 진료·보스 러시가 보이면 짧은 가로 화면에서 아래 줄(진료 시간·최고 기록)이 잘려 한 단계 더 줄인다 */
 @media (orientation:landscape) and (max-height:430px){

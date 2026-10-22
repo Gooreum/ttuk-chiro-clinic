@@ -520,7 +520,7 @@ export function finish(){
   const isBest = !campaign && !S.night && !S.rush && !S.weekly && !(S.quest >= 0) && score > best && S.pain < S.painMax && !S.ambulance;   // 심야 진료 keeps its own record (game/night.js)
   if(isBest) store.set(key, score);
   const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
-  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : "환자들이 도망갔어요") : towel ? "목뽑기 끝" : "오늘 진료 끝";
+  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : towel ? "목뽑기 끝" : "오늘 진료 끝";
   $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)}${S.hard ? " 역경" : ""} ${DAYS[S.day].title}` : "오늘의 진료 일지";
   $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rtotal").textContent = score;
@@ -686,7 +686,7 @@ function dayEnd(complete, avg){
   const next = cleared ? nextDay(after, S.day) : -1;
   const out = $("#dayOutro");
   const lose = d.lose || "역경은 역경이네요. 손 풀고 다시 와요.";
-  out.textContent = cleared ? (S.hard ? `역경 통과! ${d.hardOutro || d.outro}` : d.outro) : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${lose}` : `${dayLabel(S.day)}${S.hard ? " 역경" : ""}를 못 버텼어요. 다시 문 열어 봐요.`;
+  out.textContent = cleared ? (S.hard ? `역경 통과! ${d.hardOutro || d.outro}` : d.outro) : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${lose}` : `${dayLabel(S.day)}${S.hard ? " 역경을" : "를"} 못 버텼어요. 다시 문 열어 봐요.`;
   if(S.hard && !cleared) out.textContent += " 역경엔 이어하기가 없어요.";
   out.hidden = false;
   // the last day cleared for the first time: the next-day button becomes 엔딩 보기 (the ending card, core/campaign.js ENDING)
