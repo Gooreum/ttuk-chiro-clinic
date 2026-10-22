@@ -220,7 +220,7 @@ export const DAYS = [
   {ch:7, title:"도깨비 영감", game:"clinic", patients:["도깨비영감", "강해녀", "김사장"], painMax:3, zone:0, mods:{noisy:true},
    intro:["감사 중에 동네 전설 도깨비 영감이 나타났어요.", "사실은 소문만 무성한 그냥 영감이래요.", "대기실이 웅성웅성해서 숨 안내가 안 들려요."],
    outro:"도깨비 영감이 효자손을 놓고 갔어요. 뒷면에 '뚝'이 새겨져 있었어요. 원장은 어디서 본 글씨라고 생각했어요.",
-   lines:{"도깨비영감":"내가 이 동네 도깨비라네. 나이는 팔십일, 올해만. 뚝 소리는 내가 먼저 냈지", "강해녀":"도깨비 형님! 건물주 형님이랑 쌍둥이 같구려!", "김사장":"저 영감 우리 건물 지하에 살아. 얼굴이 날 닮은 건 사촌이라서 그래"}},
+   lines:{"도깨비영감":"내가 이 동네 도깨비라네. 나이는 팔십팔, 올해만. 뚝 소리는 내가 먼저 냈지", "강해녀":"도깨비 형님! 건물주 형님이랑 쌍둥이 같구려!", "김사장":"저 영감 우리 건물 지하에 살아. 얼굴이 날 닮은 건 사촌이라서 그래"}},
   {ch:7, title:"점검관의 허리", game:"side", patients:["나공무"], painMax:3, zone:0,
    intro:["퇴근한 나공무가 몰래 찾아왔어요.", "클립보드를 내려놓고 옆으로 누웠어요. 오늘은 점검 아니에요.", "허리가 직각이라 한쪽만 하면 반대쪽이 점검 나와요. 양쪽 다 비틀어요."],
    outro:"나공무: 이건 점검이 아니었습니다. 제 허리 하나로 청결 인증은 약속 못 합니다. 점검표 뒷면엔 '허리 시원함: 양호'라고 적혀 있었어요.",
@@ -256,7 +256,7 @@ export const DAYS = [
    intro:["김사장 가족이 한자리에 모였어요.", "김사장이 월세를 올리겠대요. 사모님이 막아서고 김상무는 눈치만 봐요.", "대기실이 시끄러워서 숨 안내가 안 들려요."],
    outro:"김사장: 월세는 동결이야. 이번엔 진짜로. 메가 척추그룹, 내가 은퇴하면서 회장 녀석한테 넘긴 거야. 오늘 아침에 자네한테 먼저 말하려던 거고. 김상무가 처음으로 아버지 앞에서 고개를 들었어요.",
    lines:{"김사장":"월세 올린다고 했지. 근데 자네 손이 이상하게 좋아서 말이야", "사모님":"영감 또 흉을 잡을 거예요. 이번엔 제가 먼저 잡았어요", "김상무":"아버지, 이제 말씀하세요"}},
-  {ch:8, title:"뚝할배", game:"clinic", patients:["박대리", "이라이더", "정작가", "최교수", "뚝할배"], painMax:2, zone:0, mods:{tight:true, noisy:true}, beat:111, lose:"뚝할배: 간판 값이 아직 모자라구나.",
+  {ch:8, title:"뚝할배", game:"clinic", patients:["박대리", "이라이더", "정작가", "최교수", "뚝할배"], painMax:2, zone:0, mods:{tight:true, noisy:true}, beat:109, lose:"뚝할배: 간판 값이 아직 모자라구나.",
    intro:["최종 손님은 뚝할배예요. 이 클리닉 첫 원장이고, 지하에 살던 그 도깨비 영감이에요.", "첫 주 단골 넷이 응원하러 왔어요. 맞은편 강직한도 뒷줄에 앉았어요. 숨 안내도 구역 안내도 없어요.", "통증이 두 번 나오면 끝이고, 구역도 좁아요. 점수도 최고여야 해요."],
    outro:"뚝할배: 합격이다. 이 모든 게 손님이 원장을 고르는 시험이었지. 간판은 네 거야. 뒷줄에서 메가회장이 인수 서류를 조용히 찢었어요.",
    hardOutro:"뚝할배: 이 빡센 판을 버텨? 간판 값은 됐다. 다음엔 내가 효자손 값을 내지.",
@@ -290,6 +290,8 @@ export const dayClears = (day, complete, avg, def = DAYS[day]) => !!complete && 
    zone, the tight zone, and an average to beat (boss days +6, the rest HARD_BEAT). 목꺾기·목뽑기 run it in index.html; 허리펴기·허리비틀기
    get it as back.html / side.html ?day=N&hard=1. Stars of hard runs live in prog.hard. */
 export const HARD_BEAT = 100;   // a 6-crack day; other lengths shift by cutShift (below)
+export const HARD_BOSS_PLUS = 6;         // boss days: beat +6 on 역경 ...
+export const HARD_BOSS_PLUS_FINAL = 3;   // ... 8장 only +3 (six-pain-free, narrow zone and no breath cue already stack up there; playtest 6 P1-2)
 export const HARD_GAMES = ["clinic", "towel", "back", "side"];
 export const hardOpen = (prog, day) => day >= 0 && day < DAYS.length && HARD_GAMES.includes(DAYS[day].game) && prog.stars[day] >= 3;
 /* Pain: one fewer but never under 2 (a 1-pain day stays 1, nothing gets more). A day that was already tight gets
@@ -297,7 +299,7 @@ export const hardOpen = (prog, day) => day >= 0 && day < DAYS.length && HARD_GAM
 export function hardDay(day){
   const d = DAYS[day], wasTight = !!(d.mods && d.mods.tight);
   return {...d, hard: true, painMax: Math.min(d.painMax, Math.max(2, d.painMax - 1)), zone: 0,
-    mods: {...(d.mods || {}), tight: true, ...(wasTight ? {tighter: true} : {})}, beat: d.beat ? d.beat + 6 : HARD_BEAT + cutShift(d)};
+    mods: {...(d.mods || {}), tight: true, ...(wasTight ? {tighter: true} : {})}, beat: d.beat ? d.beat + (d.ch === 8 ? HARD_BOSS_PLUS_FINAL : HARD_BOSS_PLUS) : HARD_BEAT + cutShift(d)};
 }
 /* the day as it is played: plain or 역경 */
 export const dayDef = (day, hard) => hard ? hardDay(day) : DAYS[day];

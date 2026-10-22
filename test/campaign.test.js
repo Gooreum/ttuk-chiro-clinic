@@ -28,7 +28,7 @@ describe("campaign", () => {
     expect(DAYS.filter(d => d.ch === 3 && d.game === "back").length).toBe(4);
     expect(DAYS[29]).toMatchObject({ch: 5, game: "side", patients: ["이스쿠터"]});   // 5장 허리비틀기 demo day
     expect(DAYS.flatMap((d, i) => d.game === "side" ? [i] : [])).toEqual([29, 33, 47, 53]);   // 3차 플레이테스트: 대칭이 주제인 날
-    expect(DAYS[55]).toMatchObject({ch: 8, beat: 111});   // 뚝할배 closes the story
+    expect(DAYS[55]).toMatchObject({ch: 8, beat: 109});   // 뚝할배 closes the story
     expect(DAYS[55].patients.at(-1)).toBe("뚝할배");
   });
   it("gives regulars the day's start line without touching the roster", () => {
@@ -78,7 +78,7 @@ describe("campaign", () => {
       expect(!!h.mods.tighter).toBe(!!(d.mods && d.mods.tight));   // an already tight day gets tighter, not the same again
       expect(h.zone).toBe(0);
       expect(h.mods.tight).toBe(true);
-      expect(h.beat).toBe(d.beat ? d.beat + 6 : HARD_BEAT + cutShift(d));
+      expect(h.beat).toBe(d.beat ? d.beat + (d.ch === 8 ? 3 : 6) : HARD_BEAT + cutShift(d));
       expect(DAYS[i].mods?.tight || false).toBe(!!(d.mods && d.mods.tight));   // the plain day is untouched
     });
     expect(dayDef(first, false)).toBe(DAYS[first]);

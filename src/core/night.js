@@ -10,6 +10,9 @@ export const TIER_SIZE = 5;       // every 5 patients the night gets harder
 export const NOISY_FROM = 10;     // from the 11th patient on the therapist's breath coaching is off
 export const TIGHT_STEP = 0.07;   // zones shrink this much per tier ...
 export const TIGHT_MIN = 0.5;     // ... down to half
+export const DEEP_FROM = 8;       // tier 8 = the 41st patient: the zones keep shrinking below half (playtest 6 P1-3, the night used to flatten out at ~35)
+export const DEEP_STEP = 0.03;    // per tier past DEEP_FROM ...
+export const DEEP_MIN = 0.35;     // ... down to about a third of the normal zone
 
 // campaign cast + roster that play on 목꺾기 / 목뽑기 days (patient/roster.js, patient/cast.js)
 export const NIGHT_POOL = ["박대리", "최교수", "이라이더", "정작가", "김사장", "오인턴", "최조교", "말빨", "박팀장", "송기사", "김평범", "강직한",
@@ -44,7 +47,8 @@ export const nightTier = i => Math.floor(Math.max(0, i) / TIER_SIZE);
 /* mods in the format of core/campaign.js: tight = a zone scale (a number here, a campaign day's true means 0.8), noisy = no breath coaching */
 export function nightMods(i){
   const tier = nightTier(i), mods = {};
-  if(tier >= 1) mods.tight = Math.max(TIGHT_MIN, Math.round((1 - TIGHT_STEP * tier) * 100) / 100);
+  if(tier >= DEEP_FROM) mods.tight = Math.max(DEEP_MIN, Math.round((TIGHT_MIN - DEEP_STEP * (tier - DEEP_FROM + 1)) * 100) / 100);
+  else if(tier >= 1) mods.tight = Math.max(TIGHT_MIN, Math.round((1 - TIGHT_STEP * tier) * 100) / 100);
   if(i >= NOISY_FROM) mods.noisy = true;
   return mods;
 }

@@ -31,14 +31,43 @@ function build(){
   $("#app").appendChild(root);
 }
 
+/* 도감 얼굴: 피부·머리·가운 색(roster/cast의 look)과 소품 이름(CAST_LOOK.props)으로 그리는 작은 SVG. 새 에셋 없음.
+   가운 위에 이름 첫 글자를 붙여 같은 몸을 빌린 캠페인 환자도 구분한다. */
+const PROP_SVG = {
+  beardLong: `<path d="M17 25q7 17 14 0q-7 4-14 0z" fill="#eee"/>`,
+  stacheWhite: `<path d="M17 24q7-3 14 0q-7 3-14 0z" fill="#f2f2f2"/>`,
+  stacheGrey: `<path d="M17 24q7-3 14 0q-7 3-14 0z" fill="#9a9ea6"/>`,
+  browsWhite: `<path d="M17 14h5M26 14h5" stroke="#f2f2f2" stroke-width="2.2" stroke-linecap="round"/>`,
+  hairWhiteSides: `<path d="M14 14q-3 8 1 12M34 14q3 8-1 12" stroke="#f2f2f2" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+  topknot: `<circle cx="24" cy="4" r="4" fill="#f2f2f2"/>`,
+  hairWild: `<path d="M12 12l-5-5 8 2 3-6 4 5 4-5 3 6 8-2-5 5z" fill="#eee"/>`,
+  hornSmall: `<path d="M17 9l-2-7 5 5zM31 9l2-7-5 5z" fill="#d0452f"/>`,
+  hairSilver: `<path d="M13 15q11-12 22 0q-4-5-11-5t-11 5z" fill="#c9ccd2"/>`,
+  hairSlick: `<path d="M13 15q11-12 22 0q-4-5-11-5t-11 5z" fill="#111"/>`,
+  glassesGold: `<g fill="none" stroke="#d4a82a" stroke-width="1.6"><circle cx="19.5" cy="17" r="4"/><circle cx="28.5" cy="17" r="4"/><path d="M23.5 17h1"/></g>`,
+  glassesBig: `<g fill="none" stroke="#222" stroke-width="1.8"><circle cx="19.5" cy="17" r="5"/><circle cx="28.5" cy="17" r="5"/><path d="M24.5 17h-1"/></g>`,
+  headband: `<path d="M12 12h24v4H12z" fill="#e23c3c"/>`,
+  neckBrace: `<rect x="17" y="30" width="14" height="6" rx="2" fill="#f4efe4" stroke="#9aa" stroke-width="1"/>`,
+  stamp: `<circle cx="38" cy="50" r="5" fill="none" stroke="#e23c3c" stroke-width="1.6"/>`
+};
+function avatarSvg(p){
+  const l = p.look || {}, props = l.props || [];
+  const skin = hex(l.skin ?? 0xe0b090), gown = hex(l.gown ?? 0x445566), hairCol = l.hair === "bald" ? null : hex(l.hairCol ?? 0x222222);
+  const hair = hairCol ? `<path d="M13 16q0-11 11-11t11 11q-4-6-11-6t-11 6z" fill="${hairCol}"/>` : "";
+  const glasses = l.glasses && !props.some(k => k.startsWith("glasses")) ? `<g fill="none" stroke="#222" stroke-width="1.5"><circle cx="19.5" cy="17" r="4"/><circle cx="28.5" cy="17" r="4"/></g>` : "";
+  const extras = props.map(k => PROP_SVG[k] || "").join("");
+  return `<svg viewBox="0 0 48 56" aria-hidden="true"><path d="M3 56q0-17 21-17t21 17z" fill="${gown}"/>`
+    + `<ellipse cx="24" cy="19" rx="11" ry="13" fill="${skin}"/>${hair}`
+    + `<circle cx="20" cy="18" r="1.3" fill="#222"/><circle cx="28" cy="18" r="1.3" fill="#222"/><path d="M20 26q4 3 8 0" stroke="#7a3b2e" stroke-width="1.4" fill="none" stroke-linecap="round"/>`
+    + glasses + extras
+    + `<text x="24" y="53" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="12" fill="#f4efe4" stroke="rgba(0,0,0,.4)" stroke-width=".7" paint-order="stroke">${[...p.name][0]}</text></svg>`;
+}
 function patientCard(p, m){
   const li = el("li", m ? "" : "miss");
   li.dataset.name = m ? p.name : "";
   const av = el("div", "dex-av" + (m ? "" : " sil"));
-  if(m){
-    av.style.setProperty("--skin", hex(p.look.skin)); av.style.setProperty("--gown", hex(p.look.gown));
-    if(p.look.hair !== "bald") av.style.setProperty("--hair", hex(p.look.hairCol));
-  }else av.appendChild(el("span", "", "?"));
+  if(m) av.innerHTML = avatarSvg(p);
+  else av.appendChild(el("span", "", "?"));
   const body = el("div");
   if(m){
     const who = el("div", "who"); who.append(el("b", "", p.name), el("span", "", `${p.age}세`));

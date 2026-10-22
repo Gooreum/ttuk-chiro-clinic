@@ -2,17 +2,14 @@ import { test, expect } from "@playwright/test";
 import { watchErrors, waitNeckAssets } from "./helpers.js";
 
 const CLEARED = JSON.stringify({ cleared: 56, stars: Array(56).fill(3), hard: Array(56).fill(0) });
-const LOCKED = "56일 다 깨면 열려요";
 
 test("심야 진료: 56일 전에는 타이틀과 영업 일지 양쪽에서 잠겨 있다", async ({ page }) => {
   const errs = watchErrors(page);
   await page.goto("./");
   await waitNeckAssets(page);
-  await expect(page.locator("#nightBtn")).toBeDisabled();
-  await expect(page.locator("#nightSub")).toHaveText(LOCKED);
+  await expect(page.locator("#nightBtn")).toBeHidden();
   await page.click("#campaignBtn");
-  await expect(page.locator("#daysNight")).toBeDisabled();
-  await expect(page.locator("#daysNightSub")).toHaveText(LOCKED);
+  await expect(page.locator("#daysNight")).toBeHidden();
   errs.check();
 });
 
