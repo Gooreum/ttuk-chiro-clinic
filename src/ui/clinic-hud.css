@@ -393,3 +393,29 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log>.rush-list{gap:3px}
   #result .card.log>.rush-list li{grid-template-columns:minmax(0,1fr) auto;font-size:12.5px;padding-bottom:2px}
 }
+
+/* 31차 플레이테스트: 667x375·740x360·844x390에서 허리펴기·허리비틀기 결과 카드는 한 칸이라 마지막 줄(허리 점수·좌우 대칭 +30·영업 일지 링크)이 하단 고정 주 버튼 뒤로 잘렸다.
+   28차 목 모드 카드처럼 두 칸: 제목 아래 왼쪽 일지(후기·합계·점수 목록·등급), 오른쪽 보상·버튼. 래퍼 .log-l/.log-r는 그 밖의 화면에서 display:contents라 배치가 그대로다 */
+.log-l,.log-r{display:contents}
+@media (orientation:landscape) and (max-height:430px){
+  :is(#backResult,#sideResult) .card.log{max-width:640px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:auto auto;column-gap:18px;row-gap:4px;align-content:start;align-items:start;padding:10px 16px}
+  :is(#backResult,#sideResult) .card.log>div:first-child{grid-column:1;grid-row:1;order:0}
+  :is(#backResult,#sideResult) .card.log>.log-l{display:flex;flex-direction:column;gap:5px;grid-column:1;grid-row:2;min-width:0;align-self:stretch}
+  :is(#backResult,#sideResult) .card.log>.log-r{display:flex;flex-direction:column;gap:5px;grid-column:2;grid-row:1 / span 2;min-width:0}
+  :is(#backResult,#sideResult) .card.log .log-l p{margin:0;font-size:12.5px;line-height:1.35}
+  :is(#backResult,#sideResult) .card.log .log-l .total{order:3;margin-top:auto;min-height:0}
+  :is(#backResult,#sideResult) .card.log .log-l .total b{font-size:26px}
+  :is(#backResult,#sideResult) .card.log .log-l ul{order:1;gap:3px}
+  :is(#backResult,#sideResult) .card.log .log-l li{padding-bottom:3px}
+  :is(#backResult,#sideResult) .card.log .log-l .total+ul+.rank,:is(#backResult,#sideResult) .card.log .log-l .rank{order:4;margin:0;height:auto;padding:0;font-size:17px;display:block;pointer-events:none}
+  :is(#backResult,#sideResult) .card.log .newbest{margin:0;font-size:12px}
+  :is(#backResult,#sideResult) .card.log .newbest:empty{display:none}
+  :is(#backResult,#sideResult) .card.log .log-r .day-outro:not([hidden]){order:-1}
+  :is(#backResult,#sideResult) .card.log .btn,:is(#backResult,#sideResult) .card.log .btn:not(.ghost):is([id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){position:static;padding:6px 8px;font-size:16px;box-shadow:0 3px 0 var(--coral-deep)}
+  :is(#backResult,#sideResult) .card.log .btn.ghost{padding:5px 6px;font-size:13px;box-shadow:none}
+  :is(#backResult,#sideResult) .card.log .btn:not(.ghost):is([id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){font-size:18px;padding:8px}
+  :is(#backResult,#sideResult) .card.log .btn.buy{font-size:11px;padding:3px 6px}
+  :is(#backResult,#sideResult) .card.log .coin-line{padding:2px 8px;font-size:12px}
+  :is(#backResult,#sideResult) .card.log .clinic-switch{gap:4px}
+  :is(#backResult,#sideResult) .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
+}
