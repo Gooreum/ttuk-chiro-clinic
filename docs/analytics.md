@@ -32,7 +32,7 @@
 | `app_error` | 잡히지 않은 오류(페이지당 10개까지) | `kind`(`error`/`rejection`), `message`, `file`, `line`, `ready`, `screen_name` |
 | `app_hide` | 백그라운드로 감·뒤로가기 | `reason`(`hidden`/`back`), `dwell_ms`, `screen_name`, `screen_ms` |
 | `ui_click` | 버튼·링크·칩 클릭(위임) | `target`(id 또는 `data-track`), `screen_name` |
-| `run_start` | 시작·다시·이어하기 | `game`(`crack`/`towel`, 심야 진료는 `night`), `how`(`start`/`again`/`continue`), `control` |
+| `run_start` | 시작·다시·이어하기 | `game`(`crack`/`towel`, 심야 진료는 `night`, 보스 러시 `rush`, 주간 챌린지 `weekly`), `how`(`start`/`again`/`continue`), `control` |
 | `patient_start` | 환자(허리펴기는 구역) 시작 | `patient_no`/`zone_no`, `roster`, `trait`, `of` |
 | `aim_start` | 준비가 끝나 조작 가능(목 모드) | `patient_no`, `control` |
 | `attempt` | 꺾기·당기기·누르기 한 번 | `result`(`ok` 또는 실패 종류: over/dud/finger/slip/taut/skew/miss…), `tier`(0 살살/1 금/2 골절), `force`, `perfect`, `pts`, `try_no`, `aim_ms`, `side_no`/`zone_no`, `exhale`, `dist`/`tension`, `organs` |
@@ -44,6 +44,8 @@
 | `run_complete` | **핵심 행동**: 한 판을 끝까지(모든 환자, 구급차·통증 종료 없이) | `game`, `day`(영업 일지일 때만), `score`, `continued`, `run_ms` |
 | `night_start` | 심야 진료(엔드게임 무한 모드) 시작 | `date`(KST 날짜, 일일 시드) |
 | `night_end` | 심야 진료가 끝남(통증·구급차, 이어하기 뒤 다시 끝나면 한 번 더) | `date`, `count`(끝까지 진료한 환자 수), `score`, `tier`(도달한 단계, 5명마다 1), `outcome`(`pain`/`ambulance`), `continued`, `best`(오늘 기록 경신), `run_ms` |
+| `weekly_start` | 주간 챌린지(그 주 고정 환자 3~4명 + 변형 규칙 1개) 시작 | `week`(주 번호, KST 월요일 시작), `rule`(`tight`/`timer`/`noisy`/`taunt`/`pain1`/`shrink`/`fake`/`swap`), `try_no`(이번 주 몇 번째 도전) |
+| `weekly_end` | 주간 챌린지가 끝남(이어하기 뒤 다시 끝나면 한 번 더) | `week`, `rule`, `score`, `complete`(끝까지 진료), `outcome`(`complete`/`pain`/`ambulance`), `best`(주 기록 경신), `first_clear`(이번 주 첫 클리어 보너스), `continued`, `run_ms` |
 | `dex_open` | 환자 도감을 엶 | `met`(만난 환자 수), `fails`(본 실패 연출 수), `from`(title/days) |
 | `rush_start` | 보스 러시 시작 | `bosses`(6), `patients` |
 | `rush_end` | 보스 러시가 끝남 | `reached`(도달한 보스), `cleared`(이긴 보스 수), `score`, `outcome`, `continued`, `best`, `run_ms` |
@@ -54,7 +56,7 @@
 | `shop_buy` | 진료실 꾸미기에서 소품·편의 아이템을 산 순간 | `item`, `price`, `coins_left` |
 | `coin_earn` | 한 판이 끝나 진료비가 지급될 때(`step=run`), 보상형 광고로 같은 만큼 더 받을 때(`step=double`) | `game`, `day`, `hard`, `coins`, `step`, `total` |
 | `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
-| `share` | 결과 카드 `자랑하기`(심야 진료·보스 러시·클리어한 영업 일지) | `where`(`night`/`rush`/`day`), `how`(`toss`/`native`/`copied`/`fail`), `code` |
+| `share` | 결과 카드 `자랑하기`(심야 진료·보스 러시·주간 챌린지·클리어한 영업 일지) | `where`(`night`/`rush`/`weekly`/`day`), `how`(`toss`/`native`/`copied`/`fail`), `code` |
 | `leaderboard_open` | 토스 빌드 게임센터 리더보드: `랭킹 보기`(`step=open`/`open_fail`)와 점수 제출 결과(`submit`/`submit_fail`) | `where`, `step`, `code`(제출 실패 시 `statusCode`) |
 | `iap_purchase` | 광고 제거 결제 | `step`(`start`/`success`/`fail`/`restore`/`revoke`), `code` |
 

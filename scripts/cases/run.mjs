@@ -95,9 +95,10 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
     if (shop.open) return;
   }
   if (night) return page.evaluate((kind) => {
-    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
+    const n = kind === "weekly" ? 7 : 56;
+    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(2), hard: Array(n).fill(0) }));
     document.getElementById("campaignBtn").click();
-    document.getElementById(kind === "rush" ? "daysRush" : "daysNight").click();
+    document.getElementById(kind === "weekly" ? "daysWeekly" : kind === "rush" ? "daysRush" : "daysNight").click();
   }, night);
   if (campaign) return page.evaluate(({ day, story, hard, quest, list }) => {
     if (quest || list) {

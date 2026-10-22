@@ -19,6 +19,8 @@ export const EV = {
   runEnd: "run_end",              // the result card opens
   runComplete: "run_complete",    // conversion: a run played through to the end (every patient, no bad end)
   nightStart: "night_start",      // 심야 진료: an endless night run began
+  weeklyStart: "weekly_start",    // 주간 챌린지: a run began (week, rule, try number)
+  weeklyEnd: "weekly_end",        // 주간 챌린지: the run ended (week, rule, score, complete, best)
   dexOpen: "dex_open",            // 환자 도감 opened (met, fails, from title / days)
   rushStart: "rush_start",        // 보스 러시: a run began
   rushEnd: "rush_end",            // 보스 러시: the run ended (bosses reached / cleared, score)

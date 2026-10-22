@@ -6,6 +6,7 @@ export const TOSS_PATH = "intoss://ttuk-chiro";   // appName in apps-in-toss.con
 const JOKE_DAY = ["이 목을 내가 뚝 했다.", "환자 목은 무사하다. 아마도.", "병맛 카이로 원장님 출근했습니다."];
 const JOKE_NIGHT = ["오늘 밤 목 몇 개 뚝했는지 세다가 잠 못 잠.", "심야에도 목은 뚝 소리가 난다."];
 const JOKE_RUSH = ["보스들 목을 줄줄이 뚝했다.", "보스 러시, 손목이 먼저 뚝 소리 남."];
+const JOKE_WEEKLY = ["이번 주 숙제 끝. 목은 내 숙제가 아니었다.", "주간 챌린지, 환자 목이 주간 지출이었다."];
 
 // a stable pick so the same result always reads the same (no Math.random: it must not touch the game's seeds)
 const pick = (list, n) => list[Math.abs(Math.floor(Number(n) || 0)) % list.length];
@@ -25,6 +26,11 @@ export function nightShareText({ count, score, ambulances = 0 }){
 export function rushShareText({ cleared, total, reached, ambulances = 0 }){
   const c = Math.max(0, Math.floor(Number(cleared) || 0));
   return `${pick(JOKE_RUSH, c)}\n보스 러시 ${total}명 중 ${c}명 격파(${Math.max(c, Math.floor(Number(reached) || 0))}명까지 도달), ${ambu(ambulances)}`;
+}
+// 주간 챌린지: this week's best score and its rule name
+export function weeklyShareText({ best, rule, label, ambulances = 0 }){
+  const b = pts(best);
+  return `${pick(JOKE_WEEKLY, b)}\n주간 챌린지(${label}) ${rule}, 이번 주 최고 ${b}점, ${ambu(ambulances)}`;
 }
 export const withLink = (text, link = SHARE_URL) => `${text}\n${link}`;
 

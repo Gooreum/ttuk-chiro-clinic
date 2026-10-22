@@ -51,10 +51,11 @@ function dexBegin(){   // 환자 도감: a few met patients and fails saved, the
   localStorage.setItem("chiroDex", JSON.stringify({ met: { "박대리": { first: "2026-10-22", n: 3, ok: 2 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 }, "이라이더": { first: "2026-10-22", n: 2, ok: 0 }, "정작가": { first: "2026-10-22", n: 1, ok: 1 }, "김사장": { first: "2026-10-22", n: 1, ok: 0 } }, fails: { over: { first: "2026-10-22", n: 2 }, crack: { first: "2026-10-22", n: 1 }, "t-slip": { first: "2026-10-22", n: 1 } } }));
   $("dexBtn").click();
 }
-function nightBegin(kind){   // 심야 진료: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
-  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
+function nightBegin(kind){   // 심야 진료 / 보스 러시 / 주간 챌린지: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
+  const weekly = kind === "weekly", n = weekly ? 7 : 56;   // 주간 챌린지 opens after 2장
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(2), hard: Array(n).fill(0) }));
   $("campaignBtn").click();
-  $(kind === "rush" ? "daysRush" : "daysNight").click();
+  $(weekly ? "daysWeekly" : kind === "rush" ? "daysRush" : "daysNight").click();
 }
 function questBegin({ id, story, list }){
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
