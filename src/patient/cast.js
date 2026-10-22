@@ -178,8 +178,21 @@ const CAST_DEF = [
           fail:["내 간판 값은 이게 아니다", "이놈아 다시 해라", "뚝 소리가 이게 뭐냐"]}}
 ];
 
+/* Look overrides on the borrowed body (scene/look.js applyLook, scene/castProps.js, scene/realAssets.js castTone).
+   hair/hairCol/skin/glasses: the primitive head. props: toy props hung on the head (both primitive and realistic).
+   realHair {col, lift, hide}: the realistic hair cards (lift = flat glow so white hair shows on a dark texture; hide
+   drops them when a prop wig replaces them). realSkin: multiplies the realistic head and neck skin. The final-boss trio
+   shared 김사장's face, so each gets its own silhouette: a long white beard, a silver wig with gold glasses, and horns. */
+const CAST_LOOK = {
+  "뚝할배":     {gown:0x34416b, realGown:true, hair:"bald", hairCol:0xf0eee8, props:["beardLong", "browsWhite", "hairWhiteSides", "topknot"], realHair:{col:0xffffff, lift:0xdcdad2}, realSkin:0xfff0e4},
+  "도깨비영감": {realGown:true, hair:"bald", hairCol:0xeeeeee, props:["hairWild", "browsWhite", "hornSmall", "stacheWhite"], realHair:{col:0xffffff, lift:0xdcdad2, hide:true}, realSkin:0xf0a090},
+  "메가회장":   {realGown:true, hair:"bald", hairCol:0xc9ccd2, props:["hairSilver", "glassesGold", "stacheGrey"], realHair:{col:0xbfc3ca, lift:0x6a6c72, hide:true}, realSkin:0xffe9dc},
+  "근육왕":     {gown:0xc03a2e, realGown:true, props:["headband"], realSkin:0xe0a878},
+  "보건소장":   {realGown:true, glasses:false, props:["glassesBig", "stamp"], realSkin:0xf4ead8},
+  "강직한":     {realGown:true, glasses:false, props:["neckBrace", "hairSlick"], realHair:{col:0x000000, lift:0, hide:true}}
+};
 export const CAST = CAST_DEF.map(({base, gown, ...own}) => {
   const b = ROSTER.find(r => r.name === base);
   if(!b) throw new Error("no base patient " + base);
-  return {...b, trait: undefined, ...own, look: {...b.look, gown}, base};
+  return {...b, trait: undefined, ...own, look: {...b.look, gown, ...CAST_LOOK[own.name]}, base};
 });
