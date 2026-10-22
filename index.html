@@ -30,7 +30,7 @@
     <div class="side">
       <div class="stat">
         <div class="score"><small>점수</small><span id="score">0</span></div>
-        <div class="pain">통증 <i></i><i></i><i></i></div>
+        <div class="pain">통증 <i></i><i></i><i></i><i hidden></i></div>
         <div class="combo" id="combo"></div>
       </div>
       <div class="tools">
@@ -144,6 +144,7 @@
         <p>환자가 누워 있고, 당신은 머리맡에서 양손으로 머리를 받치고 있어요. 가로로 쥔 폰이 곧 환자의 머리예요.</p>
         <div class="tip" id="lockTip" hidden>폰의 <b>세로 화면 고정</b>을 켜 두세요. 게임이 알아서 가로로 그려서, 세게 기울여도 화면이 안 돌아가요.</div>
         <button class="btn campaign-btn" id="campaignBtn" type="button">영업 일지<small id="campaignSub">개업 첫 주 · 1일차</small></button>
+        <button class="btn ghost campaign-btn" id="nightBtn" type="button" disabled>심야 진료<small id="nightSub">56일 다 깨면 열려요</small></button>
         <div class="starts"><button class="btn" id="start" type="button">목꺾기</button><button class="btn ghost" id="startTowel" type="button">목뽑기</button><a class="btn ghost" href="./back.html" style="text-decoration:none;text-align:center">허리펴기</a><a class="btn ghost" href="./side.html" style="text-decoration:none;text-align:center">허리비틀기</a></div>
         <div class="hours"><span>진료 <b>오후 2:00 – 3:40</b></span><span id="bestTxt">최고 기록 —</span></div>
         <p class="legal">© 2026 Gooreum · <button class="linkbtn" id="creditsBtn" type="button">크레딧</button></p>
@@ -190,7 +191,18 @@
     <div class="card days">
       <div><div class="sub">영업 일지</div><div class="ch-tabs" id="chTabs"></div><p class="days-lead" id="chLead">월세 내는 날까지 버텨요</p></div>
       <ol id="dayList"></ol>
+      <button class="btn" id="questOpen" type="button">단골 의뢰 게시판</button>
+      <button class="btn ghost campaign-btn" id="daysNight" type="button" disabled>심야 진료<small id="daysNightSub">56일 다 깨면 열려요</small></button>
       <button class="btn ghost" id="daysClose" type="button">돌아가기</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="quests" hidden>
+    <div class="card days">
+      <div><div class="sub">단골 의뢰</div><p class="days-lead" id="questLead"></p></div>
+      <ol id="questList"></ol>
+      <p class="quest-locked" id="questLocked" hidden></p>
+      <button class="btn ghost" id="questClose" type="button">영업 일지로</button>
     </div>
   </div>
 
@@ -203,6 +215,15 @@
       <button class="btn ghost" id="storyPain" type="button" hidden>광고 보고 통증 칸 +1</button>
       <button class="btn hard" id="storyHard" type="button" hidden>역경 모드 · 더 빡세게</button>
       <button class="btn ghost" id="storyBack" type="button">일지로</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="ending" hidden>
+    <div class="card log story">
+      <div><div class="sub">56일차 엔딩</div><h2 id="endingTitle">엔딩</h2></div>
+      <ul class="story-lines" id="endingLines"></ul>
+      <p class="day-outro" id="endingUnlock"></p>
+      <button class="btn" id="endingClose" type="button">영업 일지로</button>
     </div>
   </div>
 

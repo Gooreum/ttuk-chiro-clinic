@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 import { DAYS, CHAPTERS, dayLabel, hardDay, HARD_GAMES } from "../../src/core/campaign.js";
 import { ROSTER } from "../../src/patient/roster.js";
 import { CAST } from "../../src/patient/cast.js";
+import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
 
 const ALL = [...ROSTER, ...CAST];
 const GAME = { clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기" };
@@ -49,6 +50,30 @@ for (const c of CHAPTERS) {
     w(d.beat ? `- 평균 미달: 평균 N점. ${d.beat}점을 못 넘었어요. ${d.lose}` : `- 실패: ${dayLabel(i)}를 못 버텼어요. 다시 문 열어 봐요.`, "");
   });
 }
+
+w("## 심야 진료 (엔드게임)", "",
+  "- 56일을 모두 깨면 타이틀과 영업 일지 아래 `심야 진료`가 열린다. 잠겨 있으면 '56일 다 깨면 열려요'.",
+  "- 목꺾기와 목뽑기 환자가 통증 칸 3개를 같이 쓰며 끝없이 온다. 통증을 다 쓰거나 구급차가 오면 끝난다. 초록 구역 안내는 없다.",
+  "- 오늘 날짜(한국 시간)가 시드라 그날은 모두 같은 손님과 같은 목표 각도를 받는다. 환자는 영업 일지 31명 중에서 나오고, 같은 사람이 연달아 오지 않으며 같은 게임이 세 번 이어지지 않는다.",
+  "- 5명마다 구역이 7%씩 좁아지고(최소 절반), 11번째 환자부터 치료사 호흡 안내가 꺼진다.",
+  "- 기록은 그날 끝까지 진료한 환자 수(같으면 점수)이고 날짜가 바뀌면 새로 시작한다. 영업 일지 별·최고 기록에는 들어가지 않는다.",
+  "- 광고 보고 통증 칸 +1로 이어하기는 한 판에 한 번(쌓인 통증은 그대로), 끝난 카드 직후 전면광고는 없다.", "");
+w("## 단골 의뢰 게시판", "",
+  `- 영업 일지에서 단골을 만나면 의뢰가 올라온다. 의뢰 ${QUESTS.length}개, 의뢰마다 제약은 하나다.`,
+  "- 열리는 때: 의뢰에 나오는 환자가 모두 영업 일지 깬 날에 나온 뒤. 2편은 1편을 깨야 열린다.",
+  `- 평균 점수 의뢰는 별 3개 컷보다 ${QUEST_GAP}점 아래가 기준이다(꺾기 수에 따라 컷이 옮겨진다). 나머지는 완주하면 깬다.`,
+  "- 별은 영업 일지 날과 같은 컷이다. 저장은 chiroCampaign.quests. 광고 이어하기와 역경은 없다.", "");
+QUESTS.forEach((q, n) => {
+  const rules = [GAME[q.game], `통증 ${q.painMax}칸`, "구역 안내 없음"];
+  if (q.mods?.tight) rules.push("좁은 구역");
+  if (q.mods?.noisy) rules.push("호흡 안내 없음");
+  if (q.beat) rules.push(`평균 ${q.beat}점 이상`);
+  w(`### 의뢰 ${n + 1} ${q.who} ${q.ep}편 ${q.title}`, "", `- 제약: ${RULE_NAME[q.rule]} (${rules.join(" · ")})`,
+    `- 열리는 때: ${dayLabel(questUnlockDay(q))}를 깬 뒤${q.ep > 1 ? ` · ${q.who} 1편을 깬 뒤` : ""}`,
+    `- 환자: ${q.patients.map(nm => { const p = who(nm); return p ? `${nm}(${p.age})` : nm; }).join(", ")}`, "- 시작 카드:");
+  q.intro.forEach(l => w(`  - ${l}`));
+  w(`- ${q.who} 첫마디: "${q.lines[q.who]}"`, `- 깼을 때: ${q.outro}`, "");
+});
 
 w("## 환자 도감", "", "- 대사 키: 시작 start, 가까움 near, 교정 직후 sigh, 첫 반응 what/after, 두 번째 반응 ahh/done, 실패 fail, 중단 quit.", "");
 const days = n => DAYS.map((d, i) => d.patients.includes(n) ? i + 1 : 0).filter(Boolean);

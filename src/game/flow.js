@@ -5,9 +5,11 @@ import { S } from "./state.js";
 import { distNorm, breath } from "./feel.js";
 import { tightFactor } from "../core/feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
-import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen } from "../core/campaign.js";
+import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
-import { renderDays, showStory, campaignLabel } from "../ui/campaign.js";
+import { renderDays, showStory, campaignLabel, showEnding } from "../ui/campaign.js";
+import { mountQuests } from "./questFlow.js";
+import { QUESTS, questRoster } from "../core/quests.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
@@ -23,6 +25,8 @@ import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
 import { mountMonetize, mountPainAd } from "../ui/monetize.js";
 import { quietDay, bossMissed } from "../core/monetize.js";
+import { nightBegin, nightFeed, nightResult, nightContinue, renderNightBtn } from "./night.js";
+import { nightOpen } from "../core/night.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
 import { EV, runOutcome } from "../core/analytics.js";
 
@@ -58,7 +62,7 @@ const mode = () => S.game === "towel" ? "towel" : "crack";
 const dayNo = () => S.day >= 0 ? S.day + 1 : null;   // 영업 일지 day (1..56, across chapters) on run events, null (dropped) otherwise
 const who = () => ({ patient_no: S.idx + 1, roster: S.target ? S.target.look && S.target.look.model || S.target.age : null, trait: S.target && S.target.trait || "none" });
 function pushResult(r){
-  S.results.push(r);
+  S.results.push(S.night ? { ...r, game: S.game } : r);   // 심야 진료 mixes both games: the day log rows need to know which
   track(EV.patientDone, { ...who(), label: r.ambulance ? "ambulance" : r.stars ? "done" : "quit", pts: r.pts, stars: r.stars, fails: r.fails.length });
 }
 function logAttempt(result, extra){
@@ -207,7 +211,7 @@ function success(d, exhale){
   const [l1, l2] = S.sideIdx === 0 ? [target.lines.what, target.lines.ahh] : [target.lines.after, target.lines.done];
   setTimeout(() => say(l1 || l2, l1 ? 1600 : 2600), RELIEF_AT + 300);
   if(l1) setTimeout(() => say(l2, 1800), THEN_AT + 250);
-  setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
+  setTimeout(() => { if(S.sideIdx === 0){ switchSide(); return; } S.idx++; nightFeed(); if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT);
 }
 
 /* A wrong crack (core/fail.js kinds; judging and the pain count are as before, only the show differs):
@@ -368,7 +372,7 @@ function towelSuccess(d, exhale){
   chime(perfect);
   setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + x + 300);
   setTimeout(() => say(target.lines.done, 1800), THEN_AT + x + 450);
-  setTimeout(() => { S.idx++; if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT + x);
+  setTimeout(() => { S.idx++; nightFeed(); if(S.idx >= S.patients.length) finish(); else loadPatient(); }, NEXT_AT + x);
 }
 /* A wrong tug: "over" the neck goes giraffe and tears off the back, "skew" (off the left / right centre) the neck
    wrenches to that side and a vertebra cracks or breaks, "slip" only the towel comes off. Over and a skew break end the
@@ -463,12 +467,12 @@ function towelHurt(kind){
   setTimeout(() => { S.busy = false; }, 1100);
 }
 
-function finish(){
+export function finish(){
   S.phase = "result"; S.busy = true; setAmbient(); closeChart();
   const score = S.score, towel = S.game === "towel", key = towel ? "chiroTowelBest" : "chiroBest";
   const best = store.get(key, 0);
   const campaign = S.day >= 0;
-  const isBest = !campaign && score > best && S.pain < S.painMax && !S.ambulance;
+  const isBest = !campaign && !S.night && !(S.quest >= 0) && score > best && S.pain < S.painMax && !S.ambulance;   // 심야 진료 keeps its own record (game/night.js)
   if(isBest) store.set(key, score);
   const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
   $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : "환자들이 도망갔어요") : towel ? "목뽑기 끝" : "오늘 진료 끝";
@@ -483,9 +487,9 @@ function finish(){
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
     const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? "이송" : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
-    rev.textContent = "“" + (towel ? towelReview(r) : reviewLine(r)) + "”";
+    rev.textContent = "“" + ((r.game ? r.game === "towel" : towel) ? towelReview(r) : reviewLine(r)) + "”";
     li.append(who, pts, st);
-    const tags = towel ? towelTags(r.fails) : failTags(r.fails, r.tiers);
+    const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails) : failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
       tags.forEach(t => { const i = document.createElement("i"); i.textContent = t; tg.appendChild(i); });
@@ -500,17 +504,23 @@ function finish(){
   const complete = !S.ambulance && S.pain < S.painMax && S.results.length >= S.patients.length;
   $("#again").textContent = "다시 진료하기";
   dayEnd(complete, avg);
+  if(S.night) nightResult();
   const outcome = runOutcome({ ambulance: S.ambulance, pain: S.pain, complete });
   track(EV.runEnd, { game: mode(), day: dayNo(), outcome, score, patients: S.results.length, pain: S.pain, best: isBest, continued: S.continued, run_ms: performance.now() - S.runAt, rank: $("#rank").textContent });
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
-  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg), used: S.continued, hard: S.hard, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!S.night, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
    comes back from the start with the pain count cleared. Their points so far come off (they are earned again).
    After a boss day under its beat every patient is done (S.idx is past the end), so the last one comes back. */
+// what a boss-day replay of the last patient can still win back (core/monetize.js bossMissed)
+function bossReplay(){
+  const def = dayDef(S.day, S.hard), last = S.results[S.results.length - 1];
+  return { cracks: cracksOf(def), lastCracks: def.game === "towel" ? 1 : 2, lastPts: last ? last.pts || 0 : 0 };
+}
 function continueRun(){
   if(S.phase !== "result") return;
   $("#nextDay").hidden = $("#toDays").hidden = $("#dayOutro").hidden = true;
@@ -518,9 +528,10 @@ function continueRun(){
   if(r) S.score -= r.pts || 0;
   S.idx = Math.min(S.idx, S.patients.length - 1);
   hurtTok++; S.continued = true;
-  track(EV.runStart, { game: mode(), day: dayNo(), how: "continue", patient_no: S.idx + 1 });
+  track(EV.runStart, { game: S.night ? "night" : mode(), day: dayNo(), how: "continue", patient_no: S.idx + 1 });
   screenView("play");
-  S.pain = 0; S.streak = 0; S.ambulance = false;
+  if(S.night) nightContinue(); else S.pain = 0;   // 심야 진료: +1 pain slot, the pain taken stays
+  S.streak = 0; S.ambulance = false;
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = String(S.score); renderPain(); renderCombo();
   $("#result").hidden = true;
@@ -534,7 +545,7 @@ const painAd = mountPainAd({ btn: $("#storyPain") });
 let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
    un-awaited, so the user gesture is still alive. Await them only afterwards. Do not reorder. */
-async function start(game, day = -1, hard = false, extraPain = 0){
+async function start(game, day = -1, hard = false, extraPain = 0, quest = -1){
   let perm = null, operm = null, fs = null;
   if(!__CASES__){
   try{ if(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") perm = DeviceMotionEvent.requestPermission(); }catch(e){}
@@ -557,13 +568,14 @@ async function start(game, day = -1, hard = false, extraPain = 0){
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.day = day >= 0 && day < DAYS.length ? day : -1;
   S.hard = S.day >= 0 && !!hard;   // 역경: the same day on harder rules (core/campaign.js hardDay)
-  const d = S.day >= 0 ? dayDef(S.day, S.hard) : null;
+  S.quest = S.day < 0 && quest >= 0 && quest < QUESTS.length ? quest : -1; qf.sync(S.quest);   // 단골 의뢰 (core/quests.js): a free-play run on a quest's rules
+  const d = S.day >= 0 ? dayDef(S.day, S.hard) : S.quest >= 0 ? QUESTS[S.quest] : null;
   S.game = (d ? d.game : game) === "towel" ? "towel" : "clinic";
   S.painMax = (d ? d.painMax : 3) + (d && !S.hard ? extraPain : 0); S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
   setMode(mode()); S.runAt = performance.now();
-  track(EV.runStart, { game: mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
+  track(EV.runStart, { game: game === "night" ? "night" : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
-  S.patients = d ? makePatients(Math.random, 0, dayRoster(S.day, [...ROSTER, ...CAST])) : makePatients();
+  S.patients = nightBegin(game) || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients());
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
@@ -575,13 +587,20 @@ async function start(game, day = -1, hard = false, extraPain = 0){
 }
 $("#start").addEventListener("click", () => start("clinic"));
 $("#startTowel").addEventListener("click", () => start("towel"));
-$("#again").addEventListener("click", () => start(S.game, S.day, S.hard));
+$("#nightBtn").addEventListener("click", () => { if(nightOpen(progress())) start("night"); });   // 심야 진료 (core/night.js)
+// a 영업 일지 day goes back through its story card (so the 통증 칸 +1 ad is on offer again); free play restarts at once
+$("#again").addEventListener("click", () => {
+  if(S.day >= 0 && S.day < DAYS.length){ $("#result").hidden = true; openStory(S.day, S.hard); return; }
+  start(S.night ? "night" : S.game, S.day, S.hard, 0, S.quest);
+});
 /* 영업 일지 (core/campaign.js): title button -> day list -> story card -> 영업 시작 (the tap that runs start()) */
 const progress = () => readProgress(store.get(CAMPAIGN_KEY, null));
-let storyDay = 0, storyHard = false;
-const openStory = (day, hard = false) => { storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); };
-function openDays(){ renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }); }
+let storyDay = 0, storyHard = false, endingPending = false;
+const openStory = (day, hard = false) => { qf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); };
+function openDays(){ renderNightBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }); }
+const qf = mountQuests({ start, back: openDays });
 function dayEnd(complete, avg){
+  if(S.day < 0 && S.quest >= 0) return qf.end(complete, avg);
   if(S.day < 0) return;
   const d = dayDef(S.day, S.hard), cleared = dayClears(S.day, complete, avg, d);
   const before = progress(), after = (S.hard ? afterHard : afterDay)(before, S.day, cleared, dayStars(avg, d));
@@ -592,27 +611,38 @@ function dayEnd(complete, avg){
   out.textContent = cleared ? (S.hard ? `역경 통과! ${d.hardOutro || d.outro}` : d.outro) : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${lose}` : `${dayLabel(S.day)}${S.hard ? " 역경" : ""}를 못 버텼어요. 다시 문 열어 봐요.`;
   if(S.hard && !cleared) out.textContent += " 역경엔 이어하기가 없어요.";
   out.hidden = false;
-  $("#nextDay").hidden = next < 0;
+  // the last day cleared for the first time: the next-day button becomes 엔딩 보기 (the ending card, core/campaign.js ENDING)
+  endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && before.cleared <= S.day;
+  $("#nextDay").textContent = endingPending ? "엔딩 보기" : "다음 날";
+  $("#nextDay").hidden = next < 0 && !endingPending;
   $("#toDays").hidden = false;
   $("#again").textContent = cleared ? "이 날 다시" : "다시 도전";
-  $("#campaignSub").textContent = campaignLabel(after);
+  $("#campaignSub").textContent = campaignLabel(after); renderNightBtn(after);
   track(EV.dayEnd, { day: S.day + 1, hard: S.hard ? 1 : 0, cleared, stars: cleared ? dayStars(avg, d) : 0, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
 }
 $("#campaignBtn").addEventListener("click", openDays);
+$("#daysNight").addEventListener("click", () => { if(nightOpen(progress())) start("night"); });   // 심야 진료 from the 영업 일지 list
 $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S.phase === "result") $("#result").hidden = false; });
 // 허리펴기 / 허리비틀기 days run on back.html / side.html (src/{back,side}/main.js read ?day); their start card takes
 // the tap for the sensor permission
 $("#storyGo").addEventListener("click", () => {
+  if(qf.sel >= 0) return qf.go();
   const page = { back: "back.html", side: "side.html" }[DAYS[storyDay].game];
   const pain = painAd.take(storyDay);   // 1 when the 통증 칸 +1 ad was watched on this card
   if(page){ location.href = `${page}?day=${storyDay}${pain ? "&pain=1" : ""}`; return; }
   start("clinic", storyDay, storyHard, pain);
 });
 $("#storyHard").addEventListener("click", () => openStory(storyDay, !storyHard));
-$("#storyBack").addEventListener("click", () => { $("#story").hidden = true; openDays(); });
-$("#nextDay").addEventListener("click", () => { $("#result").hidden = true; openStory(S.day + 1); });
-$("#toDays").addEventListener("click", () => { $("#result").hidden = true; openDays(); });
+$("#storyBack").addEventListener("click", () => { $("#story").hidden = true; if(qf.sel >= 0) qf.list(); else openDays(); });
+$("#nextDay").addEventListener("click", () => {
+  $("#result").hidden = true;
+  if(endingPending){ endingPending = false; showEnding(); track(EV.click, { target: "ending" }); return; }
+  openStory(S.day + 1);
+});
+$("#endingClose").addEventListener("click", () => { $("#ending").hidden = true; openDays(); });
+$("#toDays").addEventListener("click", () => { $("#result").hidden = true; if(S.quest >= 0) qf.list(); else openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
+renderNightBtn(progress());
 // back.html's and side.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
 {
   const q = new URLSearchParams(location.search), sd = Number(q.get("story"));

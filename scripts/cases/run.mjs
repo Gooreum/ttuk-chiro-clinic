@@ -89,8 +89,22 @@ async function setupNeck(page, towel) {
     window.__cs = { S, adjust: flow.adjust, feel, tw };
   });
 }
-async function startNeck(page, towel, patient, campaign) {
-  if (campaign) return page.evaluate(({ day, story, hard }) => {
+async function startNeck(page, towel, patient, campaign, night) {
+  if (night) return page.evaluate(() => {
+    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
+    document.getElementById("campaignBtn").click();
+    document.getElementById("daysNight").click();
+  });
+  if (campaign) return page.evaluate(({ day, story, hard, quest, list }) => {
+    if (quest || list) {
+      localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
+      document.getElementById("campaignBtn").click();
+      document.getElementById("questOpen").click();
+      if (list) return;
+      document.querySelector('#questList button[data-q="' + quest + '"]').click();
+      if (!story) document.getElementById("storyGo").click();
+      return;
+    }
     const n = hard ? day + 1 : day;
     localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
     document.getElementById("campaignBtn").click();
@@ -204,13 +218,13 @@ async function record(browser, c) {
     await page.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;inset:0;background:#fff;z-index:2147483647"; document.body.appendChild(d); setTimeout(() => d.remove(), 160); });
     await sleep(800);
     tStart = Date.now();
-    if (isNeck) await startNeck(page, towel, c.patient, c.campaign);
+    if (isNeck) await startNeck(page, towel, c.patient, c.campaign, c.night);
     else await page.click(c.mode === "back" ? "#backTouchStart" : "#sideTouchStart");
     const steps = c.steps;
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i], last = i === steps.length - 1;
       if (isNeck) {
-        const r = await actNeck(page, step, towel);
+        const r = await actNeck(page, step, c.night ? await page.evaluate(() => window.__cs.S.game === "towel") : towel);
         if (!tFirst) tFirst = r.tAct;
         await waitNeck(page, step.after || "next", r.before, towel, c);
       } else if (step.flip) {
