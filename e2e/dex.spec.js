@@ -59,10 +59,10 @@ test("환자 도감: 단골 의뢰를 깬 편만 뒷이야기가 적히고 못 �
   await waitNeckAssets(page);
   await expect(page.locator("#dexSub")).toContainText("뒷이야기 1");
   await page.click("#dexBtn");
-  await expect(page.locator("#dexLead")).toContainText("뒷이야기 1/48");
+  await expect(page.locator("#dexLead")).toContainText("뒷이야기 1/64");
   await expect(page.locator("#dexList .tale:not(.lock)")).toHaveCount(1);
   await expect(page.locator("#dexList .tale:not(.lock)")).toContainText("1편 야근 후유증");
-  await expect(page.locator("#dexList .tale.lock")).toHaveCount(3);
+  await expect(page.locator("#dexList .tale.lock")).toHaveCount(5);
   expect(await page.evaluate(() => window.__events.find(e => e.name === "dex_open").tales)).toBe(1);
   errs.check();
 });
