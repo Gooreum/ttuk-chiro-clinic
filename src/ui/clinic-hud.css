@@ -41,6 +41,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .clip{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#2c4842;color:var(--bone);padding:5px 10px;font-size:10px;letter-spacing:.06em;font-variant-numeric:tabular-nums;position:relative}
 :where(.clinic-app) .clip::before{content:"";position:absolute;left:50%;top:-1px;width:44px;height:7px;margin-left:-22px;border-radius:0 0 5px 5px;background:#c9c2b2}
 :where(.clinic-app) .dots{display:flex;gap:4px}
+:where(.clinic-app) .dots.count{font:700 11px var(--body);color:var(--bone);white-space:nowrap}
 :where(.clinic-app) .dots i{width:7px;height:7px;border-radius:50%;border:1.5px solid var(--bone);opacity:.55}
 :where(.clinic-app) .dots i.done{background:var(--mint);border-color:var(--mint);opacity:1}
 :where(.clinic-app) .dots i.now{background:var(--coral);border-color:var(--coral);opacity:1}
@@ -84,7 +85,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 
 /* ---------- bottom ---------- */
 :where(.clinic-app) .bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
-:where(.clinic-app) .mode{font-size:11px;color:var(--muted);line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+:where(.clinic-app) .mode{font-size:11.5px;color:#d3e3de;line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
 :where(.clinic-app) .mode b{color:var(--ink);font-weight:600}
 /* "중앙으로" where the thumb rests: the crack is a flick / swipe / space, no button (user request, 2026-10-15) */
 :where(.clinic-app) .zero-btn{pointer-events:auto;flex:none;height:44px;padding:0 18px;border-radius:22px;border:2px solid var(--mint);background:var(--panel);color:var(--mint);font:700 13px var(--body);letter-spacing:.04em;cursor:pointer;backdrop-filter:blur(6px);box-shadow:0 6px 18px rgba(0,0,0,.3);transition:transform .08s}
@@ -168,7 +169,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .lead p{margin:0;color:var(--muted);line-height:1.6;font-size:13.5px}
 :where(.clinic-app) .hours{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;font-variant-numeric:tabular-nums}
 :where(.clinic-app) .hours b{color:var(--mint);font-weight:600}
-:where(.clinic-app) .legal{margin:-6px 0 0;font-size:10px;color:var(--muted)}
+:where(.clinic-app) .legal{margin:-6px 0 0;font-size:10px;line-height:1.4;color:#c3d5cf}
 :where(.clinic-app) .linkbtn{font:inherit;color:var(--mint);background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
 :where(.clinic-app) .card.credits{max-width:560px;gap:10px;font-size:12px;line-height:1.5}
 :where(.clinic-app) .card.credits h2{margin:0;font-family:var(--display);font-weight:400;font-size:24px;color:var(--paper)}
@@ -255,6 +256,17 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) #intro .tip{font-size:11px;padding:5px 8px}
   :where(.clinic-app) .main-btn{font-size:22px;padding:10px 8px}
   :where(.clinic-app) .legal{margin:-4px 0 0}
+  /* 10차: 허리펴기·허리비틀기 시작 카드는 667x375에서 크레딧 줄이 잘렸다. 가로가 짧으면 카드를 조이고 칩·크레딧을 작게 */
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .card{padding:12px 16px;gap:8px;column-gap:20px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .lead{gap:6px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .stamp{width:48px;height:48px;font-size:26px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .logo h1{font-size:24px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .logo h1 small{margin-top:3px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .lead p{font-size:12px;line-height:1.45}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .lead p.legal{font-size:9.5px;line-height:1.35;margin:0}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .hours{padding-top:5px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch{gap:4px}
+  :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch .chip{padding:4px 7px;font-size:10.5px}
   :where(.clinic-app) .card.log,:where(.clinic-app) .card.days{gap:8px}
   /* 8차 플레이테스트: 결말 한 줄이 아래 고정 버튼 밑에 가려져 안 읽혔다. 제목 바로 밑으로 올린다 */
   /* 8차 플레이테스트: 보스 사연 카드는 규칙 칩 둘째 줄이 고정 버튼 밑에 가려졌다. 짧은 가로 화면에서 카드를 조인다 */

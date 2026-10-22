@@ -73,6 +73,9 @@ export function drawHint(ctx,{x,y,text,hot=false,colors={}}){
   const {bone,coral}={...DEFAULT_COLORS,...colors};
   ctx.save();
   ctx.textAlign="center";ctx.font="15px 'Black Han Sans', sans-serif";ctx.lineJoin="round";
+  // dark pill behind the words: the white sheet and the pale floor swallowed the outlined text (10차 P2)
+  const tw=ctx.measureText(text).width;
+  ctx.fillStyle="rgba(15,35,31,.78)";ctx.beginPath();ctx.roundRect(x-tw/2-10,y-17,tw+20,24,12);ctx.fill();
   ctx.lineWidth=3.5;ctx.strokeStyle="rgba(15,35,31,.9)";ctx.strokeText(text,x,y);
   ctx.fillStyle=hot?coral:bone;ctx.fillText(text,x,y);
   ctx.restore();

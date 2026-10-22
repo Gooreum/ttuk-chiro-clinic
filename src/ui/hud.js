@@ -25,6 +25,9 @@ export function floater(text, dx, dy, cls, ms = 1000){
 export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i)=>{ el.classList.toggle("on", i < S.pain); el.hidden = i >= S.painMax; }); }
 export function renderDots(){
   const d = $("#dots"); d.textContent = "";
+  // 심야 진료 (a list that keeps growing) and 보스 러시 (26 patients): a row of dots wrapped the chart's header to three lines (pt10b), so a count instead
+  if(S.night || S.patients.length > 8){ d.classList.add("count"); d.textContent = S.night ? `${S.idx + 1}번째` : `${S.idx + 1}/${S.patients.length}`; return; }
+  d.classList.remove("count");
   S.patients.forEach((p, i) => { const e = document.createElement("i"); if(i < S.idx) e.className = "done"; else if(i === S.idx) e.className = "now"; d.appendChild(e); });
 }
 export function renderSpine(n, s = $("#spine")){

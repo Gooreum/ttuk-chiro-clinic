@@ -27,9 +27,9 @@
 .dex-av.sil{--skin:#2b4a43;--hair:transparent;--gown:#24403a}
 .dex-av.sil span{position:absolute;left:0;right:0;top:11px;text-align:center;font:400 22px var(--display);color:var(--muted);z-index:1}
 @media (max-width:520px){#dexList{grid-template-columns:minmax(0,1fr)}}
-.dex-new{margin:0;font-size:13px;font-weight:700;color:var(--mint)}
+.dex-new{margin:0;font-size:13px;font-weight:700;color:#2c7a5e}
 .rush-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
-.rush-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;font-size:13px;color:var(--paper)}
-.rush-list li i{font-style:normal;font-weight:700;color:var(--muted)}
-.rush-list li.ok i{color:var(--mint)}
-.rush-list li.no i{color:var(--coral)}
+.rush-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;font-size:13px;color:var(--paper-ink,#24302d)}   /* sits on the cream day-log card: paper-coloured text was invisible */
+.rush-list li i{font-style:normal;font-weight:700;color:#6b7774}
+.rush-list li.ok i{color:#2c7a5e}
+.rush-list li.no i{color:var(--coral-deep,#c4492b)}
