@@ -16,7 +16,7 @@
   <div class="top">
     <div class="chart compact" aria-label="환자 정보">
       <div class="clip"><span>진료 차트 No.04</span><span id="sideDots" class="dots" aria-label="진행"><i class="now"></i><i></i></span></div>
-      <div class="chartbody"><div><div class="name">박대리<small>32세</small></div><div class="chips"><span id="sideZone" class="chip-seg">왼쪽 1/2</span></div></div></div>
+      <div class="chartbody"><div><div class="name" id="sideName">박대리<small>32세</small></div><div class="chips"><span id="sideZone" class="chip-seg">왼쪽 1/2</span></div></div></div>
     </div>
     <div class="side">
       <div class="stat"><div class="score"><small>점수</small><span id="sideScore">0</span></div><div id="sideMistakes" class="pain" aria-label="통증 0회 / 4회">통증 <i></i><i></i><i></i><i></i></div></div>
@@ -36,7 +36,8 @@
     <section class="card wide">
       <div class="lead">
         <div class="logo"><div class="stamp" aria-hidden="true">뚝</div><h1>카이로 클리닉<small>허리비틀기 · 연습 진료</small></h1></div>
-        <p>박대리, 32세. 허리가 한쪽으로 꼬여서 의자가 자꾸 돌아가요.<br>옆으로 눕혀 한쪽 비틀고, 굴려서 반대쪽도 비틀어요.</p>
+        <p id="sideDayNo" class="day-no" hidden></p>
+        <p id="sideWelcomeText">박대리, 32세. 허리가 한쪽으로 꼬여서 의자가 자꾸 돌아가요.<br>옆으로 눕혀 한쪽 비틀고, 굴려서 반대쪽도 비틀어요.</p>
         <div class="starts"><button id="sideStart" class="btn" type="button" disabled>진료실 준비 중…</button><button id="sideTouchStart" class="btn ghost" type="button" disabled>마우스·터치로 연습</button></div>
         <div class="hours"><span>한 환자 / 좌우 한 번씩</span></div>
         <nav id="sideWelcomeClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
@@ -57,7 +58,8 @@
       <div><div class="sub">오늘의 진료 일지</div><h2 id="sideResultTitle">양쪽 다 풀렸어요.</h2></div>
       <p id="sideReview"></p><div class="total"><span>합계</span><b id="sideTotal">0</b></div>
       <ul id="sideResultSteps"></ul><div class="rank" id="sideRank"></div><div class="newbest" id="sideBest"></div>
-      <button id="sideAgain" class="btn" type="button">한 번 더 비틀기</button><nav id="sideResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
+      <p id="sideDayOutro" class="day-outro" hidden></p><a id="sideNextDay" class="btn" href="index.html?days=1" hidden>다음 날</a><a id="sideToDays" class="btn ghost" href="index.html?days=1" hidden>영업 일지</a>
+      <button id="sideContinueAd" class="btn" type="button" hidden>광고 보고 이어하기</button><button id="sideAgain" class="btn" type="button">한 번 더 비틀기</button><button id="sideBuyAdFree" class="btn ghost buy" type="button" hidden>광고 제거</button><nav id="sideResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
     </section>
   </div>
   <div class="sheet" id="sidePaused" hidden role="dialog" aria-label="손맛 튜닝">
