@@ -2,7 +2,7 @@ import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { T } from "../tuning.js";
 import { S } from "./state.js";
-import { distNorm, breath } from "./feel.js";
+import { distNorm, breath, bonusExhale } from "./feel.js";
 import { tightFactor } from "../core/feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
@@ -31,6 +31,8 @@ import { nightOpen, nightCount } from "../core/night.js";
 import { rushStats } from "../core/rush.js";
 import { dayShareText, nightShareText, rushShareText, leaderboardScore } from "../core/share.js";
 import { shareResult, submitScore, openRanking, leaderboardOn } from "../platform/share.js";
+import { bossRules, BOSS_RULES, tauntTrips, timerPenalty, bossPts, swapDue, sideSlot } from "../core/boss.js";
+import { mountBoss } from "./boss.js";
 import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush } from "./rush.js";
 import { dexMet, dexDone, dexFailSeen, dexResult, mountDex } from "./dex.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
@@ -53,7 +55,7 @@ function faceRun(steps){
 function aimAt(i){
   const p = S.patients[S.idx];
   S.sideIdx = i;
-  S.target = {...p, ...p.sides[i]};
+  S.target = {...p, ...p.sides[sideSlot(i, S.bossSwap)]};
   return S.target;
 }
 const sideLabel = t => `C${t.seg}–C${t.seg+1} · ${t.side > 0 ? "오른쪽" : "왼쪽"} 회전 ${S.sideIdx+1}/2`;
@@ -83,6 +85,7 @@ function loadPatient(){
   setTimeout(() => {
     rushPrep();   // 보스 러시: this patient's game and mods first
     S.sidePts = []; S.sideStars = []; S.fails = []; S.tiers = [];
+    S.bossTaunt = false; S.bossSwap = false; S.bossReady = false;   // 보스 특수 규칙 (core/boss.js) restart with every patient
     const target = aimAt(0);
     dexMet(target.name);
     applyLook(target);
@@ -122,12 +125,30 @@ function loadPatient(){
     setTimeout(() => { if(tok === loadTok && S.phase === "play") coach(PREP_LINES[Math.floor(Math.random()*PREP_LINES.length)], 1500); }, 1500);
     setTimeout(() => {
       if(tok !== loadTok || S.phase !== "play") return;
-      S.busy = false; S.patientStart = performance.now(); closeChart();
+      S.busy = false; S.patientStart = performance.now(); S.bossReady = true; closeChart();
+      bossCue();
       track(EV.aimStart, { ...who(), control: S.mode });
       // towel practice: how to play, on the first patients
       if(S.game === "towel" && S.idx < S.zoneUntil) coach(S.mode === "tilt" ? "폰을 젖혀 장력, 좌우로 기울여 중심을 초록에 맞추고 숨 내쉴 때 툭!" : "위아래로 장력, 좌우로 중심을 초록에 맞추고 휙 쓸어 당겨요", 3200);
     }, PREP_MS);
   }, 280);
+}
+
+/* 보스 특수 규칙 (core/boss.js): the rule's one-liner when a patient is handed over (the story card has its chip) */
+function bossCue(){
+  if(S.phase !== "play" || !S.boss.length) return;
+  coach(S.boss.map(r => BOSS_RULES[r].cue).join(" · "), 2800);
+}
+/* swap: the patient changes his mind, the target is the opposite side's from now on (same head, same x-ray segment) */
+function swapAim(){
+  if(!swapDue(S.boss, S.sideIdx, performance.now() - S.patientStart, S.bossSwap) || S.busy || S.phase !== "play") return;
+  S.bossSwap = true;
+  const target = aimAt(0);
+  S.inZone = false; S.saidNear = false; S.ghostFrom = S.ghostUntil = 0;
+  $("#pseg").textContent = sideLabel(target) + " · 바뀜";
+  stamp("아 거기 말고!", S.bossLine, "dud", 2400);
+  say("아 거기 말고! 반대쪽이요!", 1600, true);
+  floater("?!", headScreen.r + 24, -headScreen.r - 10, "small", 1200);
 }
 
 /* First side done: same patient, opposite side. Only the aim target is reset, so the head eases back to centre. */
@@ -139,8 +160,9 @@ function switchSide(){
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
-  say("반대쪽도 부탁해요", 1600);
-  S.busy = false; S.patientStart = S.breathT0 = performance.now();
+  if(S.bossTaunt){ $("#pseg").textContent += " · 구역 축소"; stamp("도발!", S.bossLine, "dud", 2400); say("반대쪽도 부탁해요", 1600); }
+  else say("반대쪽도 부탁해요", 1600);
+  S.busy = false; S.patientStart = S.breathT0 = performance.now(); S.bossReady = true;
 }
 
 /* force: how hard the crack was (input/motion.js, input/pointer.js; 0 = unknown, the button). Only the show of a
@@ -160,7 +182,7 @@ export function adjust(src, force = 0){
   if(S.game === "towel") return towelAdjust(src);
   const d = distNorm();
   if(Math.abs(S.cur.rot) > target.limR || Math.abs(S.cur.bend) > target.limB) return hurt("너무 많이 돌렸어요! 위험해요", "over", force);
-  if(d <= 1) return success(d, T.breath && breath(performance.now()).exhale);
+  if(d <= 1) return success(d, T.breath && bonusExhale(performance.now()));
   // a flick far off right as the head is handed over is the player settling the grip: a toast, no pain. After that a
   // far-off flick is a wrong crack like any other (user: "초점 안 맞추면 실패가 잘 안돼", 2026-10-15)
   if(src === "snap" && d > 3 && performance.now() - S.patientStart < GRIP_GRACE){ toast("툭! 그런데 아직 각도가 멀어요", 900); return; }
@@ -177,7 +199,10 @@ function success(d, exhale){
   S.busy = true;
   hurtTok++;   // a wrong crack's lines still pending must not talk over the reaction
   const r = scoreSuccess(d, exhale, S.streak, S.painHere);
-  const {perfect, base, comboBonus, pts} = r;
+  const {perfect, base, comboBonus} = r;
+  const penalty = timerPenalty(S.boss, performance.now() - S.patientStart, S.hard), pts = bossPts(r.pts, penalty);   // 보스 규칙 timer
+  if(tauntTrips(S.boss, S.sideIdx, perfect)) S.bossTaunt = true;
+  S.bossReady = false;   // the timer rests through the reaction
   logAttempt("ok", { perfect, exhale: !!exhale, dist: d, pts });
   S.streak = r.streak;
   S.score += pts;
@@ -212,6 +237,7 @@ function success(d, exhale){
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
   setTimeout(()=>floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
+  if(penalty) setTimeout(() => { floater(`시간 초과 -${penalty}`, 0, headScreen.r + 100, "small"); stamp("시간 초과", S.bossLine, "dud", 2000); }, 700);
   let extra = 0;
   if(exhale) setTimeout(()=>floater("날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
@@ -329,7 +355,7 @@ function hurt(msg, kind, force = 0){
    over is the player settling the grip (like GRIP_GRACE above): a toast, no pain. */
 function towelAdjust(src){
   const t = towelTension(S.cur.bend), kind = __FORCE_HIT__ ? "ok" : towelKind(t, S.towel, S.cur.rot);
-  if(kind === "ok") return towelSuccess(distNorm(), T.breath && breath(performance.now()).exhale);
+  if(kind === "ok") return towelSuccess(distNorm(), T.breath && bonusExhale(performance.now()));
   if(src === "snap" && kind === "slip" && t < 0.1 && performance.now() - S.patientStart < GRIP_GRACE){ crackSound(1); toast("툭! 그런데 아직 수건이 느슨해요", 900); return; }
   towelHurt(kind);
 }
@@ -611,6 +637,7 @@ async function start(game, day = -1, hard = false, extraPain = 0, quest = -1){
   const d = S.day >= 0 ? dayDef(S.day, S.hard) : S.quest >= 0 ? QUESTS[S.quest] : null;
   S.game = (d ? d.game : game) === "towel" ? "towel" : "clinic";
   S.painMax = (d ? d.painMax : 3) + (d && !S.hard ? extraPain : 0); S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
+  S.boss = bossRules(d); S.bossLine = d && d.bossTaunt || "";
   setMode(mode()); S.runAt = performance.now();
   track(EV.runStart, { game: game === "night" || game === "rush" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
@@ -684,7 +711,7 @@ $("#endingClose").addEventListener("click", () => { $("#ending").hidden = true; 
 $("#toDays").addEventListener("click", () => { $("#result").hidden = true; if(S.quest >= 0) qf.list(); else openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
 renderNightBtn(progress());
-mountRush({ start }); mountDex();
+mountRush({ start }); mountBoss({ swap: swapAim }); mountDex();
 // back.html's and side.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
 {
   const q = new URLSearchParams(location.search), sd = Number(q.get("story"));

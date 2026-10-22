@@ -1,6 +1,7 @@
 /* docs/story.md 생성기: 영업 일지 전체(장·일차·규칙·환자·사연·대사)를 플레이하지 않고 읽을 수 있게 펼친다.
    원본은 src/core/campaign.js, src/patient/{roster,cast}.js 하나뿐이고 이 문서는 늘 다시 만든다.
    실행: npm run docs:story */
+import { bossChips } from "../../src/core/boss.js";
 import { writeFileSync } from "node:fs";
 import { DAYS, CHAPTERS, dayLabel, hardDay, HARD_GAMES } from "../../src/core/campaign.js";
 import { ROSTER } from "../../src/patient/roster.js";
@@ -43,6 +44,7 @@ for (const c of CHAPTERS) {
     const rules = [GAME[d.game], `통증 ${d.painMax}칸`, d.zone ? `구역 안내 ${d.zone}명` : "구역 안내 없음"];
     if (d.mods?.tight) rules.push("좁은 구역");
     if (d.mods?.noisy) rules.push("호흡 안내 없음");
+    bossChips(d).forEach(c => rules.push(c));
     if (d.beat) rules.push(`평균 ${d.beat}점 이상`);
     w(`### ${dayLabel(i)} ${d.title}${d.beat ? " (보스)" : ""}`, "", `- 규칙: ${rules.join(" · ")}`);
     w(`- 환자: ${d.patients.map(n => { const p = who(n); return p ? `${n}(${p.age})` : n; }).join(", ")}`);

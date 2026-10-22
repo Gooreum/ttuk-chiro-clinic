@@ -5,6 +5,7 @@
    run (S.day = -1, S.rush set), so a day's stars and the free-play best never move. Record: localStorage "chiroRush"
    {reached, cleared, score, runs}. */
 import { DAYS } from "./campaign.js";
+import { bossRules } from "./boss.js";
 import { crackAvg } from "./scoring.js";
 
 // the run plays on index.html, so only the neck games (back / side bosses live on their own pages)
@@ -34,7 +35,7 @@ export function rushPlan(days = rushDays()){
   const plan = [];
   days.forEach((day, k) => {
     const d = DAYS[day];
-    d.patients.forEach((name, j) => plan.push({ k, day, name, first: j === 0, last: j === d.patients.length - 1, game: d.game, mods: d.mods || {}, beat: d.beat, title: d.title, line: RUSH_LINES[day] || d.intro[0] }));
+    d.patients.forEach((name, j) => plan.push({ k, day, name, first: j === 0, last: j === d.patients.length - 1, game: d.game, mods: d.mods || {}, boss: bossRules(d), bossLine: d.bossTaunt || "", beat: d.beat, title: d.title, line: RUSH_LINES[day] || d.intro[0] }));
   });
   return plan;
 }
