@@ -69,6 +69,8 @@
 .card.days h2{margin:0;font-family:var(--display);font-weight:400;font-size:26px;color:var(--paper)}
 .card.days .sub{font-size:11px;letter-spacing:.1em;color:var(--muted)}
 .days-lead{margin:4px 0 0;font-size:13px;color:var(--muted)}
+.card.days{grid-template-columns:minmax(0,1fr)}
+.card.days>*{min-width:0}
 #dayList{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 #dayList button{width:100%;display:grid;grid-template-columns:3.2em minmax(0,1fr) auto;align-items:center;gap:8px;text-align:left;font:600 14px var(--body);color:var(--paper);background:rgba(244,239,228,.06);border:1px solid var(--line);border-radius:10px;padding:9px 12px;cursor:pointer}
 #dayList button b{font-family:var(--display);font-weight:400;font-size:15px;color:var(--mint)}
@@ -83,7 +85,7 @@
 .ch-tabs button.on{color:var(--room);background:var(--mint);border-color:var(--mint)}
 .ch-tabs button:disabled{opacity:.4;cursor:default}
 .story-lines{display:grid;gap:4px;margin:0;padding:0;list-style:none}
-.story-lines li{font-size:14px;line-height:1.45}
+.log .story-lines li{display:block;border:0;padding:0 0 0 12px;text-indent:-12px;text-align:left;font-size:14px;line-height:1.45}
 .story-lines li::before{content:"- ";color:var(--coral-deep);font-weight:700}
 .story-rules{display:flex;flex-wrap:wrap;gap:5px}
 .story-rules i{font-style:normal;font-size:12px;font-weight:700;color:var(--paper-ink);border:1px solid #b9b19f;border-radius:999px;padding:2px 9px}

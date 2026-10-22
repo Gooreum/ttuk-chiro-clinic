@@ -1,7 +1,7 @@
 import {describe,it,expect} from 'vitest';
 import * as THREE from 'three';
 import {solveTwoBone} from '../src/side/ik.js';
-import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile,slowWarp,punchProfile,canRetry,SLOW} from '../src/side/core.js';
+import {sideOrder,canLeave,judgeSide,balance,lumbarAt,makeSideGoals,patientTotal,thrustSounds,overReaction,xrayTarget,twistProfile,slowWarp,punchProfile,canRetry,SLOW,runComplete,continuePlan} from '../src/side/core.js';
 
 const goal={height:.78,roll:.6};
 const res=(side,kind,roll=.6,pressure=.6,points=80)=>({side,kind,roll,pressure,goalRoll:.6,points});
@@ -155,5 +155,32 @@ describe('good thrust slow-mo and retry',()=>{
     expect(canRetry('miss',0,true)).toBe(false);
     expect(canRetry('over',1,false)).toBe(false);
     expect(canRetry('ok',0,false)).toBe(false);
+  });
+});
+
+describe('runComplete / continuePlan (영업 일지 허리비틀기 날)', () => {
+  const r = (side, kind, tier = 0) => ({ side, kind, tier, points: kind === 'ok' ? 100 : 0 });
+  it('a story day needs both sides fixed and pain under the limit', () => {
+    expect(runComplete([r('L', 'ok'), r('R', 'ok')], 0, 3, true)).toBe(true);
+    expect(runComplete([r('L', 'weak'), r('R', 'miss')], 2, 3, true)).toBe(false);
+    expect(runComplete([r('L', 'ok'), r('R', 'weak')], 1, 3, true)).toBe(false);
+    expect(runComplete([r('L', 'ok'), r('R', 'ok')], 3, 3, true)).toBe(false);
+    expect(runComplete([r('L', 'ok')], 0, 3, true)).toBe(false);
+  });
+  it('a free run only needs both sides without a fracture', () => {
+    expect(runComplete([r('L', 'weak'), r('R', 'miss')], 2, 4, false)).toBe(true);
+    expect(runComplete([r('L', 'ok'), r('R', 'over', 1)], 1, 4, false)).toBe(false);
+  });
+  it('continue keeps the fixed side and redoes the failed one without teleporting', () => {
+    const g = [{ height: .1 }, { height: .2 }];
+    expect(continuePlan(['L', 'R'], g, [r('L', 'ok'), r('R', 'weak')])).toMatchObject({ order: ['L', 'R'], results: [r('L', 'ok')], sideIdx: 1, turn: false });
+    // the first side failed, the second fixed: he lies on R, so R becomes first and a roll back to L follows
+    const p = continuePlan(['L', 'R'], g, [r('L', 'miss'), r('R', 'ok')]);
+    expect(p).toMatchObject({ order: ['R', 'L'], results: [r('R', 'ok')], sideIdx: 0, turn: true });
+    expect(p.goals).toEqual([g[1], g[0]]);
+    // both failed: redo from the side he lies on now
+    expect(continuePlan(['L', 'R'], g, [r('L', 'miss'), r('R', 'weak')])).toMatchObject({ order: ['R', 'L'], results: [], sideIdx: 0, turn: false });
+    // ended at the pain limit after the first side: same side again
+    expect(continuePlan(['L', 'R'], g, [r('L', 'miss')])).toMatchObject({ order: ['L', 'R'], results: [], sideIdx: 0 });
   });
 });

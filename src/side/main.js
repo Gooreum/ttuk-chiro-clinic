@@ -15,7 +15,7 @@ import {mountMonetize} from '../ui/monetize.js';
 import {createSideScene,ROLL_S} from './scene.js';
 import {SWEET,POSITION_TOL,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
-import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget,slowWarp,punchProfile,canRetry} from './core.js';
+import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget,slowWarp,punchProfile,canRetry,runComplete,continuePlan} from './core.js';
 import {breathState,closenessOf} from '../core/feel.js';
 import {PREP_MS} from '../core/cue.js';
 import {rankTitle} from '../core/scoring.js';
@@ -179,28 +179,37 @@ function finish(){
   $('sideRank').textContent=rankTitle(S.score/2,tier||S.mistakes>=painMax?3:S.mistakes);
   $('sideBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('sideResult').hidden=false;sync();
-  const complete=done&&!tier;
+  const complete=runComplete(S.results,S.mistakes,painMax,!!dayDef);
   const outcome=runOutcome({ambulance:tier>0,pain:S.mistakes,complete});
-  track(EV.runEnd,{game:'side',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
+  track(EV.runEnd,{game:'side',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:!!S.continued,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/2);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2),used:true,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;
   const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
-  $('sideResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
+  $('sideResult').querySelector('.sub').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
   $('sideDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose}`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
   $('sideDayOutro').hidden=false;$('sideToDays').hidden=false;
   $('sideNextDay').hidden=next<0;if(next>=0)$('sideNextDay').href=`index.html?story=${next}`;
   $('sideAgain').textContent=cleared?'이 날 다시':'다시 도전';
   track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
 }
-// No 이어하기 here (used:true): a run is one patient, so a retry is just 다시 도전. The card still shows 광고 제거.
-const monetize=mountMonetize({continueBtn:$('sideContinueAd'),buyBtn:$('sideBuyAdFree'),onContinue:()=>{}});
+// 광고 보고 이어하기, once a run: the fixed side stays, the failed ones are redone with the pain reset (core.js continuePlan).
+function continueRun(){
+  const p=continuePlan(S.order,S.goals,S.results),now=performance.now();
+  S.continued=true;S.mistakes=0;S.order=p.order;S.goals=p.goals;S.results=p.results;S.score=p.results.reduce((s,r)=>s+r.points,0);
+  S.retried=[false,false];S.pending=null;S.tier=0;S.kind='ok';S.exit=null;
+  $('sideResult').hidden=true;$('sideControls').hidden=false;$('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
+  if(p.turn){S.sideIdx=0;S.phase='turn';gag('한쪽은 살렸어요. 반대쪽 다시!',false,2200);}
+  else{S.sideIdx=p.sideIdx;endRoll(now);S.sideIdx=p.sideIdx;S.prepUntil=now+PREP_MS;gag('다시 손 얹어요. 이번엔 살살',false,2200);}
+  track(EV.runStart,{game:'side',how:'continue',control:S.motionEnabled?'tilt':'touch'});screenView('play');sync();
+}
+const monetize=mountMonetize({continueBtn:$('sideContinueAd'),buyBtn:$('sideBuyAdFree'),onContinue:continueRun});
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;
   if(useMotion){
@@ -215,7 +224,7 @@ async function start(useMotion=preferMotion){
   track(EV.runStart,{game:'side',how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,order:sideOrder(Math.random()<.5?'L':'R'),sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
     locked:false,results:[],retried:[false,false],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
-    motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
+    motionReady:false,lastSample:0,continued:false,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
   $('sideWelcome').hidden=true;$('sideResult').hidden=true;$('sidePaused').hidden=true;$('sideControls').hidden=false;$('sideGag').hidden=true;
   if(dayDef&&patient.lines.start)domHud.say(patient.lines.start,2600);
   $('sideMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
