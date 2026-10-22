@@ -27,7 +27,10 @@ import { mountMonetize, mountPainAd } from "../ui/monetize.js";
 import { quietDay, bossMissed } from "../core/monetize.js";
 import { mountShop, mountCoupon, mountCoinReward } from "../ui/shop.js";
 import { nightBegin, nightFeed, nightResult, nightContinue, renderNightBtn } from "./night.js";
-import { nightOpen } from "../core/night.js";
+import { nightOpen, nightCount } from "../core/night.js";
+import { rushStats } from "../core/rush.js";
+import { dayShareText, nightShareText, rushShareText, leaderboardScore } from "../core/share.js";
+import { shareResult, submitScore, openRanking, leaderboardOn } from "../platform/share.js";
 import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush } from "./rush.js";
 import { dexMet, dexDone, dexFailSeen, dexResult, mountDex } from "./dex.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
@@ -489,13 +492,14 @@ export function finish(){
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
   const list = $("#rlist"); list.textContent = "";
+  const usedReviews = new Set();
   S.results.forEach(r=>{
     const li = document.createElement("li");
     const who = document.createElement("span"); who.className = "who"; who.textContent = `${r.name} (${r.age})`;
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
     const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? "이송" : "중단";
     const rev = document.createElement("span"); rev.className = "rev";
-    rev.textContent = "“" + ((r.game ? r.game === "towel" : towel) ? towelReview(r) : reviewLine(r)) + "”";
+    rev.textContent = "“" + ((r.game ? r.game === "towel" : towel) ? towelReview(r, Math.random, usedReviews) : reviewLine(r, Math.random, usedReviews)) + "”";
     li.append(who, pts, st);
     const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails) : failTags(r.fails, r.tiers);
     if(tags.length){
@@ -521,8 +525,32 @@ export function finish(){
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
   coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night, cleared: deferAd, hard: S.hard, game: S.night ? "night" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
+  shareCard(complete, avg, deferAd);
   askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!(S.night || S.rush), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
 }
+/* 자랑하기 / 랭킹 보기 on the result card (platform/share.js, rules core/share.js): night and rush always, a 영업 일지 day only when
+   cleared. 랭킹 보기 needs the Toss game-center leaderboard (Toss build); the 심야 진료 patient count is the one score submitted. */
+let shareText = "", shareWhere = "";
+function shareCard(complete, avg, cleared){
+  const sb = $("#shareBtn"), rb = $("#rankBtn");
+  shareText = ""; shareWhere = "";
+  const amb = S.ambulance ? 1 : 0;
+  if(S.night){
+    const count = nightCount(S.results);
+    shareWhere = "night"; shareText = nightShareText({ count, score: S.score, ambulances: amb });
+    submitScore(leaderboardScore("night", { count }), "night");
+  }else if(S.rush){
+    const run = rushStats(S.rush.plan, S.results);
+    shareWhere = "rush"; shareText = rushShareText({ cleared: run.cleared, total: S.rush.total, reached: run.reached, ambulances: amb });
+  }else if(S.day >= 0 && cleared){
+    shareWhere = "day"; shareText = dayShareText({ label: dayLabel(S.day), title: DAYS[S.day].title, avg, ambulances: amb, hard: S.hard });
+  }
+  sb.hidden = !shareText;
+  rb.hidden = !(leaderboardOn && (shareWhere === "night" || shareWhere === "rush"));
+}
+$("#shareBtn").addEventListener("click", () => { if(shareText) shareResult(shareText, shareWhere, toast); });
+$("#rankBtn").addEventListener("click", () => { openRanking(shareWhere); });
+
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
    comes back from the start with the pain count cleared. Their points so far come off (they are earned again).
    After a boss day under its beat every patient is done (S.idx is past the end), so the last one comes back. */

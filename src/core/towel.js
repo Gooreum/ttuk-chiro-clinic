@@ -1,5 +1,6 @@
 import { clamp } from "../lib/math.js";
 import { REVIEWS } from "../patient/roster.js";
+import { starPool, chooseReview } from "./personaReviews.js";
 
 /* Towel traction practice (title button "수건 견인 연습", game/flow.js towelAdjust). A towel is wrapped under the
    back of the head and both hands hold its ends. Tilting the phone's top toward the body (the aim's vertical axis,
@@ -203,10 +204,10 @@ export const TOWEL_REVIEWS = {
   skew:  ["목이 옆으로 접혀서 구급차 탔어요", "삐끗 한 번에 응급실 직행", "수건 하나로 깁스까지 했어요"],
   taut:  ["빠직 소리 듣고 구급차 탔어요", "목에 금 가서 깁스 렌탈 중", "조금만 덜 당겼어도 됐을 텐데요"]
 };
-export function towelReview(r, rand = Math.random){
-  const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
+export function towelReview(r, rand = Math.random, used = null){
+  const pick = a => chooseReview(a, used, rand);
   if(!r.stars && !r.ambulance) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
   const last = r.fails && r.fails[r.fails.length - 1];
   if(last && TOWEL_REVIEWS[last]) return pick(TOWEL_REVIEWS[last]);
-  return pick(REVIEWS[r.stars] || ["다음에 다시 올게요…"]);
+  return pick(starPool(r.name, r.stars, REVIEWS[r.stars] || ["다음에 다시 올게요…"]));
 }

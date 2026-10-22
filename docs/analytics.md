@@ -54,9 +54,11 @@
 | `shop_buy` | 진료실 꾸미기에서 소품·편의 아이템을 산 순간 | `item`, `price`, `coins_left` |
 | `coin_earn` | 한 판이 끝나 진료비가 지급될 때(`step=run`), 보상형 광고로 같은 만큼 더 받을 때(`step=double`) | `game`, `day`, `hard`, `coins`, `step`, `total` |
 | `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
+| `share` | 결과 카드 `자랑하기`(심야 진료·보스 러시·클리어한 영업 일지) | `where`(`night`/`rush`/`day`), `how`(`toss`/`native`/`copied`/`fail`), `code` |
+| `leaderboard_open` | 토스 빌드 게임센터 리더보드: `랭킹 보기`(`step=open`/`open_fail`)와 점수 제출 결과(`submit`/`submit_fail`) | `where`, `step`, `code`(제출 실패 시 `statusCode`) |
 | `iap_purchase` | 광고 제거 결제 | `step`(`start`/`success`/`fail`/`restore`/`revoke`), `code` |
 
-공유 기능은 없다(공유 리워드 종료와 무관).
+공유 리워드는 없다(종료와 무관). 자랑하기·랭킹은 위 `share`·`leaderboard_open`이다.
 
 ## 전환 지표 (토스 콘솔 · GA4 주요 이벤트)
 

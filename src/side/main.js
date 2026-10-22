@@ -176,7 +176,7 @@ function finish(){
   if(record)store.set('chiroSideBest',S.score);
   const tier=Math.max(0,...S.results.map(r=>r.tier));
   $('sideResultTitle').textContent=tier?'허리가 비명을 질렀어요':S.results.every(r=>r.kind==='ok')?'양쪽 다 풀렸어요.':'한쪽은 아직 꼬여 있어요.';
-  $('sideReview').textContent='“'+reviewLine({stars:S.results.every(r=>r.kind==='ok')?3:0,ambulance:tier>0,fails:S.results.filter(r=>r.kind!=='ok').map(r=>r.tier?'over':r.kind==='weak'?'dud':'finger'),tiers:S.results.map(r=>r.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
+  $('sideReview').textContent='“'+reviewLine({name:patient.name,stars:S.results.every(r=>r.kind==='ok')?3:0,ambulance:tier>0,fails:S.results.filter(r=>r.kind!=='ok').map(r=>r.tier?'over':r.kind==='weak'?'dud':'finger'),tiers:S.results.map(r=>r.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('sideTotal').textContent=S.score;
   const rows=S.results.map(r=>{const e=document.createElement('li');e.textContent=`${SIDE_NAME[r.side]} ${r.level} ${r.kind==='ok'?r.points+'점':r.tier?'골절':'실패'}`;return e;});
   if(b.label){const e=document.createElement('li');e.textContent=`${b.label} ${b.bonus>0?'+':''}${b.bonus||''}`;rows.push(e);}
