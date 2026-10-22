@@ -5,6 +5,8 @@ import { writeFileSync } from "node:fs";
 import { DAYS, CHAPTERS, dayLabel, hardDay, HARD_GAMES } from "../../src/core/campaign.js";
 import { ROSTER } from "../../src/patient/roster.js";
 import { CAST } from "../../src/patient/cast.js";
+import { rushPlan, rushDays, RUSH_PAIN } from "../../src/core/rush.js";
+import { DEX_PATIENTS, DEX_FAILS } from "../../src/core/dex.js";
 import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
 
 const ALL = [...ROSTER, ...CAST];
@@ -58,6 +60,20 @@ w("## 심야 진료 (엔드게임)", "",
   "- 5명마다 구역이 7%씩 좁아지고(최소 절반), 11번째 환자부터 치료사 호흡 안내가 꺼진다.",
   "- 기록은 그날 끝까지 진료한 환자 수(같으면 점수)이고 날짜가 바뀌면 새로 시작한다. 영업 일지 별·최고 기록에는 들어가지 않는다.",
   "- 광고 보고 통증 칸 +1로 이어하기는 한 판에 한 번(쌓인 통증은 그대로), 끝난 카드 직후 전면광고는 없다.", "");
+w("## 보스 러시 (엔드게임)", "",
+  "- 56일을 모두 깨면 타이틀과 영업 일지의 `보스 러시`가 열린다. 잠겨 있으면 '56일 다 깨면 열려요'.",
+  `- 영업 일지 보스 날 ${rushDays().length}개를 순서대로 이어서 한다(허리펴기 보스인 3장은 따로 도는 페이지라 빠진다). 환자 ${rushPlan().length}명, 통증 ${RUSH_PAIN}칸을 전부가 같이 쓴다.`,
+  "- 보스마다 그 날의 게임과 규칙(좁은 구역, 호흡 안내 없음)이 그대로 걸린다. 보스가 바뀔 때 '보스 k/N'과 사연 한 줄이 뜬다.",
+  "- 보스는 그 날 환자를 모두 치료하고 평균이 보스 기준(beat) 이상이면 이긴 것이다. 기록은 이긴 보스 수, 도달 수, 점수 순이다.",
+  "- 영업 일지 별·최고 기록에는 들어가지 않는다. 광고 보고 통증 칸 +1로 이어하기는 한 판에 한 번.", "");
+rushPlan().filter(p => p.first).forEach(p => w(`- 보스 ${p.k + 1} · ${dayLabel(p.day)} ${p.title} (기준 ${p.beat}점, ${GAME[p.game]}): ${p.line}`));
+w("");
+w("## 환자 도감 (수집 기록)", "",
+  `- 타이틀과 영업 일지의 \`환자 도감\` 버튼. 환자 ${DEX_PATIENTS.length}명과 실패 연출 ${DEX_FAILS.length}종을 모은다. 저장은 chiroDex.`,
+  "- 환자는 진료실에 들어오면(허리 날은 영업 시작에) 적힌다. 못 만난 환자는 실루엣과 '???'이고 몇 장에서 오는지만 보인다.",
+  "- 실패 연출은 처음 겪을 때 적힌다. 결과 카드에 '도감에 새로 적혔어요'가 뜬다.", "");
+DEX_FAILS.forEach(f => w(`- ${f.name} (${GAME[f.game] || "공통"}): ${f.desc}`));
+w("");
 w("## 단골 의뢰 게시판", "",
   `- 영업 일지에서 단골을 만나면 의뢰가 올라온다. 의뢰 ${QUESTS.length}개, 의뢰마다 제약은 하나다.`,
   "- 열리는 때: 의뢰에 나오는 환자가 모두 영업 일지 깬 날에 나온 뒤. 2편은 1편을 깨야 열린다.",

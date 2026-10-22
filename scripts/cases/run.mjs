@@ -90,11 +90,11 @@ async function setupNeck(page, towel) {
   });
 }
 async function startNeck(page, towel, patient, campaign, night) {
-  if (night) return page.evaluate(() => {
+  if (night) return page.evaluate((kind) => {
     localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
     document.getElementById("campaignBtn").click();
-    document.getElementById("daysNight").click();
-  });
+    document.getElementById(kind === "rush" ? "daysRush" : "daysNight").click();
+  }, night);
   if (campaign) return page.evaluate(({ day, story, hard, quest, list }) => {
     if (quest || list) {
       localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
@@ -218,7 +218,11 @@ async function record(browser, c) {
     await page.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;inset:0;background:#fff;z-index:2147483647"; document.body.appendChild(d); setTimeout(() => d.remove(), 160); });
     await sleep(800);
     tStart = Date.now();
-    if (isNeck) await startNeck(page, towel, c.patient, c.campaign, c.night);
+    if (isNeck && c.dex) await page.evaluate(() => {
+      localStorage.setItem("chiroDex", JSON.stringify({ met: { "박대리": { first: "2026-10-22", n: 3, ok: 2 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 }, "이라이더": { first: "2026-10-22", n: 2, ok: 0 }, "정작가": { first: "2026-10-22", n: 1, ok: 1 }, "김사장": { first: "2026-10-22", n: 1, ok: 0 } }, fails: { over: { first: "2026-10-22", n: 2 }, crack: { first: "2026-10-22", n: 1 }, "t-slip": { first: "2026-10-22", n: 1 } } }));
+      document.getElementById("dexBtn").click();
+    });
+    else if (isNeck) await startNeck(page, towel, c.patient, c.campaign, c.night);
     else await page.click(c.mode === "back" ? "#backTouchStart" : "#sideTouchStart");
     const steps = c.steps;
     for (let i = 0; i < steps.length; i++) {

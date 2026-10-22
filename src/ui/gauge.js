@@ -2,9 +2,9 @@ import { clamp } from "../lib/math.js";
 
 // Pure canvas instruments shared by neck traction and back pressing. All values are normalized by the caller.
 const DEFAULT_COLORS = {bone:"#f1eadc", coral:"#ff7a59", mint:"#8adfbf"};
-export function drawVGauge(ctx,{x,top,h,value,band:[lo,hi],limit,title,hot=false,fill=true,colors={}}){
+export function drawVGauge(ctx,{x,top,h,value,band=null,limit,title,hot=false,fill=true,colors={}}){
   const {bone:C_BONE,coral:C_CORAL,mint:C_MINT}={...DEFAULT_COLORS,...colors};
-  const t=clamp(value,0,1),w=16,bot=top+h,yAt=v=>bot-v*h;
+  const [lo,hi]=band||[0,0],t=clamp(value,0,1),w=16,bot=top+h,yAt=v=>bot-v*h;
   ctx.save();
   ctx.lineJoin = "round";
   // Both instruments use the room / paper card, with the same mint target brackets.
@@ -14,9 +14,11 @@ export function drawVGauge(ctx,{x,top,h,value,band:[lo,hi],limit,title,hot=false
   ctx.fillStyle = "rgba(15,35,31,.72)"; ctx.strokeStyle = "rgba(241,234,220,.35)"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.roundRect(x - w/2 - 3, top - 3, w + 6, h + 6, 10); ctx.fill(); ctx.stroke();
   // the band to hit
-  ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(x - w/2 - 3, yAt(hi), w + 6, (hi-lo)*h);
-  ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
-  ctx.strokeRect(x - w/2 - 3, yAt(hi), w + 6, (hi-lo)*h); ctx.setLineDash([]);
+  if(band){
+    ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.fillRect(x - w/2 - 3, yAt(hi), w + 6, (hi-lo)*h);
+    ctx.strokeStyle = C_MINT; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x - w/2 - 3, yAt(hi), w + 6, (hi-lo)*h); ctx.setLineDash([]);
+  }
   // over the band up to the limit: the crack zone (core/towel.js towelKind "taut")
   // limit omitted: a position gauge (back height) with no crack zone.
   if(limit!==undefined){ ctx.fillStyle = "rgba(255,122,89,.2)"; ctx.fillRect(x - w/2 - 3, yAt(limit), w + 6, yAt(hi) - yAt(limit)); }

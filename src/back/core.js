@@ -2,6 +2,7 @@ import {therapistStyle} from './therapistMotion.js';
 import {forceTier,failKind,FAIL_AMP,FORCE_AMP} from '../core/fail.js';
 import {crackProfile} from '../core/crack.js';
 import {scoreSuccess} from '../core/scoring.js';
+import {tightFactor} from '../core/feel.js';
 // Game-only pressure and motion curves. No DOM, rendering or device dependencies.
 export const TARGETS = [0.18, 0.50, 0.82];
 export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
@@ -42,8 +43,8 @@ export function judgeAim({height,side=SIDE_CENTRE,locked=false},step,pressure,fo
 }
 // Keep the camera loaded until the radiograph takes over, independent of tissue rebound.
 export const cameraPreload=(pressure,peak,time)=>time>=0&&time<BACK_XRAY.end?peak:pressure;
-export function pressureHint(position,step,pressure,targets=TARGETS){
-  const lateral=Math.abs(position-targets[step])/POSITION_TOL;
+export function pressureHint(position,step,pressure,targets=TARGETS,tol=POSITION_TOL){
+  const lateral=Math.abs(position-targets[step])/tol;
   if(lateral>=1)return 'position';
   const half=.18*Math.sqrt(1-lateral*lateral);
   return pressure>SWEET.ideal+half?'release':pressure<SWEET.ideal-half?'load':'ready';
@@ -51,15 +52,20 @@ export function pressureHint(position,step,pressure,targets=TARGETS){
 export const PRESS_MS = 900;
 export const SWEET = {min: 0.42, max: 0.78, ideal: 0.60};
 export const POSITION_TOL = 0.12;
+// A 영업 일지 day's zone width: mods.tight narrows it like the neck modes (core/feel.js tightFactor: ×0.8, 역경 on a tight day ×0.7).
+export const tolFor=mods=>POSITION_TOL*tightFactor(mods);
+// Do the bars show their target band? A 역경 day (zone 0, no guide) never does; otherwise the old rule: touch play, the
+// first two zones, or after a pain in the zone.
+export const showGuide=(def,{control,step,painHere})=>!(def&&def.hard)&&(control==='touch'||step<2||painHere>0);
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 export function pressureAt(heldMs){ return clamp(heldMs / PRESS_MS, 0, 1.35); }
-export function backDistance(position,step,pressure,targets=TARGETS){
+export function backDistance(position,step,pressure,targets=TARGETS,tol=POSITION_TOL){
   if(!Number.isFinite(position)||!Number.isFinite(pressure)||!Number.isInteger(step)||step<0||step>=TARGETS.length)return 9;
-  return Math.hypot((position-targets[step])/POSITION_TOL,(pressure-SWEET.ideal)/.18);
+  return Math.hypot((position-targets[step])/tol,(pressure-SWEET.ideal)/.18);
 }
-export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhale=false,targets=TARGETS}={}){
-  const d=backDistance(position,step,pressure,targets);
-  let kind=pressure>SWEET.max?'over':Math.abs(position-targets[step])>POSITION_TOL?'miss':pressure<SWEET.min||force<1?'weak':d<=1+1e-9?'ok':pressure>SWEET.ideal?'over':'weak';
+export function judgePress(position,step,pressure,force=1,{streak=0,pain=0,exhale=false,targets=TARGETS,tol=POSITION_TOL}={}){
+  const d=backDistance(position,step,pressure,targets,tol);
+  let kind=pressure>SWEET.max?'over':Math.abs(position-targets[step])>tol?'miss':pressure<SWEET.min||force<1?'weak':d<=1+1e-9?'ok':pressure>SWEET.ideal?'over':'weak';
   if(!Number.isFinite(position)||!Number.isFinite(pressure)||!Number.isInteger(step)||step<0||step>=3)kind='miss';
   // Back pressing follows the requested overload rule even at the correct spot.
   const tier=Math.max(forceTier(force),pressure>=1.2?2:pressure>=1?1:0);
