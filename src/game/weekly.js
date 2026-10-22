@@ -22,7 +22,7 @@ export function weeklyBegin(game){
   const rec = weeklyTry(store.get(WEEKLY_KEY, null), week);
   store.set(WEEKLY_KEY, rec);
   S.weekly = { week, set, tries: rec.tries };
-  S.painMax = set.painMax; S.zoneUntil = 0; S.mods = set.mods; S.boss = set.boss; S.bossLine = set.rule.line;
+  S.painMax = set.painMax; S.zoneUntil = 0; S.mods = set.mods; S.boss = set.boss; S.bossLine = set.rule.line; S.bossLive = {}; S.bossBy = "";
   track(EV.weeklyStart, { week, rule: set.rule.id, try_no: rec.tries });
   return set.patients.map((sp, i) => {
     const [p] = makePatients(nightRand(set.seed, i, 7), 0, [POOL.find(b => b.name === sp.name)]);

@@ -38,7 +38,7 @@ export const weekSeed = week => fnv("weekly:" + week);
    clinicOnly: every patient that week is 목꺾기). mods: core/campaign.js format. short: for the small button line. */
 export const WEEKLY_RULES = [
   { id: "tight",  name: "좁은 구역",   short: "좁은 구역",  mods: { tight: WEEKLY_TIGHT }, line: "이번 주는 허용 범위가 75%예요. 손 떨면 끝이에요." },
-  { id: "timer",  name: "시간 제한",   short: "20초 제한",  boss: ["timer"],  clinicOnly: true, line: "한 쪽당 20초예요. 넘기면 -20점이에요." },
+  { id: "timer",  name: "시간 제한",   short: "12초 제한",  boss: ["timer"],  clinicOnly: true, line: "한 쪽당 12초예요. 넘기면 -20점이에요." },
   { id: "noisy",  name: "숨 안내 없음", short: "숨 안내 없음", mods: { noisy: true }, line: "치료사가 입을 닫았어요. 숨은 직접 봐요." },
   { id: "taunt",  name: "도발 환자",   short: "도발 환자",  boss: ["taunt"],  clinicOnly: true, line: "첫 쪽이 PERFECT가 아니면 반대쪽이 좁아져요." },
   { id: "pain1",  name: "통증 1칸",    short: "통증 1칸",   painMax: 1, line: "통증 칸이 하나뿐이에요. 한 번 틀리면 퇴근이에요." },

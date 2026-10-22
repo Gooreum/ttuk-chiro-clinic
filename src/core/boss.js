@@ -9,13 +9,13 @@
    swap   SWAP_AT ms into the first side the patient changes his mind: the target becomes the opposite side's, once
    shrink the zone narrows the longer you aim, down to SHRINK_MIN over SHRINK_MS (the nervous trait's rule, for everyone) */
 export const TAUNT_ZONE = 0.8;
-export const TIMER_SEC = 20, HARD_TIMER_SEC = 17, TIMER_PENALTY = 20;
+export const TIMER_SEC = 12, HARD_TIMER_SEC = 9, TIMER_PENALTY = 20, TIMER_WARN = 5;   // 7차 플레이테스트: 20초는 클리어율을 4~10점밖에 못 깎았다
 export const SWAP_AT = 6000;
 export const SHRINK_MS = 18000, SHRINK_MIN = 0.65;
 
 export const BOSS_RULES = {
   taunt:  { chip: "첫 꺾기 PERFECT 아니면 반대쪽 구역 축소", cue: "첫 쪽을 PERFECT로 못 하면 반대쪽 구역이 좁아져요" },
-  timer:  { chip: "한 쪽당 20초 안에 꺾기", cue: "한 쪽당 20초. 넘기면 -20점이에요" },
+  timer:  { chip: "한 쪽당 12초 안에 꺾기", cue: "한 쪽당 12초. 넘기면 -20점이에요" },
   fake:   { chip: "날숨 아니고 들숨에 +15", cue: "이 환자는 들숨에 +15예요. 숨 안내는 안 믿어도 돼요" },
   swap:   { chip: "중간에 목표가 반대쪽으로 바뀜", cue: "한 번은 마음이 바뀌어요. 끝까지 보고 맞추세요" },
   shrink: { chip: "오래 조준할수록 구역이 좁아짐", cue: "오래 재면 구역이 좁아져요. 빨리 정하세요" }
@@ -23,6 +23,12 @@ export const BOSS_RULES = {
 export const bossRules = def => def && Array.isArray(def.boss) ? def.boss.filter(r => BOSS_RULES[r]) : [];
 export const hasRule = (rules, r) => !!rules && rules.includes(r);
 /* chips for the story card (UI wording is BOSS_RULES.chip) */
+/* the cue pills one after another (8장 has two rules; one pill with both was too long) */
+export const bossCues = rules => (rules || []).filter(r => BOSS_RULES[r]).map(r => BOSS_RULES[r].cue);
+/* the live line of a rule (def.bossLive[rule]) and who says it (def.bossBy) */
+export const liveLine = (live, rule, fallback = "") => (live && live[rule]) || fallback;
+/* the timer pill shakes and ticks for the last TIMER_WARN seconds */
+export const timerWarn = left => left !== null && left > 0 && left <= TIMER_WARN;
 export const bossChips = def => bossRules(def).map(r => BOSS_RULES[r].chip);
 
 /* zone factor of the rules (multiplies core/feel.js tolMul): the aim time (ms) and whether a taunt is on */

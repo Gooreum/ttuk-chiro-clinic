@@ -24,6 +24,6 @@ export const S = {
   stretchAt: 0, stretchPeak: 0, slipAt: 0,             // towel mode gag clocks (ms) and how far the neck goes (m)
   stretchHold: 0, overAt: 0, xrayAt: 0,                           // the stretch's hold (s, 0 = core/towel.js STRETCH_HOLD), the over-pull's clock (ms)
   saidTense: false, saidTight: false,                  // towel mode: the patient's tension lines, once each per patient
-  boss: [], bossLine: "", bossReady: false, bossTaunt: false, bossSwap: false,   // 보스 특수 규칙 (core/boss.js): the day's rules, the taunt shrink on this patient, the swap done
+  boss: [], bossLine: "", bossLive: {}, bossBy: "", swapPulse: 0, bossReady: false, bossTaunt: false, bossSwap: false,   // 보스 특수 규칙 (core/boss.js): the day's rules, the taunt shrink on this patient, the swap done
   day: -1, hard: false, painMax: 3, zoneUntil: 2, mods: {}, night: null, weekly: null                   // 영업 일지 day (-1 = a free run), pains that end the run, patients shown the green zone
 };
