@@ -3,7 +3,7 @@
    목뽑기 towel), who comes in and in what order, how many pains close the clinic (painMax), how many patients get the
    green-zone hint (zone), and story lines: intro (the card before the day), outro (after a cleared day), lines (a
    patient's start line on that day, for regulars coming back). Pure: no DOM, no three. Progress lives in
-   localStorage "chiroCampaign" ({cleared: day count, stars: [per day]}), read and written by game/flow.js.
+   localStorage "chiroCampaign" ({cleared: day count, stars: [per day], hard: [역경 stars per day]}), read and written by game/flow.js.
    Chapters (ch) only group the one list of days, so a save from before 2장 reads as it was and a new chapter just
    appends days. 3장 adds game "back" (허리펴기, back.html?day=N): one patient, three zones, avg = score / 3. 5장 adds game "side"
    (허리비틀기, side.html?day=N): one patient, two sides, avg = score / 2. 2장 adds: mods (tight = a tighter zone, noisy = no breath coaching), beat (a boss day is cleared only
@@ -260,8 +260,22 @@ export const CAMPAIGN_KEY = "chiroCampaign";
 export const dayInChapter = day => DAYS.slice(0, day).filter(d => d.ch === DAYS[day].ch).length;
 export const dayLabel = day => `${DAYS[day].ch}장 ${dayInChapter(day) + 1}일차`;
 export const chapterOf = no => CHAPTERS.find(c => c.no === no);
-/* a played-through day counts as cleared unless it is a boss day and the average fell short */
-export const dayClears = (day, complete, avg) => !!complete && !(DAYS[day].beat && avg < DAYS[day].beat);
+/* a played-through day counts as cleared unless it is a boss day and the average fell short (def: the day as played,
+   hardDay for 역경) */
+export const dayClears = (day, complete, avg, def = DAYS[day]) => !!complete && !(def.beat && avg < def.beat);
+
+/* 역경 (hard replay, playtest round 3 "20시간" plan 3.2): a day with 3 stars opens again with one pain fewer, no green
+   zone, the tight zone, and an average to beat (boss days +6, the rest HARD_BEAT). 목꺾기·목뽑기 days only: 허리 pages
+   run their own rules. Stars of hard runs live in prog.hard. */
+export const HARD_BEAT = 95;
+export const HARD_GAMES = ["clinic", "towel"];
+export const hardOpen = (prog, day) => day >= 0 && day < DAYS.length && HARD_GAMES.includes(DAYS[day].game) && prog.stars[day] >= 3;
+export function hardDay(day){
+  const d = DAYS[day];
+  return {...d, hard: true, painMax: Math.max(1, d.painMax - 1), zone: 0, mods: {...(d.mods || {}), tight: true}, beat: d.beat ? d.beat + 6 : HARD_BEAT};
+}
+/* the day as it is played: plain or 역경 */
+export const dayDef = (day, hard) => hard ? hardDay(day) : DAYS[day];
 
 /* the day's patients from the roster (and the campaign cast), in the day's order, each with that day's start line */
 export function dayRoster(day, roster){
@@ -281,7 +295,9 @@ export function dayStars(avg){ return avg >= 115 ? 3 : avg >= 98 ? 2 : 1; }
 export function readProgress(raw){
   const ok = raw && Number.isInteger(raw.cleared) && Array.isArray(raw.stars);
   const cleared = ok ? Math.max(0, Math.min(DAYS.length, raw.cleared)) : 0;
-  return {cleared, stars: DAYS.map((_, i) => ok && i < cleared ? Math.max(1, Math.min(3, raw.stars[i] | 0)) : 0)};
+  const stars = DAYS.map((_, i) => ok && i < cleared ? Math.max(1, Math.min(3, raw.stars[i] | 0)) : 0);
+  const hard = DAYS.map((_, i) => ok && Array.isArray(raw.hard) && stars[i] >= 3 ? Math.max(0, Math.min(3, raw.hard[i] | 0)) : 0);
+  return {cleared, stars, hard};
 }
 /* a day is open when every day before it is cleared */
 export const dayOpen = (prog, day) => day >= 0 && day < DAYS.length && day <= prog.cleared;
@@ -289,6 +305,12 @@ export const dayOpen = (prog, day) => day >= 0 && day < DAYS.length && day <= pr
 export function afterDay(prog, day, cleared, stars){
   if(!cleared) return prog;
   const s = prog.stars.slice(); s[day] = Math.max(s[day] || 0, stars);
-  return {cleared: Math.max(prog.cleared, day + 1), stars: s};
+  return {...prog, cleared: Math.max(prog.cleared, day + 1), stars: s};
+}
+/* after a 역경 run: a clear keeps its best hard stars, a miss changes nothing */
+export function afterHard(prog, day, cleared, stars){
+  if(!cleared) return prog;
+  const h = (prog.hard || DAYS.map(() => 0)).slice(); h[day] = Math.max(h[day] || 0, stars);
+  return {...prog, hard: h};
 }
 export const nextDay = (prog, day) => day + 1 < DAYS.length && dayOpen(prog, day + 1) ? day + 1 : -1;

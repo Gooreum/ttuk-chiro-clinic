@@ -79,6 +79,9 @@
 #dayList button.next{border-color:var(--mint);background:rgba(138,223,191,.12)}
 #dayList button.boss{border-color:var(--coral)}
 #dayList button.boss b{color:var(--coral)}
+#dayList button i.hard{color:var(--paper);background:var(--coral-deep, #c9553a);border-radius:999px;padding:1px 7px;letter-spacing:1px;font-size:12px}
+.btn.hard{font-size:17px;padding:10px 6px;background:var(--room-deep);color:var(--coral);border:2px solid var(--coral);box-shadow:none}
+.story.hard-on .sub{color:var(--coral)}
 .ch-tabs{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:4px 0 2px;-webkit-overflow-scrolling:touch}
 .ch-tabs::-webkit-scrollbar{display:none}
 .ch-tabs button{flex:none;white-space:nowrap;font:400 15px var(--display);color:var(--paper);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}

@@ -4,7 +4,7 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath } from "./feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
-import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, nextDay, dayLabel, dayClears, dayOpen } from "../core/campaign.js";
+import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel } from "../ui/campaign.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
@@ -470,7 +470,7 @@ function finish(){
   if(isBest) store.set(key, score);
   const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
   $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : "환자들이 도망갔어요") : towel ? "목뽑기 끝" : "오늘 진료 끝";
-  $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)} ${DAYS[S.day].title}` : "오늘의 진료 일지";
+  $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)}${S.hard ? " 역경" : ""} ${DAYS[S.day].title}` : "오늘의 진료 일지";
   $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
@@ -503,7 +503,7 @@ function finish(){
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
-  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && bossMissed(DAYS[S.day].beat, complete, avg), used: S.continued, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && bossMissed(dayDef(S.day, S.hard).beat, complete, avg), used: S.continued, skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
 }
 /* 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after pain or an ambulance, the patient it ended on
    comes back from the start with the pain count cleared. Their points so far come off (they are earned again).
@@ -530,7 +530,7 @@ const monetize = mountMonetize({ continueBtn: $("#continueAd"), buyBtn: $("#buyA
 let listening = false;
 /* AGENTS.md 3-5: requestPermission() and requestFullscreen() must be the first calls in the tap handler,
    un-awaited, so the user gesture is still alive. Await them only afterwards. Do not reorder. */
-async function start(game, day = -1){
+async function start(game, day = -1, hard = false){
   let perm = null, operm = null, fs = null;
   if(!__CASES__){
   try{ if(window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === "function") perm = DeviceMotionEvent.requestPermission(); }catch(e){}
@@ -552,7 +552,8 @@ async function start(game, day = -1){
   layout();
   if(!listening){ addEventListener("devicemotion", onMotion); addEventListener("deviceorientation", onOrientation); listening = true; }
   S.day = day >= 0 && day < DAYS.length ? day : -1;
-  const d = S.day >= 0 ? DAYS[S.day] : null;
+  S.hard = S.day >= 0 && !!hard;   // 역경: the same day on harder rules (core/campaign.js hardDay)
+  const d = S.day >= 0 ? dayDef(S.day, S.hard) : null;
   S.game = (d ? d.game : game) === "towel" ? "towel" : "clinic";
   S.painMax = d ? d.painMax : 3; S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
   setMode(mode()); S.runAt = performance.now();
@@ -570,25 +571,27 @@ async function start(game, day = -1){
 }
 $("#start").addEventListener("click", () => start("clinic"));
 $("#startTowel").addEventListener("click", () => start("towel"));
-$("#again").addEventListener("click", () => start(S.game, S.day));
+$("#again").addEventListener("click", () => start(S.game, S.day, S.hard));
 /* 영업 일지 (core/campaign.js): title button -> day list -> story card -> 영업 시작 (the tap that runs start()) */
 const progress = () => readProgress(store.get(CAMPAIGN_KEY, null));
-let storyDay = 0;
-function openDays(){ renderDays(progress(), day => { $("#days").hidden = true; storyDay = day; showStory(day); }); }
+let storyDay = 0, storyHard = false;
+const openStory = (day, hard = false) => { storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); };
+function openDays(){ renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }); }
 function dayEnd(complete, avg){
   if(S.day < 0) return;
-  const cleared = dayClears(S.day, complete, avg), d = DAYS[S.day];
-  const before = progress(), after = afterDay(before, S.day, cleared, dayStars(avg));
+  const d = dayDef(S.day, S.hard), cleared = dayClears(S.day, complete, avg, d);
+  const before = progress(), after = (S.hard ? afterHard : afterDay)(before, S.day, cleared, dayStars(avg));
   if(after !== before) store.set(CAMPAIGN_KEY, after);
   const next = cleared ? nextDay(after, S.day) : -1;
   const out = $("#dayOutro");
-  out.textContent = cleared ? d.outro : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${d.lose}` : `${dayLabel(S.day)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  const lose = d.lose || "역경은 역경이네요. 손 풀고 다시 와요.";
+  out.textContent = cleared ? (S.hard ? `역경 통과! ${d.outro}` : d.outro) : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${lose}` : `${dayLabel(S.day)}${S.hard ? " 역경" : ""}를 못 버텼어요. 다시 문 열어 봐요.`;
   out.hidden = false;
   $("#nextDay").hidden = next < 0;
   $("#toDays").hidden = false;
   $("#again").textContent = cleared ? "이 날 다시" : "다시 도전";
   $("#campaignSub").textContent = campaignLabel(after);
-  track(EV.dayEnd, { day: S.day + 1, cleared, stars: cleared ? dayStars(avg) : 0, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
+  track(EV.dayEnd, { day: S.day + 1, hard: S.hard ? 1 : 0, cleared, stars: cleared ? dayStars(avg) : 0, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
 }
 $("#campaignBtn").addEventListener("click", openDays);
 $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S.phase === "result") $("#result").hidden = false; });
@@ -597,16 +600,17 @@ $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S
 $("#storyGo").addEventListener("click", () => {
   const page = { back: "back.html", side: "side.html" }[DAYS[storyDay].game];
   if(page){ location.href = `${page}?day=${storyDay}`; return; }
-  start("clinic", storyDay);
+  start("clinic", storyDay, storyHard);
 });
+$("#storyHard").addEventListener("click", () => openStory(storyDay, !storyHard));
 $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; openDays(); });
-$("#nextDay").addEventListener("click", () => { $("#result").hidden = true; storyDay = S.day + 1; showStory(storyDay); });
+$("#nextDay").addEventListener("click", () => { $("#result").hidden = true; openStory(S.day + 1); });
 $("#toDays").addEventListener("click", () => { $("#result").hidden = true; openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
 // back.html's and side.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
 {
   const q = new URLSearchParams(location.search), sd = Number(q.get("story"));
-  if(q.has("story") && dayOpen(progress(), sd)){ storyDay = sd; showStory(sd); }
+  if(q.has("story") && dayOpen(progress(), sd)) openStory(sd);
   else if(q.has("days")) openDays();
 }
 const clinicNow = () => S.game === "towel" ? "towel" : "crack";
