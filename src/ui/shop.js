@@ -125,6 +125,7 @@ export function mountCoinReward(anchor){
   const label = () => adFree() ? "진료비 2배 받기" : "광고 보고 진료비 2배";
   const paint = () => {
     amt.textContent = `+${paid}`; tot.textContent = `합계 ${loadShop().coins}`;
+    line.hidden = paid <= 0;   // a run that earned nothing (주간 실패 등) shows no "+0" line
     dbl.hidden = !(isToss && (canWatchRewarded() || adFree()) && doubleOffer({ earned: paid, hard, used: doubled }));
     dbl.textContent = label();
   };

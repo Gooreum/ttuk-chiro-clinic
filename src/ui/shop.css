@@ -15,8 +15,8 @@
 .shop-help{margin:0;padding:0;list-style:none;display:grid;gap:2px;font-size:12px;color:var(--muted)}
 .shop-help li::before{content:"- "}
 .shop-help-title{margin:0;font:600 12px var(--body);color:var(--paper)}
-.coin-line{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:10px;font:600 14px var(--body);color:var(--paper);border:1px dashed var(--mint);border-radius:10px;padding:8px 12px}
-.coin-line b{font-family:var(--display);font-weight:400;font-size:20px;color:var(--mint);font-variant-numeric:tabular-nums}
-.coin-line small{font-size:12px;font-weight:500;color:var(--muted)}
+.coin-line{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:10px;font:600 14px var(--body);color:var(--paper-ink,#24302d);border:1px dashed #2c7a5e;border-radius:10px;padding:8px 12px}   /* on the cream result card (cream text on cream was invisible, pt10b) */
+.coin-line b{font-family:var(--display);font-weight:400;font-size:20px;color:#2c7a5e;font-variant-numeric:tabular-nums}
+.coin-line small{font-size:12px;font-weight:500;color:#6b7774}
 #storyCoupon.on{background:var(--mint);color:var(--room-deep)}
 #shopBtn{font-size:14px;padding:7px 6px}

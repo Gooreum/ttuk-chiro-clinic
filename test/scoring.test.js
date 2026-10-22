@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { scoreSuccess, rankTitle, patientStars, crackAvg, comboOf, comboAvg, COMBO_CAP } from "../src/core/scoring.js";
+import { scoreSuccess, rankTitle, patientStars, crackAvg, comboOf, comboAvg, COMBO_CAP, mixedCracks } from "../src/core/scoring.js";
 
 describe("scoreSuccess", () => {
   it("base is 100 - 40d, PERFECT below 0.35", () => {
@@ -66,5 +66,12 @@ describe("both-side helpers", () => {
   });
   it("rank average is per crack (two per patient)", () => {
     expect(crackAvg(1000, 5)).toBe(100);
+  });
+});
+
+describe("mixedCracks", () => {
+  it("counts 2 cracks per 목꺾기 patient and 1 per 목뽑기 patient", () => {
+    expect(mixedCracks(["clinic", "towel", "clinic"])).toBe(5);
+    expect(mixedCracks([])).toBe(0);
   });
 });

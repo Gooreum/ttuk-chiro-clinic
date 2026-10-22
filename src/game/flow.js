@@ -10,7 +10,7 @@ import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel, showEnding } from "../ui/campaign.js";
 import { mountQuests } from "./questFlow.js";
 import { QUESTS, questRoster } from "../core/quests.js";
-import { scoreSuccess, rankTitle, patientStars, crackAvg } from "../core/scoring.js";
+import { scoreSuccess, rankTitle, patientStars, crackAvg, mixedCracks } from "../core/scoring.js";
 import { applyLook } from "../scene/look.js";
 import { pickReaction } from "../core/faceRig.js";
 import { failKind, failLine, reviewLine, FAIL_AMP, FORCE_AMP, FAIL_STAMP, failTags, forceTier, FORCE_STAMP, FORCE_LINES } from "../core/fail.js";
@@ -514,13 +514,15 @@ function towelHurt(kind){
 
 export function finish(){
   S.phase = "result"; S.busy = true; setAmbient(); closeChart();
-  const score = S.score, towel = S.game === "towel", key = towel ? "chiroTowelBest" : "chiroBest";
+  const mixed = !!(S.night || S.weekly || S.rush);   // both neck games in one run: the last patient's game says nothing about the run
+  const score = S.score, towel = S.game === "towel" && !mixed, key = towel ? "chiroTowelBest" : "chiroBest";
   const best = store.get(key, 0);
   const campaign = S.day >= 0;
   const isBest = !campaign && !S.night && !S.rush && !S.weekly && !(S.quest >= 0) && score > best && S.pain < S.painMax && !S.ambulance;   // 심야 진료 keeps its own record (game/night.js)
   if(isBest) store.set(key, score);
-  const avg = towel ? score / S.patients.length : crackAvg(score, S.patients.length);   // towel: one tug per patient
-  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : towel ? "목뽑기 끝" : "오늘 진료 끝";
+  // towel: one tug per patient. 심야 진료 and 보스 러시 count the treated patients only (the unplayed rest of an endless / 26-patient run would drag the average, and its coins, to nothing), 주간 챌린지 its whole line-up
+  const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
+  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝";
   $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)}${S.hard ? " 역경" : ""} ${DAYS[S.day].title}` : "오늘의 진료 일지";
   $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rtotal").textContent = score;
@@ -558,7 +560,7 @@ export function finish(){
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
-  coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
+  coinReward.show({ runKey: S.runAt, avg, complete: complete || !!S.night || !!S.rush, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
   shareCard(complete, avg, deferAd);
   askReview(complete).then(asked => monetize.showResult({ endedBad: S.ambulance || S.pain >= S.painMax, bossMiss: campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay()), used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferAd }));
 }

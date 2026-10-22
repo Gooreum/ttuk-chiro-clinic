@@ -4,6 +4,7 @@ import {drawVGauge,drawHBar,drawHint} from '../src/ui/gauge.js';
 function mockContext(){
   const ctx={};
   for(const name of ['save','restore','beginPath','roundRect','fill','stroke','fillRect','strokeRect','setLineDash','moveTo','lineTo','arc','fillText','strokeText'])ctx[name]=vi.fn();
+  ctx.measureText=vi.fn(t=>({width:t.length*14}));
   ctx.createLinearGradient=vi.fn(()=>({addColorStop:vi.fn()}));
   return ctx;
 }

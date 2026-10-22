@@ -21,3 +21,7 @@ export const rankTitle = (avg, pain) => pain >= 3 ? "면허 재시험 대상"
 export const patientStars = sideStars => Math.min(...sideStars);
 /* Rank thresholds are per crack, and every patient takes two cracks. */
 export const crackAvg = (score, patients) => score / (patients * 2);
+/* 심야 진료 and 주간 챌린지 mix both neck games in one run (a clinic patient takes two cracks, a towel patient one tug), so the
+   per-crack average counts the games of the patients it covers instead of assuming two cracks each (pt10b: a towel-last run
+   divided by patients and read as 143, a clinic-last run by 2x patients). */
+export const mixedCracks = games => games.reduce((n, g) => n + (g === "towel" ? 1 : 2), 0);

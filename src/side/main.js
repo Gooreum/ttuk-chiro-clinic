@@ -339,7 +339,7 @@ function drawHud(pressure,br){
   ctx.setTransform(hudDpr,0,0,hudDpr,0,0);ctx.clearRect(0,0,width,height);
   if(S.phase!=='play')return;
   const R=clamp(height*.19,62,Math.min(width,height)*.25),cx=width*.5,cy=height*.55;
-  const h=clamp(R*1.7,110,height*.62),x=Math.min(cx+Math.max(R*1.7,136),width-76),top=clamp(cy-h*.55,82,height-h-28);
+  const h=clamp(R*1.7,110,height*.62),x=43,top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2)
   if(!S.locked){
     const up=v=>heightDown()>0?1-v:v,t=goal().height,a=up(t-TOL),b=up(t+TOL);
     drawVGauge(ctx,{x,top,h,title:'높이',value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:'#7fd1b9'}});
