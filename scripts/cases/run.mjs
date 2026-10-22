@@ -100,7 +100,7 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
     document.getElementById("campaignBtn").click();
     document.getElementById(kind === "weekly" ? "daysWeekly" : kind === "rush" ? "daysRush" : "daysNight").click();
   }, night);
-  if (campaign) return page.evaluate(({ day, story, hard, quest, list }) => {
+  if (campaign) return page.evaluate(({ day, story, hard, quest, list, interlude }) => {
     if (quest || list) {
       localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
       document.getElementById("campaignBtn").click();
@@ -111,9 +111,10 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
       return;
     }
     const n = hard ? day + 1 : day;
-    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
+    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2), ...(interlude ? {} : { seen: [2, 3, 4, 5, 6, 7, 8] }) }));
     document.getElementById("campaignBtn").click();
     document.querySelector(`#dayList button[data-day="${day}"]`).click();
+    if (interlude) return;
     if (hard) document.getElementById("storyHard").click();
     if (!story) document.getElementById("storyGo").click();
   }, campaign);

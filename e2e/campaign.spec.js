@@ -62,6 +62,8 @@ test("영업 일지: 1장을 다 깨면 2장 탭이 열리고 캠페인 환자�
   await expect(page.locator('#dayList button[data-day="0"]')).toBeVisible();
   await page.click('#chTabs button[data-ch="2"]');
   await page.click('#dayList button[data-day="7"]');
+  await expect(page.locator("#interludeTitle")).toHaveText("월세 동결, 맞은편엔 현수막");   // 장 막간 first
+  await page.locator("#interludeGo").dispatchEvent("click");
   await expect(page.locator("#storyNo")).toHaveText("2장 1일차");
   await page.click("#storyGo");
   const day = await page.evaluate(() => ({ day: window.__game.S.day, names: window.__game.S.patients.map(p => p.name).sort() }));
@@ -71,7 +73,7 @@ test("영업 일지: 1장을 다 깨면 2장 탭이 열리고 캠페인 환자�
 
 test("영업 일지: 3장 허리펴기 날은 back.html?day로 넘어가 그날 환자를 받는다", async ({ page }) => {
   const errs = watchErrors(page);
-  await page.addInitScript(() => localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 14, stars: Array(14).fill(2) })));
+  await page.addInitScript(() => localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 14, stars: Array(14).fill(2), seen: [2, 3] })));
   await page.goto("./");
   await expect(page.locator("#campaignSub")).toHaveText("허리 펴러 오세요 · 3장 1일차");
   await page.click("#campaignBtn");
@@ -142,5 +144,45 @@ test("영업 일지: 별 3개 날은 역경으로 다시 열리고 더 빡센 �
   await page.click("#storyGo");
   const s = await page.evaluate(() => { const S = window.__game.S; return { day: S.day, hard: S.hard, zone: S.zoneUntil, tight: !!S.mods.tight }; });
   expect(s).toEqual({ day: 0, hard: true, zone: 0, tight: true });
+  errs.check();
+});
+
+test("영업 일지: 장 막간은 다음 장 첫날 전에 한 번만 뜨고 막간 칩으로 다시 본다", async ({ page }) => {
+  const errs = watchErrors(page);
+  const shotDir = process.env.INTERLUDE_SHOTS;
+  // 3장까지 21일을 깬 저장(기존 형식: seen 없음)
+  await page.addInitScript(() => { if (!localStorage.getItem("chiroCampaign")) localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 21, stars: Array(21).fill(2) })); });
+  await page.goto("./");
+  await waitNeckAssets(page);
+  await page.click("#campaignBtn");
+  await page.click('#chTabs button[data-ch="3"]');
+  await expect(page.locator("#chInterlude")).toBeVisible();   // 3장 앞 막간은 다시 볼 수 있다
+  await page.click('#chTabs button[data-ch="4"]');
+  await expect(page.locator("#chInterlude")).toBeVisible();
+  await page.click('#chTabs button[data-ch="1"]');
+  await expect(page.locator("#chInterlude")).toBeHidden();   // 1장은 앞에 막간이 없다
+  await page.click('#chTabs button[data-ch="4"]');
+  await page.click('#dayList button[data-day="21"]');
+  await expect(page.locator("#interlude")).toBeVisible();
+  await expect(page.locator("#story")).toBeHidden();
+  await expect(page.locator("#interludeTitle")).toHaveText("파라솔 아래 임시 진료소");
+  await expect(page.locator("#interludeLines li")).toHaveCount(5);
+  if (shotDir) for (const [w, h] of [[844, 390], [740, 360]]) { await page.setViewportSize({ width: w, height: h }); await page.screenshot({ path: `${shotDir}/interlude-${w}x${h}.png` }); }
+  await page.locator("#interludeGo").dispatchEvent("click");
+  await expect(page.locator("#interlude")).toBeHidden();
+  await expect(page.locator("#storyNo")).toHaveText("4장 1일차");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chiroCampaign")))).toMatchObject({ cleared: 21, seen: [4] });
+  // 두 번째로 열면 바로 사연 카드
+  await page.locator("#storyBack").dispatchEvent("click");
+  await page.click('#dayList button[data-day="21"]');
+  await expect(page.locator("#interlude")).toBeHidden();
+  await expect(page.locator("#story")).toBeVisible();
+  await page.locator("#storyBack").dispatchEvent("click");
+  // 막간 칩으로 다시 보고 일지로 돌아온다
+  await page.click("#chInterlude");
+  await expect(page.locator("#interlude")).toBeVisible();
+  await expect(page.locator("#days")).toBeHidden();
+  await page.locator("#interludeGo").dispatchEvent("click");
+  await expect(page.locator("#days")).toBeVisible();
   errs.check();
 });

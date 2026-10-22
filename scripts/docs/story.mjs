@@ -10,6 +10,7 @@ import { rushPlan, rushDays, RUSH_PAIN } from "../../src/core/rush.js";
 import { DEX_PATIENTS, DEX_FAILS } from "../../src/core/dex.js";
 import { ITEMS, RUN_COIN_CAP, COUPON_MAX } from "../../src/core/shop.js";
 import { QUESTS, RULE_NAME, questUnlockDay, QUEST_GAP } from "../../src/core/quests.js";
+import { INTERLUDES } from "../../src/core/interlude.js";
 import { TALES } from "../../src/core/tales.js";
 
 const ALL = [...ROSTER, ...CAST];
@@ -56,6 +57,9 @@ for (const c of CHAPTERS) {
     w(d.beat ? `- 평균 미달: 평균 N점. ${d.beat}점을 못 넘었어요. ${d.lose}` : `- 실패: ${dayLabel(i)}를 못 버텼어요. 다시 문 열어 봐요.`, "");
   });
 }
+
+w("## 장 막간", "", "- 보스를 처음 깬 뒤 다음 장 첫날 사연 카드 전에 한 번 뜨고, 영업 일지의 '막간' 칩으로 다시 본다. 저장은 `chiroCampaign.seen`.", "");
+INTERLUDES.forEach(i => { w(`### ${i.before}장 앞 ${i.title} (${i.form})`, ""); i.lines.forEach(l => w(`- ${l}`)); w(""); });
 
 w("## 심야 진료 (엔드게임)", "",
   "- 56일을 모두 깨면 타이틀과 영업 일지 아래 `심야 진료`가 열린다. 잠겨 있으면 '56일 다 깨면 열려요'.",

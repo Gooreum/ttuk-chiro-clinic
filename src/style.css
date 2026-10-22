@@ -89,6 +89,11 @@
 .ch-tabs button{flex:none;white-space:nowrap;font:400 15px var(--display);color:var(--paper);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
 .ch-tabs button.on{color:var(--room);background:var(--mint);border-color:var(--mint)}
 .ch-tabs button:disabled{opacity:.4;cursor:default}
+.lead-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.lead-row .days-lead{margin:0;flex:1;min-width:0}
+.ch-interlude{flex:none;font:400 13px var(--display);color:var(--paper);background:transparent;border:1px solid var(--line);border-radius:999px;padding:3px 11px;cursor:pointer}
+.ch-interlude:hover{border-color:var(--mint);color:var(--mint)}
+.paper-note .sub{color:var(--coral-deep)}
 .story-lines{display:grid;gap:4px;margin:0;padding:0;list-style:none}
 .log .story-lines li{display:block;border:0;padding:0 0 0 12px;text-indent:-12px;text-align:left;font-size:14px;line-height:1.45}
 .story-lines li::before{content:"- ";color:var(--coral-deep);font-weight:700}

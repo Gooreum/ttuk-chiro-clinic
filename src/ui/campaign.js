@@ -3,6 +3,7 @@
    inside a user gesture (AGENTS.md 3-5). */
 import { $ } from "../lib/dom.js";
 import { DAYS, CHAPTERS, ENDING, dayOpen, dayLabel, dayInChapter, dayDef, hardOpen, HARD_GAMES } from "../core/campaign.js";
+import { interludeOpen } from "../core/interlude.js";
 import { bossRules, bossChips } from "../core/boss.js";
 
 const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기"};
@@ -16,7 +17,7 @@ export function campaignLabel(prog){
 /* chapter tabs (#chTabs) over the day list; a chapter opens when its first day does. Starts on the chapter of the
    next day to play. */
 let shownCh = 0;
-export function renderDays(prog, onPick, ch = 0){
+export function renderDays(prog, onPick, ch = 0, onInterlude = null){
   const nextCh = DAYS[Math.min(prog.cleared, DAYS.length - 1)].ch;
   shownCh = ch || nextCh;
   const tabs = $("#chTabs"); tabs.textContent = "";
@@ -30,12 +31,16 @@ export function renderDays(prog, onPick, ch = 0){
     t.textContent = t.disabled ? `${c.no}장` : `${c.no}장 ${c.title}${allHard ? " ★" : ""}`;   // a locked chapter keeps its title a surprise
     if(allHard) t.classList.add("hard-all");
     if(c.no === shownCh) t.classList.add("on");
-    t.onclick = () => renderDays(prog, onPick, c.no);
+    t.onclick = () => renderDays(prog, onPick, c.no, onInterlude);
     tabs.appendChild(t);
   });
   // eight chapters: one scrolling row, the open one in view
   const on = tabs.querySelector(".on");
   if(on) tabs.scrollLeft = Math.max(0, on.offsetLeft - tabs.offsetLeft - 24);
+  const ib = $("#chInterlude");   // 장 막간 chip: replay the card that opened this chapter
+  ib.hidden = !(onInterlude && interludeOpen(prog, shownCh));
+  ib.dataset.ch = String(shownCh);
+  ib.onclick = () => onInterlude && onInterlude(shownCh);
   $("#chLead").textContent = CHAPTERS.find(c => c.no === shownCh).lead;
   const list = $("#dayList"); list.textContent = "";
   DAYS.forEach((d, i) => {
@@ -58,6 +63,17 @@ export function renderDays(prog, onPick, ch = 0){
     li.appendChild(b); list.appendChild(li);
   });
   $("#days").hidden = false;
+}
+
+/* 장 막간 card (index.html #interlude): entry from core/interlude.js; go = the close button's label */
+export function showInterlude(entry, go, onClose){
+  $("#interludeForm").textContent = entry.form;
+  $("#interludeTitle").textContent = entry.title;
+  const ul = $("#interludeLines"); ul.textContent = "";
+  entry.lines.forEach(line => { const li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
+  $("#interludeGo").textContent = go;
+  $("#interludeGo").onclick = () => { $("#interlude").hidden = true; onClose(); };
+  $("#interlude").hidden = false;
 }
 
 /* the ending card (index.html #ending) after the last day's first clear */

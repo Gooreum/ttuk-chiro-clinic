@@ -7,7 +7,7 @@ import { tightFactor } from "../core/feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
 import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
-import { renderDays, showStory, campaignLabel, showEnding } from "../ui/campaign.js";
+import { renderDays, showStory, campaignLabel, showEnding, showInterlude } from "../ui/campaign.js";
 import { mountQuests } from "./questFlow.js";
 import { QUESTS, questRoster } from "../core/quests.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg, mixedCracks } from "../core/scoring.js";
@@ -38,6 +38,7 @@ import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush
 import { dexMet, dexDone, dexFailSeen, dexResult, mountDex } from "./dex.js";
 import { track, screenView, setMode, firstSuccess, askReview } from "../platform/analytics.js";
 import { EV, runOutcome } from "../core/analytics.js";
+import { interludeForDay, interludeOf, interludeSeen, markInterludeSeen } from "../core/interlude.js";
 
 /* Flow: loadPatient -> adjust -> success / hurt -> (switchSide -> adjust -> success) -> next patient -> finish
    (day log, best score in localStorage "chiroBest"). Every patient is adjusted on the complaint side, then the opposite.
@@ -676,8 +677,14 @@ $("#again").addEventListener("click", () => {
 /* 영업 일지 (core/campaign.js): title button -> day list -> story card -> 영업 시작 (the tap that runs start()) */
 const progress = () => readProgress(store.get(CAMPAIGN_KEY, null));
 let storyDay = 0, storyHard = false, endingPending = false;
-const openStory = (day, hard = false) => { qf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
-function openDays(){ renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }); }
+/* 장 막간: the first time a chapter's first day opens, its card comes before the story card (core/interlude.js) */
+function openStory(day, hard = false){
+  const it = interludeForDay(day), prog = progress();
+  if(it && !interludeSeen(prog, it.before)){ store.set(CAMPAIGN_KEY, markInterludeSeen(prog, it.before)); showInterlude(it, "사연 보기", () => openStoryCard(day, hard)); return; }
+  openStoryCard(day, hard);
+}
+const openStoryCard = (day, hard = false) => { qf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
+function openDays(){ renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), "일지로", openDays); }); }
 const qf = mountQuests({ start, back: openDays });
 function dayEnd(complete, avg){
   if(S.day < 0 && S.quest >= 0) return qf.end(complete, avg);
