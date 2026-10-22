@@ -397,6 +397,7 @@ function frame(now){
     if(burstNow){const html=`${organLabel(S.organs)} 파열!<small>${injuryLabel(S.tier,S.shotAim.height,S.step,false)}</small>`;if($('backCutLabel').innerHTML!==html)$('backCutLabel').innerHTML=html;}
     else $('backCutLabel').textContent=face?'':S.tier?injuryLabel(S.tier,S.shotAim.height,S.step,false):S.kind==='ok'?'압박이 풀리는 순간':S.kind==='weak'?'아직 풀리지 않았어요':'압박이 빗나갔어요';
     $('backCutLabel').hidden=face||shotTime<(S.tier?.8:BACK_XRAY.start)+style.xrayDelay;
+    app.classList.toggle('xray-on',!face&&shotTime>=(S.tier?.8:BACK_XRAY.start)+style.xrayDelay);   // PERFECT/실패 도장을 필름 동안 구석으로 접는다 (31차)
     if(shotTime>=BACK_XRAY.start+style.xrayDelay&&shotTime<BACK_XRAY.release+style.xrayDelay&&!S.tier)$('backCutLabel').textContent=S.kind==='ok'?'꽉 눌려 있던 그 자리':'아직 압박이 남아 있어요';
     if(S.tier&&shotTime>=timing.sirenAt&&!S.sirenPlayed){S.sirenPlayed=true;ambulanceSound();}
     app.classList.toggle('ambulance',S.tier>0&&shotTime>=timing.sirenAt);
@@ -411,7 +412,7 @@ function frame(now){
       sync();face=false;shotTime=-1;
     }
   }
-  S.faceVisible=face;if(!face){domHud.hideSpeech();lastSpeech='';}app.classList.toggle('face-closeup',face);
+  S.faceVisible=face;if(!face){domHud.hideSpeech();lastSpeech='';}app.classList.toggle('face-closeup',face);if(S.phase!=='anim')app.classList.remove('xray-on');
   const emergency=S.phase==='anim'&&S.tier>0&&S.sirenPlayed;app.classList.toggle('ambulance',emergency);$('backEmergency').hidden=!emergency;
   $('backImpact').hidden=!(S.phase==='anim'&&S.kind==='ok'&&!S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   $('backImpactTail').textContent=S.tier===2?'작!':'적…';$('backImpactTail').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt+.05&&shotTime<therapistStyle(S.force,S.tier).impactAt+.65);

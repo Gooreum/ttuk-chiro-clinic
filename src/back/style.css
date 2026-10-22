@@ -65,3 +65,6 @@
 #backApp .day-no{margin:0;font:600 13px 'IBM Plex Sans KR',sans-serif;color:var(--coral,#ff7a59)}
 #backApp .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;color:#17312c;border-radius:8px;padding:8px 10px}
 #backApp a.btn{display:block;text-align:center;text-decoration:none}
+
+/* 31차: 필름이 열리면 PERFECT·실패 도장을 왼쪽 위 구석으로 접어 척추 왼쪽을 가리지 않게 한다(27차 .tuck과 같은 자리) */
+#backApp.xray-on .stamp-card{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}
