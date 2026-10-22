@@ -163,7 +163,7 @@ function finish(){
   const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=complete&&S.score>best;
   if(record)store.set('chiroBackMotionBest',S.score);
   $('backResultTitle').textContent=S.tier?'구급차가 왔어요':complete?'허리까지 시원하게.':'오늘은 여기까지만.';
-  $('backReview').textContent='“'+reviewLine({stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
+  $('backReview').textContent='“'+reviewLine({name:patient.name,stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('backTotal').textContent=S.score;
   $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('li');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
   $('backRank').textContent=rankTitle(S.score/3,S.tier||S.mistakes>=painMax?3:S.mistakes);

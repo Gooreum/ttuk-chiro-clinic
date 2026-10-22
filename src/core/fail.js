@@ -1,4 +1,5 @@
 import { REVIEWS } from "../patient/roster.js";
+import { starPool, chooseReview } from "./personaReviews.js";
 
 /* Wrong-crack gags (AGENTS.md 3-6). Judging is untouched: adjust() decides as before, this only names the show.
    kind: "over" past the danger limit (rubber-band boing, "잠깐잠깐!"), "dud" just off (a half crack that fizzles),
@@ -65,12 +66,12 @@ export const FAIL_REVIEWS = {
 /* r: a day log row {stars, fails: [kind...], tiers: [0|1|2...], lines, ambulance}. Walked out (stars 0) -> the patient's own parting line;
    a crack / break -> the pool of the last hard one; wrong cracks -> the pool of the last kind; otherwise the usual
    star reviews. */
-export function reviewLine(r, rand = Math.random){
-  const pick = a => a[Math.min(a.length - 1, Math.floor(rand()*a.length))];
+export function reviewLine(r, rand = Math.random, used = null){
+  const pick = a => chooseReview(a, used, rand);
   if(!r.stars && !r.ambulance) return (r.lines && r.lines.quit) || "다음에 다시 올게요…";
   const hard = (r.tiers || []).filter(Boolean).pop();
   if(hard && FORCE_REVIEWS[hard]) return pick(FORCE_REVIEWS[hard]);
   const last = r.fails && r.fails[r.fails.length - 1];
   if(last && FAIL_REVIEWS[last]) return pick(FAIL_REVIEWS[last]);
-  return pick(REVIEWS[r.stars] || ["다음에 다시 올게요…"]);
+  return pick(starPool(r.name, r.stars, REVIEWS[r.stars] || ["다음에 다시 올게요…"]));
 }

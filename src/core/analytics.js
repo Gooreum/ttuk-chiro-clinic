@@ -33,6 +33,8 @@ export const EV = {
   painAd: "pain_ad",              // 영업 일지 story card: the rewarded "통증 칸 +1" (click / granted / fail)
   shopBuy: "shop_buy",            // 진료실 꾸미기: an item was bought (item, price, coins_left)
   coinEarn: "coin_earn",          // 진료비: a run paid out (step run) or the rewarded 2x paid the same again (step double)
+  share: "share",                 // 자랑하기 on a result card (where night/rush/day, how toss/native/copied/fail)
+  leaderboard: "leaderboard_open", // Toss game-center leaderboard: 랭킹 보기 (open) and the score submit result
   purchase: "iap_purchase",       // 광고 제거: start / success / fail / restore (not GA4's reserved ecommerce "purchase")
   review: "review_request"        // the Toss review prompt was asked for (whether it shows is up to Toss)
 };
