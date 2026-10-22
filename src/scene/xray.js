@@ -449,7 +449,7 @@ const AX_X = new THREE.Vector3(1, 0, 0), AX_Y = new THREE.Vector3(0, 1, 0), AX_Z
    2026-10-22: disc, muscle, facet and rot patients showed almost no bone moving). Every symptom also holds the stuck vertebra out
    of line in the side view (a step back, a tip) that snaps into place with the same overshoot. back: model units (~1.5 mm per
    0.001), tip: radians about the left-right axis. */
-const SIDE_SLIP = {disc: {back: 0.0085, tip: -0.34}, muscle: {back: 0.0075, tip: 0.3}, facet: {back: 0.0078, tip: -0.32}, rot: {back: 0.007, tip: 0.3}, flat: {back: 0.0032, tip: -0.14}};
+const SIDE_SLIP = {disc: {back: 0.0125, tip: -0.5}, muscle: {back: 0.011, tip: 0.46}, facet: {back: 0.0115, tip: -0.48}, rot: {back: 0.0105, tip: 0.45}, flat: {back: 0.0048, tip: -0.21}};
 const DISC_H = 0.0075;     // a disc's rest height (model units; the stuck-disc lift above uses the same)
 const SEP_AT = 0.3, SEP_GAP = 0.045;   // an over-pull's x-ray: s until the neck tears off at C7/T1, how far it goes (model units, ~7 cm shown)
 const smooth01 = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
