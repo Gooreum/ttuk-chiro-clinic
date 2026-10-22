@@ -89,7 +89,13 @@ async function setupNeck(page, towel) {
     window.__cs = { S, adjust: flow.adjust, feel, tw };
   });
 }
-async function startNeck(page, towel, patient) {
+async function startNeck(page, towel, patient, campaign) {
+  if (campaign) return page.evaluate(({ day, story }) => {
+    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: day, stars: Array(day).fill(2) }));
+    document.getElementById("campaignBtn").click();
+    document.querySelector(`#dayList button[data-day="${day}"]`).click();
+    if (!story) document.getElementById("storyGo").click();
+  }, campaign);
   await page.evaluate(async ({ towel, patient }) => {
     const { makePatients } = await import("/src/patient/roster.js");
     const { S } = window.__cs;
@@ -196,7 +202,7 @@ async function record(browser, c) {
     await page.evaluate(() => { const d = document.createElement("div"); d.style.cssText = "position:fixed;inset:0;background:#fff;z-index:2147483647"; document.body.appendChild(d); setTimeout(() => d.remove(), 160); });
     await sleep(800);
     tStart = Date.now();
-    if (isNeck) await startNeck(page, towel, c.patient);
+    if (isNeck) await startNeck(page, towel, c.patient, c.campaign);
     else await page.click(c.mode === "back" ? "#backTouchStart" : "#sideTouchStart");
     const steps = c.steps;
     for (let i = 0; i < steps.length; i++) {

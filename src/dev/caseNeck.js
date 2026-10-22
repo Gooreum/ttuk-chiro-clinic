@@ -45,9 +45,19 @@ async function after(step, before, c){
   return waitFor(() => S.idx !== before.idx || S.sideIdx !== before.sideIdx || resultOpen(), to, "다음 쪽");
 }
 
+/* 영업 일지 cases: a save with the days before `day` cleared, then the same taps a player makes (일지 -> day -> 영업 시작).
+   story: stop on the story card. */
+function campaignBegin({ day, story }){
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: day, stars: Array(day).fill(2) }));
+  $("campaignBtn").click();
+  document.querySelector(`#dayList button[data-day="${day}"]`).click();
+  if(!story) $("storyGo").click();
+}
+
 runCase({
   ready: () => waitFor(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, 150000, "에셋 로드").then(() => document.fonts.ready),
   begin(c){
+    if(c.campaign){ campaignBegin(c.campaign); return; }
     $(c.mode === "towel" ? "startTowel" : "start").click();
     if(c.patient){
       const i = S.patients.findIndex(p => p.name === c.patient);

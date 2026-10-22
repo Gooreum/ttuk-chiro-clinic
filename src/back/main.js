@@ -9,6 +9,9 @@ import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
+import {CAST} from '../patient/cast.js';
+import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,nextDay} from '../core/campaign.js';
+import {quietDay} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
 import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
@@ -37,7 +40,12 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   cue:'',pausedAt:0,previousPhase:null,sirenPlayed:false,faceVisible:false,speechStage:-1};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 const names=['등 위쪽','등 가운데','허리'];
-const patient=ROSTER.find(p=>p.name==='박대리');
+// 영업 일지 허리펴기 day (back.html?day=N from index.html's story card): that day's patient (name and lines; the body is
+// always 박대리's prone model), its pain limit and the day result. Otherwise the free 박대리 run.
+const dayQ=Number(new URLSearchParams(location.search).get('day')),
+  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='back'?dayQ:-1,dayDef=DAY>=0?DAYS[DAY]:null;
+const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
+const painMax=dayDef?dayDef.painMax:3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-height shove names where it actually landed.
 // An overload that also missed the ring bursts the organs there, one side only if it missed left/right
@@ -81,7 +89,7 @@ function sync(){
   if(S.phase!=='paused')clinicAudio.setAmbient();
   $('backScore').textContent=String(S.score);
   $('backLock').hidden=S.locked;$('backRelock').hidden=!S.locked;
-  const el=$('backMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 3회`);
+  const el=$('backMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / ${painMax}회`);
   [...el.querySelectorAll('i')].forEach((e,i)=>e.classList.toggle('on',i<S.mistakes));
   [...$('backDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.step&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('backZone').textContent=names[S.step]+' '+(S.step+1)+'/3';
@@ -153,14 +161,27 @@ function finish(){
   $('backReview').textContent='“'+reviewLine({stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('backTotal').textContent=S.score;
   $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('li');e.textContent=`${name} ${S.results[i]?S.results[i].points+'점':'—'}`;return e;}));
-  $('backRank').textContent=rankTitle(S.score/3,S.tier?3:S.mistakes);
+  $('backRank').textContent=rankTitle(S.score/3,S.tier||S.mistakes>=painMax?3:S.mistakes);
   $('backBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('backResult').hidden=false;sync();
   const outcome=runOutcome({ambulance:!!S.tier,pain:S.mistakes,complete});
-  track(EV.runEnd,{game:'back',outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:S.continued,run_ms:performance.now()-S.runAt,rank:$('backRank').textContent});
+  track(EV.runEnd,{game:'back',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:S.continued,run_ms:performance.now()-S.runAt,rank:$('backRank').textContent});
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,used:S.continued,skipInterstitial:asked}));
+  dayEnd(complete,S.score/3);
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
+}
+function dayEnd(complete,avg){
+  if(!dayDef)return;
+  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg));
+  if(after!==before)store.set(CAMPAIGN_KEY,after);
+  const next=cleared?nextDay(after,DAY):-1;
+  $('backResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
+  $('backDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${patient.name}이 웃고 있어요.`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  $('backDayOutro').hidden=false;$('backToDays').hidden=false;
+  $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
+  $('backAgain').textContent=cleared?'이 날 다시':'다시 도전';
+  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score});
 }
 // 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
 // zone again with the misses cleared; the zones already done keep their points.
@@ -187,12 +208,13 @@ async function start(useMotion=preferMotion){
   let granted=true;
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
-  track(EV.runStart,{game:'back',how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
+  track(EV.runStart,{game:'back',day:dayNo,how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
   track(EV.patientStart,{zone_no:1,of:3});
   Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,step:0,score:0,mistakes:0,streak:0,painHere:0,targets:makeSideTargets(),heights:makeBackTargets(),locked:false,results:[],fails:[],continued:false,
     holdAt:null,pointer:null,pending:null,animAt:0,kind:'ok',tier:0,organs:[],force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),nearSaid:false,missAt:0,faceVisible:false});
   $('backEmergency').hidden=true;app.classList.remove('ambulance');$('backWelcome').hidden=true;$('backResult').hidden=true;$('backPaused').hidden=true;$('backControls').hidden=false;
+  $('backDayOutro').hidden=$('backNextDay').hidden=$('backToDays').hidden=true;
   $('backMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
   sync();
 }
@@ -254,6 +276,13 @@ addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>
 $('backTune').addEventListener('click',openTune);
 mountClinicMenu({chip:$('backClinic'),menu:$('backClinicMenu'),current:()=>'back',onOpen:halt,onClose:resume});
 ['backWelcomeClinics','backResultClinics'].forEach(id=>renderClinicLinks($(id),'back'));
+// the day's patient on the chart, the start card and the pain slots
+if(dayDef){
+  const nm=$('backName');nm.textContent=patient.name;const ag=document.createElement('small');ag.textContent=`${patient.age}세`;nm.append(ag);
+  $('backDayNo').textContent=`영업 일지 · ${dayLabel(DAY)} ${dayDef.title}`;$('backDayNo').hidden=false;
+  $('backWelcomeText').textContent=`${patient.name}, ${patient.age}세. ${patient.cc}`;
+  $('backMistakes').replaceChildren('통증 ',...Array.from({length:painMax},()=>document.createElement('i')));
+}
 $('backTuneClose').addEventListener('click',closeTune);
 $('backPause').addEventListener('click',pause);$('backResume').addEventListener('click',closeTune);
 $('backStart').addEventListener('click',()=>start());$('backAgain').addEventListener('click',()=>start(S.control==='motion'));
@@ -365,7 +394,7 @@ function frame(now){
       else if(S.kind==='ok'){
         S.results.push(S.outcome);track(EV.patientDone,{zone_no:S.step+1,label:'done',pts:S.outcome.points,fails:S.painHere});if(S.results.length===3)finish();
         else{S.step++;track(EV.patientStart,{zone_no:S.step+1,of:3});S.painHere=0;S.phase='play';S.nearSaid=false;S.prepUntil=now+700;S.locked=false;S.position=.5;motion.position=.5;motion.neutral=null;}
-      }else if(S.mistakes>=3)finish();else{S.phase='play';S.prepUntil=now+700;S.missAt=now;S.missAim=S.shotAim;}
+      }else if(S.mistakes>=painMax)finish();else{S.phase='play';S.prepUntil=now+700;S.missAt=now;S.missAim=S.shotAim;}
       sync();face=false;shotTime=-1;
     }
   }

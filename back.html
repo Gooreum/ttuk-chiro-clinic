@@ -16,7 +16,7 @@
   <div class="top">
     <div class="chart compact" aria-label="환자 정보">
       <div class="clip"><span>진료 차트 No.03</span><span id="backDots" class="dots" aria-label="진행"><i class="now"></i><i></i><i></i></span></div>
-      <div class="chartbody"><div><div class="name">박대리<small>32세</small></div><div class="chips"><span id="backZone" class="chip-seg">등 위쪽 1/3</span></div></div></div>
+      <div class="chartbody"><div><div class="name" id="backName">박대리<small>32세</small></div><div class="chips"><span id="backZone" class="chip-seg">등 위쪽 1/3</span></div></div></div>
     </div>
     <div class="side">
       <div class="stat"><div class="score"><small>점수</small><span id="backScore">0</span></div><div id="backMistakes" class="pain" aria-label="통증 0회 / 3회">통증 <i></i><i></i><i></i></div></div>
@@ -36,7 +36,8 @@
     <section class="card wide">
       <div class="lead">
         <div class="logo"><div class="stamp" aria-hidden="true">뚝</div><h1>카이로 클리닉<small>허리펴기 · 연습 진료</small></h1></div>
-        <p>박대리, 32세. 앉아 있었을 뿐인데 허리가 접이식이 됐어요.<br>가로로 쥔 폰이 환자를 누르는 두 손이에요.</p>
+        <p id="backDayNo" class="day-no" hidden></p>
+        <p id="backWelcomeText">박대리, 32세. 앉아 있었을 뿐인데 허리가 접이식이 됐어요.<br>가로로 쥔 폰이 환자를 누르는 두 손이에요.</p>
         <div class="starts"><button id="backStart" class="btn" type="button" disabled>진료실 준비 중…</button><button id="backTouchStart" class="btn ghost" type="button" disabled>마우스·터치로 연습</button></div>
         <div class="hours"><span>한 환자 / 세 번의 손맛</span></div>
         <nav id="backWelcomeClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
@@ -57,6 +58,7 @@
       <div><div class="sub">오늘의 진료 일지</div><h2 id="backResultTitle">허리까지 시원하게.</h2></div>
       <p id="backReview"></p><div class="total"><span>합계</span><b id="backTotal">0</b></div>
       <ul id="backResultSteps"></ul><div class="rank" id="backRank"></div><div class="newbest" id="backBest"></div>
+      <p id="backDayOutro" class="day-outro" hidden></p><a id="backNextDay" class="btn" href="index.html?days=1" hidden>다음 날</a><a id="backToDays" class="btn ghost" href="index.html?days=1" hidden>영업 일지</a>
       <button id="backContinueAd" class="btn" type="button" hidden>광고 보고 이어하기</button><button id="backAgain" class="btn" type="button">한 번 더 두루룩</button><button id="backBuyAdFree" class="btn ghost buy" type="button" hidden>광고 제거</button><nav id="backResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
     </section>
   </div>

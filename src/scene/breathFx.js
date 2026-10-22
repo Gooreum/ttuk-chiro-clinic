@@ -16,7 +16,7 @@ export function updateBreathFx(br, on){
   // "들이쉬고…" as it starts, "내쉬세요…" as the out-breath (the +15 window) begins, so the crack lands as it runs out
   const r = breathCue(cue, `${S.idx}:${S.sideIdx}:${S.patientStart}`, br.exhale, closeness(S.cur.rot, S.cur.bend));
   cue = r.st;
-  if(r.line && T.breath) coach(r.line === "in" ? CUE_IN : CUE_OUT, r.line === "in" ? 1500 : 1900);
+  if(r.line && T.breath && !(S.mods && S.mods.noisy)) coach(r.line === "in" ? CUE_IN : CUE_OUT, r.line === "in" ? 1500 : 1900);
   if(wasExhale !== null && br.exhale !== wasExhale){
     const list = br.exhale ? OUT : IN, side = n++ % 2 ? 1 : -1;
     floater(list[Math.floor(Math.random()*list.length)], side*(headScreen.r + 46), -headScreen.r*0.6, br.exhale ? "breath out" : "breath", 1700);

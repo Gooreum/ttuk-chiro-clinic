@@ -27,13 +27,13 @@
 | `index.html` | 마크업만. `src/main.js`를 module로 불러온다 |
 | `src/` | 게임 코드 (아래 2절) |
 | `test/*.test.js` | vitest 단위 테스트 (`src/core` 순수 함수) |
-| `e2e/*.spec.js`, `playwright.config.js` | Playwright e2e(`npm run e2e`): 촬영 빌드(`dist-shot`)를 `vite preview`로 띄워 세 모드와 영업 일지 1일차를 끝까지 돌린다 |
+| `e2e/*.spec.js`, `playwright.config.js` | Playwright e2e(`npm run e2e`): 촬영 빌드(`dist-shot`)를 `vite preview`로 띄워 세 모드와 영업 일지 1일차를 끝까지 돌리고 2장 탭과 3장 허리펴기 날 이동을 본다 |
 | `.claude/ai-bouncer/workflow.yaml` | ai-bouncer 작업 단계 설정(검증: 유닛·빌드·e2e·선택 스크린샷, 마무리: 문서·브랜치·커밋·push 확인) |
 | `public/models/` | glTF 에셋(빌드 시 그대로 복사). 출처·라이선스는 `CREDITS.md`, 머리 재생성은 `scripts/assets/README.md` |
 | `legacy/index.html` | 모듈 분리 전 단일 파일 원본. 회귀 비교 기준이며 수정하지 않는다 |
 | `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간·교정 후 반응·반대쪽 전환 스크린샷 5장 |
 | `scripts/audio/` | 배경음 악보 `song.py`와 합성·검사·인코딩 `bgm.py`(`.venv/bin/pip install numpy scipy pedalboard pyloudnorm`, ffmpeg 필요. `.venv/bin/python -I scripts/audio/bgm.py`가 `public/audio/bgm.m4a`를 덮어쓴다. 지금 게임 곡은 예전 곡이라 실행하지 않는다, 출시 전 대체곡 후보) |
-| `scripts/cases/`, `src/dev/` | 케이스 사이트(https://kangraemin.github.io/ttuk-cases/, 레포 kangraemin/ttuk-cases). `cases.mjs`가 네 모드 케이스 65개(재현 방법·나오는 장면·조작 순서)를 정의한다. 사이트 카드를 누르면 녹화 영상 대신 실제 게임이 iframe에서 그 장면을 바로 재생한다(사용자: "케이스별로 영상 대신 웹에 바로 그려주면 안 됨?" → "ㅇㅇ 그렇게해", 2026-10-21). `npm run build:cases`(`__CASES__`, `dist-cases/`)는 판정을 강제하지 않는 실제 판정 빌드이며, `?case=<id>`면 `src/dev/caseRunner.js`가 덮개를 띄우고 한 번 탭하면(소리·시작 버튼에 사용자 제스처 필요) `caseNeck.js`/`caseBack.js`가 `run.mjs`와 같은 조작을 게임 안에서 한다. 센서 권한·전체화면 요청과 GA 전송은 이 빌드에서 끈다. 사이트에 올릴 때는 `dist-cases/`를 레포의 `play/`에 복사한다. 점검: `npx vite preview --mode cases --outDir dist-cases --port 5195` 뒤 `node scripts/cases/live-check.mjs`(모든 케이스가 끝까지 재생되는지). 영상 녹화(`run.mjs`)는 썸네일·예비용으로 남는다 |
+| `scripts/cases/`, `src/dev/` | 케이스 사이트(https://kangraemin.github.io/ttuk-cases/, 레포 kangraemin/ttuk-cases). `cases.mjs`가 네 모드 케이스 75개(재현 방법·나오는 장면·조작 순서)를 정의한다. 사이트 카드를 누르면 녹화 영상 대신 실제 게임이 iframe에서 그 장면을 바로 재생한다(사용자: "케이스별로 영상 대신 웹에 바로 그려주면 안 됨?" → "ㅇㅇ 그렇게해", 2026-10-21). `npm run build:cases`(`__CASES__`, `dist-cases/`)는 판정을 강제하지 않는 실제 판정 빌드이며, `?case=<id>`면 `src/dev/caseRunner.js`가 덮개를 띄우고 한 번 탭하면(소리·시작 버튼에 사용자 제스처 필요) `caseNeck.js`/`caseBack.js`가 `run.mjs`와 같은 조작을 게임 안에서 한다. 센서 권한·전체화면 요청과 GA 전송은 이 빌드에서 끈다. 사이트에 올릴 때는 `dist-cases/`를 레포의 `play/`에 복사한다. 점검: `npx vite preview --mode cases --outDir dist-cases --port 5195` 뒤 `node scripts/cases/live-check.mjs`(모든 케이스가 끝까지 재생되는지). 영상 녹화(`run.mjs`)는 썸네일·예비용으로 남는다 |
 | `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
 | `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
 | `docs/analytics.md` | 이벤트 이름·파라미터 표, 전환 지표, 리뷰·전면광고 규칙(6-2) |
@@ -66,6 +66,7 @@
 | `scene/room.js` | 진료실, 교정 테이블 |
 | `scene/patientModel.js` | 환자 몸(기본 도형, `bodyParts`), `pivot`(목 회전 중심) → `head`(얼굴·헤어 변형·안경·치료사 손), 링/충격파/파편. 교정 중 흐려지는 손·가운 재질 `crackFadeMats` |
 | `scene/xray.js` | 교정 X-ray: 실제 척추 모델(BodyParts3D C1–T8·추간판 C2/3–T7/8·C5–C7 골극, `public/models/spine/cervical.glb`, `loadSpine()`으로 지연 로드. 뼈는 3.0 고해상도 모양을 4.0 위치에 맞추고 AO를 버텍스 컬러로 구웠다. 흉추는 몸 쪽 고정부)과 척추관을 따라 만든 척수·신경근 관, 관절 섬광·기포, 필름 톤. `updateXray(now, amount, crackT, hurt, target)`. 어긋난 마디(`seg-1`) 아래 디스크가 빨갛게 납작 눌려 있고(0.55초 압박 `XRAY_PRE`, 위 척추가 내려앉아 떨림, 카메라가 다가감), 해방 순간 디스크가 제 높이를 넘어 부풀었다 출렁이며 위 척추를 들어 올리고 이웃 디스크로 파도가 번지며 약 1.4초에 걸쳐 파랗게 바뀐다. 척수도 그 높이에서 좁아졌다가 다시 열린다. 증상별 차이는 환자 `xr`(flat 일자목, disc 압박, rot 회전, facet 관절 잠김, muscle 근육 긴장 표시)가 정한다. 그 전에 환자마다 목 모양이 다르다(`core/spine.js`, `bendSpine`): 간격마다 아래에서 위로 굽히고 디스크 높이를 바꾼 뒤, C1을 원래 자리로 되돌리는 전단을 줘 머리 밑에서 곡선 모양만 바뀐다. 척수 관 셰이더도 같은 사슬을 따른다. 김사장은 C5–C7 골극, 최교수는 C6 골극. 뼈 재질은 반사를 거의 없애고(envMapIntensity 0.06, 거칠기 0.96) 가장자리 림을 밝게 한 x-ray 느낌이다(`boneMat`, 예전 번들거림은 "메탈 시계줄 이어져 있는것 같아", 2026-10-15). X-ray 동안 카메라는 목 옆으로 돈다 수건 모드의 필름에만 가장자리 농도와 미세한 필름 결을 넣어 가운데 목과 디스크 간격을 더 잘 읽게 한다(2026-10-16, "기능이나 임팩트 논리는 그대로 두고 시각적인 것들만"). 디스크 색·간격·분리 시각과 카메라는 유지한다. |
+| (X-ray 뼈 맞춤, 2026-10-22 "처음엔 괜찮더니 갈수록 별로") | `scene/xray.js`: 환자별 디스크 높이(`pose[].h`)를 덮어쓰지 않고 곱한다. 디스크가 들리고 눌리는 척추를 따라 움직인다. 캠페인 환자는 `base`의 척추 모양을 쓴다(전에는 기본 척추라 2장부터 다 같아 보였다). 증상 비틀림은 환자 기울기 위에 쿼터니언으로 얹는다. 스냅은 0.22초(easeOutBack 1.7)로 넘침이 보이게 하고, 디스크 파랑은 0.9초 안에 대부분 바뀌며, 맞는 순간 앞쪽 링이 번쩍인다. 판정·타이밍(`XRAY_PRE`, 2.4초 유지)은 그대로다. |
 | `scene/towel.js` | 견인 모드의 흰 목욕 수건: `public/models/towel/towel_sim.glb`(`scripts/assets/towel_sim.py`, Blender 천 시뮬레이션). 환자 5명마다 그 사람의 머리·목 메시에 맞춰 시뮬레이션한 메시 `towel_patient0N`이 head-local 좌표로 들어 있고 `head` 그룹 아래에 붙는다. 수건 가운데가 뒷목을 받치고 양 끝이 목 옆을 돌아 턱 바로 아래 윗목에서 X자로 교차한 뒤 반대쪽 주먹(턱각 옆 `TOWEL_GRIP` (±0.118, 0.03, 0.035))으로 가고, 주먹 밖으로 16~24cm가 늘어진다. 장력은 모프 `taut`(주먹을 치료사 쪽으로 6cm 당긴 모양, X자가 조여 목을 감쌈)에 그대로 넣고, slip이면 목 아래에서 치료사 쪽으로 쓸려 빠져 주먹 사이에 늘어지고, 같은 모프 경로를 되짚어 1.3초 안에 다시 감긴다. 숨기지 않는다. 치료사가 넘어지는 동안에는 느슨하게 늘어져 있다. 수건 그룹은 `userData.keep`이라 실사 머리를 쓸 때 기본 도형을 숨기는 `primitiveHeadParts`에서 빠진다(빠지지 않아 2번째 환자부터 수건이 사라졌다, 사용자: "수건 사라짐", 2026-10-15). 텍스처는 Poly Haven CC0 "Terry Cloth" 사진을 미색으로 바꾼 것(`CREDITS.md`). 사용자: "목을 x자로 감고 있는게 자연스럽고 사실적으로… 수건 질감 자체도", "천 시뮬레이션 + 사진 텍스처"(2026-10-15). 시뮬레이션 GLB가 없으면 예전 뼈 수건(`towel.glb`, `towel_build.py`, 뼈 25개를 턱 밑 슬링 경로에 놓음)으로 폴백한다. 절차적 튜브는 "골반 뼈 같다", 줄무늬는 "징그럽다", 뼈 수건은 "깁스 같다"는 지적으로 버렸다 시각 개선(2026-10-16): "큰 틀은 유지하고 디테일한 요소들만"에 따라 기존 천 시뮬레이션과 X자 감김은 유지하고, 종이색에 가까운 직물 색·거친 섬유 법선·낮은 반사와 부드러운 sheen으로 깁스 같은 흰 번들거림을 줄였다. 장력이 높을 때 섬유 반사만 조금 달라진다. |
 | `scene/therapist.js` | 견인 모드 3인칭 카메라에만 보이는 치료사(`public/models/therapist/therapist.glb`, `scripts/assets/therapist_build.py`, MPFB): 머리맡 진료용 스툴에 앉아 몸통을 세우고 약 8도 뒤로 기댄 정적 메시(예전 42도 숙임은 얼굴이 환자 얼굴 위 21cm에 붙어 "뒤로 당긴다는 느낌이 잘 안살아남", 2026-10-15. 이제 39cm). 팔은 어깨에서 잘려 있고 어깨가 팔 IK 기준점(`SHOULDER`)에 정확히 맞아 `arms.glb`가 이어진다. 몸 루트는 `camBase - REF_BASE`((0,1.55,-0.24))만큼 옮긴다(아이폰 가로에서 어깨가 5cm 어긋났던 문제). `updateTherapist(on, lean, fall)`: 장력만큼 최대 6도, 당긴 순간 끌려온 거리만큼 최대 10도 더 `mark_hip`을 축으로 뒤로 젖히고, 과하게 당기면 `mark_fall`(뒤 캐스터 바닥점)을 축으로 스툴째 80도 넘어진다(`core/towel.js` `fallProfile`). 수건 모드의 팔 어깨는 `therapistShoulder`로 이 몸의 `mark_shoulder_*`를 바로 따라가서(스무딩 없음) 젖히거나 넘어져도 소매가 붙어 있다. 넘어지는 동안 손은 수건을 놓고 어깨 위로 들려 펼쳐진다. 앉은 배가 테이블 머리 받침과 겹쳐 수건 모드에서는 받침을 숨긴다(`room.js` `headRest`). 진료 모드는 카메라가 이 사람 눈이라 숨긴다 |
 | `scene/look.js` | `applyLook(p)` 환자별 헤어·피부·가운·안경·체형. `look.real`이면 사실적 에셋 사용 |
@@ -154,6 +155,28 @@
 - 날마다 정할 수 있는 것: 게임(목꺾기·목뽑기), 환자와 순서, 통증 한도(`painMax`, 통증 칸 수도 같이 줄어든다), 초록 구역 안내 인원(`zone`), 사연(`intro`·`outro`), 단골의 그날 첫 대사(`lines`). 정의는 `core/campaign.js` `DAYS`(테스트 `test/campaign.test.js`), 화면은 `ui/campaign.js`, 연결은 `game/flow.js` `dayEnd`가 맡는다.
 - 클리어 조건은 완주(구급차 없음, 통증 한도 미만)다. 별점은 평균 점수 기준이다(`dayStars`, 순위 기준 115/98/82). 진행은 localStorage `chiroCampaign`에 저장된다. 캠페인 판은 최고 기록에 넣지 않는다.
 - 결과 카드에는 그날의 결말 한 줄, `다음 날`, `영업 일지`가 붙고 이벤트 `day_end`가 남는다. e2e는 `e2e/campaign.spec.js`다.
+- 2장 "소문의 대가"(2026-10-22, /goal "스토리를 늘려 플레이타임 20시간"): 맞은편에 반듯 정골원이 생긴다. `DAYS`는 한 목록이고 날마다 `ch`(장 번호)를 단다. 장 정보는 `CHAPTERS`(제목·한 줄 `lead`), 화면 라벨은 `dayLabel`("2장 3일차"). 저장 형식은 그대로다(`cleared`가 장을 넘어 이어진다).
+  - 일지 카드 위 장 탭(`#chTabs`)은 그 장 첫 날이 열려야 켜진다. 보스 날은 `.boss`.
+  - 캠페인 전용 환자 7명은 `patient/cast.js` `CAST`다. 로스터 환자(`base`)의 몸·얼굴·X-ray를 빌리고 가운 색만 바꿔 새 모델을 불러오지 않는다. 자유 진료에는 안 나온다. 목뽑기 대사는 `core/towel.js` `TOWEL_LINES`·`TOWEL_COOL`.
+  - 날 모디파이어 `mods`: `tight`는 허용 범위 ×0.8(`core/feel.js` `tolMul`, 목뽑기는 장력 구역·좌우 폭), `noisy`는 치료사 호흡 안내를 끈다(`breathFx.js`). 사연 카드에 칩으로 보인다.
+  - 보스 날(`beat`)은 완주하고 평균이 `beat` 이상이어야 클리어(`dayClears`). 2장 7일차 정골원 대결은 100점, 마지막 환자는 원장 강직한.
+  - 수익화: 영업 일지 첫 3일(`core/monetize.js` `ONBOARD_DAYS`)과 보스 날 결과 카드에는 전면광고를 띄우지 않는다(`quietDay`).
+  - 케이스: `campaign-ch2-story`, `campaign-ch2-day1-clear`, `campaign-ch2-boss-lose`(`campaign: {day, story}`, `scripts/cases/README.md`).
+- 3장 "허리 펴러 오세요"(2026-10-22): 허리 코너를 연다. 날 7개 중 4개가 `game: "back"`(허리펴기)이다.
+  - 허리펴기 날의 `영업 시작`은 `back.html?day=N`으로 넘어간다. 그쪽 시작 카드를 한 번 더 탭한다(iOS 센서 권한).
+  - `src/back/main.js`가 `?day`를 읽어 그날 환자 1명의 이름·나이·사연·대사를 쓴다. 몸은 늘 박대리 엎드린 모델이다.
+  - 통증 한도(`painMax`)는 통증 칸 수와 종료 조건에 그대로 들어간다. 평균은 점수 / 3구역이다.
+  - 결과 카드에 결말 한 줄과 `다음 날`(`index.html?story=N`), `영업 일지`(`index.html?days=1`)가 붙는다. index는 이 두 파라미터로 사연 카드·일지를 바로 연다.
+  - 새 환자 4명(편집장·서병장·곽셰프·근육왕)은 `CAST`에 있다. 보스는 근육왕 헬스장 대결(평균 97점).
+  - 케이스: `campaign-ch3-story`. e2e는 3장 이동과 `?day=16`(서병장, 통증 칸 2개)을 확인한다.
+- 4~8장(2026-10-22, 같은 /goal): 56일이 된다. 장마다 7일, 마지막 날이 보스다.
+  - 장: 4장 휴가철 출장(보스 99), 5장 비틀어 학회(100), 6장 방송 타고(104), 7장 위생 감사 시즌(108), 8장 프랜차이즈 전쟁(114, 3성 컷 115보다 1 낮게).
+  - 마지막 손님은 이 클리닉의 첫 원장 뚝할배다. 3장부터 보스 평균은 계속 오른다(테스트).
+  - 서브에이전트 플레이 리뷰(2026-10-22)로 고친 것: 허리펴기에 없는 규칙을 약속하던 사연(좌우 균형·좁은 점검·한 방 승부·회장 면접)을 실제 규칙대로, 7장 초반 통증 한도 3, 떡밥 연결(개업 점검관 → 나공무, 도깨비 효자손 → 뚝할배, 메가 인수 결말), 홈쇼핑 재방송·새 단골 총출동으로 반복 개그 정리, 서병장 얼굴(박대리 몸).
+  - 6~8장에는 통증 한도 1~2인 날이 많다. 허리펴기 날도 섞여 있다. 허리비틀기 날은 아직 없다.
+  - 새 캠페인 환자 16명은 `CAST`에 있다(강해녀·이마라톤·사모님·김상무·장원장·최프로·유어시·이스쿠터·뚝튜브·손경호·야알바·나공무·보건소장·도깨비영감·메가회장·뚝할배).
+  - 장 탭은 8개라 한 줄 가로 스크롤이다. 잠긴 장은 제목을 숨긴다.
+  - 케이스: `campaign-ch4-story`~`campaign-ch8-story`, `campaign-final-boss-story`.
 
 - 한 판은 환자 3명(`PER_DAY`)이다. 5명 로스터에서 매 판 랜덤으로 뽑는다(사용자: "다섯명 너무 많지 않나 동일한 시나리오자나", 2026-10-16).
 - 새 환자는 2.2초 준비 시간(`PREP_MS`) 뒤에 조준할 수 있다. 그동안은 판정하지 않는다.

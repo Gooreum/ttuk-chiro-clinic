@@ -430,8 +430,8 @@ export function loadSpine(){
   });
 }
 
-const easeOutBack = t => { const c = 2.2; t -= 1; return 1 + (c + 1)*t*t*t + c*t*t; };
-const SNAP = 0.14;
+const easeOutBack = t => { const c = 1.7; t -= 1; return 1 + (c + 1)*t*t*t + c*t*t; };
+const SNAP = 0.22;   // long enough that the overshoot shows on a phone dropping frames
 const snapAt = (t, delay) => t < 0 ? 0 : easeOutBack(clamp((t - delay)/SNAP, 0, 1));
 // disc release: shoots past its height, then settles in a few damped bounces (0 -> ~1.35 -> 1)
 const spring = t => t <= 0 ? 0 : 1 - Math.exp(-4.2*t)*Math.cos(10*t);
@@ -442,7 +442,8 @@ const PINCH = {disc: 0.9, rot: 0.65, facet: 0.55, flat: 0.6, muscle: 0.45};
 const SQUASH = {disc: 0.82, rot: 0.66, facet: 0.66, flat: 0.62, muscle: 0.58};
 /* Seconds of "pressure" after the x-ray opens, before the release. Exported for the camera push in game/loop.js. */
 export const XRAY_PRE = 0.55;
-const _c = new THREE.Color(), _tc = new THREE.Color();
+const _c = new THREE.Color(), _tc = new THREE.Color(), _dc = new THREE.Color();
+const AX_Y = new THREE.Vector3(0, 1, 0), AX_Z = new THREE.Vector3(0, 0, 1), _sq = new THREE.Quaternion();
 const DISC_H = 0.0075;     // a disc's rest height (model units; the stuck-disc lift above uses the same)
 const SEP_AT = 0.3, SEP_GAP = 0.045;   // an over-pull's x-ray: s until the neck tears off at C7/T1, how far it goes (model units, ~7 cm shown)
 const smooth01 = u => { u = clamp(u, 0, 1); return u*u*(3 - 2*u); };
@@ -456,8 +457,9 @@ const _gq = Array.from({length: 6}, () => new THREE.Quaternion()), _gp = Array.f
 const _gl = new Array(6).fill(0), _gy = new Array(6).fill(0), _gm = new THREE.Matrix4(), _top = new THREE.Vector3();
 let poseFor = null, pose = null;
 function bendSpine(target, parts){
+  // campaign cast patients (patient/cast.js) wear a regular's spine: look it up by base, cache by their own name
   if(poseFor !== target.name){
-    poseFor = target.name; const prof = spineOf(target.name); pose = spinePose(prof);
+    poseFor = target.name; const prof = spineOf(target.base || target.name); pose = spinePose(prof);
     // the degenerate neck grows its spurs: C6 first, then C5, then C7
     SPURS.forEach((m, i) => { m.visible = i < Math.round(prof.spurs*SPURS.length); });
   }
@@ -546,9 +548,11 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   // only the roots at the stuck level are drawn: fourteen of them read as bristles
   R.forEach((r, i) => [r.L, r.R].forEach(p => { if(p) p.g.visible = i === stuck; }));
   const sv = V[stuck];
-  if(kind === "rot"){ sv.g.rotation.y = 0.34*off*side; sv.g.position.x += 0.0018*off*side; }
-  if(kind === "facet"){ sv.g.rotation.z = -0.24*off*side; sv.g.position.x += 0.0015*off*side; }
-  if(kind === "muscle"){ sv.g.rotation.y = 0.12*off*side; }
+  // turned on top of the patient's bend and lean (setting one Euler angle would drop them and kink the aligned neck)
+  const twist = (ax, a) => { if(a) sv.g.quaternion.premultiply(_sq.setFromAxisAngle(ax, a)); };
+  if(kind === "rot"){ twist(AX_Y, 0.34*off*side); sv.g.position.x += 0.0018*off*side; }
+  if(kind === "facet"){ twist(AX_Z, -0.24*off*side); sv.g.position.x += 0.0015*off*side; }
+  if(kind === "muscle"){ twist(AX_Y, 0.12*off*side); }
 
   // The disc under the stuck vertebra is the main event. Pressed: nearly flat, bulging out sideways, the column above
   // sitting down on it and trembling. Released: it springs past its full height and settles in damped bounces,
@@ -560,17 +564,25 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     const breathe = before ? 0 : 0.05*Math.sin(ct*4.5)*Math.exp(-0.6*ct)*clamp(ct - 0.5, 0, 1);
     const h = 1 - sq*(1 - open) + breathe;                         // disc height factor
     const bulge = Math.max(0, 1 - open);
-    dz.g.scale.set(1 + 0.45*sq*bulge, Math.max(0.12, h), 1 + 0.3*sq*bulge);
+    // on top of the patient's own disc height (bendSpine already scaled it and set the column on it)
+    const ph = pose[stuck - 1] ? pose[stuck - 1].h : 1;
+    dz.g.scale.set(1 + 0.45*sq*bulge, Math.max(0.12, h*ph), 1 + 0.3*sq*bulge);
     if(kind === "disc") dz.g.position.z -= 0.004*bulge;            // pushed back toward the cord
-    const lift = 0.0075*(h - 1);                                   // < 0 pressed, > 0 decompressed
+    const lift = DISC_H*ph*(h - 1);                                // < 0 pressed, > 0 decompressed
     const tremble = before && crackT >= 0 ? 0.00035*Math.sin(now*0.09)*pressure : 0;
     for(let j = 0; j < stuck; j++){ V[j].g.position.y += lift; V[j].g.position.x += tremble; }
     sv.g.position.y += lift; sv.g.position.x += tremble;
+    // the discs ride with the bones: the stuck one grows about its middle, the ones above go up the whole way
+    dz.g.position.y += lift/2;
+    for(let j = 1; j < stuck; j++) if(D[j]) D[j].g.position.y += lift;
     D.forEach((d, j) => {
       if(!d || j === stuck) return;
-      const w = swell((ct - 0.07*Math.abs(j - stuck))*1.4);
-      d.g.scale.y = 1 + 0.22*w;
-      if(j < stuck) for(let k = 0; k <= j; k++) V[k].g.position.y += 0.0052*0.22*w;
+      const w = swell((ct - 0.07*Math.abs(j - stuck))*1.4), up = DISC_H*(pose[j - 1] ? pose[j - 1].h : 1)*0.22*w;
+      d.g.scale.y *= 1 + 0.22*w;
+      if(j < stuck){
+        d.g.position.y += up/2;
+        for(let k = 0; k < j; k++){ V[k].g.position.y += up; if(D[k]) D[k].g.position.y += up; }
+      }
     });
   }
   if(kind === "flat"){
@@ -590,8 +602,9 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   sv.mat.emissive.copy(_c).multiplyScalar(before ? 0.12 + 0.08*throb + 0.3*hurt : 0.25*burst);
   // the pinched disc: red and throbbing; from the release it turns blue over ~1.4 s and settles to the healthy disc
   if(dz){
-    const blue = before ? 0 : clamp(ct/1.4, 0, 1), b2 = blue*blue*(3 - 2*blue);
-    const dc = _c.clone().copy(COL.pinched).lerp(COL.freed, b2);
+    // most of the red goes with the snap, so the bone never sits aligned on a red disc; the settle keeps its 1.4 s
+    const b2 = before ? 0 : 1 - Math.pow(1 - clamp(ct/0.9, 0, 1), 2);
+    const dc = _dc.copy(COL.pinched).lerp(COL.freed, b2);
     const settle = before ? 0 : clamp((ct - 1.4)/0.8, 0, 1);
     dz.mat.color.copy(dc).lerp(dz.base, settle*0.6);
     dz.mat.emissive.copy(dc).multiplyScalar(before ? 0.3 + 0.2*throb + 0.2*hurt : 0.2 + 0.3*burst);
@@ -600,7 +613,8 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
     discGlow.forEach((g, i) => {
       g.position.copy(dz.g.position); g.position.z += 0.006;     // on the front of the disc, where it bulges
       g.material.color.copy(dc);
-      g.material.opacity = (before ? (0.1 + 0.1*throb) : 0.25*burst)*(i ? 1 : 0)*amount;
+      const lock = before ? 0 : Math.exp(-6*Math.abs(ct - SNAP))*(ct < SNAP ? 0.3 : 1);   // flares as the bone locks in
+      g.material.opacity = (before ? (0.1 + 0.1*throb) : 0.25*burst + 0.45*lock)*(i ? 1 : 0)*amount;
       g.scale.setScalar(i ? 0.03 + (before ? 0 : 0.05*(1 - burst)) : 0.014);
     });
   }
@@ -636,6 +650,7 @@ export function updateXray(now, amount, crackT, hurt, target, frac = null, tract
   // flash + bubbles at the facet joint on the stuck side
   const jx = side*0.014, jz = cordZ - 0.006, n = kind === "facet" ? 24 : 16;
   let released = false;
+  if(before) popped = false;   // a quick wrong crack right before a good one must not eat its release
   if(!before && !popped){
     popped = true; released = true;
     bubbles.forEach(b => {
