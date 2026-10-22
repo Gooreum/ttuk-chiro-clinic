@@ -17,6 +17,22 @@ export function judgeSide(aim,pressure,force,goal,o={}){
 }
 // The patient leaves only after two results on opposite sides.
 export const canLeave=results=>Array.isArray(results)&&results.length===2&&results[0].side!==results[1].side;
+// A finished run: both sides seen and no fracture. A story day also needs both sides fixed and pain under its limit
+// (3rd playtest 2026-10-22: two failed sides still cleared the day).
+export function runComplete(results,mistakes,painMax,story){
+  if(!canLeave(results)||results.some(r=>r.tier))return false;
+  return !story||(results.every(r=>r.kind==='ok')&&mistakes<painMax);
+}
+// 광고 보고 이어하기: keep the fixed sides, redo the failed ones with the pain reset. The patient stays on the side he
+// lies on now, so the order is swapped when the side to redo is not the next one (no teleport, a roll only if needed).
+export function continuePlan(order,goals,results){
+  const kept=results.filter(r=>r.kind==='ok'&&!r.tier);
+  const now=order[Math.min(1,results.length-1)];
+  if(!kept.length){const o=now===order[0]?order:[order[1],order[0]],g=o===order?goals:[goals[1],goals[0]];return {order:o,goals:g,results:[],sideIdx:0,turn:false};}
+  const k=kept[0],o=k.side===order[0]?order:[order[1],order[0]],g=o===order?goals:[goals[1],goals[0]];
+  // the fixed side is first; the redo is the other one, a roll away unless he already lies on it
+  return {order:o,goals:g,results:[k],sideIdx:now===k.side?0:1,turn:now===k.side};
+}
 // How hard a side was worked, relative to its own goal: roll and preload.
 const effort=r=>.5*(r.roll-SIDE_CENTRE)/Math.max(.01,r.goalRoll-SIDE_CENTRE)+.5*r.pressure/SWEET.ideal;
 export function balance(results){

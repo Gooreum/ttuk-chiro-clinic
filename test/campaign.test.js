@@ -26,6 +26,7 @@ describe("campaign", () => {
     expect(DAYS[20]).toMatchObject({ch: 3, game: "back", patients: ["근육왕"]});   // the gym boss ends chapter 3
     expect(DAYS.filter(d => d.ch === 3 && d.game === "back").length).toBe(4);
     expect(DAYS[29]).toMatchObject({ch: 5, game: "side", patients: ["이스쿠터"]});   // 5장 허리비틀기 demo day
+    expect(DAYS.flatMap((d, i) => d.game === "side" ? [i] : [])).toEqual([29, 33, 47, 53]);   // 3차 플레이테스트: 대칭이 주제인 날
     expect(DAYS[55]).toMatchObject({ch: 8, beat: 114});   // 뚝할배 closes the story
     expect(DAYS[55].patients.at(-1)).toBe("뚝할배");
   });
