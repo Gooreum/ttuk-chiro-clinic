@@ -100,7 +100,21 @@ async function startNeck(page, towel, patient, campaign, night, shop) {
     document.getElementById("campaignBtn").click();
     document.getElementById(kind === "weekly" ? "daysWeekly" : kind === "rush" ? "daysRush" : "daysNight").click();
   }, night);
-  if (campaign) return page.evaluate(({ day, story, hard, quest, list, interlude }) => {
+  if (campaign) return page.evaluate(({ day, story, hard, quest, list, interlude, season }) => {
+    if (season || list === "season") {
+      window.__forceSeason = "winter";
+      const eps = {};
+      const no = season ? +season.slice(-1) : 1;
+      for (let i = 1; i < no; i++) eps["winter" + i] = 2;
+      localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), hard: Array(7).fill(0) }));
+      localStorage.setItem("chiroSeason", JSON.stringify({ eps, bonus: {} }));
+      document.getElementById("campaignBtn").click();
+      document.getElementById("daysSeason").click();
+      if (list === "season") return;
+      document.querySelector('#seasonList button[data-s="' + season + '"]').click();
+      if (!story) document.getElementById("storyGo").click();
+      return;
+    }
     if (quest || list) {
       const quests = { "박대리1": 3, "최교수1": 1 };
       if (quest && /3$/.test(quest)) { quests[quest.replace(/3$/, "1")] = 2; quests[quest.replace(/3$/, "2")] = 2; }

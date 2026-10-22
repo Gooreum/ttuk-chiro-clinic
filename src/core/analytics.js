@@ -21,6 +21,8 @@ export const EV = {
   nightStart: "night_start",      // 심야 진료: an endless night run began
   weeklyStart: "weekly_start",    // 주간 챌린지: a run began (week, rule, try number)
   weeklyEnd: "weekly_end",        // 주간 챌린지: the run ended (week, rule, score, complete, best)
+  seasonStart: "season_start",    // 계절 손님: an episode began (season, ep, rule)
+  seasonEnd: "season_end",        // 계절 손님: an episode ended (cleared, stars, season bonus)
   dexOpen: "dex_open",            // 환자 도감 opened (met, fails, from title / days)
   rushStart: "rush_start",        // 보스 러시: a run began
   rushEnd: "rush_end",            // 보스 러시: the run ended (bosses reached / cleared, score)
