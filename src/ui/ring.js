@@ -96,7 +96,7 @@ export function drawRing(now, c, zone, br){
     ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
   breathArc(ctx, now, br, fade, cx, cy, R);
-  if(!(now > S.ghostFrom && now < S.ghostUntil)) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot
+  if(!(S.ghostUntil && now > S.ghostFrom - 300 && now < S.ghostUntil)) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot
 
   // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
   // ripple and a dashed line between them, ~2.5 s
