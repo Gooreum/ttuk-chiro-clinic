@@ -381,4 +381,15 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log .coin-line{padding:2px 8px;font-size:12px}
   #result .card.log .clinic-switch{gap:4px}
   #result .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
+  /* 30차: 4명 + 실패 칩이 3개씩인 주간 실패 카드는 환자 줄이 칩 때문에 한 줄씩 더 커져 345px보다 38px 길었다. 칩을 작게 하고 대사와 가깝게 붙인다 */
+  #result .card.log li .tags{gap:3px;margin-top:1px}
+  #result .card.log li .tags i{font-size:10px;line-height:1.2;padding:0 6px}
+  /* 30차: 환자가 4명 이상이면 왼쪽 칸이 길어 합계·등급·도감 줄이 카드 아래로 잘렸다. 오른쪽 칸에 빈자리가 있으니 그 세 줄을 오른쪽으로 옮긴다 */
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(.dex-new,.total,.rank){grid-column:2;grid-row:auto}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(#rlist){grid-row:2 / span 8}
+  #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>.rank{padding-left:0;justify-content:center}
+  /* 30차: 보스 러시 카드는 보스 목록(.rush-list)과 환자 목록(#rlist)이 같은 칸에 겹쳐 글자가 뒤엉켰다(환자가 많으면 645px). 보스 결과가 핵심이라 환자 목록은 접는다 */
+  #result .card.log>.rush-list~#rlist{display:none}
+  #result .card.log>.rush-list{gap:3px}
+  #result .card.log>.rush-list li{grid-template-columns:minmax(0,1fr) auto;font-size:12.5px;padding-bottom:2px}
 }

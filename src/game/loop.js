@@ -202,7 +202,9 @@ export function frame(now){
         crunch(S.fracLvl, 0.6); vib(S.fracLvl > 1 ? [60, 30, 90] : [50]);
         S.shake = Math.max(S.shake, 0.5);
         // the camera is in on the neck, so the head is off screen: put it top centre
-        hideSpeech();   // 26차: the speech bubble sat on the "C5 골절!" tag at top centre
+        // 30차: the line used to be hidden here (it sat on the "C5 골절!" tag at top centre) and was cut mid-read. It now
+        // docks low (below, S.fracLvl) and gets a second to finish; the timers of the crack itself are untouched
+        if(elBubble.classList.contains("show") && elBubble.textContent) say(elBubble.textContent, 1100, false);
         const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
         floater(`C${target.seg} ${S.fracLvl > 1 ? "골절!" : "금 감"}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
       }
@@ -377,6 +379,12 @@ export function frame(now){
   // the top when the head is high on screen (the towel mode's third-person view). Width from #app, not vw (3-4)
   elBubble.style.maxWidth = Math.round(bw*0.46) + "px";
   elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom + elBubble.offsetHeight) + "px";
+  // 30차: while the fracture x-ray is up the head is off screen and the tag owns the top centre: the line sits low instead
+  if(S.fracLvl && S.fracFired){
+    const bh = canvas.clientHeight || innerHeight;
+    elBubble.style.left = bw*0.5 + "px";
+    elBubble.style.top = Math.round(bh*0.84) + "px";
+  }
 
   if(!$("#tune").hidden){
     elPeak.textContent = Math.round(S.peakRate);

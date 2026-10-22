@@ -20,6 +20,8 @@ test("보스 러시: 보스 6명의 환자가 한 번에 깔리고 통증 3칸�
   await waitNeckAssets(page);
   await expect(page.locator("#rushBtn")).toBeEnabled();
   await page.click("#rushBtn");
+  // loadPatient() applies the first boss's mods after its fade timeout
+  await page.waitForFunction(() => window.__game.S.patients[0] && window.__game.S.mods && window.__game.S.mods.tight);
   const s = await page.evaluate(() => { const S = window.__game.S; return { rush: !!S.rush, painMax: S.painMax, n: S.patients.length, day: S.day, zone: S.zoneUntil, k: S.patients.map(p => p.rush.k), game: S.game, tight: !!S.mods.tight }; });
   expect(s).toMatchObject({ rush: true, painMax: 3, day: -1, zone: 0, game: "clinic", tight: true });
   expect(new Set(s.k).size).toBe(6);
