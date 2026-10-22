@@ -926,7 +926,8 @@ export function XRAY_AIM(target, i, out){
   move(_aim, null, hy);
   const k = clamp((hy - y0)/(y1 - y0), 0, 1);
   _aim.x += shx*k; _aim.z += shz*k;
-  // only how far the bend moved it (model -> pivot: M +y -> -z, M +z -> +y, M +x -> +x, scaled SC), so a textbook
-  // neck frames exactly as before
-  return out.set((_aim.x - hx)*SC, -0.01 + (_aim.z - hz)*SC, root.position.z - (levelY[i] + _aim.y - hy)*SC);
+  // model -> pivot: M +y -> -z, M +z -> +y, M +x -> +x, scaled SC. The front-back height is the disc's real place (user:
+  // "처음 뼈 맞추는 애니메이션은 괜찮았는데 갈수록 별로", 2026-10-22): a fixed -0.01 left every disc ~2.4 cm above screen
+  // centre, up against the HUD chips
+  return out.set((_aim.x - hx)*SC, root.position.y + _aim.z*SC, root.position.z - (levelY[i] + _aim.y - hy)*SC);
 }
