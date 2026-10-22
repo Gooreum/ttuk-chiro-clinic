@@ -7,6 +7,7 @@ import { curTolMul } from "../game/feel.js";
 import { headScreen } from "./hud.js";
 import { aimHist } from "../input/motion.js";
 import { towelTension, aimOff } from "../core/towel.js";
+import { bonusWindow, hasRule } from "../core/boss.js";
 
 /* Aim ring drawn around the patient's head on the #hud 2D canvas (AGENTS.md 3-6).
    Aim dot: x = rotation ±70°, y = side bend ±30°. Red = danger limits, green dashed = target (first 2 patients),
@@ -160,20 +161,22 @@ function breathArc(ctx, now, br, fade, cx, cy, R){
   ctx.lineWidth = 7;
   ctx.strokeStyle = "rgba(241,234,220,.12)";
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.7); ctx.stroke();
-  ctx.strokeStyle = br.exhale ? C_MINT : "rgba(241,234,220,.5)";
-  if(br.exhale) ctx.globalAlpha = fade*(0.75 + 0.25*Math.sin(now*0.008));
+  const hot = bonusWindow(S.boss, br.exhale);   // the bonus window ("fake" boss: the in-breath)
+  ctx.strokeStyle = hot ? C_MINT : "rgba(241,234,220,.5)";
+  if(hot) ctx.globalAlpha = fade*(0.75 + 0.25*Math.sin(now*0.008));
   ctx.beginPath(); ctx.arc(cx, cy, R + 22, Math.PI*1.3, Math.PI*1.3 + br.fill*Math.PI*0.4); ctx.stroke();
   ctx.globalAlpha = fade;
   ctx.lineCap = "butt";
 }
 function breathLabel(ctx, br, cx, cy, R, verb){
   // only when it asks for something: the in-breath already shows as the patient's "흐읍…" (scene/breathFx.js), one place per fact
-  if(!T.breath || !br.exhale) return;
-  const label = `내쉬는 중 · 지금 ${verb} +15`;
+  const fake = hasRule(S.boss, "fake");
+  if(!T.breath || !bonusWindow(S.boss, br.exhale)) return;
+  const label = `${fake ? "들이쉬는 중" : "내쉬는 중"} · 지금 ${verb} +15`;
   ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
   // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
   ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
-  ctx.fillStyle = br.exhale ? C_MINT : "rgba(241,234,220,.85)"; ctx.fillText(label, cx, cy - R + 20);
+  ctx.fillStyle = C_MINT; ctx.fillText(label, cx, cy - R + 20);
 }
 // an element's box in #app's own (pre-rotation) layout, the HUD canvas's coordinates
 function boxIn(el){

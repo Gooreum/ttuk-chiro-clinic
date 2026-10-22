@@ -19,7 +19,7 @@ export function rushBegin(game){
   const days = [...new Set(plan.map(p => p.day))];
   const fixed = days.flatMap(d => dayRoster(d, pool));
   S.rush = { plan, total: days.length };
-  S.painMax = RUSH_PAIN; S.zoneUntil = 0; S.mods = {};
+  S.painMax = RUSH_PAIN; S.zoneUntil = 0; S.mods = {}; S.boss = []; S.bossLine = "";
   track(EV.rushStart, { bosses: days.length, patients: plan.length });
   return makePatients(Math.random, 0, fixed).map((p, i) => ({ ...p, rush: plan[i] }));
 }
@@ -28,7 +28,7 @@ export function rushPrep(){
   const p = S.rush && S.patients[S.idx];
   if(!p) return;
   const r = p.rush;
-  S.game = r.game === "towel" ? "towel" : "clinic"; S.mods = r.mods;
+  S.game = r.game === "towel" ? "towel" : "clinic"; S.mods = r.mods; S.boss = r.boss || []; S.bossLine = r.bossLine || "";
   setModeText(); setMode(S.game === "towel" ? "towel" : "crack");
   if(r.first) setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p) stamp(`보스 ${r.k + 1}/${S.rush.total}`, `${r.title}. ${r.line}`, "dud", 3000); }, 450);
 }

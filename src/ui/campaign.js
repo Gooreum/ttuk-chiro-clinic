@@ -3,6 +3,7 @@
    inside a user gesture (AGENTS.md 3-5). */
 import { $ } from "../lib/dom.js";
 import { DAYS, CHAPTERS, ENDING, dayOpen, dayLabel, dayInChapter, dayDef, hardOpen, HARD_GAMES } from "../core/campaign.js";
+import { bossRules, bossChips } from "../core/boss.js";
 
 const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기"};
 
@@ -80,7 +81,7 @@ export function showStory(day, hard = false, canHard = false){
   const ul = $("#storyLines"); ul.textContent = "";
   // 역경 repeats only the day's situation line plus its real rules (the plain intro's numbers would contradict them)
   const hardRule = () => "역경: " + [`통증 ${d.painMax}번이면 끝`, d.zone ? `구역 안내 ${d.zone}명` : "구역 안내 없음", d.mods && d.mods.tight ? "구역도 좁아요" : "", d.beat ? `평균 ${d.beat}점` : ""].filter(Boolean).join(", ") + ".";
-  const lines = hard ? [d.intro[0], hardRule()] : d.intro;
+  const lines = [...(hard ? [d.intro[0], hardRule()] : d.intro), ...(bossRules(d).length && d.bossTaunt ? [d.bossTaunt] : [])];
   lines.forEach(line => { const li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
   const rules = $("#storyRules"); rules.textContent = "";
   const seen = new Set();
@@ -96,6 +97,7 @@ export function showStory(day, hard = false, canHard = false){
     if(noisy) chip("숨 안내 없음", true);
   }
   if(d.mods && d.mods.tight) chip(d.mods.tighter ? "구역이 아주 좁아요" : "구역이 좁아요", true);
+  bossChips(d).forEach(c => chip(c, true));
   if(d.beat) chip(hard ? `역경 · 평균 ${d.beat}점 넘기기` : `보스 · 평균 ${d.beat}점 넘기기`, true);
   $("#story").hidden = false;
 }
