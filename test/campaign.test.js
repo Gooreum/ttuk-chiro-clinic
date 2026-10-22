@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DAYS, CHAPTERS, dayRoster, dayStars, readProgress, dayOpen, afterDay, nextDay, dayLabel, dayInChapter, chapterOf, dayClears } from "../src/core/campaign.js";
+import { DAYS, CHAPTERS, dayRoster, dayStars, readProgress, dayOpen, afterDay, nextDay, dayLabel, dayInChapter, chapterOf, dayClears, hardOpen, hardDay, dayDef, afterHard, HARD_BEAT, HARD_GAMES } from "../src/core/campaign.js";
 import { ROSTER } from "../src/patient/roster.js";
 import { CAST } from "../src/patient/cast.js";
 import { quietDay, ONBOARD_DAYS } from "../src/core/monetize.js";
@@ -45,7 +45,7 @@ describe("campaign", () => {
   });
   it("unlocks days in order and keeps the best stars", () => {
     let p = readProgress(null);
-    expect(p).toEqual({cleared: 0, stars: Array(56).fill(0)});
+    expect(p).toEqual({cleared: 0, stars: Array(56).fill(0), hard: Array(56).fill(0)});
     expect(dayOpen(p, 0)).toBe(true);
     expect(dayOpen(p, 1)).toBe(false);
     expect(afterDay(p, 0, false, 3)).toBe(p);
@@ -62,6 +62,32 @@ describe("campaign", () => {
     expect(nextDay({cleared: 14, stars: []}, 13)).toBe(14);   // chapter 2 ends into chapter 3
     expect(nextDay({cleared: 21, stars: []}, 20)).toBe(21);   // chapter 3 ends into chapter 4
     expect(nextDay({cleared: 56, stars: []}, 55)).toBe(-1);
+  });
+  it("opens 역경 on three-star neck days with harder rules", () => {
+    const first = DAYS.findIndex(d => d.game === "clinic"), back = DAYS.findIndex(d => d.game === "back");
+    let p = readProgress({cleared: 56, stars: Array(56).fill(3)});
+    expect(hardOpen(p, first)).toBe(true);
+    expect(hardOpen(p, back)).toBe(false);
+    expect(hardOpen(readProgress({cleared: 56, stars: Array(56).fill(2)}), first)).toBe(false);
+    DAYS.forEach((d, i) => {
+      if(!HARD_GAMES.includes(d.game)) return;
+      const h = hardDay(i);
+      expect(h.painMax).toBe(Math.max(1, d.painMax - 1));
+      expect(h.zone).toBe(0);
+      expect(h.mods.tight).toBe(true);
+      expect(h.beat).toBe(d.beat ? d.beat + 6 : HARD_BEAT);
+      expect(DAYS[i].mods?.tight || false).toBe(!!(d.mods && d.mods.tight));   // the plain day is untouched
+    });
+    expect(dayDef(first, false)).toBe(DAYS[first]);
+    expect(dayClears(first, true, HARD_BEAT - 1, hardDay(first))).toBe(false);
+    expect(dayClears(first, true, HARD_BEAT, hardDay(first))).toBe(true);
+    p = afterHard(p, first, true, 2);
+    expect(p.hard[first]).toBe(2);
+    expect(afterHard(p, first, true, 1).hard[first]).toBe(2);
+    expect(afterHard(p, first, false, 3)).toBe(p);
+    expect(afterDay(p, first, true, 3).hard[first]).toBe(2);   // a plain replay keeps the hard stars
+    expect(readProgress({cleared: 56, stars: Array(56).fill(3), hard: [9]}).hard[0]).toBe(3);
+    expect(readProgress({cleared: 56, stars: Array(56).fill(2), hard: [3]}).hard[0]).toBe(0);   // only on 3-star days
   });
   it("reads a broken save as a fresh start", () => {
     expect(readProgress({cleared: "x"}).cleared).toBe(0);

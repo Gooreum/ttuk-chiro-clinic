@@ -24,5 +24,5 @@ export const S = {
   stretchAt: 0, stretchPeak: 0, slipAt: 0,             // towel mode gag clocks (ms) and how far the neck goes (m)
   stretchHold: 0, overAt: 0, xrayAt: 0,                           // the stretch's hold (s, 0 = core/towel.js STRETCH_HOLD), the over-pull's clock (ms)
   saidTense: false, saidTight: false,                  // towel mode: the patient's tension lines, once each per patient
-  day: -1, painMax: 3, zoneUntil: 2, mods: {}                   // 영업 일지 day (-1 = a free run), pains that end the run, patients shown the green zone
+  day: -1, hard: false, painMax: 3, zoneUntil: 2, mods: {}                   // 영업 일지 day (-1 = a free run), pains that end the run, patients shown the green zone
 };

@@ -46,11 +46,14 @@ async function after(step, before, c){
 }
 
 /* 영업 일지 cases: a save with the days before `day` cleared, then the same taps a player makes (일지 -> day -> 영업 시작).
-   story: stop on the story card. */
-function campaignBegin({ day, story }){
-  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: day, stars: Array(day).fill(2) }));
+   story: stop on the story card. hard: the 역경 run of that day. */
+function campaignBegin({ day, story, hard }){
+  // hard: the day itself cleared with three stars, so its 역경 button shows, and pressed
+  const n = hard ? day + 1 : day;
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
   $("campaignBtn").click();
   document.querySelector(`#dayList button[data-day="${day}"]`).click();
+  if(hard) $("storyHard").click();
   if(!story) $("storyGo").click();
 }
 

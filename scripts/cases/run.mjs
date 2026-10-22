@@ -90,10 +90,12 @@ async function setupNeck(page, towel) {
   });
 }
 async function startNeck(page, towel, patient, campaign) {
-  if (campaign) return page.evaluate(({ day, story }) => {
-    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: day, stars: Array(day).fill(2) }));
+  if (campaign) return page.evaluate(({ day, story, hard }) => {
+    const n = hard ? day + 1 : day;
+    localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
     document.getElementById("campaignBtn").click();
     document.querySelector(`#dayList button[data-day="${day}"]`).click();
+    if (hard) document.getElementById("storyHard").click();
     if (!story) document.getElementById("storyGo").click();
   }, campaign);
   await page.evaluate(async ({ towel, patient }) => {
