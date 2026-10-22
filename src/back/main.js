@@ -10,10 +10,10 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
-import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,nextDay} from '../core/campaign.js';
+import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
+import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -43,9 +43,13 @@ const names=['등 위쪽','등 가운데','허리'];
 // 영업 일지 허리펴기 day (back.html?day=N from index.html's story card): that day's patient (name and lines; the body is
 // always 박대리's prone model), its pain limit and the day result. Otherwise the free 박대리 run.
 const dayQ=Number(new URLSearchParams(location.search).get('day')),
-  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='back'?dayQ:-1,dayDef=DAY>=0?DAYS[DAY]:null;
+  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='back'?dayQ:-1,
+  // &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat
+  HARD=DAY>=0&&new URLSearchParams(location.search).get('hard')==='1',dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
+// the day's zone width: mods.tight / tighter narrow it like the neck modes
+const TOL=tolFor(dayDef&&dayDef.mods);
 const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax+(new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
+const painMax=dayDef?dayDef.painMax+(!HARD&&new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-height shove names where it actually landed.
 // An overload that also missed the ring bursts the organs there, one side only if it missed left/right
@@ -59,7 +63,7 @@ const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{
 const axisTargets=()=>S.locked?S.targets:S.heights;
 // +1 when a bigger height sits lower on screen. Front-down tilt and an upward drag both walk the hands up the screen.
 function heightDown(){if(!scene)return 1;const a=scene.projectPosition(.5,.2),b=scene.projectPosition(.5,.8);return Math.sign(b.y-a.y)||1;}
-const heightOk=()=>Math.abs(S.position-S.heights[S.step])<=POSITION_TOL;
+const heightOk=()=>Math.abs(S.position-S.heights[S.step])<=TOL;
 function setLocked(on){
   if(S.phase!=='play'||on===S.locked)return;
   if(on){S.lockHeight=S.position;S.position=.5;}else S.position=S.lockHeight;
@@ -108,8 +112,8 @@ function cancelInput(){S.holdAt=null;S.pointer=null;S.pending=null;drag=null;swi
 function updateImpact(){
   const p=S.pending;if(!p)return;
   S.force=p.force;
-  S.outcome=judgeAim(p.aim,S.step,p.pressure,p.force,{streak:S.streak,pain:S.painHere,exhale:p.exhale,heights:S.heights,sides:S.targets});
-  S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.organs=organHit(p.aim,S.step,S.tier,S.heights,S.targets);
+  S.outcome=judgeAim(p.aim,S.step,p.pressure,p.force,{streak:S.streak,pain:S.painHere,exhale:p.exhale,heights:S.heights,sides:S.targets,tol:TOL});
+  S.kind=S.outcome.kind;S.tier=S.outcome.tier;S.organs=organHit(p.aim,S.step,S.tier,S.heights,S.targets,TOL);
   $('backImpact').textContent=S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과압박!':FAIL_STAMP[S.outcome.feedback];
 }
 // The bone sound lands with the shove, not when the animated hands land (they land up to 0.55 s later).
@@ -169,19 +173,19 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3)}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3,dayDef),hard:HARD}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;
-  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg,dayDef));
+  const cleared=dayClears(DAY,complete,avg,dayDef),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=(HARD?afterHard:afterDay)(before,DAY,cleared,dayStars(avg,dayDef));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
-  $('backResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
-  $('backDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose}`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  $('backResultTitle').textContent=`${dayLabel(DAY)}${HARD?' 역경':''} ${dayDef.title}`;
+  $('backDayOutro').textContent=(cleared?(HARD?`역경 통과! ${dayDef.hardOutro||dayDef.outro}`:dayDef.outro):complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.'}`:`${dayLabel(DAY)}${HARD?' 역경':''}를 못 버텼어요. 다시 문 열어 봐요.`)+(HARD&&!cleared?' 역경엔 이어하기가 없어요.':'');
   $('backDayOutro').hidden=false;$('backToDays').hidden=false;
   $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
   $('backAgain').textContent=cleared?'이 날 다시':'다시 도전';
-  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg,dayDef):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
+  track(EV.dayEnd,{day:dayNo,hard:HARD?1:0,cleared,stars:cleared?dayStars(avg,dayDef):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
 }
 // 이어하기 (Toss build, a rewarded ad, ui/monetize.js): once per run after an ambulance or the third miss, the same
 // zone again with the misses cleared; the zones already done keep their points. After a boss day under its beat all
@@ -281,13 +285,14 @@ mountClinicMenu({chip:$('backClinic'),menu:$('backClinicMenu'),current:()=>'back
 // the day's patient on the chart, the start card and the pain slots
 if(dayDef){
   const nm=$('backName');nm.textContent=patient.name;const ag=document.createElement('small');ag.textContent=`${patient.age}세`;nm.append(ag);
-  $('backDayNo').textContent=`영업 일지 · ${dayLabel(DAY)} ${dayDef.title}`;$('backDayNo').hidden=false;
+  $('backDayNo').textContent=`영업 일지 · ${dayLabel(DAY)}${HARD?' 역경':''} ${dayDef.title}`;$('backDayNo').hidden=false;
   $('backWelcomeText').textContent=`${patient.name}, ${patient.age}세. ${patient.cc}`;
   $('backMistakes').replaceChildren('통증 ',...Array.from({length:painMax},()=>document.createElement('i')));
 }
 $('backTuneClose').addEventListener('click',closeTune);
 $('backPause').addEventListener('click',pause);$('backResume').addEventListener('click',closeTune);
-$('backStart').addEventListener('click',()=>start());$('backAgain').addEventListener('click',()=>start(S.control==='motion'));
+$('backStart').addEventListener('click',()=>start());// a 영업 일지 day goes back through its story card (the 통증 칸 +1 ad is on offer again, 역경 stays chosen); free play restarts at once
+$('backAgain').addEventListener('click',()=>{if(dayDef){location.href=`index.html?story=${DAY}${HARD?'&hard=1':''}`;return;}start(S.control==='motion');});
 $('backTouchStart').addEventListener('click',()=>start(false));$('backTouchFallback').addEventListener('click',()=>start(false));
 $('backSensorRetry').addEventListener('click',()=>start(true));
 $('backSound').addEventListener('change',e=>{S.sound=e.target.checked;if(S.sound)ensureSound();else{stopSound();clinicAudio.setAmbient();}});
@@ -338,18 +343,18 @@ function drawHud(pressure,br){
   const h=clamp(R*1.7,110,height*.62),x=Math.min(cx+Math.max(R*1.7,136),width-76),top=clamp(cy-h*.55,82,height-h-28);
   if(!S.locked){
     // Height step: only the height instrument; the push gauge and side bar wait for the lock (user, 2026-10-18).
-    const up=v=>heightDown()>0?1-v:v,t=S.heights[S.step],a=up(t-POSITION_TOL),b=up(t+POSITION_TOL);
-    drawVGauge(ctx,{x,top,h,title:'높이',value:up(S.position),band:[Math.min(a,b),Math.max(a,b)],fill:false,hot:heightOk(),colors:{coral:'#7fd1b9'}});
+    const up=v=>heightDown()>0?1-v:v,t=S.heights[S.step],a=up(t-TOL),b=up(t+TOL);
+    drawVGauge(ctx,{x,top,h,title:'높이',value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:'#7fd1b9'}});
     drawHint(ctx,{x:cx,y:height-104,text:S.cue,hot:S.cueStyle==='bad'});
     return;
   }
-  const near=backDistance(S.position,S.step,pressure,axisTargets())<=1;
+  const near=backDistance(S.position,S.step,pressure,axisTargets(),TOL)<=1;
   drawVGauge(ctx,{x,top,h,title:'누르는 힘',value:pressure/1.35,band:[SWEET.min/1.35,SWEET.max/1.35],limit:SWEET.max/1.35,hot:near||pressure>SWEET.max});
   const mR=boxIn($('backMode')),zR=boxIn(press),gapL=mR.w?mR.right:20,gapR=zR.w?zR.left:width-20;
   const bw=clamp(gapR-gapL-40,110,180),bx=clamp((gapL+gapR-bw)/2,10,width-bw-10);
   const by=clamp((zR.w?zR.bottom:height-12)-19,40,height-20);
-  const target=axisTargets()[S.step],off=(S.position-target)/POSITION_TOL,showBand=S.control==='touch'||S.step<2||S.painHere>0;
-  drawHBar(ctx,{bx,by,bw,off,span:{pos:S.position,target,tol:POSITION_TOL},ok:Math.abs(off)<=1,title:S.locked?'좌우':'높이',showBand,okText:showBand?'맞아요':'찾아봐요',offText:showBand?'중심 밖':'찾아봐요'});
+  const target=axisTargets()[S.step],off=(S.position-target)/TOL,showBand=showGuide(dayDef,{control:S.control,step:S.step,painHere:S.painHere});
+  drawHBar(ctx,{bx,by,bw,off,span:{pos:S.position,target,tol:TOL},ok:Math.abs(off)<=1,title:S.locked?'좌우':'높이',showBand,okText:showBand?'맞아요':'찾아봐요',offText:showBand?'중심 밖':'찾아봐요'});
   drawHint(ctx,{x:bx+bw/2,y:by-40,text:S.cue,hot:S.cueStyle==='bad'});
   if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:'후우… 지금 툭 +15',colors:{bone:'#8adfbf'}});
 }
@@ -405,7 +410,7 @@ function frame(now){
   $('backImpact').hidden=!(S.phase==='anim'&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
   $('backImpactTail').textContent=S.tier===2?'작!':'적…';$('backImpactTail').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt+.05&&shotTime<therapistStyle(S.force,S.tier).impactAt+.65);
   $('backHurt').hidden=!(S.phase==='anim'&&S.tier&&shotTime>=therapistStyle(S.force,S.tier).impactAt-.1&&shotTime<therapistStyle(S.force,S.tier).impactAt+.5);
-  const distance=S.locked?backDistance(S.position,S.step,pressure,axisTargets()):Math.abs(S.position-S.heights[S.step])/POSITION_TOL,near=distance<=1;
+  const distance=S.locked?backDistance(S.position,S.step,pressure,axisTargets(),TOL):Math.abs(S.position-S.heights[S.step])/TOL,near=distance<=1;
   if(S.phase==='play'&&now>=S.prepUntil&&(S.control==='touch'||S.motionReady)){
     if(near&&!wasNear){tone(880,1320,.06,.04);if(navigator.vibrate)navigator.vibrate(35);}
     const close=closenessOf(distance);if(close>.05&&now>nextPulse){if(T.tick)tone(520+520*close,480+480*close,.03,.012);nextPulse=now+560-450*close;}
@@ -419,8 +424,8 @@ function frame(now){
     else if(!S.locked)label=near?'좋아요. 이 높이로 고정!':S.control==='motion'?'앞뒤로 기울여 민트 링 높이에 맞춰요':'위아래로 드래그해 민트 링 높이에 맞춰요';
     else if(pressure>SWEET.max)label='너무 깊어요. 폰 앞쪽을 조금 들어 주세요';
     else if(near)label=S.control==='motion'?'그 자리! 폰을 앞이나 뒤로 짧게 툭 밀어요':'그 자리! 화면을 휙 튕겨 툭';
-    else if(pressureHint(S.position,S.step,pressure,axisTargets())==='position')label=S.control==='motion'?(S.step===2&&S.painHere===0?'천천히 훑어요. 틱 소리가 빨라지는 자리를 찾아요':(S.locked?'좌우로 기울여 민트 링에 손을 맞춰요':'좌우로 기울여 척추를 따라 민트 링에 맞춰요')):`${names[S.step]} 민트 링에 손을 맞춰 주세요`;
-    else if(pressureHint(S.position,S.step,pressure,axisTargets())==='release')label=S.control==='motion'?'조금 깊어요. 폰 앞쪽을 살짝 들어요':'압박을 조금 빼 주세요';
+    else if(pressureHint(S.position,S.step,pressure,axisTargets(),TOL)==='position')label=S.control==='motion'?(S.step===2&&S.painHere===0?'천천히 훑어요. 틱 소리가 빨라지는 자리를 찾아요':(S.locked?'좌우로 기울여 민트 링에 손을 맞춰요':'좌우로 기울여 척추를 따라 민트 링에 맞춰요')):`${names[S.step]} 민트 링에 손을 맞춰 주세요`;
+    else if(pressureHint(S.position,S.step,pressure,axisTargets(),TOL)==='release')label=S.control==='motion'?'조금 깊어요. 폰 앞쪽을 살짝 들어요':'압박을 조금 빼 주세요';
     else label=S.control==='motion'?'폰 앞쪽을 천천히 낮춰 압박을 실어요':'위로 드래그해 힘을 더 실어요';
     cue(label,S.locked&&pressure>SWEET.max?'bad':near?'good':'');
     if(S.control==='motion'){

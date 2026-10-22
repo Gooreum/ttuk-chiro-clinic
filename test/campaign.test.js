@@ -64,11 +64,11 @@ describe("campaign", () => {
     expect(nextDay({cleared: 21, stars: []}, 20)).toBe(21);   // chapter 3 ends into chapter 4
     expect(nextDay({cleared: 56, stars: []}, 55)).toBe(-1);
   });
-  it("opens 역경 on three-star neck days with harder rules", () => {
+  it("opens 역경 on three-star days (neck and 허리) with harder rules", () => {
     const first = DAYS.findIndex(d => d.game === "clinic"), back = DAYS.findIndex(d => d.game === "back");
     let p = readProgress({cleared: 56, stars: Array(56).fill(3)});
     expect(hardOpen(p, first)).toBe(true);
-    expect(hardOpen(p, back)).toBe(false);
+    expect(hardOpen(p, back)).toBe(true);   // 허리펴기·허리비틀기 too (back.html / side.html ?hard=1)
     expect(hardOpen(readProgress({cleared: 56, stars: Array(56).fill(2)}), first)).toBe(false);
     DAYS.forEach((d, i) => {
       if(!HARD_GAMES.includes(d.game)) return;

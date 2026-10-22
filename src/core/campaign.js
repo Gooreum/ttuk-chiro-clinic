@@ -287,10 +287,10 @@ export const chapterOf = no => CHAPTERS.find(c => c.no === no);
 export const dayClears = (day, complete, avg, def = DAYS[day]) => !!complete && !(def.beat && avg < def.beat);
 
 /* 역경 (hard replay, playtest round 3 "20시간" plan 3.2): a day with 3 stars opens again with one pain fewer, no green
-   zone, the tight zone, and an average to beat (boss days +6, the rest HARD_BEAT). 목꺾기·목뽑기 days only: 허리 pages
-   run their own rules. Stars of hard runs live in prog.hard. */
+   zone, the tight zone, and an average to beat (boss days +6, the rest HARD_BEAT). 목꺾기·목뽑기 run it in index.html; 허리펴기·허리비틀기
+   get it as back.html / side.html ?day=N&hard=1. Stars of hard runs live in prog.hard. */
 export const HARD_BEAT = 100;   // a 6-crack day; other lengths shift by cutShift (below)
-export const HARD_GAMES = ["clinic", "towel"];
+export const HARD_GAMES = ["clinic", "towel", "back", "side"];
 export const hardOpen = (prog, day) => day >= 0 && day < DAYS.length && HARD_GAMES.includes(DAYS[day].game) && prog.stars[day] >= 3;
 /* Pain: one fewer but never under 2 (a 1-pain day stays 1, nothing gets more). A day that was already tight gets
    `tighter` (core/feel.js tightFactor) instead of the same zone again. Non-boss beat shifts with the day's crack count. */

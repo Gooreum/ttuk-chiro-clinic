@@ -12,10 +12,10 @@ export const ORGANS=[
 ];
 export const organsAt=(h,side)=>Number.isFinite(h)?ORGANS.filter(o=>h>=o.from&&h<=o.to&&(!side||o.side===side||o.side==='C')).map(o=>o.id):[];
 // Only an overload (tier 1-2) that also missed the ring ruptures organs (user, 2026-10-16).
-export function organHit({height,side=.5,locked=false},step,tier,heights=TARGETS,sides=[.5,.5,.5]){
+export function organHit({height,side=.5,locked=false},step,tier,heights=TARGETS,sides=[.5,.5,.5],tol=POSITION_TOL){
   if(!tier||!Number.isFinite(height)||!Number.isInteger(step)||step<0||step>2)return [];
-  const sideOff=locked&&Math.abs(side-sides[step])>POSITION_TOL;
-  return sideOff||Math.abs(height-heights[step])>POSITION_TOL?organsAt(height,sideOff?pressedSide(side):undefined):[];
+  const sideOff=locked&&Math.abs(side-sides[step])>tol;
+  return sideOff||Math.abs(height-heights[step])>tol?organsAt(height,sideOff?pressedSide(side):undefined):[];
 }
 export const organLabel=ids=>[...new Set(ids.map(id=>ORGANS.find(o=>o.id===id)?.name).filter(Boolean))].join('·');
 // X-ray name tag: the two lungs and kidneys are told apart there.

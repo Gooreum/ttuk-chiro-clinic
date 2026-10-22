@@ -19,6 +19,9 @@ export const EV = {
   runEnd: "run_end",              // the result card opens
   runComplete: "run_complete",    // conversion: a run played through to the end (every patient, no bad end)
   nightStart: "night_start",      // 심야 진료: an endless night run began
+  dexOpen: "dex_open",            // 환자 도감 opened (met, fails, from title / days)
+  rushStart: "rush_start",        // 보스 러시: a run began
+  rushEnd: "rush_end",            // 보스 러시: the run ended (bosses reached / cleared, score)
   nightEnd: "night_end",          // 심야 진료: the run ended (count of patients treated, score, tier reached)
   dayEnd: "day_end",              // 영업 일지: a campaign day ended (cleared or not, stars)
   questStart: "quest_start",      // 단골 의뢰: 의뢰 시작을 누름

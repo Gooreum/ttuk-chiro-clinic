@@ -47,10 +47,14 @@ async function after(step, before, c){
 
 /* 영업 일지 cases: a save with the days before `day` cleared, then the same taps a player makes (일지 -> day -> 영업 시작).
    story: stop on the story card. hard: the 역경 run of that day. */
-function nightBegin(){   // 심야 진료: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
+function dexBegin(){   // 환자 도감: a few met patients and fails saved, then the title's 환자 도감 button
+  localStorage.setItem("chiroDex", JSON.stringify({ met: { "박대리": { first: "2026-10-22", n: 3, ok: 2 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 }, "이라이더": { first: "2026-10-22", n: 2, ok: 0 }, "정작가": { first: "2026-10-22", n: 1, ok: 1 }, "김사장": { first: "2026-10-22", n: 1, ok: 0 } }, fails: { over: { first: "2026-10-22", n: 2 }, crack: { first: "2026-10-22", n: 1 }, "t-slip": { first: "2026-10-22", n: 1 } } }));
+  $("dexBtn").click();
+}
+function nightBegin(kind){   // 심야 진료: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
   $("campaignBtn").click();
-  $("daysNight").click();
+  $(kind === "rush" ? "daysRush" : "daysNight").click();
 }
 function questBegin({ id, story, list }){
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
@@ -74,7 +78,8 @@ function campaignBegin({ day, story, hard, quest, list }){
 runCase({
   ready: () => waitFor(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, 150000, "에셋 로드").then(() => document.fonts.ready),
   begin(c){
-    if(c.night){ nightBegin(); return; }
+    if(c.dex){ dexBegin(); return; }
+    if(c.night){ nightBegin(c.night); return; }
     if(c.campaign){ campaignBegin(c.campaign); return; }
     $(c.mode === "towel" ? "startTowel" : "start").click();
     if(c.patient){
