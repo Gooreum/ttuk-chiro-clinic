@@ -35,7 +35,7 @@ export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
 const SPINE_DEPTH = .075;                    // skin of the back to the vertebral bodies (m)
 const PUNCH = .2;   // share of the camera distance a good thrust's punch takes off
-const FILM_DIR = [.35, .8, -.45], FILM_D = .5;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
+const FILM_DIR = [.35, .8, -.45], FILM_D = .68;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const smooth = (a, b, x) => { const t = clamp01((x - a)/(b - a)); return t*t*(3 - 2*t); };
 const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
@@ -398,6 +398,7 @@ export async function createSideScene(canvas){
     st.shake = Math.max(0, st.shake - dt*1.6);
     if(st.shake > 0){ const s = st.shake*st.shake*.012, t = now/1000; camera.position.x += Math.sin(t*61)*s; camera.position.y += Math.sin(t*47 + 1)*s; camera.position.z += Math.sin(t*53 + 2)*s; }
     camera.lookAt(look);
+    if(film > 0) camera.position.addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion), -.04*film);   // the column runs down the screen from the target: slide the frame so the target sits above centre (32차)
     renderer.render(scene, camera);
     return {released};
   }

@@ -539,10 +539,13 @@ export async function createBackScene(canvas, view = {}){
     camera.position.addScaledVector(camDir,-loaded*.035-impulse*.075);
     camera.position.lerp(handLook,PUNCH*punch*(1-film));   // a good press's camera punch in on the hands (main.js, core.js punchProfile)
     const focus = new THREE.Vector3(0,.96,zAt(clamp01(height)));
-    if(organs.length)focus.copy(xray.fractureFocus());
+    const spineAt=xray.fractureFocus();
+    if(organs.length)focus.copy(spineAt);
+    else if(film>0&&Number.isFinite(spineAt.z)&&spineAt.lengthSq()>0)focus.set(spineAt.x*.5,spineAt.y,spineAt.z);   // aim at the bone that is actually under the film, not the press height (32차)
     const wideLook=new THREE.Vector3(.25,1.12,zAt(clamp01(height)));
     camera.position.lerp(wideLook.clone().add(camDir.clone().multiplyScalar(3.2)),move.wide);
-    let filmCamera=new THREE.Vector3(-.24,1.06,focus.z+.06);
+    let filmCamera=new THREE.Vector3(-.24,focus.y+.1,focus.z+.06);
+    if(!organs.length)filmCamera.set(-.3,focus.y+.13,focus.z+.075);   // a little farther so the whole column fits (32차)
     if(organs.length)filmCamera=focus.clone().add(new THREE.Vector3(-.175,.075,.044));
     if(zoom>0){
       const spineCam=filmCamera.clone(),spineFocus=focus.clone();
