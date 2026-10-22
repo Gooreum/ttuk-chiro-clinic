@@ -4,6 +4,7 @@ import { adjust } from "../game/flow.js";
 import * as feel from "../game/feel.js";
 import * as tw from "../core/towel.js";
 import { makePatients } from "../patient/roster.js";
+import { showEnding } from "../ui/campaign.js";
 import { runCase, sleep, waitFor } from "./caseRunner.js";
 
 const $ = id => document.getElementById(id);
@@ -13,6 +14,7 @@ const resultOpen = () => !$("result").hidden;
 async function act(step, towel){
   await waitFor(() => S.phase === "play" && !S.busy && S.target, 60000, "환자 준비");
   if(step.hold !== 0) while(now() - S.patientStart < 800) await sleep(16);
+  if(step.late) while(now() - S.patientStart < step.late) await sleep(50);   // 보스 규칙 cases: let the clock run (timer / swap / shrink)
   const hold = towel && step.tow?.startsWith("hold-");
   if(step.exhale !== undefined && !hold){ const end = now() + 12000; while(feel.breath(now()).exhale !== step.exhale && now() < end) await sleep(8); }
   const set = (rot, bend) => { S.input.rot = S.cur.rot = rot; S.input.bend = S.cur.bend = bend; };
@@ -57,6 +59,10 @@ function nightBegin(kind){   // 심야 진료 / 보스 러시 / 주간 챌린지
   $("campaignBtn").click();
   $(weekly ? "daysWeekly" : kind === "rush" ? "daysRush" : "daysNight").click();
 }
+function endingBegin(){   // 엔딩 카드: 55일 클리어 저장 -> 영업 일지 -> 엔딩 카드 (실제로는 56일차 첫 클리어 뒤 '엔딩 보기')
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
+  showEnding();
+}
 function questBegin({ id, story, list }){
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
   $("campaignBtn").click();
@@ -89,6 +95,7 @@ runCase({
     if(c.dex){ dexBegin(); return; }
     if(c.shop) shopBegin(c.shop);
     if(c.shop && c.shop.open) return;
+    if(c.ending){ endingBegin(); return; }
     if(c.night){ nightBegin(c.night); return; }
     if(c.campaign){ campaignBegin(c.campaign); return; }
     $(c.mode === "towel" ? "startTowel" : "start").click();
@@ -99,6 +106,6 @@ runCase({
     }
   },
   async play(c){
-    for(const step of c.steps){ const b = await act(step, c.night ? S.game === "towel" : c.mode === "towel"); await after(step, b, c); }
+    for(const step of c.steps){ if(resultOpen() && step.optional) break; const b = await act(step, c.night ? S.game === "towel" : c.mode === "towel"); await after(step, b, c); }
   }
 });
