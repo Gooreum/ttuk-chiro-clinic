@@ -5,7 +5,7 @@ import { CASES } from "./cases.mjs";
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i < 0 ? d : process.argv[i + 1]; };
 const BASE = arg("base", "http://localhost:5195"), ONLY = arg("only", "") && arg("only").split(","), JOBS = Number(arg("jobs", 2));
-const page = c => c.mode === "back" ? "back.html?" : c.mode === "side" ? "side.html?" : c.mode === "towel" ? "index.html?mode=towel&" : "index.html?";
+const page = c => c.mode === "back" ? "back.html?" + (c.query ? c.query + "&" : "") : c.mode === "side" ? "side.html?" + (c.query ? c.query + "&" : "") : c.mode === "towel" ? "index.html?mode=towel&" : "index.html?";
 const list = CASES.filter(c => !c.skip && (!ONLY || ONLY.includes(c.id)));
 const browser = await chromium.launch({ channel: "chromium", args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
 let bad = 0;
