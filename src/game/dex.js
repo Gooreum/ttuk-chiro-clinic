@@ -7,9 +7,12 @@ import { EV } from "../core/analytics.js";
 import { kstDate } from "../core/night.js";
 import { DEX_KEY, DEX_FAILS, readDex, dexMeet, dexTreat, dexFail, isNewFail, failId, dexCounts } from "../core/dex.js";
 import { openDex } from "../ui/dex.js";
+import { CAMPAIGN_KEY, readProgress } from "../core/campaign.js";
+import { taleCounts } from "../core/tales.js";
 
 const read = () => readDex(store.get(DEX_KEY, null));
 const save = d => store.set(DEX_KEY, d);
+const readProg = () => readProgress(store.get(CAMPAIGN_KEY, null));
 let fresh = [];   // what this run wrote into the dex for the first time (shown on the result card)
 
 /* a patient comes in (loadPatient) */
@@ -40,13 +43,13 @@ export function dexResult(){
   renderDexBtn();
 }
 export function renderDexBtn(){
-  const c = dexCounts(read()), t = `환자 ${c.met}/${c.patients} · 실패 ${c.fails}/${c.kinds}`;
+  const c = dexCounts(read()), tc = taleCounts(readProg()), t = `환자 ${c.met}/${c.patients} · 실패 ${c.fails}/${c.kinds}` + (tc.read ? ` · 뒷이야기 ${tc.read}` : "");
   for(const s of ["#dexSub", "#daysDexSub"]){ const e = $(s); if(e) e.textContent = t; }
 }
 export function mountDex(){
   for(const b of ["#dexBtn", "#daysDex"]) $(b).addEventListener("click", () => {
-    const c = openDex(read);
-    track(EV.dexOpen, { met: c.met, fails: c.fails, from: b === "#dexBtn" ? "title" : "days" });
+    const c = openDex(read, readProg);
+    track(EV.dexOpen, { met: c.met, fails: c.fails, tales: taleCounts(readProg()).read, from: b === "#dexBtn" ? "title" : "days" });
   });
   renderDexBtn();
 }

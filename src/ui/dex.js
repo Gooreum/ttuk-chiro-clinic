@@ -4,6 +4,7 @@ import { $ } from "../lib/dom.js";
 import "./dex.css";
 import { TRAITS } from "../patient/roster.js";
 import { DEX_PATIENTS, DEX_FAILS, dexCounts, dexTitle, firstChapter } from "../core/dex.js";
+import { readableTales, taleCounts, taleTitle } from "../core/tales.js";
 
 const hex = n => "#" + (n >>> 0).toString(16).padStart(6, "0");
 const GAME = { clinic: "목꺾기", towel: "목뽑기", all: "공통" };
@@ -74,6 +75,12 @@ function patientCard(p, m){
     if(p.trait) who.appendChild(el("i", "chip", TRAITS[p.trait].label));
     body.append(who, el("p", "cc", p.cc), el("p", "say", `“${p.lines.start}”`),
       el("p", "meta", `처음 만난 날 ${m.first} · 치료 ${m.ok}번`));
+    const tales = readableTales(prog(), p.name);
+    if(tales.length){   // 뒷이야기: 단골 의뢰를 깬 편만 한 줄씩 적히고, 못 깬 편은 어느 의뢰를 깨면 적히는지만 보인다
+      const box = el("div", "tales");
+      tales.forEach(t => box.appendChild(el("p", t.line ? "tale" : "tale lock", t.line ? `${t.ep}편 ${t.title}: ${t.line}` : `${t.ep}편 ${t.title}: 단골 의뢰를 깨면 적혀요.`)));
+      body.appendChild(box);
+    }
   }else{
     const ch = firstChapter(p.name);
     body.append(el("div", "who").appendChild(el("b", "", "???")).parentNode, el("p", "cc", "아직 못 만났어요."), el("p", "meta", ch ? `${ch}장 어딘가에서 와요` : "어딘가에서 와요"));
@@ -97,10 +104,12 @@ function render(){
   const dex = current();
   const c = dexCounts(dex);
   root.querySelectorAll(".dex-tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
-  $("#dexLead").textContent = `환자 ${c.met}/${c.patients} · 실패 연출 ${c.fails}/${c.kinds}`;
+  const tc = taleCounts(prog());
+  $("#dexLead").textContent = `환자 ${c.met}/${c.patients} · 실패 연출 ${c.fails}/${c.kinds} · 뒷이야기 ${tc.read}/${tc.total}`;
   const t = dexTitle(dex);
   const line = $("#dexTitle"); line.textContent = "";
-  if(t){ line.append("칭호 ", el("b", "", t)); }
+  const tt = taleTitle(prog());
+  if(t || tt){ line.append("칭호 "); if(t) line.append(el("b", "", t)); if(t && tt) line.append(" · "); if(tt) line.append(el("b", "", tt)); }
   else line.textContent = "환자 5명을 만나면 첫 칭호가 붙어요. 환자와 실패를 다 모으면 마지막 칭호가 붙어요.";
   const list = $("#dexList"); list.textContent = "";
   if(tab === "p") DEX_PATIENTS.forEach(p => list.appendChild(patientCard(p, dex.met[p.name])));
@@ -109,9 +118,11 @@ function render(){
 }
 
 let current = () => ({ met: {}, fails: {} });
-/* the dex to show: the glue gives a reader of the saved one */
-export function openDex(read){
+let prog = () => ({ cleared: 0, stars: [] });
+/* the dex to show: the glue gives a reader of the saved one (and of the campaign save, for the 뒷이야기 lines) */
+export function openDex(read, readProg){
   current = read;
+  if(readProg) prog = readProg;
   if(!root) build();
   render();
   root.hidden = false;

@@ -28,6 +28,8 @@ test("주간 챌린지: 그 주 고정 환자로 시작하고 도전 횟수가 �
   });
   expect(first).toMatchObject({ weekly: true, zone: 0, night: null, rush: null });
   expect(first.n).toBeGreaterThanOrEqual(3); expect(first.n).toBeLessThanOrEqual(4);
+  // 11차: 그 주 규칙이 상단 알약에 상시 떠 있다(시작 도장이 사라진 뒤에도)
+  await page.waitForFunction(() => { const e = document.querySelector("#bossRule"); return e && !e.hidden && e.textContent.length > 0; }, null, { timeout: 15000 });
   expect(await page.evaluate(() => window.__events.filter(e => e.name === "run_start").map(e => e.game))).toEqual(["weekly"]);
   expect(await page.evaluate(() => window.__events.filter(e => e.name === "weekly_start").map(e => e.rule))).toEqual([first.rule]);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chiroWeekly")))).toMatchObject({ week: first.week, best: 0, tries: 1 });

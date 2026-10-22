@@ -49,7 +49,8 @@ async function after(step, before, c){
 
 /* 영업 일지 cases: a save with the days before `day` cleared, then the same taps a player makes (일지 -> day -> 영업 시작).
    story: stop on the story card. hard: the 역경 run of that day. */
-function dexBegin(){   // 환자 도감: a few met patients and fails saved, then the title's 환자 도감 button
+function dexBegin(tales){   // 환자 도감: a few met patients and fails saved, then the title's 환자 도감 button (tales: 단골 의뢰를 깬 저장 -> 뒷이야기 줄)
+  if(tales) localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1, "이라이더1": 2, "정작가1": 2 } }));
   localStorage.setItem("chiroDex", JSON.stringify({ met: { "박대리": { first: "2026-10-22", n: 3, ok: 2 }, "최교수": { first: "2026-10-22", n: 1, ok: 1 }, "이라이더": { first: "2026-10-22", n: 2, ok: 0 }, "정작가": { first: "2026-10-22", n: 1, ok: 1 }, "김사장": { first: "2026-10-22", n: 1, ok: 0 } }, fails: { over: { first: "2026-10-22", n: 2 }, crack: { first: "2026-10-22", n: 1 }, "t-slip": { first: "2026-10-22", n: 1 } } }));
   $("dexBtn").click();
 }
@@ -92,7 +93,7 @@ function shopBegin(shop){
 runCase({
   ready: () => waitFor(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, 150000, "에셋 로드").then(() => document.fonts.ready),
   begin(c){
-    if(c.dex){ dexBegin(); return; }
+    if(c.dex){ dexBegin(c.dex === "tales"); return; }
     if(c.shop) shopBegin(c.shop);
     if(c.shop && c.shop.open) return;
     if(c.ending){ endingBegin(); return; }

@@ -33,3 +33,6 @@
 .rush-list li i{font-style:normal;font-weight:700;color:#6b7774}
 .rush-list li.ok i{color:#2c7a5e}
 .rush-list li.no i{color:var(--coral-deep,#c4492b)}
+.tales{display:grid;gap:3px;margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+#dexList .tale{margin:0;font-size:12px;line-height:1.4;color:var(--paper)}
+#dexList .tale.lock{color:var(--muted)}

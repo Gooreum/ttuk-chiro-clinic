@@ -11,8 +11,12 @@ export function mountBoss({ swap }){
   if(!pill) return;
   setInterval(() => {
     const now = performance.now();
-    const playing = S.phase === "play" && S.bossReady && S.boss && S.boss.length;
-    if(!playing){ pill.hidden = true; return; }
+    const hasBoss = !!(S.boss && S.boss.length);
+    const live = S.phase === "play" && S.bossReady;
+    // 11차: 주간 챌린지는 그 주 규칙 이름을 같은 알약에 상시 띄운다(시간 제한·구역 비율을 보여 주는 규칙은 그 문구가 우선)
+    const weeklyTag = S.weekly && S.weekly.set ? `이번 주 · ${S.weekly.set.rule.name}` : "";
+    if(!live || (!hasBoss && !weeklyTag)){ pill.hidden = true; pill.classList.remove("late", "tick"); return; }
+    if(!hasBoss){ pill.hidden = false; pill.textContent = weeklyTag; pill.classList.remove("late", "tick"); return; }
     if(hasRule(S.boss, "swap")) swap();
     const left = timerLeft(S.boss, now - S.patientStart, S.hard);
     if(left === null && hasRule(S.boss, "shrink")){   // shrink: show the zone narrowing (it used to be invisible)
@@ -21,7 +25,10 @@ export function mountBoss({ swap }){
       pill.classList.toggle("late", f <= SHRINK_MIN + 0.15);
       return;
     }
-    if(left === null){ pill.hidden = true; return; }
+    if(left === null){
+      if(weeklyTag){ pill.hidden = false; pill.textContent = weeklyTag; pill.classList.remove("late", "tick"); } else pill.hidden = true;
+      return;
+    }
     pill.hidden = false;
     pill.textContent = left > 0 ? `남은 시간 ${left}초` : "시간 초과 -20";
     const warn = timerWarn(left);
