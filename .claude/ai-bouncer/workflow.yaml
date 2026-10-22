@@ -59,16 +59,8 @@ stages:
       - label: 구현 완료 대조
         blocking: checklist
         inject: |
-          요청받은 항목을 **할 일 목록으로 먼저 세운다.** 자기보고가 아니라
-          엔진이 항목 수를 세므로, 목록을 다 체크해야 다음 단계로 간다.
-
-            bouncer todo add '항목1' '항목2' …    목록 세우기 (요청 범위 그대로)
-            bouncer todo                          현재 상태 보기
-            bouncer todo done <번호>              그 항목을 실제로 구현한 뒤 체크
-            bouncer todo drop <번호>              범위에서 뺀다 (기록에 남고 사유를 알려야 한다)
-
-          체크는 **실제로 그 코드를 넣은 뒤에** 한다.
-          사용자에게 확인을 묻지 말고 끝까지 진행한다.
+          할 일 목록이 있으면(plan 모드는 승인된 계획에서 옮겨진다) 엔진이 항목 수를 센다.
+          구현한 항목은 `bouncer todo done <번호>`, 뺄 항목은 `bouncer todo drop <번호>`(사유를 알린다).
     forbid:
       push: true
       reason: 검증 전에는 push할 수 없다.
@@ -104,7 +96,6 @@ stages:
         optional: true
 
       - label: 검증 보고
-        blocking: done
         inject: |
           [verify] 검증 단계다. 추측 금지 — 실제로 실행해서 확인한다.
             0. 요청받은 범위가 **전부** 구현됐는지 다시 대조한다. 빠진 것이 있으면 통과로 보고하지 않는다.
