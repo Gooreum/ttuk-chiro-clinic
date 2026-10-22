@@ -316,8 +316,11 @@ export function frame(now){
   // swing round to the side of the neck: the spine lies across the landscape screen, the canal (and the cord in it)
   // shows between the bodies and the arches
   const orbitX = (target ? -target.side : 1)*0.2;
-  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*0.92);
-  camTgt.copy(camLook).lerp(TV_LOOK, ease(tv)).lerp(neckW, z*0.92);
+  // clinic: the dolly ends exactly on the disc (0.92 left 8% of the far resting camera/gaze, ~10 cm off at this range, so the
+  // stuck disc drifted up toward the HUD chips); towel keeps its own framing
+  const zk = towel ? 0.92 : 1;
+  camPos.lerp(tmpA.copy(neckW).add(tmpB.set(orbitX, 0.07, 0.0).multiplyScalar(1 - 0.24*push)), z*zk);
+  camTgt.copy(camLook).lerp(TV_LOOK, ease(tv)).lerp(neckW, z*zk);
   // towel mode: the head shoots out toward the camera, so the camera backs off and rises with it to keep the head
   // and the long neck in frame
   if(stretch > 0 && tv < 0.5){ camPos.z -= stretch*1.1; camPos.y += stretch*1.3; camTgt.z -= stretch*0.6; }
