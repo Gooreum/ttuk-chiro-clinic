@@ -72,13 +72,14 @@ function questBegin({ id, story, list }){
   document.querySelector('#questList button[data-q="' + id + '"]').click();
   if(!story) $("storyGo").click();
 }
-function campaignBegin({ day, story, hard, quest, list }){
+function campaignBegin({ day, story, hard, quest, list, interlude }){
   if(quest || list) return questBegin({ id: quest, story, list });
   // hard: the day itself cleared with three stars, so its 역경 button shows, and pressed
   const n = hard ? day + 1 : day;
-  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2), ...(interlude ? {} : { seen: [2, 3, 4, 5, 6, 7, 8] }) }));   // 장 막간 already seen, unless the case is the card itself
   $("campaignBtn").click();
   document.querySelector(`#dayList button[data-day="${day}"]`).click();
+  if(interlude) return;   // stop on the 장 막간 card
   if(hard) $("storyHard").click();
   if(!story) $("storyGo").click();
 }

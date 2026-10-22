@@ -194,7 +194,7 @@
 
   <div class="overlay" id="days" hidden>
     <div class="card days">
-      <div><div class="sub">영업 일지</div><div class="ch-tabs" id="chTabs"></div><p class="days-lead" id="chLead">월세 내는 날까지 버텨요</p></div>
+      <div><div class="sub">영업 일지</div><div class="ch-tabs" id="chTabs"></div><div class="lead-row"><p class="days-lead" id="chLead">월세 내는 날까지 버텨요</p><button class="ch-interlude" id="chInterlude" type="button" hidden>막간</button></div></div>
       <ol id="dayList"></ol>
       <div class="camp-row gated">
         <button class="btn ghost campaign-btn" id="daysNight" type="button" disabled hidden>심야 진료<small id="daysNightSub">56일 다 깨면 열려요</small></button>
@@ -227,6 +227,14 @@
       <button class="btn ghost" id="storyPain" type="button" hidden>광고 보고 통증 칸 +1</button>
       <button class="btn hard" id="storyHard" type="button" hidden>역경 모드 · 더 빡세게</button>
       <button class="btn ghost" id="storyBack" type="button">일지로</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="interlude" hidden>
+    <div class="card log story paper-note">
+      <div><div class="sub" id="interludeForm">막간</div><h2 id="interludeTitle">막간</h2></div>
+      <ul class="story-lines" id="interludeLines"></ul>
+      <button class="btn" id="interludeGo" type="button">다음</button>
     </div>
   </div>
 

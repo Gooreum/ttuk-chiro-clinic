@@ -214,7 +214,7 @@ export const DAYS = [
    intro:["나공무가 점검표를 거꾸로 들고 왔어요. 아무도 말 못 했어요.", "송기사는 새벽 운행 끝나서, 사모님은 영감 흉을 보러 왔어요.", "통증 두 번이면 위생 점수 깎여요."],
    outro:"나공무가 점검표에 '눈대중이 정확하네요'라고 적었어요. 점검관이 칭찬을 쓴 건 처음이라 손이 떨렸어요.",
    lines:{"송기사":"점검 나왔다고? 미터기는 켜 놨어", "정작가":"점검 장면 웹툰으로 그릴게요. 점검표 거꾸로 든 것까지요", "사모님":"감사관님 우리 영감 좀 점검해 주세요. 청결은 모르겠고 이틀째 안 씻었어요"}},
-  {ch:7, title:"좁은 점검", game:"back", patients:["보건소장"], painMax:2, zone:0,
+  {ch:7, title:"좁은 점검", game:"back", patients:["보건소장"], painMax:2, zone:0, mods:{tight:true},
    intro:["점검관 눈이 보건소장 허리만 쫓아요. 실수 한 번이 곧 감점이에요.", "보건소장은 도장 찍느라 30년 굽어서, 빗나가면 서류에 다 남아요.", "통증 두 번이면 영업 정지예요. 정확히 눌러요."],
    outro:"보건소장: 좁은 데를 정확히 누르는군. 인증서 도장은 아직이오. 허리 도장이 먼저요.",
    lines:{"보건소장":"허리가 도장처럼 굳었소. 정확히 눌러 주시오"}},
@@ -332,7 +332,8 @@ export function readProgress(raw){
   const cleared = ok ? Math.max(0, Math.min(DAYS.length, raw.cleared)) : 0;
   const stars = DAYS.map((_, i) => ok && i < cleared ? Math.max(1, Math.min(3, raw.stars[i] | 0)) : 0);
   const hard = DAYS.map((_, i) => ok && Array.isArray(raw.hard) && stars[i] >= 3 ? Math.max(0, Math.min(3, raw.hard[i] | 0)) : 0);
-  return {cleared, stars, hard, ...(ok && raw.quests && typeof raw.quests === "object" ? {quests: raw.quests} : {})};   // quests: 단골 의뢰 stars by id (core/quests.js)
+  const seen = ok && Array.isArray(raw.seen) ? [...new Set(raw.seen.filter(n => Number.isInteger(n) && n >= 2 && n <= CHAPTERS.length))].sort((a, b) => a - b) : [];   // 장 막간 seen (core/interlude.js)
+  return {cleared, stars, hard, ...(seen.length ? {seen} : {}), ...(ok && raw.quests && typeof raw.quests === "object" ? {quests: raw.quests} : {})};   // quests: 단골 의뢰 stars by id (core/quests.js)
 }
 /* a day is open when every day before it is cleared */
 export const dayOpen = (prog, day) => day >= 0 && day < DAYS.length && day <= prog.cleared;

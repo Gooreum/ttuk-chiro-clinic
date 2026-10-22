@@ -2,7 +2,8 @@ import { test, expect } from "@playwright/test";
 import { watchErrors } from "./helpers.js";
 
 // 허리펴기 역경 (playtest 5): back.html?day=14&hard=1 is 3장 1일차 on the harder rules.
-const save = JSON.stringify({ cleared: 15, stars: Array(15).fill(3) });
+// seen: 장 막간 already shown, so the 3장 1일차 story card opens directly
+const save = JSON.stringify({ cleared: 15, stars: Array(15).fill(3), seen: [2, 3] });
 
 test("허리펴기 역경: 통증 칸이 줄고 역경 표기가 보인다", async ({ page }) => {
   const errs = watchErrors(page);
