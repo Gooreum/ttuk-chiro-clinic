@@ -1,6 +1,6 @@
 import "../boot.js";
 import "../ui/clinic-hud.css";
-import {drawVGauge,drawHBar,drawHint} from '../ui/gauge.js';
+import {drawVGauge,drawHBar,drawHint,leftGaugeX} from '../ui/gauge.js';
 import {makeHud} from '../ui/hudDom.js';
 import {mountClinicMenu,renderClinicLinks} from '../ui/clinicSwitch.js';
 import {clamp} from '../lib/math.js';
@@ -37,8 +37,8 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse=matchMedia('(pointer: coarse)').matches;
 const preferMotion=coarse&&'DeviceMotionEvent' in window;
 const motion=new BackMotion();
-const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,pressure:.12,order:['L','R'],sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
-  locked:false,lockHeight:.5,shotAim:{height:.5,side:.5,locked:false},results:[],retried:[false,false],pending:null,animAt:0,rollAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,
+const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,pressure:.12,order:['L','R'],sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,tries:0,streak:0,
+  locked:false,lockHeight:.5,shotAim:{height:.5,side:.5,locked:false},results:[],pending:null,animAt:0,rollAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,
   sound:true,music:store.get('chiroSideMusic',true),motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,
   cue:'',cueStyle:'',pausedAt:0,previousPhase:null,gag:null};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
@@ -51,7 +51,7 @@ const dayQ=Number(new URLSearchParams(location.search).get('day')),
 // the day's zone width: mods.tight / tighter narrow it like the neck modes
 const TOL=tolFor(dayDef&&dayDef.mods);
 const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax+(!HARD&&new URLSearchParams(location.search).get('pain')==='1'?1:0):4,dayNo=DAY>=0?DAY+1:null;
+const painMax=dayDef?dayDef.painMax+(!HARD&&new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&['anim','turn','roll','leave'].includes(t.phase)?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 const side=()=>S.order[S.sideIdx], goal=()=>S.goals[S.sideIdx];
 const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{height:position,side:.5,locked:false};
@@ -114,10 +114,10 @@ function settleImpact(){
   updateImpact();const early=S.pending.sounded;S.pending=null;
   if(!early||S.kind!=='ok')impactSound();
   const label=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`,aimMs=S.animAt-S.prepUntil;
-  track(EV.attempt,{side_no:S.sideIdx+1,result:S.kind==='ok'?'ok':S.outcome.feedback||S.kind,tier:S.tier,force:S.force,perfect:!!S.outcome.perfect,pts:S.kind==='ok'?S.outcome.points:0,retry:!!S.retried[S.sideIdx],aim_ms:aimMs});
+  track(EV.attempt,{side_no:S.sideIdx+1,result:S.kind==='ok'?'ok':S.outcome.feedback||S.kind,tier:S.tier,force:S.force,perfect:!!S.outcome.perfect,pts:S.kind==='ok'?S.outcome.points:0,try_no:S.tries+1,aim_ms:aimMs});
   if(S.kind==='ok')firstSuccess({game:'side',side_no:S.sideIdx+1,aim_ms:aimMs});
   if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');domHud.stamp(S.outcome.perfect?'PERFECT':'성공',label,'dud');}
-  else{S.mistakes++;S.streak=0;domHud.stamp(S.tier?FORCE_STAMP[S.tier]:FAIL_STAMP[S.outcome.feedback],label,S.tier===2?'break':S.outcome.feedback);}
+  else{S.mistakes++;S.tries++;S.streak=0;domHud.stamp(S.tier?FORCE_STAMP[S.tier]:FAIL_STAMP[S.outcome.feedback],label,S.tier===2?'break':S.outcome.feedback);}
   cue(S.kind==='ok'?'뚝. 골반이 풀렸어요.':S.tier?'잠깐… 방금 소리가 이상한데요.':'조금 빗나갔어요.',S.kind==='ok'?'good':'bad');sync();
 }
 function applyPress(position,pressure,force=1){
@@ -133,16 +133,32 @@ function applyPress(position,pressure,force=1){
 function touchShove(force){if(S.phase==='play'&&S.control==='touch'&&S.locked&&!S.pending&&performance.now()>=S.prepUntil){ensureSound();applyPress(S.position,S.pressure,force);}}
 // The x-ray and the patient's line after a shove; no face close-up in this mode (he lies on his side).
 function shotTiming(){const d=therapistStyle(S.force,S.tier).xrayDelay;return S.tier?{speechAt:2.6+d,end:4.8+d}:S.kind!=='miss'?{speechAt:2.5,end:4.3}:{speechAt:1.5,end:3.2};}
-function endSide(now){
+function recordSide(){
   const g=goal();
   track(EV.patientDone,{side_no:S.sideIdx+1,label:S.kind==='ok'?'done':S.tier?'ambulance':'miss',pts:S.kind==='ok'?S.outcome.points:0});
   S.results.push({side:side(),kind:S.kind,tier:S.tier,points:S.kind==='ok'?S.outcome.points:0,perfect:!!S.outcome.perfect,roll:S.shotAim.side,pressure:S.peakPressure,goalRoll:g.roll,level:lumbarAt(S.shotAim.height)});
   $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
-  // a story day closes at its pain limit, even with a side left (the free run always does both sides)
-  if(dayDef&&S.mistakes>=painMax){finish();return;}
+}
+// After a shot (2026-10-22 one rule set for all four modes): a crack or a break calls the ambulance and ends the visit,
+// a mild miss is a pain and the same side again until the pain limit, a fixed side moves on.
+function afterShot(now){
+  if(S.tier){sideAmbulance(now);return;}
+  if(S.kind!=='ok'&&S.mistakes>=painMax){recordSide();finish();return;}
+  if(canRetry(S.kind,S.tier)){retrySide(now);return;}
+  endSide(now);
+}
+// the neck modes' ambulance once the x-ray has closed: the two-tone siren and the stamp, then the result card
+const SIREN_HOLD=2.6;
+function sideAmbulance(now){
+  recordSide();S.phase='leave';S.exit='ambulance';S.leaveAt=now;cue('');
+  if(S.sound)clinicAudio.siren(3.4);clinicAudio.vib([200,100,200,100,200]);
+  domHud.stamp('삐용삐용','구급차 불러요!','siren',SIREN_HOLD*1000);sync();
+}
+function endSide(now){
+  recordSide();
   if(S.sideIdx===0){
     S.phase='turn';cue('');
-    gag(S.tier===2?'구급차는… 반대쪽 끝나고 불러요':S.tier?'금 간 채로 반대쪽 갑니다':S.kind==='ok'?(S.outcome.perfect?'뚝발전소 풀가동! 반대쪽 남음':'한쪽 끝! 반대쪽 남았어요'):'반대쪽에서 만회해요',S.kind!=='ok',2600);
+    gag(S.kind==='ok'&&S.outcome.perfect?'뚝발전소 풀가동! 반대쪽 남음':'한쪽 끝! 반대쪽 남았어요',false,2600);
     if(S.kind==='ok'&&S.outcome.perfect)flash();
   }else{
     // the exit gag decides how he leaves: a swivel-chair spin for a symmetric pair, wrung out for a lopsided one
@@ -152,9 +168,9 @@ function endSide(now){
   }
   sync();
 }
-// a mild miss, the first on this side: the same side again, height first (core.js canRetry)
+// a mild miss under the pain limit: the same side again, height first (core.js canRetry)
 function retrySide(now){
-  S.retried[S.sideIdx]=true;S.phase='play';S.locked=false;S.position=.5;S.pressure=.12;motion.recenter();S.motionReady=false;motion.position=.5;motion.neutral=null;
+  S.phase='play';S.locked=false;S.position=.5;S.pressure=.12;motion.recenter();S.motionReady=false;motion.position=.5;motion.neutral=null;
   S.prepUntil=now+700;wasNear=false;cue('');
   $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
   gag('한 번 더! 이번엔 진짜로',false,1800);sync();
@@ -165,7 +181,7 @@ function flip(){
   ensureSound();S.phase='roll';S.rollAt=performance.now();gag('데구르르… 택배 왔어요',false,1600);if(S.sound)clinicAudio.whoosh();sync();
 }
 function endRoll(now){
-  S.sideIdx=1;S.phase='play';S.locked=false;S.position=.5;S.pressure=.12;motion.recenter();S.motionReady=false;motion.position=.5;motion.neutral=null;
+  S.sideIdx=1;S.tries=0;S.phase='play';S.locked=false;S.position=.5;S.pressure=.12;motion.recenter();S.motionReady=false;motion.position=.5;motion.neutral=null;
   S.prepUntil=now+700;S.breathAt=now;wasNear=false;sync();
 }
 function finish(){
@@ -208,8 +224,8 @@ function dayEnd(complete,avg){
 // 광고 보고 이어하기, once a run: the fixed side stays, the failed ones are redone with the pain reset (core.js continuePlan).
 function continueRun(){
   const p=continuePlan(S.order,S.goals,S.results),now=performance.now();
-  S.continued=true;S.mistakes=0;S.order=p.order;S.goals=p.goals;S.results=p.results;S.score=p.results.reduce((s,r)=>s+r.points,0);
-  S.retried=[false,false];S.pending=null;S.tier=0;S.kind='ok';S.exit=null;
+  S.continued=true;S.mistakes=0;S.tries=0;S.order=p.order;S.goals=p.goals;S.results=p.results;S.score=p.results.reduce((s,r)=>s+r.points,0);
+  S.pending=null;S.tier=0;S.kind='ok';S.exit=null;
   $('sideResult').hidden=true;$('sideControls').hidden=false;$('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
   if(p.turn){S.sideIdx=0;S.phase='turn';gag('한쪽은 살렸어요. 반대쪽 다시!',false,2200);}
   else{S.sideIdx=p.sideIdx;endRoll(now);S.sideIdx=p.sideIdx;S.prepUntil=now+PREP_MS;gag('다시 손 얹어요. 이번엔 살살',false,2200);}
@@ -229,8 +245,8 @@ async function start(useMotion=preferMotion){
   try{if(permission)granted=(await permission)==='granted';if(orientationPermission)await orientationPermission;}catch{granted=false;}
   motion.reset();lastSpeech='';lastExhale=null;domHud.hideSpeech();
   track(EV.runStart,{game:'side',how:S.phase==='result'?'again':'start',control:useMotion&&granted?'tilt':'touch'});screenView('play');S.runAt=performance.now();
-  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,order:sideOrder(Math.random()<.5?'L':'R'),sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,streak:0,
-    locked:false,results:[],retried:[false,false],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
+  Object.assign(S,{phase:'play',control:useMotion?'motion':'touch',position:.5,pressure:.12,order:sideOrder(Math.random()<.5?'L':'R'),sideIdx:0,goals:makeSideGoals(),score:0,mistakes:0,tries:0,streak:0,
+    locked:false,results:[],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,continued:false,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
   $('sideWelcome').hidden=true;$('sideResult').hidden=true;$('sidePaused').hidden=true;$('sideControls').hidden=false;$('sideGag').hidden=true;
   if(dayDef&&patient.lines.start)domHud.say(patient.lines.start,2600);
@@ -339,7 +355,7 @@ function drawHud(pressure,br){
   ctx.setTransform(hudDpr,0,0,hudDpr,0,0);ctx.clearRect(0,0,width,height);
   if(S.phase!=='play')return;
   const R=clamp(height*.19,62,Math.min(width,height)*.25),cx=width*.5,cy=height*.55;
-  const h=clamp(R*1.7,110,height*.62),x=43,top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2)
+  const h=clamp(R*1.7,110,height*.62),x=leftGaugeX(app),top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2), past the notch / island (gauge.js)
   if(!S.locked){
     const up=v=>heightDown()>0?1-v:v,t=goal().height,a=up(t-TOL),b=up(t+TOL);
     drawVGauge(ctx,{x,top,h,title:'높이',value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:'#7fd1b9'}});
@@ -387,14 +403,14 @@ function frame(now){
     else label.textContent=S.kind==='ok'?(xt<.5?`${where} · 꽉 잠긴 관절`:`${where} · 관절이 열렸어요`):S.kind==='weak'?`${where} · 아직 잠겼어요`:S.tier||S.kind==='over'?`${where} · 너무 감았어요…`:`${where} · 빗나갔어요`;
     label.hidden=film<.3;
     if(shotTime>=timing.speechAt){const text=speechFor(shotTime-timing.speechAt);if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}}
-    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';if(canRetry(S.kind,S.tier,S.retried[S.sideIdx])&&!(dayDef&&S.mistakes>=painMax))retrySide(now);else endSide(now);shotTime=-1;film=0;}
+    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';afterShot(now);shotTime=-1;film=0;}
   }
   if(S.phase==='roll'){
     roll=(now-S.rollAt)/1000;
     if(roll>=ROLL_S){roll=null;endRoll(now);}
   }
   let exit=null;
-  if(S.phase==='leave'){const t=(now-S.leaveAt)/1000;exit=S.exit?{kind:S.exit,t}:null;if(t>(S.exit?2.2:.6))finish(now);}
+  if(S.phase==='leave'){const t=(now-S.leaveAt)/1000,amb=S.exit==='ambulance';exit=S.exit&&!amb?{kind:S.exit,t}:null;if(t>(amb?SIREN_HOLD:S.exit?2.2:.6))finish(now);}
   if(S.gag&&now>S.gag.until){S.gag=null;$('sideGag').hidden=true;}
   // a hard thrust already has its stamp and the scream: no third word on top
   $('sideImpact').hidden=!(S.phase==='anim'&&shotTime>=0&&shotTime<.6&&!react);

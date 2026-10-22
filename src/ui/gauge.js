@@ -2,6 +2,21 @@ import { clamp } from "../lib/math.js";
 
 // Pure canvas instruments shared by neck traction and back pressing. All values are normalized by the caller.
 const DEFAULT_COLORS = {bone:"#f1eadc", coral:"#ff7a59", mint:"#8adfbf"};
+
+// x of a gauge on the left edge (back / side modes): its card (x-35 .. x+55) stays clear of the notch / Dynamic Island.
+// gl is the app's --gl (16px + the left safe-area inset, the top / bottom one when self-rotated); 43 when there is none
+// (2026-10-22 "왼쪽에 게이지바가 아이폰 아일랜드 영역에 걸려서 짤린다")
+export const gaugeX = gl => Math.max(43, gl + 27);
+const probes = new WeakMap();
+export function leftGaugeX(app){
+  let p = probes.get(app);
+  if(!p){
+    p = document.createElement("div");
+    p.style.cssText = "position:absolute;left:0;top:0;width:var(--gl,16px);height:0;visibility:hidden;pointer-events:none";
+    app.appendChild(p); probes.set(app, p);
+  }
+  return gaugeX(p.offsetWidth);
+}
 export function drawVGauge(ctx,{x,top,h,value,band=null,limit,title,hot=false,fill=true,colors={}}){
   const {bone:C_BONE,coral:C_CORAL,mint:C_MINT}={...DEFAULT_COLORS,...colors};
   const [lo,hi]=band||[0,0],t=clamp(value,0,1),w=16,bot=top+h,yAt=v=>bot-v*h;
