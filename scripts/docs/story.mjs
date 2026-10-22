@@ -7,7 +7,7 @@ import { ROSTER } from "../../src/patient/roster.js";
 import { CAST } from "../../src/patient/cast.js";
 
 const ALL = [...ROSTER, ...CAST];
-const GAME = { clinic: "목꺾기", towel: "목뽑기", back: "허리펴기" };
+const GAME = { clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기" };
 const TRAIT = { nervous: "긴장형", stiff: "근육 뭉침", flexible: "유연함", elder: "어르신" };
 const who = n => ALL.find(p => p.name === n);
 const out = [];

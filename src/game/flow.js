@@ -592,16 +592,18 @@ function dayEnd(complete, avg){
 }
 $("#campaignBtn").addEventListener("click", openDays);
 $("#daysClose").addEventListener("click", () => { $("#days").hidden = true; if(S.phase === "result") $("#result").hidden = false; });
-// 허리펴기 days run on back.html (src/back/main.js reads ?day); its start card takes the tap for the sensor permission
+// 허리펴기 / 허리비틀기 days run on back.html / side.html (src/{back,side}/main.js read ?day); their start card takes
+// the tap for the sensor permission
 $("#storyGo").addEventListener("click", () => {
-  if(DAYS[storyDay].game === "back"){ location.href = `back.html?day=${storyDay}`; return; }
+  const page = { back: "back.html", side: "side.html" }[DAYS[storyDay].game];
+  if(page){ location.href = `${page}?day=${storyDay}`; return; }
   start("clinic", storyDay);
 });
 $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; openDays(); });
 $("#nextDay").addEventListener("click", () => { $("#result").hidden = true; storyDay = S.day + 1; showStory(storyDay); });
 $("#toDays").addEventListener("click", () => { $("#result").hidden = true; openDays(); });
 $("#campaignSub").textContent = campaignLabel(progress());
-// back.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
+// back.html's and side.html's day result links here: ?days=1 opens the day list, ?story=N the next day's story card
 {
   const q = new URLSearchParams(location.search), sd = Number(q.get("story"));
   if(q.has("story") && dayOpen(progress(), sd)){ storyDay = sd; showStory(sd); }

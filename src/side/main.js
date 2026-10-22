@@ -8,6 +8,10 @@ import {therapistStyle} from '../back/therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
 import {ROSTER} from '../patient/roster.js';
+import {CAST} from '../patient/cast.js';
+import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,nextDay} from '../core/campaign.js';
+import {quietDay,bossMissed} from '../core/monetize.js';
+import {mountMonetize} from '../ui/monetize.js';
 import {createSideScene,ROLL_S} from './scene.js';
 import {SWEET,POSITION_TOL,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
@@ -37,7 +41,12 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   sound:true,music:store.get('chiroSideMusic',true),motionEnabled:false,motionReady:false,lastSample:0,sensorStatus:'waiting',prepUntil:0,breathAt:0,
   cue:'',cueStyle:'',pausedAt:0,previousPhase:null,gag:null};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
-const patient=ROSTER.find(p=>p.name==='박대리');
+// 영업 일지 허리비틀기 day (side.html?day=N from index.html's story card): that day's patient (name and lines; the body
+// is always Patient01's side-lying model), its pain limit and the day result. Otherwise the free 박대리 run.
+const dayQ=Number(new URLSearchParams(location.search).get('day')),
+  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='side'?dayQ:-1,dayDef=DAY>=0?DAYS[DAY]:null;
+const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
+const painMax=dayDef?dayDef.painMax:4,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&['anim','turn','roll','leave'].includes(t.phase)?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 const side=()=>S.order[S.sideIdx], goal=()=>S.goals[S.sideIdx];
 const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{height:position,side:.5,locked:false};
@@ -66,7 +75,7 @@ function sync(){
   $('sideScore').textContent=String(S.score);
   $('sideLock').hidden=S.locked;$('sideRelock').hidden=!S.locked;
   $('sideFlip').hidden=S.phase!=='turn';
-  const el=$('sideMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / 4회`);
+  const el=$('sideMistakes');el.setAttribute('aria-label',`통증 ${S.mistakes}회 / ${painMax}회`);
   [...el.querySelectorAll('i')].forEach((e,i)=>e.classList.toggle('on',i<S.mistakes));
   [...$('sideDots').children].forEach((e,i)=>{e.classList.toggle('now',i===S.sideIdx&&S.phase!=='result');e.classList.toggle('done',i<S.results.length);});
   $('sideZone').textContent=`${SIDE_NAME[side()]} ${S.sideIdx+1}/2`;
@@ -124,6 +133,8 @@ function endSide(now){
   track(EV.patientDone,{side_no:S.sideIdx+1,label:S.kind==='ok'?'done':S.tier?'ambulance':'miss',pts:S.kind==='ok'?S.outcome.points:0});
   S.results.push({side:side(),kind:S.kind,tier:S.tier,points:S.kind==='ok'?S.outcome.points:0,perfect:!!S.outcome.perfect,roll:S.shotAim.side,pressure:S.peakPressure,goalRoll:g.roll,level:lumbarAt(S.shotAim.height)});
   $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
+  // a story day closes at its pain limit, even with a side left (the free run always does both sides)
+  if(dayDef&&S.mistakes>=painMax){finish();return;}
   if(S.sideIdx===0){
     S.phase='turn';cue('');
     gag(S.tier===2?'구급차는… 반대쪽 끝나고 불러요':S.tier?'금 간 채로 반대쪽 갑니다':S.kind==='ok'?(S.outcome.perfect?'뚝발전소 풀가동! 반대쪽 남음':'한쪽 끝! 반대쪽 남았어요'):'반대쪽에서 만회해요',S.kind!=='ok',2600);
@@ -158,23 +169,38 @@ function finish(){
   S.score=Math.max(0,S.score+b.bonus);
   const best=store.get('chiroSideBest',0),record=done&&!S.results.some(r=>r.tier)&&S.score>best;
   if(record)store.set('chiroSideBest',S.score);
-  const tier=Math.max(...S.results.map(r=>r.tier));
+  const tier=Math.max(0,...S.results.map(r=>r.tier));
   $('sideResultTitle').textContent=tier?'허리가 비명을 질렀어요':S.results.every(r=>r.kind==='ok')?'양쪽 다 풀렸어요.':'한쪽은 아직 꼬여 있어요.';
   $('sideReview').textContent='“'+reviewLine({stars:S.results.every(r=>r.kind==='ok')?3:0,ambulance:tier>0,fails:S.results.filter(r=>r.kind!=='ok').map(r=>r.tier?'over':r.kind==='weak'?'dud':'finger'),tiers:S.results.map(r=>r.tier),lines:patient.lines}).replaceAll('목','허리')+'”';
   $('sideTotal').textContent=S.score;
   const rows=S.results.map(r=>{const e=document.createElement('li');e.textContent=`${SIDE_NAME[r.side]} ${r.level} ${r.kind==='ok'?r.points+'점':r.tier?'골절':'실패'}`;return e;});
   if(b.label){const e=document.createElement('li');e.textContent=`${b.label} ${b.bonus>0?'+':''}${b.bonus||''}`;rows.push(e);}
   $('sideResultSteps').replaceChildren(...rows);
-  $('sideRank').textContent=rankTitle(S.score/2,tier?3:S.mistakes);
+  $('sideRank').textContent=rankTitle(S.score/2,tier||S.mistakes>=painMax?3:S.mistakes);
   $('sideBest').textContent=record?`새 최고 기록! ${S.score}점`:`최고 기록 ${best}점`;
   $('sideResult').hidden=false;sync();
   const complete=done&&!tier;
   const outcome=runOutcome({ambulance:tier>0,pain:S.mistakes,complete});
-  track(EV.runEnd,{game:'side',outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
+  track(EV.runEnd,{game:'side',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
-  askReview(complete);
+  dayEnd(complete,S.score/2);
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2),used:true,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat))}));
 }
+function dayEnd(complete,avg){
+  if(!dayDef)return;
+  const cleared=dayClears(DAY,complete,avg),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=afterDay(before,DAY,cleared,dayStars(avg));
+  if(after!==before)store.set(CAMPAIGN_KEY,after);
+  const next=cleared?nextDay(after,DAY):-1;
+  $('sideResultTitle').textContent=`${dayLabel(DAY)} ${dayDef.title}`;
+  $('sideDayOutro').textContent=cleared?dayDef.outro:complete?`평균 ${Math.round(avg)}점. ${dayDef.beat}점을 못 넘었어요. ${dayDef.lose}`:`${dayLabel(DAY)}를 못 버텼어요. 다시 문 열어 봐요.`;
+  $('sideDayOutro').hidden=false;$('sideToDays').hidden=false;
+  $('sideNextDay').hidden=next<0;if(next>=0)$('sideNextDay').href=`index.html?story=${next}`;
+  $('sideAgain').textContent=cleared?'이 날 다시':'다시 도전';
+  track(EV.dayEnd,{day:dayNo,cleared,stars:cleared?dayStars(avg):0,score:S.score,run_ms:Math.round(performance.now()-S.runAt)});
+}
+// No 이어하기 here (used:true): a run is one patient, so a retry is just 다시 도전. The card still shows 광고 제거.
+const monetize=mountMonetize({continueBtn:$('sideContinueAd'),buyBtn:$('sideBuyAdFree'),onContinue:()=>{}});
 async function start(useMotion=preferMotion){
   let permission,orientationPermission;
   if(useMotion){
@@ -191,6 +217,7 @@ async function start(useMotion=preferMotion){
     locked:false,results:[],retried:[false,false],pending:null,animAt:0,kind:'ok',tier:0,force:0,outcome:null,peakPressure:0,motionEnabled:useMotion&&granted,
     motionReady:false,lastSample:0,sensorStatus:granted?'waiting':'denied',prepUntil:performance.now()+PREP_MS,breathAt:performance.now(),gag:null});
   $('sideWelcome').hidden=true;$('sideResult').hidden=true;$('sidePaused').hidden=true;$('sideControls').hidden=false;$('sideGag').hidden=true;
+  if(dayDef&&patient.lines.start)domHud.say(patient.lines.start,2600);
   $('sideMotionStatus').textContent=granted?'폰을 가로로 편하게 들고 잠깐 기다려 주세요.':'동작 센서가 꺼져 있어요. 다시 연결해 주세요.';
   sync();
 }
@@ -253,6 +280,13 @@ addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>
 $('sideTune').addEventListener('click',openTune);
 mountClinicMenu({chip:$('sideClinic'),menu:$('sideClinicMenu'),current:()=>'side',onOpen:halt,onClose:resume});
 ['sideWelcomeClinics','sideResultClinics'].forEach(id=>renderClinicLinks($(id),'side'));
+// the day's patient on the chart, the start card and the pain slots
+if(dayDef){
+  const nm=$('sideName');nm.textContent=patient.name;const ag=document.createElement('small');ag.textContent=`${patient.age}세`;nm.append(ag);
+  $('sideDayNo').textContent=`영업 일지 · ${dayLabel(DAY)} ${dayDef.title}`;$('sideDayNo').hidden=false;
+  $('sideWelcomeText').textContent=`${patient.name}, ${patient.age}세. ${patient.cc}`;
+}
+$('sideMistakes').replaceChildren('통증 ',...Array.from({length:painMax},()=>document.createElement('i')));
 $('sideTuneClose').addEventListener('click',closeTune);
 $('sidePause').addEventListener('click',pause);$('sideResume').addEventListener('click',closeTune);
 $('sideStart').addEventListener('click',()=>start());$('sideAgain').addEventListener('click',()=>start(S.control==='motion'));
@@ -336,7 +370,7 @@ function frame(now){
     else label.textContent=S.kind==='ok'?(xt<.5?`${where} · 꽉 잠긴 관절`:`${where} · 관절이 열렸어요`):S.kind==='weak'?`${where} · 아직 잠겼어요`:S.tier||S.kind==='over'?`${where} · 너무 감았어요…`:`${where} · 빗나갔어요`;
     label.hidden=film<.3;
     if(shotTime>=timing.speechAt){const text=speechFor(shotTime-timing.speechAt);if(text!==lastSpeech){domHud.say(text,10000,!!S.tier);lastSpeech=text;}}
-    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';if(canRetry(S.kind,S.tier,S.retried[S.sideIdx]))retrySide(now);else endSide(now);shotTime=-1;film=0;}
+    if(shotTime>timing.end){domHud.hideSpeech();lastSpeech='';if(canRetry(S.kind,S.tier,S.retried[S.sideIdx])&&!(dayDef&&S.mistakes>=painMax))retrySide(now);else endSide(now);shotTime=-1;film=0;}
   }
   if(S.phase==='roll'){
     roll=(now-S.rollAt)/1000;

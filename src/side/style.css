@@ -49,3 +49,7 @@
 #sideApp.xray-on .stamp-card small{font-size:11px}
 #sideApp.xray-on .bubble{left:90%!important;top:82%!important;max-width:18%!important}
 #sideApp .cut-label.burst{left:10%;top:76px;max-width:19%;padding:7px 10px 8px;white-space:normal;font-size:clamp(18px,3.4cqw,24px)}
+/* 영업 일지 day (side.html?day=N) */
+#sideApp .day-no{margin:0;font:600 13px 'IBM Plex Sans KR',sans-serif;color:var(--coral,#ff7a59)}
+#sideApp .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;color:#17312c;border-radius:8px;padding:8px 10px}
+#sideApp a.btn{display:block;text-align:center;text-decoration:none}

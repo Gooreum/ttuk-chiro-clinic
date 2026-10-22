@@ -86,7 +86,8 @@ test("영업 일지: 3장 허리펴기 날은 back.html?day로 넘어가 그날 
   await expect(page.locator("#backDayNo")).toHaveText("영업 일지 · 3장 1일차 허리 코너 신설");
   await expect(page.locator("#backName")).toContainText("박대리");
 
-  // 무거운 군장: 서병장, two pain slots
+  // 무거운 군장: 서병장, two pain slots (let day 14 finish loading first: leaving mid-load fails the error watch)
+  await page.waitForFunction(() => document.documentElement.dataset.backReady === "true", null, { timeout: 180_000 });
   const errs2 = watchErrors(page);
   await page.goto("./back.html?day=16");
   await expect(page.locator("#backName")).toContainText("서병장");
@@ -100,5 +101,23 @@ test("영업 일지: 3장 허리펴기 날은 back.html?day로 넘어가 그날 
   await expect(page.locator("#storyTitle")).toHaveText("허리 코너 신설");
   await page.goto("./?days=1");
   await expect(page.locator("#days")).toBeVisible();
+  errs.check();
+});
+
+test("영업 일지: 5장 허리비틀기 날은 side.html?day로 넘어가 그날 환자를 받는다", async ({ page }) => {
+  const errs = watchErrors(page);
+  await page.addInitScript(() => localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 29, stars: Array(29).fill(2) })));
+  await page.goto("./?story=29");
+  await expect(page.locator("#story")).toBeVisible();
+  await expect(page.locator("#storyRules")).toContainText("허리비틀기");
+  await expect(page.locator("#storyRules")).toContainText("이스쿠터 · 좌우 한 번씩");
+  errs.leaving();
+  await page.click("#storyGo");
+  await page.waitForURL(/side\.html\?day=29$/);
+  await expect(page.locator("#sideDayNo")).toHaveText("영업 일지 · 5장 2일차 쌍둥이 아닌 동생");
+  await expect(page.locator("#sideName")).toContainText("이스쿠터");
+  await expect(page.locator("#sideMistakes i")).toHaveCount(3);
+  await expect(page.locator("#sideWelcomeText")).toContainText("이라이더 동생");
+  await page.waitForFunction(() => document.documentElement.dataset.sideReady === "true", null, { timeout: 180_000 });
   errs.check();
 });

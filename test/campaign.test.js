@@ -12,8 +12,8 @@ describe("campaign", () => {
     expect(DAYS.length).toBe(56);
     CHAPTERS.forEach(c => expect(DAYS.filter(d => d.ch === c.no).length).toBe(7));
     DAYS.forEach((d, i) => {
-      expect(["clinic", "towel", "back"]).toContain(d.game);
-      if(d.game === "back") expect(d.patients.length).toBe(1);   // 허리펴기 is one patient, three zones
+      expect(["clinic", "towel", "back", "side"]).toContain(d.game);
+      if(d.game === "back" || d.game === "side") expect(d.patients.length).toBe(1);   // 허리펴기 three zones, 허리비틀기 two sides, one patient
       expect(d.patients.length).toBeGreaterThan(0);
       expect(d.intro.length).toBeGreaterThan(0);
       expect(d.painMax).toBeGreaterThanOrEqual(1);
@@ -25,6 +25,7 @@ describe("campaign", () => {
     expect(DAYS[13].patients.at(-1)).toBe("강직한");  // the rival ends chapter 2
     expect(DAYS[20]).toMatchObject({ch: 3, game: "back", patients: ["근육왕"]});   // the gym boss ends chapter 3
     expect(DAYS.filter(d => d.ch === 3 && d.game === "back").length).toBe(4);
+    expect(DAYS[29]).toMatchObject({ch: 5, game: "side", patients: ["이스쿠터"]});   // 5장 허리비틀기 demo day
     expect(DAYS[55]).toMatchObject({ch: 8, beat: 114});   // 뚝할배 closes the story
     expect(DAYS[55].patients.at(-1)).toBe("뚝할배");
   });

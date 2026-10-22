@@ -4,7 +4,7 @@
 import { $ } from "../lib/dom.js";
 import { DAYS, CHAPTERS, dayOpen, dayLabel, dayInChapter } from "../core/campaign.js";
 
-const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기"};
+const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기"};
 
 const chapterTitle = no => CHAPTERS.find(c => c.no === no).title;
 export function campaignLabel(prog){
@@ -60,9 +60,9 @@ export function showStory(day){
   const rules = $("#storyRules"); rules.textContent = "";
   const chip = (text, warn) => { const i = document.createElement("i"); i.textContent = text; if(warn) i.className = "warn"; rules.appendChild(i); };
   chip(GAME_NAME[d.game]);
-  chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : `환자 ${d.patients.length}명`);
+  chip(d.game === "back" ? `${d.patients[0]} · 세 구역` : d.game === "side" ? `${d.patients[0]} · 좌우 한 번씩` : `환자 ${d.patients.length}명`);
   chip(`통증 ${d.painMax}번이면 영업 끝`, d.painMax < 3);
-  if(d.game !== "back") chip(d.zone ? `초록 구역 안내 ${d.zone}명` : "구역 안내 없음", !d.zone);
+  if(d.game !== "back" && d.game !== "side") chip(d.zone ? `초록 구역 안내 ${d.zone}명` : "구역 안내 없음", !d.zone);
   if(d.mods && d.mods.tight) chip("구역이 좁아요", true);
   if(d.mods && d.mods.noisy) chip("숨 안내 없음", true);
   if(d.beat) chip(`보스 · 평균 ${d.beat}점 넘기기`, true);

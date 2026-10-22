@@ -5,7 +5,8 @@
    patient's start line on that day, for regulars coming back). Pure: no DOM, no three. Progress lives in
    localStorage "chiroCampaign" ({cleared: day count, stars: [per day]}), read and written by game/flow.js.
    Chapters (ch) only group the one list of days, so a save from before 2장 reads as it was and a new chapter just
-   appends days. 3장 adds game "back" (허리펴기, back.html?day=N): one patient, three zones, avg = score / 3. 2장 adds: mods (tight = a tighter zone, noisy = no breath coaching), beat (a boss day is cleared only
+   appends days. 3장 adds game "back" (허리펴기, back.html?day=N): one patient, three zones, avg = score / 3. 5장 adds game "side"
+   (허리비틀기, side.html?day=N): one patient, two sides, avg = score / 2. 2장 adds: mods (tight = a tighter zone, noisy = no breath coaching), beat (a boss day is cleared only
    with an average at least this high; lose = the boss line on a miss) and patients from patient/cast.js. 4장~8장 (휴가철 출장, 비틀어 학회, 방송 타고, 위생 감사 시즌, 프랜차이즈 전쟁) reuse the same
    days format with bosses at 100/97/101/103/106/109/114 (2~8장); 6~8장 also have painMax 1-2 days. The story ends with 뚝할배, the clinic's first owner. */
 export const CHAPTERS = [
@@ -138,10 +139,10 @@ export const DAYS = [
    intro:["학회에서 초청장이 왔어요. 원장이 발표를 해 달래요.", "발표 주제는 '목은 왜 뚝 소리가 나는가'예요.", "연습 환자로 최교수 팀과 정작가 어시스턴트가 왔어요."],
    outro:"최교수: 발표 슬라이드는 내가 봐 주지. 단, 내 이름이 먼저야.",
    lines:{"최교수":"학회 부위원장 됐어요. 직함만요. 잘 부탁해요", "최조교":"교수님 몰래 왔어요. 발표 자료 훔쳐보려고요", "유어시":"저는 정작가님 배경만 그리다 왔어요"}},
-  {ch:5, title:"쌍둥이 아닌 동생", game:"back", patients:["이스쿠터"], painMax:3, zone:1,
-   intro:["학회 시연용으로 허리 펴기 데모를 연습해요.", "이스쿠터가 눕자마자 형 이야기를 시작했어요.", "높이 고정하고, 좌우 맞추고, 툭."],
-   outro:"이스쿠터: 형이랑 같은 데가 아프다고요? 쌍둥이 아니에요. 그냥 같이 살 뿐이에요.",
-   lines:{"이스쿠터":"형이 여기 다녀갔다던데, 저도 같은 데 아파요"}},
+  {ch:5, title:"쌍둥이 아닌 동생", game:"side", patients:["이스쿠터"], painMax:3, zone:0,
+   intro:["학회 시연용으로 허리비틀기 데모를 연습해요.", "이스쿠터가 옆으로 눕자마자 형 이야기를 시작했어요.", "한쪽 비틀고, 굴려서 반대쪽도. 통증 세 번이면 시연은 취소예요."],
+   outro:"이스쿠터: 형은 한쪽만 했대요. 저는 양쪽 다 했으니까 오늘부터 제가 형이에요.",
+   lines:{"이스쿠터":"형이 여기서 허리 비틀었대요. 저는 양쪽 다 해 주세요"}},
   {ch:5, title:"발표 연습", game:"towel", patients:["말빨", "최교수", "최프로"], painMax:3, zone:1,
    intro:["발표 대본 대신 수건으로 시연해요.", "말빨은 방송용 멘트를 연습하고 최교수는 질문을 준비했어요.", "최프로는 시선이 공에 고정돼서 안 돌아가요."],
    outro:"최프로: 이제 목이 홀인원이에요. 최교수는 질문지를 세 번 고쳐 썼어요.",
