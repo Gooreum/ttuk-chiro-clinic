@@ -1,11 +1,17 @@
 /* Apps-in-Toss result-card buttons, shared by the three modes: "광고 보고 이어하기" (rewarded, once per run after a
    bad end, or "광고 보고 마지막 환자 다시" after a boss day under its beat) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
 import { isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/toss.js";
-import { continueOffer, painAdOffer } from "../core/monetize.js";
+import { continueOffer, painAdOffer, clearAdDue } from "../core/monetize.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
 
 export const AD_NOTICE_MS = 1600;
+// cleared-day cards shown this browser session (sessionStorage; falls back to a page-local count)
+let clearCards = 0;
+function bumpClearCards(){
+  try{ const n = (Number(sessionStorage.getItem("chiroClearCards")) || 0) + 1; sessionStorage.setItem("chiroClearCards", String(n)); return n; }
+  catch(e){ return ++clearCards; }
+}
 /* The interstitial is announced first (the Toss recommend guide: no ad without warning). */
 function adNotice(){
   track(EV.adNotice, { format: "interstitial" });
@@ -22,7 +28,8 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   restorePurchases();
   let busy = false;
   let retry = false;   // a boss-day miss: the same button replays the last patient
-  const label = () => retry ? (adFree() ? "마지막 환자 다시" : "광고 보고 마지막 환자 다시") : adFree() ? "이어하기" : "광고 보고 이어하기";
+  let plus = false;    // 심야 진료: the continue gives one more pain slot
+  const label = () => plus ? (adFree() ? "통증 칸 +1로 이어하기" : "광고 보고 통증 칸 +1로 이어하기") : retry ? (adFree() ? "마지막 환자 다시" : "광고 보고 마지막 환자 다시") : adFree() ? "이어하기" : "광고 보고 이어하기";
   async function renderBuy(){
     buyBtn.hidden = !canBuyAdFree();
     if(buyBtn.hidden) return;
@@ -32,7 +39,7 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   continueBtn.addEventListener("click", async () => {
     if(busy) return;
     busy = true; continueBtn.disabled = true;
-    track(EV.click, { target: retry ? "boss_retry_ad" : "continue_ad", ad_free: adFree() });
+    track(EV.click, { target: plus ? "night_continue_ad" : retry ? "boss_retry_ad" : "continue_ad", ad_free: adFree() });
     const ok = await watchRewarded();
     busy = false; continueBtn.disabled = false;
     if(ok){ continueBtn.hidden = true; onContinue(); }
@@ -60,15 +67,15 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
     // after the day log opens: offer the continue, or show an interstitial when there is none to offer and the
     // card did not just ask for a review. hard (역경): no continue and no boss retry, and no ad right after a failed
     // run. deferInterstitial: hold the interstitial for the leave buttons.
-    async showResult({ endedBad, bossMiss, used, hard, skipInterstitial, deferInterstitial }){
-      retry = !hard && !endedBad && !!bossMiss;
+    async showResult({ endedBad, bossMiss, used, hard, night, skipInterstitial, deferInterstitial }){
+      retry = !hard && !endedBad && !!bossMiss; plus = !!night;
       pendingAd = false;
       const offer = !hard && continueOffer({ endedBad, bossMiss, used }) && (canWatchRewarded() || adFree());
       continueBtn.hidden = !offer; continueBtn.textContent = label();
       renderBuy();
-      if(offer || skipInterstitial) return;
-      if(hard && (endedBad || bossMiss)) return;
-      if(deferInterstitial){ pendingAd = true; return; }
+      if(offer || skipInterstitial || night) return;   // 심야 진료 always ends badly: like 역경, no ad right after it, only the rewarded continue
+      if(endedBad || bossMiss) return;   // never an ad right after a failed card (any mode, also after a continue)
+      if(deferInterstitial){ pendingAd = clearAdDue(bumpClearCards()); return; }
       await maybeInterstitial(adNotice);
     }
   };

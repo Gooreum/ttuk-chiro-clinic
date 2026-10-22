@@ -2,7 +2,7 @@
    to start(); the story card's 영업 시작 is the tap that starts the run, so the iOS permission calls in start() stay
    inside a user gesture (AGENTS.md 3-5). */
 import { $ } from "../lib/dom.js";
-import { DAYS, CHAPTERS, dayOpen, dayLabel, dayInChapter, dayDef, hardOpen, HARD_GAMES } from "../core/campaign.js";
+import { DAYS, CHAPTERS, ENDING, dayOpen, dayLabel, dayInChapter, dayDef, hardOpen, HARD_GAMES } from "../core/campaign.js";
 
 const GAME_NAME = {clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기"};
 
@@ -57,6 +57,15 @@ export function renderDays(prog, onPick, ch = 0){
     li.appendChild(b); list.appendChild(li);
   });
   $("#days").hidden = false;
+}
+
+/* the ending card (index.html #ending) after the last day's first clear */
+export function showEnding(){
+  $("#endingTitle").textContent = ENDING.title;
+  const ul = $("#endingLines"); ul.textContent = "";
+  ENDING.lines.forEach(line => { const li = document.createElement("li"); li.textContent = line; ul.appendChild(li); });
+  $("#endingUnlock").textContent = ENDING.unlock;
+  $("#ending").hidden = false;
 }
 
 /* hard: the 역경 rules (core/campaign.js hardDay); canHard: the day has three stars, so the 역경 button shows */

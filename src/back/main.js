@@ -169,7 +169,7 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3)}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3)}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;

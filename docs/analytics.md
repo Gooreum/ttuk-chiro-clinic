@@ -32,14 +32,18 @@
 | `app_error` | 잡히지 않은 오류(페이지당 10개까지) | `kind`(`error`/`rejection`), `message`, `file`, `line`, `ready`, `screen_name` |
 | `app_hide` | 백그라운드로 감·뒤로가기 | `reason`(`hidden`/`back`), `dwell_ms`, `screen_name`, `screen_ms` |
 | `ui_click` | 버튼·링크·칩 클릭(위임) | `target`(id 또는 `data-track`), `screen_name` |
-| `run_start` | 시작·다시·이어하기 | `game`, `how`(`start`/`again`/`continue`), `control` |
+| `run_start` | 시작·다시·이어하기 | `game`(`crack`/`towel`, 심야 진료는 `night`), `how`(`start`/`again`/`continue`), `control` |
 | `patient_start` | 환자(허리펴기는 구역) 시작 | `patient_no`/`zone_no`, `roster`, `trait`, `of` |
 | `aim_start` | 준비가 끝나 조작 가능(목 모드) | `patient_no`, `control` |
 | `attempt` | 꺾기·당기기·누르기 한 번 | `result`(`ok` 또는 실패 종류: over/dud/finger/slip/taut/skew/miss…), `tier`(0 살살/1 금/2 골절), `force`, `perfect`, `pts`, `try_no`, `aim_ms`, `side_no`/`zone_no`, `exhale`, `dist`/`tension`, `organs` |
 | `first_success` | 이 기기의 첫 성공 | `game`, `aim_ms` |
 | `patient_done` | 환자(또는 구역·쪽) 끝 | `label`(`done`/`quit`/`ambulance`/`miss`), `pts`, `stars`, `fails` |
 | `run_end` | 결과 카드 | `game`, `day`(영업 일지일 때만, 허리펴기·허리비틀기 포함), `outcome`(`complete`/`pain`/`ambulance`/`quit`), `score`, `patients`, `pain`, `best`, `continued`, `run_ms`, `rank` |
+| `quest_start` | 단골 의뢰 게시판에서 의뢰 시작을 누름 | `quest_no`(1~48), `quest`(id), `who`, `rule`(tight/noisy/pain1/pain2/beat/many), `game` |
+| `quest_end` | 의뢰 한 판이 끝남(클리어 여부, `beat` 의뢰는 평균 이상이어야 클리어) | `quest_no`, `quest`, `who`, `rule`, `game`, `cleared`, `stars`, `score`, `run_ms` |
 | `run_complete` | **핵심 행동**: 한 판을 끝까지(모든 환자, 구급차·통증 종료 없이) | `game`, `day`(영업 일지일 때만), `score`, `continued`, `run_ms` |
+| `night_start` | 심야 진료(엔드게임 무한 모드) 시작 | `date`(KST 날짜, 일일 시드) |
+| `night_end` | 심야 진료가 끝남(통증·구급차, 이어하기 뒤 다시 끝나면 한 번 더) | `date`, `count`(끝까지 진료한 환자 수), `score`, `tier`(도달한 단계, 5명마다 1), `outcome`(`pain`/`ambulance`), `continued`, `best`(오늘 기록 경신), `run_ms` |
 | `day_end` | 영업 일지 한 일차가 끝남(클리어 여부, 보스 날은 평균 `beat` 이상이어야 클리어) | `day`(1~56, 장을 넘어 이어지는 번호. 허리펴기 날은 `game: back`, 허리비틀기 날은 `game: side`), `hard`(역경이면 1), `cleared`, `stars`, `score`, `run_ms`(시작부터 이날 끝까지, 이어하기 포함. 실측 플레이타임 산정용, docs/economy.md) |
 | `review_request` | 한 판 완주 직후 토스 리뷰 요청(기기당 1번, `chiroReviewAsked`) | `supported`, `error` |
 | `ad_notice` | 전면광고 전 "잠시 뒤 광고가 1개 나와요"(1.6초) | `format` |

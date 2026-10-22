@@ -4,7 +4,7 @@ import { clamp } from "../lib/math.js";
 /* tight: a 영업 일지 day that narrows every zone (core/campaign.js mods.tight) */
 export const TIGHT = 0.8, TIGHTER = 0.7;
 /* mods of a 영업 일지 day -> zone factor (역경 on an already tight day is tighter) */
-export const tightFactor = mods => mods && mods.tighter ? TIGHTER : mods && mods.tight ? TIGHT : 1;
+export const tightFactor = mods => mods && mods.tighter ? TIGHTER : mods && typeof mods.tight === "number" ? mods.tight : mods && mods.tight ? TIGHT : 1;   // a number is a zone scale (심야 진료 core/night.js)
 export function tolMul(trait, elapsed, tight = false){
   const t = typeof tight === "number" ? tight : tight ? TIGHT : 1;
   if(trait === "nervous") return t*Math.max(0.6, 1 - elapsed/24000);

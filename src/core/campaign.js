@@ -264,6 +264,20 @@ export const DAYS = [
 ];
 export const CAMPAIGN_KEY = "chiroCampaign";
 
+/* 엔딩 (playtest 5 P0): shown once after the 56th day (뚝할배, 목꺾기) is cleared for the first time, behind the result card.
+   unlock is the one-line notice that the 심야 진료 opens (text only; the mode itself is another task). */
+export const ENDING = {
+  title: "뚝 카이로 클리닉, 간판은 계속 달려 있어요",
+  lines: [
+    "뚝할배는 지하에서 올라와 접수대에 앉았어요. 간판은 새로 닦았고, 손은 아직 안 풀렸대요.",
+    "김사장은 약속대로 월세를 동결했어요. 메가 척추그룹을 회장에게 넘긴 사람도 결국 이분이었어요.",
+    "메가회장은 인수 서류를 찢고 대기표를 뽑았어요. 김상무가 옆에서 접수를 도와요.",
+    "맞은편 정골원 강직한 원장은 오늘도 창문으로 훔쳐봐요. 손을 흔들었더니 커튼을 쳤어요.",
+    "원장은 오늘도 손을 풀어요. 이건 만화니까 진짜 목에는 따라 하지 마세요."
+  ],
+  unlock: "심야 진료가 열렸어요"
+};
+
 /* "2장 3일차": a day's label inside its chapter */
 export const dayInChapter = day => DAYS.slice(0, day).filter(d => d.ch === DAYS[day].ch).length;
 export const dayLabel = day => `${DAYS[day].ch}장 ${dayInChapter(day) + 1}일차`;
@@ -315,7 +329,7 @@ export function readProgress(raw){
   const cleared = ok ? Math.max(0, Math.min(DAYS.length, raw.cleared)) : 0;
   const stars = DAYS.map((_, i) => ok && i < cleared ? Math.max(1, Math.min(3, raw.stars[i] | 0)) : 0);
   const hard = DAYS.map((_, i) => ok && Array.isArray(raw.hard) && stars[i] >= 3 ? Math.max(0, Math.min(3, raw.hard[i] | 0)) : 0);
-  return {cleared, stars, hard};
+  return {cleared, stars, hard, ...(ok && raw.quests && typeof raw.quests === "object" ? {quests: raw.quests} : {})};   // quests: 단골 의뢰 stars by id (core/quests.js)
 }
 /* a day is open when every day before it is cleared */
 export const dayOpen = (prog, day) => day >= 0 && day < DAYS.length && day <= prog.cleared;

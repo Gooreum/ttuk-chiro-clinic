@@ -1,7 +1,11 @@
 /* Apps-in-Toss monetization rules (src/platform/toss.js wires them to the SDK). Pure, unit-tested.
    Rewarded ad = "이어하기": a run that ended on pain or an ambulance can go on once. Interstitial = on the day log of a
    run that is not offered a continue, at most once per INTERSTITIAL_GAP_MS. The 광고 제거 purchase skips both ads. */
-export const INTERSTITIAL_GAP_MS = 120000;
+import { comboAvg } from "./scoring.js";
+export const INTERSTITIAL_GAP_MS = 240000;
+/* A cleared 영업 일지 day's card shows an interstitial only on every second clear of a session (playtest 5: ads on every
+   clear felt like a toll). n = how many cleared cards this session has shown, counting the current one. */
+export const clearAdDue = n => n >= 2 && n % 2 === 0;
 /* 영업 일지: no interstitial on the first ONBOARD_DAYS days (new players learn the game ad-free) or on a boss day's card
    (a win or a loss there should land without an ad on top) */
 export const ONBOARD_DAYS = 3;
@@ -13,7 +17,15 @@ export const continueOffer = ({ endedBad, bossMiss, used }) => !!(endedBad || bo
    patient (or 허리펴기's last zone) instead of the whole day (user goal 2026-10-22 "중간중간에 과금요소 잘 넣는다") */
 // Only a near miss gets the ad offer: a big gap means the day needs a fresh try, not one more patient.
 export const BOSS_RETRY_GAP = 8;
-export const bossMissed = (beat, complete, avg) => !!beat && !!complete && avg < beat && beat - avg <= BOSS_RETRY_GAP;
+/* opts (optional): { cracks, lastCracks, lastPts } = cracks in the whole day, cracks the replay covers, points the last
+   patient scored. If a perfect replay of those cracks (115 each + the combo that restarts at 0 after a continue) still
+   cannot lift the average to the beat, the ad is not offered (playtest 5 P0: the ad sold a retry that could not win). */
+export function bossMissed(beat, complete, avg, opts){
+  if(!(!!beat && !!complete && avg < beat && beat - avg <= BOSS_RETRY_GAP)) return false;
+  if(!opts || !(opts.cracks > 0) || !(opts.lastCracks > 0)) return true;
+  const best = opts.lastCracks * (115 + comboAvg(opts.lastCracks));
+  return (avg * opts.cracks - (opts.lastPts || 0) + best) / opts.cracks >= beat;
+}
 
 /* 영업 일지 story card: "광고 보고 통증 칸 +1" (rewarded, optional). Only on a plain day with 2 or fewer pain slots, once
    per day; 역경 never gets it (an ad must not undo the difficulty the player chose; user goal 2026-10-22 "중간중간에 과금요소 잘 넣는다"). */

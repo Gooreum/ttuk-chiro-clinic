@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer } from "../src/core/monetize.js";
+import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue } from "../src/core/monetize.js";
 
 describe("monetize", () => {
   it("offers one continue after a bad end", () => {
@@ -16,6 +16,16 @@ describe("monetize", () => {
     expect(bossMissed(undefined, true, 10)).toBe(false);
     expect(bossMissed(100, true, 100 - BOSS_RETRY_GAP)).toBe(true);
     expect(bossMissed(100, true, 100 - BOSS_RETRY_GAP - 1)).toBe(false);   // far off: start the day over
+  });
+  it("does not sell a boss retry that a perfect replay cannot win", () => {
+    // 6 cracks, avg 100 of beat 105: a perfect last patient (2 cracks, 115 + combo 5 avg) from 0 pts gains (2*120)/6 = 40
+    expect(bossMissed(105, true, 100, { cracks: 6, lastCracks: 2, lastPts: 100 })).toBe(true);
+    expect(bossMissed(105, true, 100, { cracks: 6, lastCracks: 2, lastPts: 240 })).toBe(false);   // already near the max
+    expect(bossMissed(105, true, 100, { cracks: 3, lastCracks: 1, lastPts: 115 })).toBe(false);   // gain 0
+    expect(bossMissed(105, true, 100)).toBe(true);   // no data: the gap rule only
+  });
+  it("shows the clear-card interstitial on every second clear only", () => {
+    expect([1, 2, 3, 4].map(clearAdDue)).toEqual([false, true, false, true]);
   });
   it("offers the pain +1 ad on plain days with 2 or fewer pain slots, once", () => {
     expect(painAdOffer({ painMax: 1, hard: false, used: false })).toBe(true);

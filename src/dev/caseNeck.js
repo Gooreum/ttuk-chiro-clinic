@@ -47,7 +47,21 @@ async function after(step, before, c){
 
 /* 영업 일지 cases: a save with the days before `day` cleared, then the same taps a player makes (일지 -> day -> 영업 시작).
    story: stop on the story card. hard: the 역경 run of that day. */
-function campaignBegin({ day, story, hard }){
+function nightBegin(){   // 심야 진료: 56일 클리어 저장 -> 영업 일지 -> 심야 진료
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0) }));
+  $("campaignBtn").click();
+  $("daysNight").click();
+}
+function questBegin({ id, story, list }){
+  localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 7, stars: Array(7).fill(2), quests: { "박대리1": 3, "최교수1": 1 } }));
+  $("campaignBtn").click();
+  $("questOpen").click();
+  if(list) return;
+  document.querySelector('#questList button[data-q="' + id + '"]').click();
+  if(!story) $("storyGo").click();
+}
+function campaignBegin({ day, story, hard, quest, list }){
+  if(quest || list) return questBegin({ id: quest, story, list });
   // hard: the day itself cleared with three stars, so its 역경 button shows, and pressed
   const n = hard ? day + 1 : day;
   localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: n, stars: Array(n).fill(hard ? 3 : 2) }));
@@ -60,6 +74,7 @@ function campaignBegin({ day, story, hard }){
 runCase({
   ready: () => waitFor(() => document.documentElement.dataset.head && document.documentElement.dataset.hands, 150000, "에셋 로드").then(() => document.fonts.ready),
   begin(c){
+    if(c.night){ nightBegin(); return; }
     if(c.campaign){ campaignBegin(c.campaign); return; }
     $(c.mode === "towel" ? "startTowel" : "start").click();
     if(c.patient){
@@ -69,6 +84,6 @@ runCase({
     }
   },
   async play(c){
-    for(const step of c.steps){ const b = await act(step, c.mode === "towel"); await after(step, b, c); }
+    for(const step of c.steps){ const b = await act(step, c.night ? S.game === "towel" : c.mode === "towel"); await after(step, b, c); }
   }
 });
