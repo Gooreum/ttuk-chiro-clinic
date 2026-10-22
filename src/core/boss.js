@@ -16,7 +16,7 @@ export const SHRINK_MS = 18000, SHRINK_MIN = 0.65;
 export const BOSS_RULES = {
   taunt:  { chip: "첫 꺾기 PERFECT 아니면 반대쪽 구역 축소", cue: "첫 쪽을 PERFECT로 못 하면 반대쪽 구역이 좁아져요" },
   timer:  { chip: "한 쪽당 12초 안에 꺾기", cue: "한 쪽당 12초. 넘기면 -20점이에요" },
-  fake:   { chip: "날숨 아니고 들숨에 +15", cue: "이 환자는 들숨에 +15예요. 숨 안내는 안 믿어도 돼요" },
+  fake:   { chip: "숨 안내가 수상함", cue: "오늘은 숨 안내가 수상해요. 박자를 직접 느껴 보세요" },
   swap:   { chip: "중간에 목표가 반대쪽으로 바뀜", cue: "한 번은 마음이 바뀌어요. 끝까지 보고 맞추세요" },
   shrink: { chip: "오래 조준할수록 구역이 좁아짐", cue: "오래 재면 구역이 좁아져요. 빨리 정하세요" }
 };
