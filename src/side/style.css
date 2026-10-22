@@ -44,7 +44,8 @@
    not on the film; a disaster keeps the one burst, not the stamp too. #sideSpeech is placed inline, hence !important. */
 #sideApp.xray-on .float,#sideApp.xray-on #sideImpact{visibility:hidden}
 #sideApp.xray-burst .stamp-card{opacity:0}
-#sideApp.xray-on .stamp-card{left:10%;top:60%;max-width:18%;padding:8px 10px 7px}
+/* 33차: 척추 왼쪽 아래 끝을 가리던 자리(60%)에서 왼쪽 위 구석(차트 아래)으로 옮긴다 */
+#sideApp.xray-on .stamp-card{left:12%;top:26%;max-width:18%;padding:8px 10px 7px;transform:translate(-50%,-50%) rotate(-9deg) scale(.8);animation:none}
 #sideApp.xray-on .stamp-card b{font-size:24px}
 #sideApp.xray-on .stamp-card small{font-size:11px}
 #sideApp.xray-on .bubble{left:90%!important;top:82%!important;max-width:18%!important}

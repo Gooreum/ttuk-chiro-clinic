@@ -379,6 +379,13 @@ export function frame(now){
   // the top when the head is high on screen (the towel mode's third-person view). Width from #app, not vw (3-4)
   elBubble.style.maxWidth = Math.round(bw*0.46) + "px";
   elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom + elBubble.offsetHeight) + "px";
+  // 33차: the stamp folded into the top-left corner (fracture x-ray about to open) must not be overlapped by the bubble following the head
+  const tucked = document.querySelector(".stamp-card.tuck");
+  if(tucked){
+    const stampRight = bw*0.11 + tucked.offsetWidth*0.25 + 10;
+    const minLeft = stampRight + elBubble.offsetWidth*0.5;
+    if(parseFloat(elBubble.style.left) < minLeft) elBubble.style.left = Math.min(minLeft, bw - elBubble.offsetWidth*0.5 - 6) + "px";
+  }
   // 30차: while the fracture x-ray is up the head is off screen and the tag owns the top centre: the line sits low instead
   if(S.fracLvl && S.fracFired){
     const bh = canvas.clientHeight || innerHeight;
