@@ -54,7 +54,7 @@ export function renderDays(prog, onPick, ch = 0, onInterlude = null){
     // a day beaten on 역경 shows those stars instead (three plain stars are what opened it)
     const hs = prog.hard && prog.hard[i];
     if(hs){ st.textContent = "역경 " + "★".repeat(hs) + "☆".repeat(3 - hs); st.className = "hard"; }
-    else if(hardOpen(prog, i)){ st.textContent += " 역경"; st.className = "hard-open"; }   // three stars: 역경 is open (discoverability)
+    else if(hardOpen(prog, i)){ st.textContent += " 역경 열림"; st.className = "hard-open"; }   // three stars: 역경 is open (discoverability)
     b.append(no, t, st);
     b.disabled = !dayOpen(prog, i);
     if(i === prog.cleared) b.classList.add("next");
