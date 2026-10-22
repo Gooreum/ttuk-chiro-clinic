@@ -7,7 +7,7 @@ import { TRAITS } from "../patient/roster.js";
 
 /* DOM HUD helpers: toast, speech bubble, floating text, chart card, mini spine, mode line. */
 const domHud = makeHud($("#app"));
-export const { toast, say, coach, stamp, hideCoach } = domHud;
+export const { toast, say, coach, stamp, hideCoach, hideSpeech } = domHud;
 export const headScreen = {x:0, y:0, r:60};
 export function projectHead(){
   head.getWorldPosition(tmpA);

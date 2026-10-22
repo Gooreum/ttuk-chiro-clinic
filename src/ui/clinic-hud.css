@@ -130,6 +130,10 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:15px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
 :where(.clinic-app) .boss-rule{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:3}
 :where(.clinic-app) .boss-rule.late{color:var(--coral);border-color:var(--coral)}
+:where(.clinic-app) .boss-rule.late.tick{animation:bossShake .2s linear infinite}
+@keyframes bossShake{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(calc(-50% - 3px)) rotate(-2deg)}75%{transform:translateX(calc(-50% + 3px)) rotate(2deg)}}
+:where(.clinic-app) .stamp-card.boss b{font-size:54px}
+:where(.clinic-app) .stamp-card small.by{font-size:12px;font-weight:700;color:var(--mint);opacity:.9}
 :where(.clinic-app) .boss-rule[hidden]{display:none}
 :where(.clinic-app) .coach small{color:var(--muted);font-size:11px;font-weight:600;margin-right:6px}
 :where(.clinic-app) .coach.show{opacity:1}

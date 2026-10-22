@@ -25,10 +25,10 @@ export function makeHud(root){
     c.classList.add("show");hideSpeech();
     clearTimeout(coachTimer);coachTimer=setTimeout(()=>c.classList.remove("show"),ms);
   }
-  function stamp(word,sub,kind,ms=1700){
+  function stamp(word,sub,kind,ms=1700,by=""){
     const s=element("stamp-card");s.textContent="";
     const b=doc.createElement("b");b.textContent=word;
-    const sm=doc.createElement("small");sm.textContent=sub;s.append(b,sm);
+    const sm=doc.createElement("small");sm.textContent=sub;s.append(b,sm);if(by){const bw=doc.createElement("small");bw.className="by";bw.textContent=by;s.append(bw);}
     s.className="stamp-card";void s.offsetWidth;s.className="stamp-card show "+kind;
     clearTimeout(stampTimer);stampTimer=setTimeout(()=>s.classList.remove("show"),ms);
   }

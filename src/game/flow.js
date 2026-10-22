@@ -19,7 +19,7 @@ import { makeTowelTarget, towelTension, towelKind, towelLine, TOWEL_STAMP, towel
 import { pivot, sparks, tmpA } from "../scene/patientModel.js";
 import { canvas } from "../scene/renderer.js";
 import { ensureAudio, setAmbient, crackSound, chime, vib, fizzle, knuckle, boing, crunch, siren, stopSiren, stretchSound, whoosh, thud } from "../audio/audio.js";
-import { toast, say, coach, hideCoach, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
+import { toast, say, coach, hideCoach, hideSpeech, stamp, headScreen, floater, renderPain, renderDots, renderSpine, clockTxt, renderCombo, setModeText, renderChartSheet, openChart, closeChart, uiBlocked } from "../ui/hud.js";
 import { isTouch, physAngle, layout } from "../input/orientation.js";
 import { mountClinicMenu, renderClinicLinks } from "../ui/clinicSwitch.js";
 import { onMotion, onOrientation } from "../input/motion.js";
@@ -31,7 +31,7 @@ import { nightOpen, nightCount } from "../core/night.js";
 import { rushStats } from "../core/rush.js";
 import { dayShareText, nightShareText, rushShareText, weeklyShareText, leaderboardScore } from "../core/share.js";
 import { shareResult, submitScore, openRanking, leaderboardOn } from "../platform/share.js";
-import { bossRules, BOSS_RULES, tauntTrips, timerPenalty, bossPts, swapDue, sideSlot } from "../core/boss.js";
+import { bossRules, hasRule, bossCues, liveLine, tauntTrips, timerPenalty, bossPts, swapDue, sideSlot } from "../core/boss.js";
 import { mountBoss } from "./boss.js";
 import { weeklyBegin, weeklyPrep, weeklyContinue, weeklyResult, weeklyBest, renderWeeklyBtn, mountWeekly } from "./weekly.js";
 import { rushBegin, rushPrep, rushContinue, rushResult, renderRushBtn, mountRush } from "./rush.js";
@@ -139,7 +139,8 @@ function loadPatient(){
 /* 보스 특수 규칙 (core/boss.js): the rule's one-liner when a patient is handed over (the story card has its chip) */
 function bossCue(){
   if(S.phase !== "play" || !S.boss.length) return;
-  coach(S.boss.map(r => BOSS_RULES[r].cue).join(" · "), 2800);
+  // one pill per rule, one after the other (8장 has two; both in one pill was too long)
+  bossCues(S.boss).forEach((cue, i) => setTimeout(() => { if(S.phase === "play" && S.bossReady) coach(cue, 2200); }, i * 2400));
 }
 /* swap: the patient changes his mind, the target is the opposite side's from now on (same head, same x-ray segment) */
 function swapAim(){
@@ -148,8 +149,13 @@ function swapAim(){
   const target = aimAt(0);
   S.inZone = false; S.saidNear = false; S.ghostFrom = S.ghostUntil = 0;
   $("#pseg").textContent = sideLabel(target) + " · 바뀜";
-  stamp("아 거기 말고!", S.bossLine, "dud", 2400);
-  say("아 거기 말고! 반대쪽이요!", 1600, true);
+  // 7차 플레이테스트: the stamp never showed. The 16 s idle line, the "near" line and the cue pill all call say()/coach()
+  // and the stamp sat under them at the same size; now the stamp is big, stays 2.6 s, and nothing else talks meanwhile.
+  S.saidIdle = true; S.saidNear = true;
+  hideCoach();
+  stamp("아 거기 말고!", liveLine(S.bossLive, "swap", S.bossLine), "dud boss", 2600, S.bossBy);
+  hideSpeech();
+  S.swapPulse = performance.now() + 1500;   // ring.js: the new target pulses once
   floater("?!", headScreen.r + 24, -headScreen.r - 10, "small", 1200);
 }
 
@@ -162,7 +168,7 @@ function switchSide(){
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
-  if(S.bossTaunt){ $("#pseg").textContent += " · 구역 축소"; stamp("도발!", S.bossLine, "dud", 2400); say("반대쪽도 부탁해요", 1600); }
+  if(S.bossTaunt){ $("#pseg").textContent += " · 구역 축소"; stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss", 2600, S.bossBy); }
   else say("반대쪽도 부탁해요", 1600);
   S.busy = false; S.patientStart = S.breathT0 = performance.now(); S.bossReady = true;
 }
@@ -239,9 +245,9 @@ function success(d, exhale){
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
   setTimeout(()=>floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
-  if(penalty) setTimeout(() => { floater(`시간 초과 -${penalty}`, 0, headScreen.r + 100, "small"); stamp("시간 초과", S.bossLine, "dud", 2000); }, 700);
+  if(penalty) setTimeout(() => { floater(`시간 초과 -${penalty}`, 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss", 2400, S.bossBy); }, 700);
   let extra = 0;
-  if(exhale) setTimeout(()=>floater("날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
+  if(exhale) setTimeout(()=>floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
   // first side: "방금 뭐였어요?!" then the relief line; second side: "다 풀린 것 같아요" then the parting line
@@ -405,7 +411,7 @@ function towelSuccess(d, exhale){
   floater("쭈우욱", -60, -headScreen.r - 10);
   floater(perfect ? "우두둑!" : "뚜둑!", 50, -headScreen.r - 34);
   setTimeout(() => floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
-  if(exhale) setTimeout(() => floater("날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
+  if(exhale) setTimeout(() => floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
   if(comboBonus) setTimeout(() => floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
   setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + x + 300);
@@ -642,7 +648,7 @@ async function start(game, day = -1, hard = false, extraPain = 0, quest = -1){
   const d = S.day >= 0 ? dayDef(S.day, S.hard) : S.quest >= 0 ? QUESTS[S.quest] : null;
   S.game = (d ? d.game : game) === "towel" ? "towel" : "clinic";
   S.painMax = (d ? d.painMax : 3) + (d && !S.hard ? extraPain : 0); S.zoneUntil = d ? d.zone : SHOW_ZONE_UNTIL; S.mods = d && d.mods || {};
-  S.boss = bossRules(d); S.bossLine = d && d.bossTaunt || "";
+  S.boss = bossRules(d); S.bossLine = d && d.bossTaunt || ""; S.bossLive = d && d.bossLive || {}; S.bossBy = d && d.bossBy || "";
   setMode(mode()); S.runAt = performance.now();
   track(EV.runStart, { game: game === "night" || game === "rush" || game === "weekly" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");

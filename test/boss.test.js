@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { DAYS, hardDay } from "../src/core/campaign.js";
 import { rushPlan } from "../src/core/rush.js";
 import { BOSS_RULES, bossRules, bossChips, bossTolMul, tauntTrips, timerLeft, timerPenalty, bossPts, bonusWindow, cuesQuiet, swapDue, sideSlot,
-  TAUNT_ZONE, TIMER_SEC, HARD_TIMER_SEC, TIMER_PENALTY, SWAP_AT, SHRINK_MIN, SHRINK_MS } from "../src/core/boss.js";
+  TAUNT_ZONE, TIMER_WARN, bossCues, liveLine, timerWarn, TIMER_SEC, HARD_TIMER_SEC, TIMER_PENALTY, SWAP_AT, SHRINK_MIN, SHRINK_MS } from "../src/core/boss.js";
 import { tolMul } from "../src/core/feel.js";
 
 const bossDays = DAYS.map((d, i) => i).filter(i => DAYS[i].beat && ["clinic", "towel"].includes(DAYS[i].game));
@@ -16,6 +16,8 @@ describe("boss rules on the days", () => {
       expect(d.boss.every(r => BOSS_RULES[r])).toBe(true);
       expect(bossChips(d).length).toBe(d.boss.length);
       expect(d.bossTaunt).toMatch(/^.+: /);
+      expect(d.bossBy).toMatch(/^— /);                              // the live line names who speaks
+      expect(d.bossTaunt).not.toMatch(/했군|흔들렸/);              // the story line is about what has not happened yet
       expect(d.lose).toMatch(/^.+: /);
     });
   });
@@ -30,7 +32,7 @@ describe("boss rules on the days", () => {
     bossDays.forEach(i => expect(hardDay(i).boss).toEqual(DAYS[i].boss));
     const plan = rushPlan();
     expect(plan.length).toBeGreaterThan(0);
-    plan.forEach(p => { expect(p.boss).toEqual(DAYS[p.day].boss); expect(p.bossLine).toBe(DAYS[p.day].bossTaunt); });
+    plan.forEach(p => { expect(p.boss).toEqual(DAYS[p.day].boss); expect(p.bossLine).toBe(DAYS[p.day].bossTaunt); expect(p.bossBy).toBe(DAYS[p.day].bossBy); });
   });
 });
 
@@ -95,5 +97,25 @@ describe("fake breath and swap", () => {
   it("swaps the two sides' targets and never gives both sides the same one", () => {
     expect([sideSlot(0, false), sideSlot(1, false)]).toEqual([0, 1]);
     expect([sideSlot(0, true), sideSlot(1, true)]).toEqual([1, 0]);
+  });
+});
+
+describe("7차 플레이테스트 additions", () => {
+  it("timer is 12 s (9 s on 역경) and warns for the last 5 s", () => {
+    expect(TIMER_SEC).toBe(12); expect(HARD_TIMER_SEC).toBe(9); expect(TIMER_WARN).toBe(5);
+    expect(timerWarn(6)).toBe(false); expect(timerWarn(5)).toBe(true); expect(timerWarn(1)).toBe(true);
+    expect(timerWarn(0)).toBe(false); expect(timerWarn(null)).toBe(false);
+  });
+  it("shows the cues of a two-rule boss one at a time", () => {
+    expect(bossCues(["taunt", "swap"]).length).toBe(2);
+    expect(bossCues(["x"])).toEqual([]);
+  });
+  it("has a live line for every rule that talks, apart from the story line", () => {
+    const d = DAYS.find(x => x.ch === 8 && x.boss);
+    expect(liveLine(d.bossLive, "taunt")).toMatch(/\S/); expect(liveLine(d.bossLive, "swap")).toMatch(/\S/);
+    expect(liveLine(d.bossLive, "swap")).not.toBe(d.bossTaunt);
+    expect(liveLine({}, "swap", "x")).toBe("x");
+    DAYS.filter(x => x.boss && x.boss.includes("swap")).forEach(x => expect(x.bossLive.swap).toBeTruthy());
+    DAYS.filter(x => x.boss && x.boss.includes("timer")).forEach(x => expect(x.bossLive.timer).toBeTruthy());
   });
 });

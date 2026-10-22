@@ -11,8 +11,8 @@ describe("persona reviews", () => {
     expect(names.length).toBe(32);
     names.forEach(n => {
       expect(PERSONA_REVIEWS[n], n).toBeTruthy();
-      expect(PERSONA_REVIEWS[n].good.length, n).toBeGreaterThanOrEqual(1);
-      expect(PERSONA_REVIEWS[n].rough.length, n).toBeGreaterThanOrEqual(1);
+      expect(PERSONA_REVIEWS[n].good.length, n).toBeGreaterThanOrEqual(5);
+      expect(PERSONA_REVIEWS[n].rough.length, n).toBeGreaterThanOrEqual(5);
     });
   });
   it("no sentence is shared by two patients", () => {

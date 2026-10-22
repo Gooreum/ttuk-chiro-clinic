@@ -35,7 +35,7 @@ export function rushPlan(days = rushDays()){
   const plan = [];
   days.forEach((day, k) => {
     const d = DAYS[day];
-    d.patients.forEach((name, j) => plan.push({ k, day, name, first: j === 0, last: j === d.patients.length - 1, game: d.game, mods: d.mods || {}, boss: bossRules(d), bossLine: d.bossTaunt || "", beat: d.beat, title: d.title, line: RUSH_LINES[day] || d.intro[0] }));
+    d.patients.forEach((name, j) => plan.push({ k, day, name, first: j === 0, last: j === d.patients.length - 1, game: d.game, mods: d.mods || {}, boss: bossRules(d), bossLine: d.bossTaunt || "", bossLive: d.bossLive || {}, bossBy: d.bossBy || "", beat: d.beat, title: d.title, line: RUSH_LINES[day] || d.intro[0] }));
   });
   return plan;
 }
