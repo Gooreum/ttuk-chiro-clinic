@@ -1,60 +1,10 @@
-# ai-bouncer 레포별 워크플로우 설정 — 기본값과 다른 것만 적는다.
-# 기본값은 엔진(.claude/ai-bouncer/engine/default.yaml)이 갖고 업데이트 때마다 바뀐다.
-# 병합 규칙: settings 는 키 단위 덮기 / stages.<이름>.steps 는 label 이 같으면 교체·새 label 이면 뒤에 추가 /
-#            remove: [label…] 로 기본 step 삭제 / forbid 는 키 단위 덮기. 스키마: docs/SCHEMA.md
+# ai-bouncer 레포 설정 — 기본값과 같은 형식. 모드·단계를 이름 단위로 교체하거나 추가한다.
+#   stages.<단계>.prompt  할 일 / run  통과 조건(exit 0) / items  세부 항목
+#   stages.<단계>.choosable  항목을 고르는 방식: ask 사용자에게 묻는다 / auto AI 가 고른다 / all 전부(기본)
+# 형식: docs/SCHEMA.md
 
-version: 1
 stages:
   verify:
-    steps:
-      - label: "유닛 테스트"
-        run: "npm test"
-        timeout: 600
-        blocking: true
-      - label: "프로덕션 빌드"
-        run: "npm run build"
-        timeout: 600
-        blocking: true
-      - label: "e2e"
-        run: "npm run e2e"
-        timeout: 1200
-        blocking: true
-      - label: "헤드리스 스크린샷"
-        run: "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
-        timeout: 900
-        blocking: true
-        optional: true
-      - label: "검증 보고"
-        inject: |
-          [verify] 검증 단계다. 추측 금지 — 실제로 실행해서 확인한다.
-            0. 요청받은 범위가 **전부** 구현됐는지 다시 대조한다. 빠진 것이 있으면 통과로 보고하지 않는다.
-            1. 위 run 스텝 결과(유닛·빌드·e2e·스크린샷)를 명령과 출력 요약으로 보고한다.
-            2. 스크린샷을 찍었다면 shots/new/*.png 를 직접 열어 보고 무엇이 보이는지 적는다.
-               테스트 초록 ≠ 시각 정합.
-            3. 센서·손맛·진동 변경은 헤드리스로 확인되지 않는다. 실기기 확인 체크리스트를 남긴다.
-            4. 실패한 것을 통과로 보고하지 않는다.
-    forbid:
-      reason: "검증 단계에서는 코드를 고칠 수 없다. 수정은 구현 단계로 돌아가서 한다."
+    run: ["npm test", "npm run build", "npm run e2e", "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"]
   finalize:
-    steps:
-      - label: "문서 갱신"
-        blocking: "done"
-        inject: |
-          [finalize] 동작·규칙이 바뀌었으면 AGENTS.md 해당 절에 사용자 발언 원문과 날짜를 함께 적는다.
-          새 에셋은 CREDITS.md, 에셋 재생성 절차는 scripts/assets/README.md.
-          바뀐 게 없으면 그렇다고 적고 bouncer done.
-      - label: "커밋과 푸시"
-        inject: |
-          [finalize] 마무리 단계다.
-            1. main이면 feature/… 또는 fix/… 브랜치를 먼저 만든다. main push는 곧바로 Pages 배포다.
-            2. 변경 파일을 개별 git add 한다. `git add .` / `-A` 금지. shots/, dist*/ 는 커밋하지 않는다.
-            3. 커밋한다 — type은 영어, 설명은 한글, 50자 이내.
-            4. push하고 `gh pr create`로 PR을 연다. push가 권한(403)으로 막히면 우회하지 말고 사용자에게 보고한다.
-      - label: "main 직접 커밋 금지"
-        run: "test \"$(git branch --show-current)\" != main"
-        by: "engine"
-        blocking: true
-      - label: "원격 반영 확인"
-        run: "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""
-        by: "engine"
-        blocking: true
+    run: ["test \"$(git branch --show-current)\" != main", "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""]
