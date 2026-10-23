@@ -146,9 +146,9 @@ export function mountCoinReward(anchor){
     paid *= 2; paint();
   });
   return {
-    show({ runKey, avg, complete, cleared, hard: h, game, day, continueOffered, replay: rp }){
+    show({ runKey, avg, complete, cleared, hard: h, game, day, continueOffered, replay: rp, endless, cracks }){
       cont = !!continueOffered; replay = !!rp;
-      const earned = coinsFor({ avg, complete, cleared, hard: h, replay: rp });
+      const earned = coinsFor({ avg, complete, cleared, hard: h, replay: rp, endless, cracks });
       if(runKey !== key){
         key = runKey; paid = 0; doubled = false; att.hidden = true;
         const m = complete || earned > 0 ? stampAttend() : null;
