@@ -3,6 +3,8 @@
    Saved in localStorage "chiroShop": { coins, owned: [item id, ...] } (a consumable appears once per copy). */
 export const SHOP_KEY = "chiroShop";
 export const RUN_COIN_CAP = 160;     // one run never pays more than this (before the 2x ad)
+export const ENDGAME_RATE = 0.135;   // 44차: 심야·러시는 꺾기 한 번(약 28초)당 평균 점수 x 0.135 (평균 100점이면 시간당 약 1,740)
+export const ENDGAME_COIN_CAP = 500; // 심야·러시 한 판 상한 (보스 러시 완주 약 36번 꺾기)
 export const REPLAY_MUL = 0.4;       // 별을 못 늘린 재플레이의 진료비 비율
 export const COUPON_MAX = 5;         // 통증 칸 +1권 you can hold
 
@@ -50,8 +52,12 @@ export const owns = (st, id) => count(st, id) > 0;
 
 /* 진료비 for a finished run. avg: points per crack (the number the rank uses), complete: played through (or a 심야 진료
    night that ran its course), cleared: a 영업 일지 day cleared, hard: 역경. Typical full run ~ 90-110 coins. */
-export function coinsFor({ avg, complete, cleared, hard, replay }){
+export function coinsFor({ avg, complete, cleared, hard, replay, endless, cracks }){
   const a = Number.isFinite(avg) && avg > 0 ? avg : 0;
+  if(endless){   // 44차: 판이 긴 엔드게임은 한 판 고정액이 아니라 꺾은 횟수에 비례 (시간당이 재플레이 감쇠 후 최고치의 약 1.2배)
+    const c = Number.isFinite(cracks) && cracks > 0 ? Math.floor(cracks) : 0;
+    return Math.max(0, Math.min(ENDGAME_COIN_CAP, Math.round(a * ENDGAME_RATE * c)));
+  }
   let n = Math.round(a * 0.9);
   if(!complete) n = Math.round(n * 0.5);
   if(replay) n = Math.round(n * REPLAY_MUL);   // 43차: 이미 깬 날/의뢰를 별 늘림 없이 다시 돌면 40%, 클리어 보너스 없음 (쉬운 날 반복 파밍 방지)

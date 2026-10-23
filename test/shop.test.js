@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, TOTAL_UPGRADE_COST, UPGRADES, readShop, coinsFor, isReplay, REPLAY_MUL, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
+import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, TOTAL_UPGRADE_COST, UPGRADES, readShop, coinsFor, isReplay, REPLAY_MUL, ENDGAME_RATE, ENDGAME_COIN_CAP, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
 
 describe("진료비 규칙", () => {
   it("완주한 판은 평균의 90%쯤, 못 끝낸 판은 절반", () => {
@@ -133,5 +133,25 @@ describe("쉬운 날 반복 파밍 (43차)", () => {
     const perHour = (coins, sec) => coins / sec * 3600;
     expect(perHour(coinsFor({ avg: 100, complete: true, cleared: true, replay: true }), 101)).toBeLessThan(1500);
     expect(perHour(coinsFor({ avg: 100, complete: true, cleared: true }), 101)).toBeGreaterThan(3000);
+  });
+});
+
+describe("44차 엔드게임 진료비", () => {
+  it("꺾은 횟수에 비례하고 평균 100점이면 한 번에 13~14", () => {
+    expect(coinsFor({ avg: 100, complete: true, endless: true, cracks: 15 })).toBe(Math.round(100 * ENDGAME_RATE * 15));
+    expect(coinsFor({ avg: 100, complete: true, endless: true, cracks: 0 })).toBe(0);
+  });
+  it("상한 500, 재플레이 규칙과 클리어 보너스는 안 받는다", () => {
+    expect(coinsFor({ avg: 100, complete: true, endless: true, cracks: 200 })).toBe(ENDGAME_COIN_CAP);
+    expect(coinsFor({ avg: 100, complete: true, endless: true, cracks: 15, replay: true, cleared: true }))
+      .toBe(coinsFor({ avg: 100, complete: true, endless: true, cracks: 15 }));
+  });
+  it("시간당이 감쇠 후 재플레이 최고(약 1,430)의 1.15배 이상, 약 28초 한 번 기준", () => {
+    const perHour = (100 * ENDGAME_RATE) / 28 * 3600;
+    expect(perHour).toBeGreaterThanOrEqual(1430 * 1.15);
+    expect(perHour).toBeLessThanOrEqual(1430 * 1.35);
+  });
+  it("일반 판은 그대로", () => {
+    expect(coinsFor({ avg: 100, complete: true, cracks: 15 })).toBe(90);
   });
 });

@@ -95,7 +95,7 @@ test("계절 손님: 4편을 모두 깨면 진료비 보너스를 계절당 한 
   await page.click("#again");
   await finishAll();
   await expect(page.locator("#dayOutro")).not.toContainText("다 맞았어요");
-  expect((await rd(page, "chiroShop")).coins - coins).toBe(coins - 80); // second run pays only the normal run fee, no bonus
+  expect((await rd(page, "chiroShop")).coins - coins).toBe(Math.round((coins - 80) * 0.4)); // replay with no new stars: 40% of the run fee, no bonus
   expect((await rd(page, "chiroSeason")).bonus.winter).toBe(1);
   expect(await page.evaluate(() => localStorage.getItem("chiroBest"))).toBeNull();
   errs.check();
