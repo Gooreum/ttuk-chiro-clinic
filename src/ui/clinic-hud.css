@@ -12,6 +12,8 @@
   --coral:#ff7a59;
   --coral-deep:#b4482f;
   --mint:#8adfbf;
+  --mint-hi:#b2ecd7;
+  --paper-deep:#e9e2d2;
   --paper:#f4efe4;
   --paper-ink:#24302d;
   --panel:rgba(15,35,31,.82);
@@ -20,6 +22,9 @@
   --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
   --gl:calc(16px + env(safe-area-inset-left, 0px));
   --gr:calc(16px + env(safe-area-inset-right, 0px));
+  /* bottom gutter: 12px here (the neck page's #app sits inside the root's safe-area padding); the fixed back / side apps
+     add the home-indicator inset themselves (back/style.css), on the axis that is the bottom after self-rotation */
+  --gb:12px;
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -84,7 +89,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .chip:focus-visible,:where(.clinic-app) .btn:focus-visible,:where(.clinic-app) .zero-btn:focus-visible,:where(.clinic-app) input:focus-visible{outline:2px solid var(--mint);outline-offset:3px}
 
 /* ---------- bottom ---------- */
-:where(.clinic-app) .bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:12px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
+:where(.clinic-app) .bottom{position:absolute;left:var(--gl);right:var(--gr);bottom:var(--gb);display:flex;justify-content:space-between;align-items:flex-end;gap:12px;pointer-events:none}
 :where(.clinic-app) .mode{font-size:11.5px;color:#d3e3de;line-height:1.45;max-width:240px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 9px}
 :where(.clinic-app) .mode b{color:var(--ink);font-weight:600}
 /* "중앙으로" where the thumb rests: the crack is a flick / swipe / space, no button (user request, 2026-10-15) */
@@ -117,7 +122,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .stamp-card small{font-size:13px;font-weight:700;color:var(--ink);text-align:center;text-wrap:balance}
 :where(.clinic-app) .stamp-card.show{opacity:1;animation:stampIn .32s cubic-bezier(.2,1.6,.4,1)}
 :where(.clinic-app) .stamp-card.over.show b{animation:wob .9s ease-out}
-:where(.clinic-app) .stamp-card.tuck{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}
+:where(.clinic-app) .stamp-card.tuck,.clinic-app.xray-on .stamp-card{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}
 :where(.clinic-app) .stamp-card.dud{border-color:var(--bone)}
 :where(.clinic-app) .stamp-card.dud b{color:var(--bone)}
 :where(.clinic-app) .stamp-card.break b{font-size:54px}
@@ -159,7 +164,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .live b{color:var(--ink)}
 
 /* ---------- overlays ---------- */
-:where(.clinic-app) .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:14px var(--gr) 14px var(--gl);background:rgba(10,24,21,.74);backdrop-filter:blur(5px);z-index:6}
+:where(.clinic-app) .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:14px var(--gr) max(14px,var(--gb)) var(--gl);background:rgba(10,24,21,.74);backdrop-filter:blur(5px);z-index:6}
 :where(.clinic-app) .card{background:var(--room-deep);border:1px solid var(--line);border-radius:16px;padding:20px 22px;max-width:680px;width:100%;display:grid;gap:14px;max-height:100%;overflow:auto}
 :where(.clinic-app) .card.wide{grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:26px;align-items:center}
 :where(.clinic-app) .logo{display:flex;align-items:center;gap:12px}
@@ -209,7 +214,10 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .total b{font-family:var(--display);font-weight:400;font-size:30px;font-variant-numeric:tabular-nums}
 :where(.clinic-app) .total span{font-size:12px;color:#56635f}
 :where(.clinic-app) .rank{font-family:var(--display);font-size:22px;color:var(--coral-deep)}
-:where(.clinic-app) .newbest{font-size:11px;font-weight:700;color:#2c7a5e}
+:where(.clinic-app) .newbest{font-size:11px;font-weight:700;color:var(--room)}
+/* 영업 일지 lines on the cards, one look in all four modes: the day's ending on the paper card, the day number on the start card */
+:where(.clinic-app) .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:var(--paper-deep);color:var(--paper-ink);border-radius:8px;padding:8px 10px}
+:where(.clinic-app) .day-no{margin:0;font:400 14px var(--display);color:var(--coral)}
 
 @media (orientation:portrait){
   :where(.clinic-app) .card.wide{grid-template-columns:1fr}
@@ -233,11 +241,12 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 
 /* load failure card and the interstitial notice (ui/loadFail.js, ui/monetize.js), shared by every page */
 .load-fail{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:16px;background:rgba(15,35,31,.92)}
-.load-fail .card{max-width:320px;padding:22px 20px;border-radius:16px;background:#f4efe4;color:#17312c;text-align:center;font-family:"IBM Plex Sans KR",sans-serif}
-.load-fail h2{margin:0 0 8px;font:400 22px "Black Han Sans",sans-serif}
+.load-fail .card{max-width:320px;padding:22px 20px;border-radius:16px;background:var(--paper);color:var(--paper-ink);text-align:center;font-family:var(--body)}
+.load-fail h2{margin:0 0 8px;font:400 22px var(--display)}
 .load-fail p{margin:0 0 16px;font-size:15px;line-height:1.45}
-.load-fail button{min-height:44px;padding:0 26px;border:0;border-radius:999px;background:#ff7a59;color:#fff;font:700 16px "IBM Plex Sans KR",sans-serif}
-.ad-notice{position:fixed;left:50%;bottom:18%;z-index:900;transform:translateX(-50%);padding:10px 18px;border-radius:999px;background:rgba(15,35,31,.92);color:#8adfbf;font:700 15px "IBM Plex Sans KR",sans-serif;white-space:nowrap;pointer-events:none}
+/* the shared .btn: coral, 10px corners, room-deep text */
+.load-fail button{min-height:44px;padding:0 26px;border:0;border-radius:10px;background:var(--coral);color:var(--room-deep);font:400 20px var(--display);box-shadow:0 4px 0 var(--coral-deep)}
+.ad-notice{position:fixed;left:50%;bottom:18%;z-index:900;transform:translateX(-50%);padding:10px 18px;border-radius:999px;background:rgba(15,35,31,.92);color:var(--mint);font:700 15px var(--body);white-space:nowrap;pointer-events:none}
 
 /* 타이틀 정리 (playtest 6 P1-5): 영업 일지가 가장 큰 주 버튼, 자유 진료 네 모드는 한 줄, 나머지는 작은 칩 줄 */
 :where(.clinic-app) .btn[hidden]{display:none}
@@ -313,7 +322,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   /* 18차: 아래에 고정된 주 버튼 뒤로 진료비 줄·합계가 반쯤 비쳐 잘린 점선 상자처럼 보였다. 버튼 둘레를 종이색으로 덮는다 */
   :where(.clinic-app) .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again,[id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){box-shadow:0 4px 0 var(--coral-deep),0 14px 0 6px var(--paper,#f4efe4)}
   /* 18차: 상점·의뢰 게시판·계절 목록은 줄이 길어 맨 아래 돌아가기 버튼이 늘 잘려 있었다. 아래에 고정한다 */
-  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
+  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose,#dexClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
 }
 /* 35차: 사연 카드에 보상 버튼(광고 보고 통증 칸 +1, 통증 칸 +1권)과 역경 버튼이 함께 뜨면 오른쪽 칸이 26px 넘쳐 일지로가 잘렸다. 그 경우에만 오른쪽 칸을 둘로 쪼개 통증 둘, 역경·일지로를 짝지어 한 줄에 둔다 */
 @media (orientation:landscape) and (max-height:430px){
@@ -367,36 +376,37 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 }
 
 /* 28차 플레이테스트: 667x375에서 목 모드 결과 카드(자유·오늘의 도전·주간·심야·일지)가 한 칸으로 쌓여 345px보다 130~330px 길었고(진료비·자랑하기·합계가 스크롤 밑), 고정 주 버튼이 그 줄들을 덮었다.
-   짧은 가로 화면에서는 두 칸으로 나눈다: 왼쪽 일지(제목·환자 목록·합계·등급), 오른쪽 보상·버튼. 환자 한 명은 이름·별·점수를 한 줄에. 고정 버튼은 한 장에 다 들어오므로 쓰지 않는다 */
+   짧은 가로 화면에서는 두 칸으로 나눈다: 왼쪽 일지(제목·환자 목록·합계·등급), 오른쪽 보상·버튼. 환자 한 명은 이름·별·점수를 한 줄에. 고정 버튼은 한 장에 다 들어오므로 쓰지 않는다.
+   허리펴기·허리비틀기 결과 카드도 목 모드와 같은 마크업(#backResult / #sideResult: 목록·합계·등급·최고 기록·결말·버튼, li는 .who/.pts/.stars/.rev)이라 같은 규칙을 받는다(31차의 허리 전용 두 칸 규칙은 지웠다) */
 @media (orientation:landscape) and (max-height:430px){
-  #result .card.log{max-width:640px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:18px;row-gap:4px;align-content:start;align-items:start;padding:10px 16px}
-  #result .card.log>*{min-width:0;grid-column:2}
-  #result .card.log>:is(div:first-child,.dex-new,#rlist,.rush-list,.total,.rank){grid-column:1}
-  #result .card.log>div:first-child{grid-row:1;order:0}
-  #result .card.log>.dex-new{grid-row:2;font-size:12px}
-  #result .card.log>:is(#rlist,.rush-list){grid-row:3 / span 4;align-self:start}
-  #result .card.log>.total{grid-row:7;min-height:0;align-self:end}
-  #result .card.log>.total+.rank,#result .card.log>.rank{grid-row:7;margin:0;height:auto;padding-left:38px;align-self:center;font-size:17px;pointer-events:none;display:flex;align-items:center}
-  #result .card.log #dayOutro{order:0}
-  #result .card.log li{grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;padding-bottom:3px;align-items:baseline}
-  #result .card.log li .who{grid-column:1;grid-row:1}
-  #result .card.log li .stars{grid-column:2;grid-row:1;font-size:12px;letter-spacing:1px}
-  #result .card.log li .pts{grid-column:3;grid-row:1}
-  #result .card.log li .rev{grid-row:2;font-size:11.5px;line-height:1.3}
-  #result .card.log li .tags{grid-row:3}
-  #result .card.log .btn{position:static;padding:6px 8px;font-size:16px;box-shadow:0 3px 0 var(--coral-deep)}
-  #result .card.log .btn.ghost{padding:5px 6px;font-size:13px;box-shadow:none}
+  :is(#result,#backResult,#sideResult) .card.log{max-width:640px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:18px;row-gap:4px;align-content:start;align-items:start;padding:10px 16px}
+  :is(#result,#backResult,#sideResult) .card.log>*{min-width:0;grid-column:2}
+  :is(#result,#backResult,#sideResult) .card.log>:is(div:first-child,.dex-new,#rlist,#backResultSteps,#sideResultSteps,.rush-list,.total,.rank){grid-column:1}
+  :is(#result,#backResult,#sideResult) .card.log>div:first-child{grid-row:1;order:0}
+  :is(#result,#backResult,#sideResult) .card.log>.dex-new{grid-row:2;font-size:12px}
+  :is(#result,#backResult,#sideResult) .card.log>:is(#rlist,#backResultSteps,#sideResultSteps,.rush-list){grid-row:3 / span 4;align-self:start}
+  :is(#result,#backResult,#sideResult) .card.log>.total{grid-row:7;min-height:0;align-self:end}
+  :is(#result,#backResult,#sideResult) .card.log>.total+.rank,:is(#result,#backResult,#sideResult) .card.log>.rank{grid-row:7;margin:0;height:auto;padding-left:38px;align-self:center;font-size:17px;pointer-events:none;display:flex;align-items:center}
+  :is(#result,#backResult,#sideResult) .card.log .day-outro{order:0}
+  :is(#result,#backResult,#sideResult) .card.log li{grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;padding-bottom:3px;align-items:baseline}
+  :is(#result,#backResult,#sideResult) .card.log li .who{grid-column:1;grid-row:1}
+  :is(#result,#backResult,#sideResult) .card.log li .stars{grid-column:2;grid-row:1;font-size:12px;letter-spacing:1px}
+  :is(#result,#backResult,#sideResult) .card.log li .pts{grid-column:3;grid-row:1}
+  :is(#result,#backResult,#sideResult) .card.log li .rev{grid-row:2;font-size:11.5px;line-height:1.3}
+  :is(#result,#backResult,#sideResult) .card.log li .tags{grid-row:3}
+  :is(#result,#backResult,#sideResult) .card.log .btn{position:static;padding:6px 8px;font-size:16px;box-shadow:0 3px 0 var(--coral-deep)}
+  :is(#result,#backResult,#sideResult) .card.log .btn.ghost{padding:5px 6px;font-size:13px;box-shadow:none}
   /* 18차의 종이색 그림자(고정 버튼 뒤를 가리던 것)가 한 장 배치에서는 아래 클리닉 칩 줄을 덮었다 */
-  #result .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again){position:static;box-shadow:0 3px 0 var(--coral-deep)}
-  #result .card.log .btn.buy{font-size:11px;padding:3px 6px}
-  #result .card.log :is(#again,#nextDay,#continueAd){font-size:18px;padding:8px}
-  #result .card.log .total b{font-size:26px}
-  #result .card.log .coin-line{padding:2px 8px;font-size:12px}
-  #result .card.log .clinic-switch{gap:4px}
-  #result .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
+  :is(#result,#backResult,#sideResult) .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again,[id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){position:static;box-shadow:0 3px 0 var(--coral-deep)}
+  :is(#result,#backResult,#sideResult) .card.log .btn.buy{font-size:11px;padding:3px 6px}
+  :is(#result,#backResult,#sideResult) .card.log :is(#again,#nextDay,#continueAd,[id$="Again"],[id$="NextDay"],[id$="ContinueAd"]){font-size:18px;padding:8px}
+  :is(#result,#backResult,#sideResult) .card.log .total b{font-size:26px}
+  :is(#result,#backResult,#sideResult) .card.log .coin-line{padding:2px 8px;font-size:12px}
+  :is(#result,#backResult,#sideResult) .card.log .clinic-switch{gap:4px}
+  :is(#result,#backResult,#sideResult) .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
   /* 30차: 4명 + 실패 칩이 3개씩인 주간 실패 카드는 환자 줄이 칩 때문에 한 줄씩 더 커져 345px보다 38px 길었다. 칩을 작게 하고 대사와 가깝게 붙인다 */
-  #result .card.log li .tags{gap:3px;margin-top:1px}
-  #result .card.log li .tags i{font-size:10px;line-height:1.2;padding:0 6px}
+  :is(#result,#backResult,#sideResult) .card.log li .tags{gap:3px;margin-top:1px}
+  :is(#result,#backResult,#sideResult) .card.log li .tags i{font-size:10px;line-height:1.2;padding:0 6px}
   /* 30차: 환자가 4명 이상이면 왼쪽 칸이 길어 합계·등급·도감 줄이 카드 아래로 잘렸다. 오른쪽 칸에 빈자리가 있으니 그 세 줄을 오른쪽으로 옮긴다 */
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(.dex-new,.total,.rank){grid-column:2;grid-row:auto}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list))>:is(#rlist){grid-row:2 / span 8}
@@ -423,7 +433,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)):has(#nextDay:not([hidden])):not(:has(#rankBtn:not([hidden])))>#shareBtn:not([hidden]){grid-column:2}
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)):has(#nextDay:not([hidden])):has(#shareBtn:not([hidden])):not(:has(#rankBtn:not([hidden])))>#shareBtn~#again{grid-column:3}
   /* 35차: 이어하기·마지막 환자 다시(보상형 광고)가 떠 있으면 같은 코랄색 '다시 도전'이 그 버튼과 위계가 같아 보였다. 보상 버튼이 주, 다시는 윤곽 버튼으로 내린다 */
-  #result .card.log:has(:is(#continueAd,#nextDay):not([hidden])):has(#rlist) button#again.btn:not(.ghost){background:transparent;color:var(--paper-ink);border:2px solid var(--paper-ink);box-shadow:none;font-size:14px;padding:2px 8px;line-height:1.2}
+  :is(#result,#backResult,#sideResult) .card.log:has(:is(#continueAd,#nextDay,[id$="ContinueAd"],[id$="NextDay"]):not([hidden])):has(:is(#rlist,#backResultSteps,#sideResultSteps)) :is(button#again,button[id$="Again"]).btn:not(.ghost){background:transparent;color:var(--paper-ink);border:2px solid var(--paper-ink);box-shadow:none;font-size:14px;padding:2px 8px;line-height:1.2}
   /* 30차: 보스 러시 카드는 보스 목록(.rush-list)과 환자 목록(#rlist)이 같은 칸에 겹쳐 글자가 뒤엉켰다(환자가 많으면 645px). 보스 결과가 핵심이라 환자 목록은 접는다 */
   #result .card.log>.rush-list~#rlist{display:none}
   #result .card.log>.rush-list{gap:3px}
@@ -438,32 +448,6 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   #result .card.log:has(#rlist>li:nth-child(4)):not(:has(.rush-list)){row-gap:0;padding-top:4px;padding-bottom:4px}
 }
 
-/* 31차 플레이테스트: 667x375·740x360·844x390에서 허리펴기·허리비틀기 결과 카드는 한 칸이라 마지막 줄(허리 점수·좌우 대칭 +30·영업 일지 링크)이 하단 고정 주 버튼 뒤로 잘렸다.
-   28차 목 모드 카드처럼 두 칸: 제목 아래 왼쪽 일지(후기·합계·점수 목록·등급), 오른쪽 보상·버튼. 래퍼 .log-l/.log-r는 그 밖의 화면에서 display:contents라 배치가 그대로다 */
-.log-l,.log-r{display:contents}
-@media (orientation:landscape) and (max-height:430px){
-  :is(#backResult,#sideResult) .card.log{max-width:640px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);grid-template-rows:auto auto;column-gap:18px;row-gap:4px;align-content:start;align-items:start;padding:10px 16px}
-  :is(#backResult,#sideResult) .card.log>div:first-child{grid-column:1;grid-row:1;order:0}
-  :is(#backResult,#sideResult) .card.log>.log-l{display:flex;flex-direction:column;gap:5px;grid-column:1;grid-row:2;min-width:0;align-self:stretch}
-  :is(#backResult,#sideResult) .card.log>.log-r{display:flex;flex-direction:column;gap:5px;grid-column:2;grid-row:1 / span 2;min-width:0}
-  :is(#backResult,#sideResult) .card.log .log-l p{margin:0;font-size:12.5px;line-height:1.35}
-  :is(#backResult,#sideResult) .card.log .log-l .total{order:3;margin-top:auto;min-height:0}
-  :is(#backResult,#sideResult) .card.log .log-l .total b{font-size:26px}
-  :is(#backResult,#sideResult) .card.log .log-l ul{order:1;gap:3px}
-  :is(#backResult,#sideResult) .card.log .log-l li{padding-bottom:3px}
-  :is(#backResult,#sideResult) .card.log .log-l .total+ul+.rank,:is(#backResult,#sideResult) .card.log .log-l .rank{order:4;margin:0;height:auto;padding:0;font-size:17px;display:block;pointer-events:none}
-  :is(#backResult,#sideResult) .card.log .newbest{margin:0;font-size:12px}
-  :is(#backResult,#sideResult) .card.log .newbest:empty{display:none}
-  :is(#backResult,#sideResult) .card.log .log-r .day-outro:not([hidden]){order:-1}
-  :is(#backResult,#sideResult) .card.log .btn,:is(#backResult,#sideResult) .card.log .btn:not(.ghost):is([id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){position:static;padding:6px 8px;font-size:16px;box-shadow:0 3px 0 var(--coral-deep)}
-  :is(#backResult,#sideResult) .card.log .btn.ghost{padding:5px 6px;font-size:13px;box-shadow:none}
-  :is(#backResult,#sideResult) .card.log .btn:not(.ghost):is([id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){font-size:18px;padding:8px}
-  :is(#backResult,#sideResult) .card.log .btn.buy{font-size:11px;padding:3px 6px}
-  :is(#backResult,#sideResult) .card.log .coin-line{padding:2px 8px;font-size:12px}
-  :is(#backResult,#sideResult) .card.log .clinic-switch{gap:4px}
-  :is(#backResult,#sideResult) .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
-}
-
 /* English (src/i18n): longer words. The logo stamp holds "CRACK" instead of one syllable, mode buttons may wrap to two lines. */
 html[lang=en] :where(.clinic-app) .stamp{font-size:17px;letter-spacing:-.02em}
 html[lang=en] :where(.clinic-app) #intro .starts .btn{white-space:normal;line-height:1.1}
@@ -475,4 +459,6 @@ html[lang=en] :where(.clinic-app) #intro .starts .btn{white-space:normal;line-he
   html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .starts .btn{font-size:13px;padding:8px 4px}
   html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch{gap:3px;flex-wrap:nowrap}
   html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch .chip{padding:4px 3px;font-size:10px;white-space:nowrap;min-width:0;flex:1 1 auto;text-align:center}
+  /* the dex chip's "Patients 3/34 · Fails 2/10" was 118px in a 109px chip at 667x375 (cut by the ellipsis) */
+  html[lang=en] :where(.clinic-app) #intro .chips-row #dexSub{font-size:9px;letter-spacing:-.02em}
 }

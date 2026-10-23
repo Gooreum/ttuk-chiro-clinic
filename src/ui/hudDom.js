@@ -39,3 +39,12 @@ export function makeHud(root){
   }
   return {toast,say,coach,hideCoach,hideSpeech,stamp,floater};
 }
+// One row of the result card's list, the neck modes' markup (game/flow.js finish): .who, .pts, .stars, then the review
+// line (.rev). stars 0 reads 이송 after an ambulance, 중단 after the pain limit; stars null leaves the stars out (a bonus row).
+export function logRow(doc,{who,pts=0,stars=null,ambulance=false,rev=""}){
+  const li=doc.createElement("li"),span=(cls,text)=>{const s=doc.createElement("span");s.className=cls;s.textContent=text;li.append(s);};
+  span("who",who);span("pts",pts>0?"+"+pts:pts<0?String(pts):"—");
+  if(stars!==null)span("stars",stars?"★".repeat(stars)+"☆".repeat(3-stars):t(ambulance?"이송":"중단"));
+  if(rev)span("rev","“"+rev+"”");
+  return li;
+}

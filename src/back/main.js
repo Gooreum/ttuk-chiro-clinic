@@ -1,7 +1,7 @@
 import "../boot.js";
 import "../ui/clinic-hud.css";
-import {drawVGauge,drawHBar,drawHint,leftGaugeX} from '../ui/gauge.js';
-import {makeHud} from '../ui/hudDom.js';
+import {drawVGauge,drawHBar,drawHint,leftGaugeX,GAUGE_COLORS} from '../ui/gauge.js';
+import {makeHud,logRow} from '../ui/hudDom.js';
 import {mountClinicMenu,renderClinicLinks} from '../ui/clinicSwitch.js';
 import {clamp} from '../lib/math.js';
 import {therapistStyle} from './therapistMotion.js';
@@ -10,10 +10,10 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
-import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
+import {CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
-import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot,slowWarp,punchProfile} from './core.js';
+import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot,slowWarp,punchProfile,dayQuery,resultTitle} from './core.js';
 import {BackMotion} from './motion.js';
 import {organHit,organLabel,subject} from './organs.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -44,14 +44,16 @@ let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandsc
 const names=['등 위쪽','등 가운데','허리'];
 // 영업 일지 허리펴기 day (back.html?day=N from index.html's story card): that day's patient (name and lines; the body is
 // always 박대리's prone model), its pain limit and the day result. Otherwise the free 박대리 run.
-const dayQ=Number(new URLSearchParams(location.search).get('day')),
-  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='back'?dayQ:-1,
-  // &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat
-  HARD=DAY>=0&&new URLSearchParams(location.search).get('hard')==='1',dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
+// &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat.
+// A locked ?day goes to the day list; &pain=1 counts once, on the fresh hop from the story card (core.js dayQuery).
+const Q=dayQuery(location.search,readProgress(store.get(CAMPAIGN_KEY,null)),'back',{fresh:(performance.getEntriesByType?.('navigation')?.[0]?.type??'navigate')==='navigate',dev:import.meta.env.MODE==='shot'||__CASES__});
+if(Q.locked)location.replace('index.html?days=1');
+if(Q.pain){const u=new URL(location.href);u.searchParams.delete('pain');history.replaceState(history.state,'',u);}
+const DAY=Q.day,HARD=Q.hard,dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
 // the day's zone width: mods.tight / tighter narrow it like the neck modes
 const TOL=tolFor(dayDef&&dayDef.mods);
 const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax+(!HARD&&new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
+const painMax=dayDef?dayDef.painMax+(Q.pain?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-height shove names where it actually landed.
 // An overload that also missed the ring bursts the organs there, one side only if it missed left/right
@@ -134,7 +136,7 @@ function settleImpact(){
   if(S.kind==='ok'){
     S.score+=S.outcome.points;S.streak=S.outcome.streak;
     domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');
-    domHud.stamp(S.outcome.perfect?'PERFECT':'성공',names[S.step], 'dud');
+    domHud.stamp(S.outcome.perfect?'PERFECT':'GOOD',names[S.step],'dud');
 
   }else{
     S.mistakes++;S.painHere++;S.streak=0;S.fails.push({kind:S.kind,feedback:S.outcome.feedback,tier:S.tier});
@@ -163,12 +165,19 @@ function finish(){
   S.phase='result';cancelInput();$('backControls').hidden=true;$('backMotionNotice').hidden=true;
   const complete=S.results.length===3,best=store.get('chiroBackMotionBest',0),record=DAY<0&&complete&&S.score>best;
   if(record)store.set('chiroBackMotionBest',S.score);
-  $('backResultTitle').textContent=t(S.tier?'구급차가 왔어요':complete?'허리까지 시원하게.':'오늘은 여기까지만.');
-  $('backReview').textContent='“'+backify(reviewLine({name:patient.name,stars:complete?3:0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}))+'”';
+  const painOut=!S.tier&&S.mistakes>=painMax;
+  $('backResultTitle').textContent=t(resultTitle({ambulance:!!S.tier,painOut,campaign:!!dayDef,painMax},'허리까지 시원하게.'));
+  $('backRdate').textContent=dayDef?t("영업 일지 · {day}{hard} {title}",{day:t(dayLabel(DAY)),hard:HARD?t(" 역경"):"",title:t(dayDef.title)}):t('오늘의 진료 일지');
   $('backTotal').textContent=S.score;
-  $('backResultSteps').replaceChildren(...names.map((name,i)=>{const e=document.createElement('li');e.textContent=`${t(name)} ${S.results[i]?t("{n}점",{n:S.results[i].points}):'—'}`;return e;}));
+  // the neck card's rows (ui/hudDom.js logRow): one per zone reached, its stars by the neck rule (core/scoring.js), the
+  // zone that ended the visit as 이송 / 중단, the patient's review under the last row
+  const rows=S.results.map((r,i)=>({who:t(names[i]),pts:r.points,stars:r.stars}));
+  if(!complete)rows.push({who:t(names[S.step]),pts:0,stars:0,ambulance:!!S.tier});
+  const review=backify(reviewLine({name:patient.name,stars:complete?Math.min(...S.results.map(r=>r.stars)):0,ambulance:!!S.tier,fails:S.fails.map(f=>f.feedback),tiers:S.fails.map(f=>f.tier),lines:patient.lines}));
+  $('backResultSteps').replaceChildren(...rows.map((r,i)=>logRow(document,{...r,rev:i===rows.length-1?review:''})));
   const rankText=rankTitle(S.score/3,S.tier||S.mistakes>=painMax?3:S.mistakes);$('backRank').textContent=t(rankText);
-  $('backBest').textContent=DAY>=0?'':record?t("새 최고 기록! {score}점",{score:S.score}):t("최고 기록 {best}점",{best});
+  $('backBest').hidden=!record;
+  $('backAgain').textContent=t('한 판 더');   // the free-play primary button; a 영업 일지 day relabels it (dayEnd)
   $('backResult').hidden=false;sync();
   const outcome=runOutcome({ambulance:!!S.tier,pain:S.mistakes,complete});
   track(EV.runEnd,{game:'back',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:S.continued,run_ms:performance.now()-S.runAt,rank:rankText});
@@ -184,7 +193,6 @@ function dayEnd(complete,avg){
   const cleared=dayClears(DAY,complete,avg,dayDef),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=(HARD?afterHard:afterDay)(before,DAY,cleared,dayStars(avg,dayDef));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
-  $('backResultTitle').textContent=`${dayLabel(DAY)}${HARD?' '+t('역경'):''} ${t(dayDef.title)}`;
   $('backDayOutro').textContent=(cleared?(HARD?t("역경 통과! {outro}",{outro:t(dayDef.hardOutro||dayDef.outro)}):t(dayDef.outro)):complete?t("평균 {avg}점. {beat}점을 못 넘었어요. {lose}",{avg:Math.round(avg),beat:dayDef.beat,lose:t(dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.')}):HARD?t("{day} 역경을 못 버텼어요. 다시 문 열어 봐요.",{day:dayLabel(DAY)}):t("{day}를 못 버텼어요. 다시 문 열어 봐요.",{day:dayLabel(DAY)}))+(HARD&&!cleared?' '+t('역경엔 이어하기가 없어요.'):'');
   $('backDayOutro').hidden=false;$('backToDays').hidden=false;
   $('backNextDay').hidden=next<0;if(next>=0)$('backNextDay').href=`index.html?story=${next}`;
@@ -349,7 +357,7 @@ function drawHud(pressure,br){
   if(!S.locked){
     // Height step: only the height instrument; the push gauge and side bar wait for the lock (user, 2026-10-18).
     const up=v=>heightDown()>0?1-v:v,tg=S.heights[S.step],a=up(tg-TOL),b=up(tg+TOL);
-    drawVGauge(ctx,{x,top,h,title:t('높이'),value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:'#7fd1b9'}});
+    drawVGauge(ctx,{x,top,h,title:t('높이'),value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:GAUGE_COLORS.mint}});
     drawHint(ctx,{x:cx,y:height-104,text:S.cue,hot:S.cueStyle==='bad'});
     return;
   }
@@ -361,7 +369,7 @@ function drawHud(pressure,br){
   const target=axisTargets()[S.step],off=(S.position-target)/TOL,showBand=showGuide(dayDef,{control:S.control,step:S.step,painHere:S.painHere});
   drawHBar(ctx,{bx,by,bw,off,span:{pos:S.position,target,tol:TOL},ok:Math.abs(off)<=1,title:t(S.locked?'좌우':'높이'),showBand,okText:t(showBand?'맞아요':'찾아봐요'),offText:t(showBand?'중심 밖':'찾아봐요')});
   drawHint(ctx,{x:bx+bw/2,y:by-40,text:S.cue,hot:S.cueStyle==='bad'});
-  if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:t('후우… 지금 툭 +15'),colors:{bone:'#8adfbf'}});
+  if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:t('후우… 지금 툭 +15'),colors:{bone:GAUGE_COLORS.mint}});
 }
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
@@ -408,7 +416,7 @@ function frame(now){
       app.classList.remove('ambulance');$('backEmergency').hidden=true;$('backCutLabel').hidden=true;$('backCutLabel').classList.remove('burst');
       if(S.tier){finish();}
       else if(S.kind==='ok'){
-        S.results.push(S.outcome);track(EV.patientDone,{zone_no:S.step+1,label:'done',pts:S.outcome.points,fails:S.painHere});if(S.results.length===3)finish();
+        S.results.push({...S.outcome,fails:S.painHere});track(EV.patientDone,{zone_no:S.step+1,label:'done',pts:S.outcome.points,fails:S.painHere});if(S.results.length===3)finish();
         else{S.step++;track(EV.patientStart,{zone_no:S.step+1,of:3});S.painHere=0;S.phase='play';S.nearSaid=false;S.prepUntil=now+700;S.locked=false;S.position=.5;motion.position=.5;motion.neutral=null;}
       }else if(S.mistakes>=painMax)finish();else{S.phase='play';S.prepUntil=now+700;S.missAt=now;S.missAim=S.shotAim;}
       sync();face=false;shotTime=-1;
