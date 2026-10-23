@@ -1,7 +1,7 @@
 /* Apps-in-Toss result-card buttons, shared by the three modes: "광고 보고 이어하기" (rewarded, once per run after a
    bad end, or "광고 보고 마지막 환자 다시" after a boss day under its beat) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
 import { adsOn as isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/ads.js";
-import { continueOffer, painAdOffer, clearAdDue } from "../core/monetize.js";
+import { continueOffer, painAdOffer, clearAdDue, cardAdPlan } from "../core/monetize.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
 
@@ -66,17 +66,15 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   return {
     // after the day log opens: offer the continue, or show an interstitial when there is none to offer and the
     // card did not just ask for a review. hard (역경): no continue and no boss retry, and no ad right after a failed
-    // run. deferInterstitial: hold the interstitial for the leave buttons.
-    async showResult({ endedBad, bossMiss, used, hard, night, skipInterstitial, deferInterstitial }){
+    // run. The interstitial is always held for the leave buttons (cardAdPlan).
+    async showResult({ endedBad, bossMiss, used, hard, night, skipInterstitial }){
       retry = !hard && !endedBad && !!bossMiss; plus = !!night;
       pendingAd = false;
       const offer = !hard && continueOffer({ endedBad, bossMiss, used }) && (canWatchRewarded() || adFree());
       continueBtn.hidden = !offer; continueBtn.textContent = label();
       renderBuy();
-      if(offer || skipInterstitial || night) return;   // 심야 진료 always ends badly: like 역경, no ad right after it, only the rewarded continue
-      if(endedBad || bossMiss) return;   // never an ad right after a failed card (any mode, also after a continue)
-      if(deferInterstitial){ pendingAd = clearAdDue(bumpClearCards()); return; }
-      await maybeInterstitial(adNotice);
+      if(!cardAdPlan({ offer, skip: skipInterstitial, night, endedBad, bossMiss })) return;
+      pendingAd = clearAdDue(bumpClearCards());   // all modes: held for the leave buttons, every second card
     }
   };
 }

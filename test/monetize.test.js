@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue, quietDay, ONBOARD_DAYS } from "../src/core/monetize.js";
+import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue, quietDay, ONBOARD_DAYS, cardAdPlan } from "../src/core/monetize.js";
 
 describe("monetize", () => {
   it("offers one continue after a bad end", () => {
@@ -83,5 +83,16 @@ describe("36차 보상 광고 정리", () => {
     expect(_ec(_SE[0], true, 999)).toBe(true);
     expect(_dc(-1, false, 999, _Q[0])).toBe(false);
     expect([1, 2, 3, 4].map(_cad)).toEqual([false, true, false, true]);
+  });
+});
+
+describe("cardAdPlan (pt41): every card's interstitial is held, only clean success cards qualify", () => {
+  const ok = { offer: false, skip: false, night: false, endedBad: false, bossMiss: false };
+  it("a clean cleared card (free play included) is eligible; clearAdDue then thins it to every second card", () => {
+    expect(cardAdPlan(ok)).toBe(true);
+    expect([1, 2, 3, 4].map(n => cardAdPlan(ok) && clearAdDue(n))).toEqual([false, true, false, true]);
+  });
+  it("no ad after a continue offer, review request / quiet day, night-like modes, failure or boss miss", () => {
+    for(const k of ["offer", "skip", "night", "endedBad", "bossMiss"]) expect(cardAdPlan({ ...ok, [k]: true })).toBe(false);
   });
 });

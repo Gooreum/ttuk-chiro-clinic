@@ -207,7 +207,7 @@ function finish(){
   screenView('result',{outcome});
   dayEnd(complete,S.score/2);
   coinReward.show({runKey:S.runAt,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued}),avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
-  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD}));
+  askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),hard:HARD}));
 }
 function dayEnd(complete,avg){
   if(!dayDef)return;

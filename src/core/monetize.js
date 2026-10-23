@@ -32,6 +32,11 @@ export function bossMissed(beat, complete, avg, opts){
 export const PAIN_AD_MAX = 2;
 export const painAdOffer = ({ painMax, hard, used }) => !hard && !used && painMax >= 1 && painMax <= PAIN_AD_MAX;
 
+/* Every result card (free play included, in all four modes) holds its interstitial for the leave buttons and shows it only
+   on every second such card of a session; pt41: free-play clears used to show one on the 4-minute gap alone (10~15 per
+   hour). Returns false (no ad) after a failed/continue-offered card, a review-request card, and 심야·러시·주간·오늘의 도전. */
+export const cardAdPlan = ({ offer, skip, night, endedBad, bossMiss }) => !(offer || skip || night || endedBad || bossMiss);
+
 export const interstitialDue = (lastAt, now, adFree) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS;
 
 /* Completed / refunded orders -> owns the sku? null when the list says nothing about it (an empty or failed lookup
