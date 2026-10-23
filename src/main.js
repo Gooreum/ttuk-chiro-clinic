@@ -19,6 +19,7 @@ import { setFace, finish } from "./game/flow.js";
 import { readColors } from "./ui/ring.js";
 import { frame } from "./game/loop.js";
 import { S } from "./game/state.js";
+import { camera } from "./scene/renderer.js";
 import { markReady } from "./platform/analytics.js";
 
 readColors();
@@ -30,6 +31,6 @@ layout();
 // load_ready once the first frame has drawn (an error in it instead shows the 다시 시도 card)
 requestAnimationFrame(t => { frame(t); markReady(); });
 // e2e/shot build only (`npm run build:shot`): tests read the game state; the normal build drops this line.
-if(__FORCE_HIT__ || __CASES__) window.__game = { S, finish };
+if(__FORCE_HIT__ || __CASES__) window.__game = { S, finish, camera };
 // case build only (`npm run build:cases`): ?case=<id> replays a scripted case live (src/dev/caseRunner.js)
 if(__CASES__) import("./dev/caseNeck.js");
