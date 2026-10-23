@@ -25,7 +25,14 @@ import { markReady } from "./platform/analytics.js";
 readColors();
 loadRealAssets();
 loadSpine();
-applyLook(ROSTER[0]);
+// ?patient=마동철 (user: "링크 클릭하면 바로 보이게 해야지", 2026-10-24): that patient lies on the table from the first frame
+// (its body loads first) and the free run starts by itself once the head is in; no sensor tap, so drag / keys steer
+const pickName = new URLSearchParams(location.search).get("patient"), pick = ROSTER.find(r => r.name === pickName);
+applyLook(pick || ROSTER[0]);
+if(pick){
+  const go = () => document.documentElement.dataset.head ? document.getElementById(new URLSearchParams(location.search).get("mode") === "towel" ? "startTowel" : "start").click() : setTimeout(go, 200);
+  go();
+}
 setFace("rest");
 layout();
 // load_ready once the first frame has drawn (an error in it instead shows the 다시 시도 card)
