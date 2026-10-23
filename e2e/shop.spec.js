@@ -16,7 +16,7 @@ test("진료실 꾸미기: 코인으로 소품을 사면 저장되고 방에 놓
   expect(await page.locator("#shopList button").count()).toBeGreaterThanOrEqual(9);
   await expect(page.locator("html")).not.toHaveAttribute("data-shop-props", /.+/);   // nothing bought: nothing built
 
-  // too poor: the 안마의자 (1200) does not sell
+  // too poor: the 안마의자 (7000) does not sell
   await tap(page, '#shopList button[data-item="chair"]');
   await expect(page.locator("#shopCoins")).toHaveText("400");
 
@@ -26,17 +26,17 @@ test("진료실 꾸미기: 코인으로 소품을 사면 저장되고 방에 놓
   await expect(page.locator('#shopList button[data-item="skull"] i')).toHaveText("놓였어요");
   await expect(page.locator("html")).toHaveAttribute("data-shop-props", "1");
   await tap(page, '#shopList button[data-item="pain1"]');
-  await expect(page.locator("#shopCoins")).toHaveText("130");
+  await expect(page.locator("#shopCoins")).toHaveText("50");
   await expect(page.locator('#shopList button[data-item="pain1"] small')).toContainText("1장 있음");
 
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("chiroShop")));
-  expect(saved).toEqual({ coins: 130, owned: ["skull", "pain1"] });
+  expect(saved).toEqual({ coins: 50, owned: ["skull", "pain1"] });
   const buys = await page.evaluate(() => window.__events.filter(e => e.name === "shop_buy").map(e => [e.item, e.price, e.coins_left]));
-  expect(buys).toEqual([["skull", 150, 250], ["pain1", 120, 130]]);
+  expect(buys).toEqual([["skull", 150, 250], ["pain1", 200, 50]]);
 
   await tap(page, "#shopClose");
   await expect(page.locator("#shop")).toBeHidden();
-  await expect(page.locator("#shopSub")).toHaveText("진료비 130");
+  await expect(page.locator("#shopSub")).toHaveText("진료비 50");
   // 영업 일지 list has the same entry
   await tap(page, "#campaignBtn");
   await tap(page, "#daysShop");
