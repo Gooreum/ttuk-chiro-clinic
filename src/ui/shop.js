@@ -17,14 +17,15 @@ function saveShop(st){
   store.set(SHOP_KEY, st);
   try{ dispatchEvent(new Event("chiro-shop")); }catch(e){}
 }
+import { t } from "../i18n/index.js";
 const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
 
 /* ---- the shop ---- */
 export function mountShop(){
   const app = $("#app");
   const sub = el("span", null, ""); sub.id = "shopSub";
-  const titleBtn = el("button", "btn ghost chip-btn", "진료실 꾸미기"); titleBtn.id = "shopBtn"; titleBtn.type = "button"; titleBtn.appendChild(sub);
-  const daysBtn = el("button", "btn ghost chip-btn", "진료실 꾸미기"); daysBtn.id = "daysShop"; daysBtn.type = "button";
+  const titleBtn = el("button", "btn ghost chip-btn", t("진료실 꾸미기")); titleBtn.id = "shopBtn"; titleBtn.type = "button"; titleBtn.appendChild(sub);
+  const daysBtn = el("button", "btn ghost chip-btn", t("진료실 꾸미기")); daysBtn.id = "daysShop"; daysBtn.type = "button";
   const starts = document.querySelector("#intro .starts"), close = $("#daysClose");
   const tRow = document.querySelector("#titleChips"), dRow = document.querySelector("#daysChips");
   if(tRow) tRow.appendChild(titleBtn); else if(starts) starts.insertAdjacentElement("afterend", titleBtn);
@@ -33,28 +34,28 @@ export function mountShop(){
   const ov = el("div", "overlay"); ov.id = "shop"; ov.hidden = true;
   const card = el("div", "card days");
   const head = el("div", "shop-coins");
-  const t = el("div"); t.append(el("div", "sub", "진료실 꾸미기"));
+  const hd = el("div"); hd.append(el("div", "sub", t("진료실 꾸미기")));
   const coins = el("b", null, "0"); coins.id = "shopCoins";
-  head.append(t, coins);
+  head.append(hd, coins);
   const help = el("div");
-  help.append(el("p", "shop-help-title", "진료비"));
+  help.append(el("p", "shop-help-title", t("진료비")));
   const ul = el("ul", "shop-help");
-  ["한 판이 끝나면 점수만큼 받아요.", "소품은 목꺾기·목뽑기 진료실 벽에 놓여요."].forEach(s => ul.appendChild(el("li", null, s)));
+  ["한 판이 끝나면 점수만큼 받아요.", "소품은 목꺾기·목뽑기 진료실 벽에 놓여요."].forEach(s => ul.appendChild(el("li", null, t(s))));
   help.appendChild(ul);
   const list = el("ol"); list.id = "shopList";
-  const back = el("button", "btn ghost", "돌아가기"); back.id = "shopClose"; back.type = "button";
+  const back = el("button", "btn ghost", t("돌아가기")); back.id = "shopClose"; back.type = "button";
   card.append(head, help, list, back); ov.appendChild(card); app.appendChild(ov);
 
   function render(flashId){
     const st = loadShop();
     coins.textContent = String(st.coins);
-    sub.textContent = `진료비 ${st.coins}`;
+    sub.textContent = t("진료비 {n}",{n:st.coins});
     list.textContent = "";
     ITEMS.forEach(it => {
       const li = el("li"), b = el("button"); b.type = "button"; b.dataset.item = it.id;
       const have = it.kind !== "coupon" && owns(st, it.id), locked = it.kind === "upgrade" && !owns(st, it.base), n = count(st, it.id);
-      b.append(el("b", null, it.name), el("small", null, locked ? `${itemById(it.base).name}부터 놓아요.` : it.kind === "coupon" && n ? `${it.line} (${n}장 있음)` : it.line));
-      b.appendChild(el("i", null, have ? "놓였어요" : locked ? "잠김" : String(it.price)));
+      b.append(el("b", null, t(it.name)), el("small", null, locked ? t("{name}부터 놓아요.",{name:t(itemById(it.base).name)}) : it.kind === "coupon" && n ? t("{line} ({n}장 있음)",{line:t(it.line),n}) : t(it.line)));
+      b.appendChild(el("i", null, have ? t("놓였어요") : locked ? t("잠김") : String(it.price)));
       if(have){ b.classList.add("have"); b.disabled = true; }
       else if(locked || st.coins < it.price) b.classList.add("poor");
       if(flashId === it.id) b.classList.add("flash");
@@ -84,10 +85,10 @@ export function mountCoupon(){
   if(anchor) anchor.insertAdjacentElement("afterend", btn);
   let day = -1, hard = false;
   const pending = new Set();
-  const text = () => pending.has(day) ? "통증권 쓰는 중" : `통증권 쓰기 (${count(loadShop(), "pain1")}장)`;
+  const text = () => pending.has(day) ? t("통증권 쓰는 중") : t("통증권 쓰기 ({n}장)",{n:count(loadShop(), "pain1")});
   const refresh = () => {
     // the story card is shared with 단골 의뢰 (its number reads "단골 의뢰 · ..."): only a plain 영업 일지 day takes a coupon
-    const questCard = /^(단골 의뢰|계절 손님)/.test(($("#storyNo") || {}).textContent || "");
+    const sn = $("#storyNo") || {}, questCard = (sn.dataset && sn.dataset.kind === "quest") || /^(단골 의뢰|계절 손님)/.test(sn.textContent || "");
     btn.hidden = day < 0 || hard || questCard || count(loadShop(), "pain1") < 1;
     btn.textContent = text(); btn.classList.toggle("on", pending.has(day));
   };
@@ -119,16 +120,16 @@ export function mountCoupon(){
 export function mountCoinReward(anchor){
   if(!anchor) return { show(){} };
   const line = el("p", "coin-line"), amt = el("b", null, "+0"), tot = el("small", null, "");
-  line.append(el("span", null, "진료비"), amt); line.appendChild(tot);
+  line.append(el("span", null, t("진료비")), amt); line.appendChild(tot);
   const dbl = el("button", "btn ghost", ""); dbl.type = "button"; dbl.hidden = true;
   const att = el("p", "coin-line attend-line"); att.hidden = true;   // 출근 도장 (core/attend.js): shown on the first finished run of a KST day
   anchor.insertAdjacentElement("beforebegin", att);
   anchor.insertAdjacentElement("beforebegin", line);
   anchor.insertAdjacentElement("beforebegin", dbl);
   let key = null, replay = false, paid = 0, doubled = false, hard = false, busy = false, meta = {}, cont = false;
-  const label = () => adFree() ? "진료비 2배 받기" : "광고 보고 진료비 2배";
+  const label = () => t(adFree() ? "진료비 2배 받기" : "광고 보고 진료비 2배");
   const paint = () => {
-    amt.textContent = `+${paid}`; tot.textContent = `합계 ${loadShop().coins}` + (replay ? " · 다시 깬 날은 40%" : "");
+    amt.textContent = `+${paid}`; tot.textContent = t("합계 {n}",{n:loadShop().coins}) + (replay ? t(" · 다시 깬 날은 40%") : "");
     line.hidden = paid <= 0;   // a run that earned nothing (주간 실패 등) shows no "+0" line
     dbl.hidden = !(isToss && (canWatchRewarded() || adFree()) && doubleOffer({ earned: paid, hard, used: doubled, continueOffered: cont }));
     dbl.textContent = label();
@@ -139,7 +140,7 @@ export function mountCoinReward(anchor){
     track(EV.click, { target: "coin_double_ad", ad_free: adFree() });
     const ok = await watchRewarded();
     busy = false; dbl.disabled = false;
-    if(!ok){ dbl.textContent = "광고를 못 불러왔어요 · 다시"; return; }
+    if(!ok){ dbl.textContent = t("광고를 못 불러왔어요 · 다시"); return; }
     doubled = true;
     saveShop(add(loadShop(), paid));
     track(EV.coinEarn, { ...meta, coins: paid, step: "double", total: loadShop().coins });

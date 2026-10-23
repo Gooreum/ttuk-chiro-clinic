@@ -1,5 +1,6 @@
 /* 심야 진료 glue (core/night.js has the rules): the endless run on top of game/flow.js. flow.js calls these at five points
    (start, next patient, finish, continue, title); S.night is null on every other run. */
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { S } from "./state.js";
@@ -23,7 +24,7 @@ function build(i){
 
 /* start(game): the patient list of a night run (just the first patient), or null for every other run */
 export function nightBegin(game){
-  $("#newbest").textContent = "최고 기록 경신!";
+  $("#newbest").textContent = t("최고 기록 경신!");
   if(game !== "night"){ S.night = null; return null; }
   const date = kstDate();
   S.night = { date, seed: nightSeed(date) };
@@ -45,13 +46,13 @@ export function nightResult(){
   const prev = store.get(NIGHT_KEY, null);
   const { record, isBest } = nightRecord(prev, n.date, count, S.score);
   if(record && record !== prev) store.set(NIGHT_KEY, record);
-  $("#rdate").textContent = `심야 진료 · ${n.date}`;
-  $("#rank").textContent = nightRank(count);
-  $("#newbest").textContent = "오늘 최고 기록 경신!"; $("#newbest").hidden = !isBest;
+  $("#rdate").textContent = t("심야 진료 · {d}",{d:n.date});
+  $("#rank").textContent = t(nightRank(count));
+  $("#newbest").textContent = t("오늘 최고 기록 경신!"); $("#newbest").hidden = !isBest;
   const out = $("#dayOutro");
-  out.textContent = `오늘의 심야 기록 ${count}명${record ? ` · 오늘 최고 ${record.count}명` : ""}`;
+  out.textContent = t("오늘의 심야 기록 {n}명{best}",{n:count,best:record ? t(" · 오늘 최고 {n}명",{n:record.count}) : ""});
   out.hidden = false;
-  $("#again").textContent = "다시 심야 진료";
+  $("#again").textContent = t("다시 심야 진료");
   track(EV.nightEnd, { date: n.date, count, score: S.score, tier: nightTier(S.idx), outcome: S.ambulance ? "ambulance" : "pain", continued: S.continued, best: isBest, run_ms: performance.now() - S.runAt });
 }
 
@@ -62,6 +63,6 @@ export function renderNightBtn(prog){
   for(const [btn, sub] of [["#nightBtn", "#nightSub"], ["#daysNight", "#daysNightSub"]]){
     const b = $(btn), s = $(sub);
     if(b){ b.disabled = !open; b.hidden = !open; }
-    if(s) s.textContent = open ? NIGHT_OPEN : NIGHT_LOCKED;
+    if(s) s.textContent = t(open ? NIGHT_OPEN : NIGHT_LOCKED);
   }
 }

@@ -1,5 +1,6 @@
 /* 환자 도감 glue (core/dex.js has the rules, ui/dex.js the card). flow.js calls dexMet / dexDone / dexFailSeen /
    dexResult at four points; the save is localStorage "chiroDex". */
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { track } from "../platform/analytics.js";
@@ -36,15 +37,15 @@ export function dexResult(){
   document.querySelectorAll(".dex-new").forEach(e => e.remove());
   if(fresh.length){
     const p = document.createElement("p"); p.className = "dex-new";
-    p.textContent = "도감에 새로 적혔어요: " + fresh.map(x => DEX_FAILS.some(f => f.id === x) ? label(x) : x).join(", ");
+    p.textContent = t("도감에 새로 적혔어요: {list}",{list:fresh.map(x => t(DEX_FAILS.some(f => f.id === x) ? label(x) : x)).join(", ")});
     $("#rlist").before(p);
     fresh = [];
   }
   renderDexBtn();
 }
 export function renderDexBtn(){
-  const c = dexCounts(read()), tc = taleCounts(readProg()), t = `환자 ${c.met}/${c.patients} · 실패 ${c.fails}/${c.kinds}` + (tc.read ? ` · 뒷이야기 ${tc.read}` : "");
-  for(const s of ["#dexSub", "#daysDexSub"]){ const e = $(s); if(e) e.textContent = t; }
+  const c = dexCounts(read()), tc = taleCounts(readProg()), txt = t("환자 {a}/{b} · 실패 {c}/{d}",{a:c.met,b:c.patients,c:c.fails,d:c.kinds}) + (tc.read ? t(" · 뒷이야기 {n}",{n:tc.read}) : "");
+  for(const s of ["#dexSub", "#daysDexSub"]){ const e = $(s); if(e) e.textContent = txt; }
 }
 export function mountDex(){
   for(const b of ["#dexBtn", "#daysDex"]) $(b).addEventListener("click", () => {

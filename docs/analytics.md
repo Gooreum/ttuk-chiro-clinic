@@ -16,6 +16,7 @@
 |---|---|
 | `mode` | `crack` 목꺾기 / `towel` 목뽑기 / `back` 허리펴기 / `side` 허리비틀기 |
 | `build` | `toss` / `web` |
+| `lang` | 화면 언어 `ko` / `en` (`src/i18n`, 토스 빌드는 늘 `ko`) |
 | `traffic_type` | 내부 트래픽이면 `internal` |
 
 ## 이벤트

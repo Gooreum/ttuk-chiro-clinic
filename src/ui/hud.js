@@ -3,6 +3,7 @@ import { $ } from "../lib/dom.js";
 import { S } from "../game/state.js";
 import { canvas, camera } from "../scene/renderer.js";
 import { head, tmpA, tmpB, tmpC } from "../scene/patientModel.js";
+import { t } from "../i18n/index.js";
 import { TRAITS } from "../patient/roster.js";
 
 /* DOM HUD helpers: toast, speech bubble, floating text, chart card, mini spine, mode line. */
@@ -26,7 +27,7 @@ export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i
 export function renderDots(){
   const d = $("#dots"); d.textContent = "";
   // 심야 진료 (a list that keeps growing) and 보스 러시 (26 patients): a row of dots wrapped the chart's header to three lines (pt10b), so a count instead
-  if(S.night || S.patients.length > 8){ d.classList.add("count"); d.textContent = S.night ? `${S.idx + 1}번째` : `${S.idx + 1}/${S.patients.length}`; return; }
+  if(S.night || S.patients.length > 8){ d.classList.add("count"); d.textContent = S.night ? t("{n}번째", {n: S.idx + 1}) : `${S.idx + 1}/${S.patients.length}`; return; }
   d.classList.remove("count");
   S.patients.forEach((p, i) => { const e = document.createElement("i"); if(i < S.idx) e.className = "done"; else if(i === S.idx) e.className = "now"; d.appendChild(e); });
 }
@@ -42,12 +43,12 @@ export function renderSpine(n, s = $("#spine")){
 export function renderChartSheet(target, idx, total, hint = ""){
   const tr = target.trait ? TRAITS[target.trait] : null, seg = `C${target.seg}–C${target.seg+1}`;
   $("#csNo").textContent = `No.${String(idx+1).padStart(2,"0")}`; $("#csTime").textContent = clockTxt(idx);
-  $("#csName").textContent = target.name; $("#csAge").textContent = `${target.age}세`;
-  $("#csVisit").textContent = `${idx+1}번째 / ${total}`; $("#csTrait").textContent = tr ? tr.label : "—";
-  $("#csCC").textContent = target.cc;
+  $("#csName").textContent = t(target.name); $("#csAge").textContent = t("{n}세", {n: target.age});
+  $("#csVisit").textContent = t("{n}번째 / {total}", {n: idx+1, total}); $("#csTrait").textContent = tr ? t(tr.label) : "—";
+  $("#csCC").textContent = t(target.cc);
   $("#csSeg").textContent = seg;
-  $("#csPlan").textContent = `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전 교정 · 양쪽 모두`;
-  $("#csNote").textContent = [tr ? tr.desc : "", hint || (tr ? "" : "숨을 내쉴 때 툭 꺾어 주세요")].filter(Boolean).join(" · ");
+  $("#csPlan").textContent = t("{side} 회전 교정 · 양쪽 모두", {side: t(target.side > 0 ? "오른쪽" : "왼쪽")});
+  $("#csNote").textContent = [tr ? t(tr.desc) : "", t(hint) || (tr ? "" : t("숨을 내쉴 때 툭 꺾어 주세요"))].filter(Boolean).join(" · ");
   renderSpine(target.seg, $("#csSpine"));
 }
 let sheetTimer = 0;
@@ -65,7 +66,7 @@ export function openChart(auto){
   if(!auto && (S.phase !== "play" || S.busy || S.chartOpen)) return;
   const el = $("#chartSheet");
   clearTimeout(sheetTimer);
-  $("#csHint").textContent = auto ? "잠시 후 시작해요 · 탭해서 닫기" : "탭해서 닫기";
+  $("#csHint").textContent = t(auto ? "잠시 후 시작해요 · 탭해서 닫기" : "탭해서 닫기");
   el.hidden = false; fitSheet(el); el.classList.remove("closing"); el.classList.remove("opening"); void el.offsetWidth; el.classList.add("opening");
   S.chartOpen = true;
 }
@@ -80,19 +81,20 @@ export function closeChart(){
 export const uiBlocked = () => !$("#tune").hidden || !$("#clinicMenu").hidden || S.chartOpen;
 $("#chartMini").addEventListener("click", () => openChart(false));
 $("#chartSheet").addEventListener("click", closeChart);
-export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return `오후 ${h}:${mm}`; };
-export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? `연속 성공 ×${S.streak}` : ""; }
+export const clockTxt = i => { const m = 120 + i*20; const h = Math.floor(m/60), mm = String(m%60).padStart(2,"0"); return t("오후 {h}:{mm}", {h, mm}); };
+export function renderCombo(){ $("#combo").textContent = S.streak >= 2 ? t("연속 성공 ×{n}", {n: S.streak}) : ""; }
 export function setModeText(){
   $("#app").classList.toggle("suite-look", S.game === "clinic" || S.game === "towel");
   $("#app").classList.toggle("towel-look", S.game === "towel");
+  const key = matchMedia("(pointer: coarse)").matches ? "" : ' <span class="towel-key">' + t("· 스페이스") + "</span>";
   if(S.game === "towel"){
-    $("#mode").innerHTML = S.mode === "tilt" ? "<b>위쪽을 몸 쪽으로 젖혀</b> 수건 장력 · <b>툭 당겨</b> 견인"
-      : `<b>위아래 드래그</b>로 수건 장력 · <b>휙 쓸어서</b> 당기기${matchMedia("(pointer: coarse)").matches ? "" : ' <span class="towel-key">· 스페이스</span>'}`;
+    $("#mode").innerHTML = S.mode === "tilt" ? t("<b>위쪽을 몸 쪽으로 젖혀</b> 수건 장력 · <b>툭 당겨</b> 견인")
+      : t("<b>위아래 드래그</b>로 수건 장력 · <b>휙 쓸어서</b> 당기기") + key;
     return;
   }
   $("#mode").innerHTML = S.mode === "tilt"
-    ? "<b>핸들처럼 돌려</b> 회전 · <b>위쪽을 젖혀</b> 위아래 · <b>툭 꺾어</b> 교정"
-    : `<b>천천히 드래그</b>로 각도 · <b>휙 쓸어서</b> 교정${matchMedia("(pointer: coarse)").matches ? "" : ' <span class="towel-key">· 스페이스</span>'}`;
+    ? t("<b>핸들처럼 돌려</b> 회전 · <b>위쪽을 젖혀</b> 위아래 · <b>툭 꺾어</b> 교정")
+    : t("<b>천천히 드래그</b>로 각도 · <b>휙 쓸어서</b> 교정") + key;
 }
 // the title's credits: the copyright and the third-party assets that must be credited (CREDITS.md)
 $("#creditsBtn").addEventListener("click", () => { $("#credits").hidden = false; });

@@ -5,6 +5,7 @@
 import { EV, visitInfo, entrySource, cleanParams, reviewDue } from "../core/analytics.js";
 import { store } from "../lib/store.js";
 import { sdk, supported } from "./sdk.js";
+import { LANG } from "../i18n/index.js";
 
 export const GA_ID = "G-91N1SBGRDE";   // GA4 property "뚝 카이로 클리닉" (this game only)
 const VISIT = "chiroVisit", REVIEWED = "chiroReviewAsked", FIRST_OK = "chiroFirstSuccess", INTERNAL = "chiroInternal";
@@ -15,7 +16,7 @@ const q = new URLSearchParams(location.search);
 const local = location.protocol === "file:" || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[::1\])/.test(location.hostname);
 if(q.get("internal") === "1") store.set(INTERNAL, true);
 if(q.get("internal") === "0") store.set(INTERNAL, false);
-const common = { mode: "", build: __TOSS__ ? "toss" : "web" };
+const common = { mode: "", build: __TOSS__ ? "toss" : "web", lang: LANG };
 if(store.get(INTERNAL, false)) common.traffic_type = "internal";
 if(q.get("debug") === "1") common.debug_mode = true;   // GA4 DebugView
 

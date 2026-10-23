@@ -34,6 +34,7 @@
 | `scripts/shot.py` | 헤드리스 크로미움으로 타이틀·플레이·교정 순간·교정 후 반응·반대쪽 전환 스크린샷 5장 |
 | `scripts/audio/` | 배경음 악보 `song.py`와 합성·검사·인코딩 `bgm.py`(`.venv/bin/pip install numpy scipy pedalboard pyloudnorm`, ffmpeg 필요. `.venv/bin/python -I scripts/audio/bgm.py`가 `public/audio/bgm.m4a`를 덮어쓴다. 지금 게임 곡은 예전 곡이라 실행하지 않는다, 출시 전 대체곡 후보) |
 | `scripts/cases/`, `src/dev/` | 케이스 사이트(https://kangraemin.github.io/ttuk-cases/, 레포 kangraemin/ttuk-cases). `cases.mjs`가 네 모드 케이스 153개(재현 방법·나오는 장면·조작 순서)를 정의한다. 사이트 카드를 누르면 녹화 영상 대신 실제 게임이 iframe에서 그 장면을 바로 재생한다(사용자: "케이스별로 영상 대신 웹에 바로 그려주면 안 됨?" → "ㅇㅇ 그렇게해", 2026-10-21). `npm run build:cases`(`__CASES__`, `dist-cases/`)는 판정을 강제하지 않는 실제 판정 빌드이며, `?case=<id>`면 `src/dev/caseRunner.js`가 덮개를 띄우고 한 번 탭하면(소리·시작 버튼에 사용자 제스처 필요) `caseNeck.js`/`caseBack.js`가 `run.mjs`와 같은 조작을 게임 안에서 한다. 센서 권한·전체화면 요청과 GA 전송은 이 빌드에서 끈다. 사이트에 올릴 때는 `dist-cases/`를 레포의 `play/`에 복사한다. 점검: `npx vite preview --mode cases --outDir dist-cases --port 5195` 뒤 `node scripts/cases/live-check.mjs`(모든 케이스가 끝까지 재생되는지). 영상 녹화(`run.mjs`)는 썸네일·예비용으로 남는다 |
+| `src/i18n/`, `scripts/i18n/` | 영어판(5-1절). `index.js`(`t`, `LANG`, `setLang`), `dom.js`(HTML 정적 문구), `langChip.js`(언어 칩), `en/*.json`(사전), `glossary.md`(용어집), `ignore.json`. `extract.mjs`가 `npm run i18n:check`, `hangul-scan.mjs`가 영어 화면 한글 점검 |
 | `scripts/compare.py` | 두 스크린샷 폴더를 [A / B / 차이] 나란히 비교 |
 | `vite.config.js`, `package.json` | 빌드 설정. `dist/`(배포)와 `dist-shot/`(촬영용) |
 | `docs/analytics.md` | 이벤트 이름·파라미터 표, 전환 지표, 리뷰·전면광고 규칙(6-2) |
@@ -316,6 +317,27 @@
 헤드리스 환경에는 센서가 없어 드래그 모드로 동작한다. 센서·손맛 변경은 헤드리스 결과만으로 완료 처리하지 말고 실기기 확인 체크리스트를 함께 남긴다.
 
 ---
+
+## 5-1. 영어판 (i18n, 2026-10-23)
+- 사용자: "외국인들도 할수있어야하는데 우리게임".
+- 웹과 스토어 앱은 `?lang=` → localStorage `chiroLang` → 브라우저 언어 순으로 언어를 고른다. 브라우저 언어가 ko가 아니면 영어다.
+- 토스 빌드(`__TOSS__`)는 항상 한국어다.
+- 한국어 원문이 사전 키다(`src/i18n/en/*.json`). 데이터 모듈의 한국어(환자 이름 = id, 저장·이벤트·케이스 id)는 그대로 두고, 화면에 내보내는 순간 `t()`로 바꾼다.
+- `ui/hudDom.js`의 say/coach/stamp/floater/toast는 안에서 `t()`를 부른다. `textContent`·`innerHTML`·캔버스 `fillText`는 호출하는 쪽에서 감싼다.
+- 한글이 든 템플릿 문자열은 쓰지 않는다. `t("{n}번째 환자", {n})`처럼 자리 표시자를 쓴다.
+- HTML 정적 문구는 부팅 때 `src/i18n/dom.js`가 바꾼다.
+- 새 화면 문구를 넣으면 영어 줄도 사전에 넣는다. `npm run i18n:check`(단위 테스트도 같이 본다)가 누락 0, 남은 템플릿 0이어야 한다. 제외 목록은 `src/i18n/ignore.json`이다.
+- 이름·모드·의성어·말투는 `src/i18n/glossary.md`를 따른다. 목뽑기 욕은 영어로 비튼 욕이고 수위는 원문과 같다.
+- 타이틀과 허리 시작 카드의 크레딧 줄 끝에 언어 칩(`#langBtn`, `src/i18n/langChip.js`)이 있다. 칩 글자는 다른 언어 이름이고 `lang` 속성이 붙어 번역되지 않는다.
+- 모든 이벤트에 `lang` 파라미터가 붙는다(`docs/analytics.md`).
+- 테스트 도구(playwright.config.js, shot.py, 케이스 run·live-check)는 ko-KR로 고정했다. 영어 확인은 `e2e/en.spec.js`와 `node scripts/i18n/hangul-scan.mjs`(케이스 빌드 preview 5195에서 모든 케이스를 `&lang=en`으로 재생하며 화면 DOM 한글을 모은다)다.
+- 허리 모드가 목 대사를 '목'→'허리'로 바꿔 쓰는 곳은 `backify(ko)`(`src/i18n/index.js`)를 쓴다. 영어는 치환본이 사전에 있으면 그 줄, 없으면 영어 줄의 neck을 back으로 바꾼다.
+- 영어 문장이 길어 넘치는 곳은 `ui/clinic-hud.css` 맨 끝 `html[lang=en]` 블록에서만 줄인다(도장 글자, 타이틀 자유 진료 버튼, 허리 시작 카드 칩). 667x375·740x360·844x390 확인.
+- hangul-scan은 개발용 배지(`#caseCover`, `#caseBadge`)를 뺀다.
+- `dom.js`는 HTML 텍스트 노드를 하나씩 바꾼다. 그래서 `<b>` 뒤에 붙는 조각은 영어 쪽 앞에 공백을 넣는다(예: `"도 똑같이."` → `" and do the same."`).
+- 허리 시작 카드 깨짐(사용자: "영어 있으니까 화면이 뭔가 깨진다 ?"): 타이틀 4모드 줄의 `.starts` 4칸 규칙이 허리펴기·허리비틀기 시작 카드 버튼 2개에도 걸려 있었다. 그래서 버튼이 1/4 폭으로 줄어 글자가 넘쳤다(한국어에도 있던 버그). 이제 두 시작 카드는 1:1.25 두 칸이고 버튼 글자는 줄바꿈된다. 영어 짧은 화면에서는 클리닉 칩을 줄여 왼쪽 칸 안에 넣었다. 그래서 오른쪽 단계 번호와 겹치지 않는다.
+- 케이스 사이트에는 `게임 언어` 칩(한국어/English, localStorage `caseLang`)이 있다. 이 칩이 iframe 주소에 `&lang=`을 붙인다.
+- 원어민 감수와 폰 실기기 확인은 아직이다.
 
 ## 6. 로드맵 (우선순위 순)
 

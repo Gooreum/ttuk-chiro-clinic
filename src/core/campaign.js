@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 /* 영업 일지 (campaign, user 2026-10-21 "이거 이제 스토리를 늘리거나 뭐 해야할거아냐"): the clinic's first week.
    Rent is due on day 7 and the last patient turns out to be the landlord. Each day fixes the game (목꺾기 clinic /
    목뽑기 towel), who comes in and in what order, how many pains close the clinic (painMax), how many patients get the
@@ -281,7 +282,7 @@ export const ENDING = {
 
 /* "2장 3일차": a day's label inside its chapter */
 export const dayInChapter = day => DAYS.slice(0, day).filter(d => d.ch === DAYS[day].ch).length;
-export const dayLabel = day => `${DAYS[day].ch}장 ${dayInChapter(day) + 1}일차`;
+export const dayLabel = day => t("{ch}장 {n}일차",{ch:DAYS[day].ch,n:dayInChapter(day)+1});
 export const chapterOf = no => CHAPTERS.find(c => c.no === no);
 /* a played-through day counts as cleared unless it is a boss day and the average fell short (def: the day as played,
    hardDay for 역경) */

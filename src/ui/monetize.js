@@ -1,5 +1,6 @@
 /* Apps-in-Toss result-card buttons, shared by the three modes: "광고 보고 이어하기" (rewarded, once per run after a
    bad end, or "광고 보고 마지막 환자 다시" after a boss day under its beat) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
+import { t } from "../i18n/index.js";
 import { adsOn as isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/ads.js";
 import { continueOffer, painAdOffer, clearAdDue, cardAdPlan } from "../core/monetize.js";
 import { track } from "../platform/analytics.js";
@@ -17,7 +18,7 @@ function adNotice(){
   track(EV.adNotice, { format: "interstitial" });
   const el = document.createElement("div");
   el.className = "ad-notice"; el.setAttribute("role", "status");
-  el.textContent = "잠시 뒤 광고가 1개 나와요";
+  el.textContent = t("잠시 뒤 광고가 1개 나와요");
   document.body.appendChild(el);
   return new Promise(r => setTimeout(() => { el.remove(); r(); }, AD_NOTICE_MS));
 }
@@ -29,12 +30,12 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   let busy = false;
   let retry = false;   // a boss-day miss: the same button replays the last patient
   let plus = false;    // 심야 진료: the continue gives one more pain slot
-  const label = () => plus ? (adFree() ? "통증 칸 +1로 이어하기" : "광고 보고 통증 칸 +1로 이어하기") : retry ? (adFree() ? "마지막 환자 다시" : "광고 보고 마지막 환자 다시") : adFree() ? "이어하기" : "광고 보고 이어하기";
+  const label = () => t(plus ? (adFree() ? "통증 칸 +1로 이어하기" : "광고 보고 통증 칸 +1로 이어하기") : retry ? (adFree() ? "마지막 환자 다시" : "광고 보고 마지막 환자 다시") : adFree() ? "이어하기" : "광고 보고 이어하기");
   async function renderBuy(){
     buyBtn.hidden = !canBuyAdFree();
     if(buyBtn.hidden) return;
     const price = await adFreePrice();
-    buyBtn.textContent = price ? `광고 제거 · ${price}` : "광고 제거";
+    buyBtn.textContent = price ? t("광고 제거 · {p}",{p:price}) : t("광고 제거");
   }
   continueBtn.addEventListener("click", async () => {
     if(busy) return;
@@ -43,7 +44,7 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
     const ok = await watchRewarded();
     busy = false; continueBtn.disabled = false;
     if(ok){ continueBtn.hidden = true; onContinue(); }
-    else continueBtn.textContent = "광고를 못 불러왔어요 · 다시";
+    else continueBtn.textContent = t("광고를 못 불러왔어요 · 다시");
   });
   buyBtn.addEventListener("click", async () => {
     if(busy) return;
@@ -86,7 +87,7 @@ export function mountPainAd({ btn }){
   if(!isToss) return { show(){}, take(){ return 0; } };
   const pending = new Set(), spent = new Set();
   let day = -1, busy = false;
-  const text = d => pending.has(d) ? "통증 칸 +1 받았어요" : adFree() ? "통증 칸 +1 받기" : "광고 보고 통증 칸 +1";
+  const text = d => t(pending.has(d) ? "통증 칸 +1 받았어요" : adFree() ? "통증 칸 +1 받기" : "광고 보고 통증 칸 +1");
   btn.addEventListener("click", async () => {
     if(busy || day < 0 || pending.has(day)) return;
     const d = day;
@@ -96,7 +97,7 @@ export function mountPainAd({ btn }){
     busy = false;
     track(EV.painAd, { day: d + 1, step: ok ? "granted" : "fail" });
     if(ok) pending.add(d);
-    btn.textContent = ok ? text(d) : "광고를 못 불러왔어요 · 다시";
+    btn.textContent = ok ? text(d) : t("광고를 못 불러왔어요 · 다시");
     btn.disabled = ok && day === d;
   });
   return {

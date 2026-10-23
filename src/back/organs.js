@@ -1,4 +1,5 @@
 import {POSITION_TOL,TARGETS,pressedSide} from './core.js';
+import {t} from '../i18n/index.js';
 // Organs under the back by spinal level, seen from above (BodyParts3D anatomy; height 0 = T1, 1 = L5). The hands aim
 // up/down the spine first and, once the height is locked, left/right: a side miss bursts that side's organs at the
 // pressed height (the midline bowel goes either way), a height-only miss bursts both sides there.
@@ -17,9 +18,9 @@ export function organHit({height,side=.5,locked=false},step,tier,heights=TARGETS
   const sideOff=locked&&Math.abs(side-sides[step])>tol;
   return sideOff||Math.abs(height-heights[step])>tol?organsAt(height,sideOff?pressedSide(side):undefined):[];
 }
-export const organLabel=ids=>[...new Set(ids.map(id=>ORGANS.find(o=>o.id===id)?.name).filter(Boolean))].join('·');
+export const organLabel=ids=>[...new Set(ids.map(id=>ORGANS.find(o=>o.id===id)?.name).filter(Boolean))].map(n=>t(n)).join('·');
 // X-ray name tag: the two lungs and kidneys are told apart there.
-const SIDES={lungL:'왼쪽 ',lungR:'오른쪽 ',kidneyL:'왼쪽 ',kidneyR:'오른쪽 '};
-export const organTagName=id=>{const o=ORGANS.find(o=>o.id===id);return o?(SIDES[id]||'')+o.name:'';};
+const SIDES={lungL:'왼쪽',lungR:'오른쪽',kidneyL:'왼쪽',kidneyR:'오른쪽'};
+export const organTagName=id=>{const o=ORGANS.find(o=>o.id===id);return o?(SIDES[id]?t(SIDES[id])+' ':'')+t(o.name):'';};
 // Subject particle for the last syllable: 간이 / 폐가.
 export const subject=w=>w+(w&&(w.charCodeAt(w.length-1)-0xac00)%28?'이':'가');

@@ -70,7 +70,7 @@ async def shoot(url, out):
     errors = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(args=["--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"])
-        page = await browser.new_page(viewport={"width": 812, "height": 375}, device_scale_factor=1)
+        page = await browser.new_page(viewport={"width": 812, "height": 375}, device_scale_factor=1, locale="ko-KR")
         page.on("pageerror", lambda e: errors.append(f"pageerror: {e}"))
         page.on("console", lambda m: errors.append(f"console: {m.text}") if m.type == "error" else None)
         await page.add_init_script(SEED_RANDOM)

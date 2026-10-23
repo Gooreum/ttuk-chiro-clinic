@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n/index.js";
 import * as THREE from "three";
 
 /* Canvas textures: wood floor, rug, cervical poster, certificate. Redrawn once web fonts load. */
@@ -45,7 +46,7 @@ function drawPoster(c, w, h){
   c.strokeStyle = "#2c4842"; c.lineWidth = 10; c.strokeRect(5,5,w-10,h-10);
   c.fillStyle = "#2c4842";
   c.font = "64px 'Black Han Sans', sans-serif"; c.textAlign = "center";
-  c.fillText("경추 해부도", w/2, 92);
+  c.fillText(tr("경추 해부도"), w/2, 92);
   c.font = "600 22px 'IBM Plex Sans KR', sans-serif"; c.fillStyle = "#6b7774";
   c.fillText("CERVICAL SPINE · C1–C7", w/2, 126);
   const top = 160, step = 64;
@@ -60,7 +61,7 @@ function drawPoster(c, w, h){
     c.fillText(i < 7 ? "C" + (i+1) : "T1", cx - bw/2 - 22, y + 29);
   }
   c.textAlign = "center"; c.fillStyle = "#2c4842"; c.font = "26px 'Black Han Sans', sans-serif";
-  c.fillText("바른 목이 하루를 바꿉니다", w/2, h - 46);
+  c.fillText(tr("바른 목이 하루를 바꿉니다"), w/2, h - 46);
 }
 export const posterTex = canvasTex(512, 720, drawPoster);
 
@@ -68,10 +69,10 @@ export const certTex = canvasTex(384, 288, (c, w, h) => {
   c.fillStyle = "#f6f1e6"; c.fillRect(0,0,w,h);
   c.strokeStyle = "#b39b62"; c.lineWidth = 8; c.strokeRect(10,10,w-20,h-20);
   c.fillStyle = "#2c4842"; c.textAlign = "center";
-  c.font = "44px 'Black Han Sans', sans-serif"; c.fillText("자 격 증", w/2, 92);
+  c.font = "44px 'Black Han Sans', sans-serif"; c.fillText(tr("자 격 증"), w/2, 92);
   c.font = "600 20px 'IBM Plex Sans KR', sans-serif"; c.fillStyle = "#56635f";
-  c.fillText("뚝 카이로 클리닉 원장", w/2, 150);
-  c.fillText("손끝 감각 1급", w/2, 182);
+  c.fillText(tr("뚝 카이로 클리닉 원장"), w/2, 150);
+  c.fillText(tr("손끝 감각 1급"), w/2, 182);
   c.fillStyle = "#c0503a"; c.beginPath(); c.arc(w-74, h-66, 30, 0, Math.PI*2); c.fill();
 });
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { posterTex.userData.redraw(); certTex.userData.redraw(); });

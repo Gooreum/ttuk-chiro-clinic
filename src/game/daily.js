@@ -1,6 +1,7 @@
 /* 오늘의 도전 glue (core/daily.js has the rules): one patient with the day's rule on top of game/flow.js. flow.js calls these at the
    same points as game/weekly.js (start, loadPatient, finish, continue, the title button); S.daily is null on every other run.
    The patient carries `weekly: {i, name, game}` like a weekly one so flow.js reads the game of each patient the same way. */
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { S } from "./state.js";
@@ -37,7 +38,7 @@ export function dailyPrep(){
   S.game = p.weekly.game === "towel" ? "towel" : "clinic";
   setModeText(); setMode(S.game === "towel" ? "towel" : "crack");
   const set = S.daily.set;
-  setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(`오늘의 도전 · ${set.rule.name}`, set.rule.line, "dud", 3200); if(!set.boss.length) coach(dailyCue(set.rule), 3000); } }, 450);
+  setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("오늘의 도전 · {r}",{r:t(set.rule.name)}), t(set.rule.line), "dud", 3200); if(!set.boss.length) coach(t(dailyCue(set.rule)), 3000); } }, 450);
 }
 export function dailyContinue(){ S.painMax += 1; }
 export const dailyBest = date => dailyRead(store.get(DAILY_KEY, null), date).best;
@@ -54,14 +55,14 @@ export function dailyResult(complete){
     try{ dispatchEvent(new Event("chiro-shop")); }catch(e){}
     track(EV.coinEarn, { game: "daily", day: 0, hard: 0, coins: DAILY_BONUS, step: "daily", total: readShop(store.get(SHOP_KEY, null)).coins });
   }
-  $("#rdate").textContent = `오늘의 도전 · ${dailyLabel(date)} · ${set.rule.name}`;
-  $("#newbest").textContent = "오늘 최고 기록 경신!"; $("#newbest").hidden = !isBest;
+  $("#rdate").textContent = t("오늘의 도전 · {l} · {r}",{l:t(dailyLabel(date)),r:t(set.rule.name)});
+  $("#newbest").textContent = t("오늘 최고 기록 경신!"); $("#newbest").hidden = !isBest;
   const out = $("#dayOutro");
   out.textContent = record.best > 0
-    ? `오늘 최고 ${record.best}점 · ${record.tries}번째 도전${firstClear ? ` · 첫 클리어 보너스 진료비 +${DAILY_BONUS}` : ""}`
-    : "끝까지 진료해야 오늘 기록이 남아요";
+    ? t("오늘 최고 {b}점 · {n}번째 도전{bonus}",{b:record.best,n:record.tries,bonus:firstClear ? t(" · 첫 클리어 보너스 진료비 +{c}",{c:DAILY_BONUS}) : ""})
+    : t("끝까지 진료해야 오늘 기록이 남아요");
   out.hidden = false;
-  $("#again").textContent = "오늘의 도전 다시";
+  $("#again").textContent = t("오늘의 도전 다시");
   track(EV.dailyEnd, { date, rule: set.rule.id, game: set.patients[0].game, score: S.score, complete, outcome: S.ambulance ? "ambulance" : S.pain >= S.painMax ? "pain" : complete ? "complete" : "quit", best: isBest, first_clear: firstClear, continued: S.continued, run_ms: Math.round(performance.now() - S.runAt) });
   renderDailyBtn();
 }
@@ -71,7 +72,7 @@ export function renderDailyBtn(){
   const set = dailySet(kstDate()), best = dailyRead(store.get(DAILY_KEY, null), set.date).best;
   const b = $("#dailyBtn"), s = $("#dailySub");
   if(b) b.hidden = false;
-  if(s) s.textContent = best > 0 ? `${set.rule.short} · 최고 ${best}` : set.rule.short;
+  if(s) s.textContent = best > 0 ? t("{r} · 최고 {b}",{r:t(set.rule.short),b:best}) : t(set.rule.short);
 }
 export function mountDaily({ start }){
   $("#dailyBtn").addEventListener("click", () => start("daily"));

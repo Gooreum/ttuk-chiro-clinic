@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n/index.js";
 import { clamp } from "../lib/math.js";
 
 // Pure canvas instruments shared by neck traction and back pressing. All values are normalized by the caller.
@@ -51,10 +52,10 @@ export function drawVGauge(ctx,{x,top,h,value,band=null,limit,title,hot=false,fi
   ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
   // labels
   ctx.font = "13px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
-  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(title, x, top - 10);
-  ctx.fillStyle = C_BONE; ctx.fillText(title, x, top - 10);
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(tr(title), x, top - 10);
+  ctx.fillStyle = C_BONE; ctx.fillText(tr(title), x, top - 10);
   ctx.textAlign = "left"; ctx.font = "600 11px 'IBM Plex Sans KR', sans-serif";
-  if(limit!==undefined){ ctx.strokeText("과해요", x + w/2 + 10, yAt(limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText("과해요", x + w/2 + 10, yAt(limit) + 4); }
+  if(limit!==undefined){ ctx.strokeText(tr("과해요"), x + w/2 + 10, yAt(limit) + 4); ctx.fillStyle = C_CORAL; ctx.fillText(tr("과해요"), x + w/2 + 10, yAt(limit) + 4); }
   ctx.restore();
 }
 
@@ -77,14 +78,15 @@ export function drawHBar(ctx,{bx,by,bw,off,span=null,ok=Math.abs(off)<=1,title,o
   ctx.beginPath(); ctx.arc(span?lin(span.pos):xAt(off), by, 7, 0, Math.PI*2);
   ctx.fillStyle = !ok ? C_CORAL : C_BONE; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "rgba(15,35,31,.85)"; ctx.stroke();
   ctx.textAlign = "left"; ctx.font = "12px 'Black Han Sans', sans-serif";
-  ctx.fillStyle = C_BONE; ctx.fillText(title, bx+2, by-14);
+  ctx.fillStyle = C_BONE; ctx.fillText(tr(title), bx+2, by-14);
   ctx.textAlign = "right"; ctx.font = "600 10px 'IBM Plex Sans KR', sans-serif"; ctx.fillStyle = !ok ? C_CORAL : C_MINT;
-  ctx.fillText(!ok ? offText : okText, bx+bw-2, by-14);
+  ctx.fillText(tr(!ok ? offText : okText), bx+bw-2, by-14);
   ctx.restore();
 }
 
 export function drawHint(ctx,{x,y,text,hot=false,colors={}}){
   if(!text)return;
+  text=tr(text);
   const {bone,coral}={...DEFAULT_COLORS,...colors};
   ctx.save();
   ctx.textAlign="center";ctx.font="15px 'Black Han Sans', sans-serif";ctx.lineJoin="round";

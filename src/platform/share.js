@@ -1,6 +1,7 @@
 /* 자랑하기 (share) and the Toss game-center leaderboard. Toss build: Share.createLink + Share.sendMessage, Game.setLeaderboardScore,
    Game.openLeaderboard (SDK chunk via platform/sdk.js, never in a plain build). Plain / store-app builds: navigator.share, else
    clipboard copy + a toast. Text rules: core/share.js. */
+import { t } from "../i18n/index.js";
 import { sdk, supported } from "./sdk.js";
 import { track } from "./analytics.js";
 import { EV } from "../core/analytics.js";
@@ -27,10 +28,10 @@ export async function shareResult(text, where, notify = () => {}){
   }catch(e){ if(e && e.name === "AbortError") return "fail"; }   // the player closed the sheet
   try{
     await navigator.clipboard.writeText(full);
-    notify("복사했어요. 붙여넣어 자랑하세요", 1600);
+    notify(t("복사했어요. 붙여넣어 자랑하세요"), 1600);
     track(EV.share, { where, how: "copied" }); return "copied";
   }catch(e){
-    notify("공유를 못 했어요", 1400);
+    notify(t("공유를 못 했어요"), 1400);
     track(EV.share, { where, how: "fail", code: errCode(e) }); return "fail";
   }
 }

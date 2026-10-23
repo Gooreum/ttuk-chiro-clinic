@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { T, saveT, resetT } from "../tuning.js";
 import { layout } from "../input/orientation.js";
@@ -18,7 +19,7 @@ function syncTune(){
 // the quick music switch by the tuning button (same T.music as the sheet's checkbox, kept in localStorage)
 function syncMusic(){
   const b = $("#musicBtn");
-  b.textContent = T.music ? "음악" : "음악 끔"; b.classList.toggle("off", !T.music); b.setAttribute("aria-pressed", T.music ? "true" : "false");
+  b.textContent = t(T.music ? "음악" : "음악 끔"); b.classList.toggle("off", !T.music); b.setAttribute("aria-pressed", T.music ? "true" : "false");
 }
 $("#musicBtn").addEventListener("click", () => { T.music = !T.music; saveT(); syncTune(); setAmbient(); });
 SLIDERS.forEach(([k, fmt]) => $("#t-"+k).addEventListener("input", e => { T[k] = parseFloat(e.target.value); $("#v-"+k).textContent = fmt(T[k]); saveT(); }));
@@ -31,8 +32,8 @@ $("#treset").addEventListener("click", () => { resetT(); saveT(); syncTune(); la
 $("#tuneBtn").addEventListener("click", () => { syncTune(); $("#tune").hidden = false; });
 // tells a phone that never buzzes apart: the browser can't (iPhone, in-app browsers) or the phone's settings mute it
 $("#tvib").addEventListener("click", () => {
-  $("#vibMsg").textContent = vib([200, 80, 200]) ? "진동 신호를 보냈어요. 안 느껴지면 무음·진동 세기 설정을 확인해 주세요"
-    : "이 브라우저는 진동을 못 써요 (아이폰, 카톡 등 앱 안 브라우저). 크롬으로 열어 주세요";
+  $("#vibMsg").textContent = t(vib([200, 80, 200]) ? "진동 신호를 보냈어요. 안 느껴지면 무음·진동 세기 설정을 확인해 주세요"
+    : "이 브라우저는 진동을 못 써요 (아이폰, 카톡 등 앱 안 브라우저). 크롬으로 열어 주세요");
 });
 $("#tclose").addEventListener("click", () => { $("#tune").hidden = true; });
 syncTune();

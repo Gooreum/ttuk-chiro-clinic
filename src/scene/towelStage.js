@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n/index.js";
 import * as THREE from "three";
 import { scene } from "./renderer.js";
 import { roomMeshes, headRest } from "./room.js";
@@ -26,8 +27,8 @@ function paintSign(){
   const clinic = S.game === "clinic", x = signCanvas.getContext("2d");
   x.fillStyle = "#f4efe4"; x.fillRect(0, 0, 1024, 512);
   x.strokeStyle = "#17312c"; x.lineWidth = 5; x.strokeRect(22, 22, 980, 468);
-  x.fillStyle = "#17312c"; x.font = '86px "Black Han Sans"'; x.fillText(clinic ? "진료실" : "견인실", 66, 175);
-  x.font = '500 32px "IBM Plex Sans KR"'; x.fillText("뚝 카이로 클리닉", 70, 245);
+  x.fillStyle = "#17312c"; x.font = '86px "Black Han Sans"'; x.fillText(tr(clinic ? "진료실" : "견인실"), 66, 175);
+  x.font = '500 32px "IBM Plex Sans KR"'; x.fillText(tr("뚝 카이로 클리닉"), 70, 245);
   x.fillStyle = "#ff7a59"; x.fillRect(70, 298, 110, 12);
   x.fillStyle = "#17312c"; x.font = '128px "Black Han Sans"'; x.fillText(clinic ? "01" : "02", 700, 384);
   signMode = S.game;
