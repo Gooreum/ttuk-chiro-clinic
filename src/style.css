@@ -37,6 +37,29 @@
 #chartSheet .psign{display:flex;align-items:center;gap:8px;color:var(--paper-ink)}
 #chartSheet .seal{width:48px;height:48px;border-radius:50%;border:2.5px solid var(--coral);box-shadow:inset 0 0 0 2px var(--paper),inset 0 0 0 3.5px var(--coral);color:var(--coral);display:grid;place-items:center;align-content:center;font-family:var(--body);font-weight:700;font-style:normal;font-size:18px;line-height:1;transform:rotate(-12deg);opacity:.9}
 #chartSheet .seal small{font-family:var(--body);font-size:7.5px;font-weight:700;letter-spacing:.1em;margin-top:1px}
+/* a short screen (#app under 460px tall, also a self-rotated landscape phone; ui/hud.js fitSheet sets .short): the compact
+   sheet, so the scale stays near 1 and the words stay readable (2026-10-23 "차트 화면이 너무 커서 한번에 안보이고 잘려") */
+#chartSheet.short .board{padding:12px 10px 8px;border-radius:12px}
+#chartSheet.short .clamp{top:-8px;width:92px;height:20px;margin-left:-46px}
+#chartSheet.short .clamp::after{top:5px;height:6px}
+#chartSheet.short .paper{padding:10px 14px 8px;gap:6px}
+#chartSheet.short .ph{padding-bottom:4px}
+#chartSheet.short .ph b{font-size:17px}
+#chartSheet.short .ph small{font-size:10px}
+#chartSheet.short .pgrid{gap:12px}
+#chartSheet.short .pinfo{font-size:11.5px}
+#chartSheet.short .pinfo th,#chartSheet.short .pinfo td{padding:2px 5px}
+#chartSheet.short #csName{font-size:15px}
+#chartSheet.short .plabel{margin:5px 0 2px;font-size:10px}
+#chartSheet.short .pcc{font-size:13px;line-height:20px;background:repeating-linear-gradient(transparent 0 19px,#c9c2b2 19px 20px);min-height:40px}
+#chartSheet.short .pfind{gap:10px}
+#chartSheet.short .spine.big{gap:2px}
+#chartSheet.short .spine.big b{height:6px}
+#chartSheet.short .ptx{gap:3px;font-size:11.5px;line-height:1.35}
+#chartSheet.short .pseg{font-size:18px}
+#chartSheet.short .pfoot{padding-top:4px;font-size:10.5px}
+#chartSheet.short .seal{width:36px;height:36px;font-size:14px;border-width:2px}
+#chartSheet.short .seal small{font-size:6px}
 /* a real portrait screen only: the rotated landscape (#app.rotated) is a portrait viewport too */
 @media (orientation:portrait){
   #app:not(.rotated) #chartSheet .pgrid{grid-template-columns:1fr;gap:4px}
