@@ -3,6 +3,7 @@
    Saved in localStorage "chiroShop": { coins, owned: [item id, ...] } (a consumable appears once per copy). */
 export const SHOP_KEY = "chiroShop";
 export const RUN_COIN_CAP = 160;     // one run never pays more than this (before the 2x ad)
+export const REPLAY_MUL = 0.4;       // 별을 못 늘린 재플레이의 진료비 비율
 export const COUPON_MAX = 5;         // 통증 칸 +1권 you can hold
 
 /* kind "prop": bought once, stands in the room. kind "coupon": consumable, spent on a 영업 일지 story card. */
@@ -49,14 +50,18 @@ export const owns = (st, id) => count(st, id) > 0;
 
 /* 진료비 for a finished run. avg: points per crack (the number the rank uses), complete: played through (or a 심야 진료
    night that ran its course), cleared: a 영업 일지 day cleared, hard: 역경. Typical full run ~ 90-110 coins. */
-export function coinsFor({ avg, complete, cleared, hard }){
+export function coinsFor({ avg, complete, cleared, hard, replay }){
   const a = Number.isFinite(avg) && avg > 0 ? avg : 0;
   let n = Math.round(a * 0.9);
   if(!complete) n = Math.round(n * 0.5);
-  if(cleared) n += 15;
+  if(replay) n = Math.round(n * REPLAY_MUL);   // 43차: 이미 깬 날/의뢰를 별 늘림 없이 다시 돌면 40%, 클리어 보너스 없음 (쉬운 날 반복 파밍 방지)
+  else if(cleared) n += 15;
   if(hard) n = Math.round(n * 1.3);
   return Math.max(0, Math.min(RUN_COIN_CAP, n));
 }
+/* replay: this run is on a day/quest already cleared before (prior = best stars saved before this run, 0 = never cleared)
+   and did not beat it (stars = this run's stars, 0 when not cleared). A run that raises the stars pays in full. */
+export const isReplay = (prior, stars) => (prior | 0) > 0 && (stars | 0) <= (prior | 0);
 /* the rewarded "진료비 2배": once per run, never on 역경 (no ad there), and only when a run paid something */
 /* continueOffered: the card already offers the rewarded "이어하기" / "마지막 환자 다시" (core/monetize.js continueOffer).
    Two rewarded buttons on one card read as a double toll and the continue is worth more, so the 2x waits: once the

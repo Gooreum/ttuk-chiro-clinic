@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, TOTAL_UPGRADE_COST, UPGRADES, readShop, coinsFor, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
+import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, TOTAL_UPGRADE_COST, UPGRADES, readShop, coinsFor, isReplay, REPLAY_MUL, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
 
 describe("진료비 규칙", () => {
   it("완주한 판은 평균의 90%쯤, 못 끝낸 판은 절반", () => {
@@ -111,5 +111,27 @@ describe("엔드게임 소비처", () => {
   });
   it("소품 전부 + 업그레이드는 시간당 약 2,000 기준 30시간 넘게 남는다", () => {
     expect((TOTAL_PROP_COST + TOTAL_UPGRADE_COST) / 2000).toBeGreaterThan(30);
+  });
+});
+
+describe("쉬운 날 반복 파밍 (43차)", () => {
+  it("별을 못 늘린 재플레이는 40%, 클리어 보너스 없음", () => {
+    expect(REPLAY_MUL).toBe(0.4);
+    expect(coinsFor({ avg: 100, complete: true, cleared: true, replay: true })).toBe(36);
+    expect(coinsFor({ avg: 100, complete: true, cleared: true, hard: true, replay: true })).toBe(47);
+    expect(coinsFor({ avg: 100, complete: true, cleared: true, replay: false })).toBe(105);
+  });
+  it("isReplay: 처음 깨거나 별을 늘리면 전액", () => {
+    expect(isReplay(0, 3)).toBe(false);
+    expect(isReplay(undefined, 2)).toBe(false);
+    expect(isReplay(2, 3)).toBe(false);
+    expect(isReplay(2, 2)).toBe(true);
+    expect(isReplay(3, 1)).toBe(true);
+    expect(isReplay(1, 0)).toBe(true);
+  });
+  it("가장 쉬운 날 반복(목뽑기 3명 약 101초)이 평균 진료 수입(시간당 약 2,000)보다 높지 않다", () => {
+    const perHour = (coins, sec) => coins / sec * 3600;
+    expect(perHour(coinsFor({ avg: 100, complete: true, cleared: true, replay: true }), 101)).toBeLessThan(1500);
+    expect(perHour(coinsFor({ avg: 100, complete: true, cleared: true }), 101)).toBeGreaterThan(3000);
   });
 });
