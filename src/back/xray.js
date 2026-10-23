@@ -4,6 +4,7 @@ import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import {therapistStyle} from './therapistMotion.js';
 import {clinicFilm,pressedSegment,TARGETS,ORGAN_BEAT} from './core.js';
 import {organTagName} from './organs.js';
+import {t} from '../i18n/index.js';
 import {createClinicXray} from 'virtual:clinic-xray';
 
 /* Adapter only. Rendering, film, disc release, bubbles and fracture animation run
@@ -136,7 +137,7 @@ function createOrgans(source,scene,art){
   const marker=filmSprite('ring'),spineCrack=filmSprite('crack'),spineFlash=filmSprite('flash');
   // Cache every fracture label as well: rebuilding this canvas during a shot
   // would upload a new texture even if all burst effects were already warm.
-  const markerTags=Array.from({length:7},(_,i)=>{const tag=organTag('fracture',`T${i+1} 골절!`);tag.setHot(true);scene.add(tag.sprite,tag.line);return tag;});
+  const markerTags=Array.from({length:7},(_,i)=>{const tag=organTag('fracture',t("T{n} 골절!",{n:i+1}));tag.setHot(true);scene.add(tag.sprite,tag.line);return tag;});
   let markerTag=markerTags[2];
   scene.add(marker,spineCrack,spineFlash);
   const markerPos=new THREE.Vector3();

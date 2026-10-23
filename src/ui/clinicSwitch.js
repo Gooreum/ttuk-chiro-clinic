@@ -1,3 +1,4 @@
+import { t } from "../i18n/index.js";
 // Shared "다른 클리닉" switch for all four modes: the 클리닉 chip menu on the play HUD and the chip row on cards.
 // Switching reloads the page (drops in-flight timers and stages); the target's start card then needs one tap (iOS sensor permission).
 export const CLINICS = [
@@ -13,7 +14,7 @@ export function renderClinicLinks(list, current){
   list.textContent = "";
   clinicLinks(current).forEach(c => {
     const a = list.ownerDocument.createElement("a");
-    a.className = "chip"; a.textContent = c.label;
+    a.className = "chip"; a.textContent = t(c.label);
     if(c.current) a.setAttribute("aria-current", "page"); else a.href = c.href;
     list.append(a);
   });

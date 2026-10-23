@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { $ } from "../lib/dom.js";
+import { t as tl } from "../i18n/index.js";
 import { DEG, clamp, lerp, ease } from "../lib/math.js";
 import { T } from "../tuning.js";
 import { S } from "./state.js";
@@ -206,7 +207,7 @@ export function frame(now){
         // docks low (below, S.fracLvl) and gets a second to finish; the timers of the crack itself are untouched
         if(elBubble.classList.contains("show") && elBubble.textContent) say(elBubble.textContent, 1100, false);
         const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
-        floater(`C${target.seg} ${S.fracLvl > 1 ? "골절!" : "금 감"}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
+        floater(`C${target.seg} ${tl(S.fracLvl > 1 ? "골절!" : "금 감")}`, cw/2 - headScreen.x, ch*0.3 - headScreen.y, "frac", 1900);
       }
       // a beat later the bone comes apart: a break blows up (a big crunch, a hard shake, a coral shockwave), a crack
       // crumbles (a smaller crunch and shake)
@@ -217,7 +218,7 @@ export function frame(now){
         S.shake = Math.max(S.shake, hard ? 1.3 : 0.7);
         if(hard){ S.wave = 1; S.waveHot = true; }
         const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
-        floater(hard ? `C${target.seg} 박살!` : "우수수…", cw/2 - headScreen.x, ch*0.42 - headScreen.y, "frac", 1700);
+        floater(hard ? tl("C{n} 박살!", {n: target.seg}) : "우수수…", cw/2 - headScreen.x, ch*0.42 - headScreen.y, "frac", 1700);
       }
     }else if(S.xrayHold <= 0) S.fracLvl = 0;
   }
@@ -398,7 +399,7 @@ export function frame(now){
     elJpeak.textContent = S.jerkPeak.toFixed(1);
     $("#force").textContent = S.lastForce.toFixed(1);
     $("#fcrack").textContent = FORCE_CRACK; $("#fbreak").textContent = FORCE_BREAK.toFixed(1);
-    elSensor.textContent = S.sensorSeen ? `켜짐 · 방향 ${live.sign > 0 ? "+" : live.sign < 0 ? "−" : "?"} (${live.signSrc || "대기"})` : "없음 (드래그 모드)";
+    elSensor.textContent = S.sensorSeen ? tl("켜짐 · 방향 {dir} ({src})", {dir: live.sign > 0 ? "+" : live.sign < 0 ? "−" : "?", src: tl(live.signSrc || "대기")}) : tl("없음 (드래그 모드)");
     $("#tlr").textContent = Math.round(live.lr);
     $("#tpt").textContent = Math.round(live.pt);
   }

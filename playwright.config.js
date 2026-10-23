@@ -11,6 +11,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4179/",
     viewport: { width: 812, height: 375 },
+    locale: "ko-KR",
     browserName: "chromium",
     launchOptions: { args: ["--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] }
   },

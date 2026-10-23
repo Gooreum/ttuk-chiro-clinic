@@ -219,7 +219,7 @@ async function record(browser, c) {
   const url = c.mode === "clinic" ? `${base}/index.html` : c.mode === "towel" ? `${base}/index.html?mode=towel` : c.mode === "back" ? `${base}/back.html${c.query ? "?" + c.query : ""}` : `${base}/side.html${c.query ? "?" + c.query : ""}`;
   const tmp = path.join(OUT, "tmp", c.id);
   fs.rmSync(tmp, { recursive: true, force: true }); fs.mkdirSync(tmp, { recursive: true });
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, recordVideo: { dir: tmp, size: { width: W, height: H } } });
+  const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1, locale: "ko-KR", recordVideo: { dir: tmp, size: { width: W, height: H } } });
   const t0 = Date.now();
   const page = await ctx.newPage();
   const chunks = []; const errors = [];

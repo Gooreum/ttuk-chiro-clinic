@@ -246,6 +246,9 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .main-btn small{font-size:13px;opacity:.85}
 :where(.clinic-app) .starts{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
 :where(.clinic-app) .starts .btn{font-size:13px;padding:9px 2px;text-decoration:none;text-align:center;white-space:nowrap}
+/* 허리펴기·허리비틀기 시작 카드는 버튼 둘(진료 시작·터치 연습)이라 4칸 규칙을 받으면 버튼이 1/4 폭으로 줄어 글자가 넘친다 */
+:where(.clinic-app) :is(#backWelcome,#sideWelcome) .starts{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+:where(.clinic-app) :is(#backWelcome,#sideWelcome) .starts .btn{white-space:normal;line-height:1.15;padding:9px 6px}
 :where(.clinic-app) .chips-row{display:flex;gap:6px;flex-wrap:wrap}
 :where(.clinic-app) .chips-row .chip-btn{flex:1 1 0;min-width:0;font-family:var(--body);font-weight:700;font-size:12px;line-height:1.2;padding:5px 8px;border-width:1px;border-radius:14px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 :where(.clinic-app) .chips-row .chip-btn small{font-size:10.5px;font-weight:600;opacity:.8}
@@ -459,4 +462,17 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :is(#backResult,#sideResult) .card.log .coin-line{padding:2px 8px;font-size:12px}
   :is(#backResult,#sideResult) .card.log .clinic-switch{gap:4px}
   :is(#backResult,#sideResult) .card.log .clinic-switch .chip{padding:3px 7px;font-size:10.5px}
+}
+
+/* English (src/i18n): longer words. The logo stamp holds "CRACK" instead of one syllable, mode buttons may wrap to two lines. */
+html[lang=en] :where(.clinic-app) .stamp{font-size:17px;letter-spacing:-.02em}
+html[lang=en] :where(.clinic-app) #intro .starts .btn{white-space:normal;line-height:1.1}
+@media (orientation:landscape) and (max-height:430px){
+  html[lang=en] :where(.clinic-app) .stamp{font-size:14px}
+  html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .stamp,
+  html[lang=en] :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])) .stamp{font-size:11px}
+  html[lang=en] :where(.clinic-app) #intro .starts .btn{font-size:12px;padding:6px 3px}
+  html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .starts .btn{font-size:13px;padding:8px 4px}
+  html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch{gap:3px;flex-wrap:nowrap}
+  html[lang=en] :where(.clinic-app) :is(#backWelcome,#sideWelcome) .clinic-switch .chip{padding:4px 3px;font-size:10px;white-space:nowrap;min-width:0;flex:1 1 auto;text-align:center}
 }

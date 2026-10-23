@@ -1,5 +1,6 @@
 /* 주간 챌린지 glue (core/weekly.js has the rules): the week's fixed line-up on top of game/flow.js. flow.js calls these at
    the same points as the 심야 진료 / 보스 러시 (start, loadPatient, finish, continue, the title buttons); S.weekly is null on every other run. */
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { S } from "./state.js";
@@ -37,7 +38,7 @@ export function weeklyPrep(){
   setModeText(); setMode(S.game === "towel" ? "towel" : "crack");
   if(p.weekly.i === 0){
     const set = S.weekly.set;
-    setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(`이번 주 규칙 · ${set.rule.name}`, set.rule.line, "dud", 3200); if(!set.boss.length) coach(ruleCue(set.rule), 3000); }   // boss rules get their own coach cue in flow.js
+    setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("이번 주 규칙 · {r}",{r:t(set.rule.name)}), t(set.rule.line), "dud", 3200); if(!set.boss.length) coach(t(ruleCue(set.rule)), 3000); }   // boss rules get their own coach cue in flow.js
  }, 450);
   }
 }
@@ -59,14 +60,14 @@ export function weeklyResult(complete){
     try{ dispatchEvent(new Event("chiro-shop")); }catch(e){}
     track(EV.coinEarn, { game: "weekly", day: 0, hard: 0, coins: WEEKLY_BONUS, step: "weekly", total: readShop(store.get(SHOP_KEY, null)).coins });
   }
-  $("#rdate").textContent = `주간 챌린지 · ${set.label} · ${set.rule.name}`;
-  $("#newbest").textContent = "이번 주 최고 기록 경신!"; $("#newbest").hidden = !isBest;
+  $("#rdate").textContent = t("주간 챌린지 · {l} · {r}",{l:t(set.label),r:t(set.rule.name)});
+  $("#newbest").textContent = t("이번 주 최고 기록 경신!"); $("#newbest").hidden = !isBest;
   const out = $("#dayOutro");
   out.textContent = record.best > 0
-    ? `이번 주 최고 ${record.best}점 · ${record.tries}번째 도전${firstClear ? ` · 첫 클리어 보너스 진료비 +${WEEKLY_BONUS}` : ""}`
-    : "끝까지 진료해야 이번 주 기록이 남아요";
+    ? t("이번 주 최고 {b}점 · {n}번째 도전{bonus}",{b:record.best,n:record.tries,bonus:firstClear ? t(" · 첫 클리어 보너스 진료비 +{c}",{c:WEEKLY_BONUS}) : ""})
+    : t("끝까지 진료해야 이번 주 기록이 남아요");
   out.hidden = false;
-  $("#again").textContent = "다시 주간 챌린지";
+  $("#again").textContent = t("다시 주간 챌린지");
   track(EV.weeklyEnd, { week, rule: set.rule.id, score: S.score, complete, outcome: S.ambulance ? "ambulance" : S.pain >= S.painMax ? "pain" : complete ? "complete" : "quit", best: isBest, first_clear: firstClear, continued: S.continued, run_ms: Math.round(performance.now() - S.runAt) });
 }
 
@@ -77,7 +78,7 @@ export function renderWeeklyBtn(prog){
   for(const [btn, sub] of [["#weeklyBtn", "#weeklySub"], ["#daysWeekly", "#daysWeeklySub"]]){
     const b = $(btn), s = $(sub);
     if(b){ b.disabled = !open; b.hidden = !open; }
-    if(s) s.textContent = `${set.rule.short} · ${best > 0 ? `최고 ${best}` : `${daysLeft()}일 남음`}`;
+    if(s) s.textContent = t("{r} · {x}",{r:t(set.rule.short),x:best > 0 ? t("최고 {n}",{n:best}) : t("{n}일 남음",{n:daysLeft()})});
   }
 }
 export function mountWeekly({ start }){

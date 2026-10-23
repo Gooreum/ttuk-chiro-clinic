@@ -1,0 +1,5 @@
+{
+  "files": ["src/dev/", "src/core/analytics.js", "src/platform/analytics.js", "src/i18n/"],
+  "strings": [],
+  "calls": ["console.log", "console.warn", "console.error", "console.info", "track"]
+}

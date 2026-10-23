@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n/index.js";
 import { drawVGauge, drawHBar, drawHint } from "./gauge.js";
 import { $, css } from "../lib/dom.js";
 import { clamp } from "../lib/math.js";
@@ -67,9 +68,9 @@ export function drawRing(now, c, zone, br){
   // side labels use the suite display face and a quiet room-colour under-stroke.
   ctx.font = "10px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(23,49,44,.9)"; ctx.lineWidth = 3;
-  ctx.strokeText("왼쪽", cx - R*0.82, cy - 8); ctx.strokeText("오른쪽", cx + R*0.82, cy - 8);
+  ctx.strokeText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.strokeText(tr("오른쪽"), cx + R*0.82, cy - 8);
   ctx.fillStyle = C_PAPER;
-  ctx.fillText("왼쪽", cx - R*0.82, cy - 8); ctx.fillText("오른쪽", cx + R*0.82, cy - 8);
+  ctx.fillText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.fillText(tr("오른쪽"), cx + R*0.82, cy - 8);
 
   // target zone (first patients)
   if(S.idx < S.zoneUntil){
@@ -122,8 +123,8 @@ export function drawRing(now, c, zone, br){
     ctx.globalAlpha = fade*a;
     ctx.lineCap = "butt";
     ctx.font = "17px 'Black Han Sans', sans-serif"; ctx.textAlign = "center";
-    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText("여기였어요", gx, gy - 26);
-    ctx.fillStyle = C_MINT; ctx.fillText("여기였어요", gx, gy - 26);
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(tr("여기였어요"), gx, gy - 26);
+    ctx.fillStyle = C_MINT; ctx.fillText(tr("여기였어요"), gx, gy - 26);
     ctx.globalAlpha = fade;
   }
 
@@ -152,7 +153,7 @@ export function drawRing(now, c, zone, br){
   ctx.font = "15px 'Black Han Sans', sans-serif";
   ctx.fillStyle = zone ? C_CORAL : C_PAPER;
   const H = hud.height/hudDpr;
-  const msg = zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "";
+  const msg = tr(zone ? "지금! 툭 꺾어요" : c > 0.66 ? "걸리기 시작해요" : c > 0.3 ? "조금 더" : "");
   if(msg){
     const y = Math.min(cy + R + 44, H - 52), w = ctx.measureText(msg).width + 24;
     ctx.fillStyle = "rgba(23,49,44,.94)"; ctx.strokeStyle = "rgba(244,239,228,.3)"; ctx.lineWidth = 1;
@@ -181,7 +182,7 @@ function breathLabel(ctx, br, cx, cy, R, verb){
   // only when it asks for something: the in-breath already shows as the patient's "흐읍…" (scene/breathFx.js), one place per fact
   const fake = hasRule(S.boss, "fake");
   if(!T.breath || !bonusWindow(S.boss, br.exhale)) return;
-  const label = `${fake ? "들이쉬는 중" : "내쉬는 중"} · 지금 ${verb} +15`;
+  const label = tr("{state} · 지금 {verb} +15", {state: tr(fake ? "들이쉬는 중" : "내쉬는 중"), verb: tr(verb)});
   ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
   // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
   ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
@@ -201,7 +202,7 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const x = Math.min(cx + Math.max(R*1.7, 136), Wd - 76), top = clamp(cy - h*0.55, 82, H - h - 28);
   const over = t > tg.limit, taut = !over && t > tg.mid + tg.half;
   const colors = {bone:C_BONE,coral:C_CORAL,mint:C_MINT};
-  drawVGauge(ctx,{x,top,h,value:t,band:[tg.mid-tg.half,tg.mid+tg.half],limit:tg.limit,title:"수건 장력",hot:zone||over||taut,colors});
+  drawVGauge(ctx,{x,top,h,value:t,band:[tg.mid-tg.half,tg.mid+tg.half],limit:tg.limit,title:tr("수건 장력"),hot:zone||over||taut,colors});
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
@@ -212,9 +213,9 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const gapL = mR.w ? mR.right : 20, gapR = zR.w ? zR.left : Wd - 20;
   const bw = clamp(gapR - gapL - 40, 110, 180), bx = clamp((gapL + gapR - bw)/2, 10, Wd - bw - 10), mx = bx + bw/2;
   const by = clamp((zR.w ? zR.bottom : H - 12) - 19, 40, H - 20);
-  drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:"좌우 중심",colors});
+  drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:tr("좌우 중심"),colors});
   // over the card: what to do
-  const msg = over || taut ? "너무 팽팽해요!" : zone ? "지금! 툭 당겨요" : offC && towelTension(S.cur.bend) > tg.mid - tg.half - 0.2 ? "좌우 중심을 맞춰요" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "";
+  const msg = tr(over || taut ? "너무 팽팽해요!" : zone ? "지금! 툭 당겨요" : offC && towelTension(S.cur.bend) > tg.mid - tg.half - 0.2 ? "좌우 중심을 맞춰요" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "");
   drawHint(ctx,{x:mx,y:by-40,text:msg,hot:zone||over||offC,colors});
   ctx.globalAlpha = 1;
 }

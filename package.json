@@ -12,6 +12,7 @@
     "test": "vitest run",
     "e2e": "vite build --mode shot && playwright test",
     "docs:story": "node scripts/docs/story.mjs",
+    "i18n:check": "node scripts/i18n/extract.mjs",
     "build:app": "vite build --mode app && cap sync",
     "build:toss": "vite build --mode toss && ait build"
   },
@@ -25,6 +26,7 @@
     "three": "0.149.0"
   },
   "devDependencies": {
+    "@babel/parser": "7.29.9",
     "@playwright/test": "^1.56.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.4",

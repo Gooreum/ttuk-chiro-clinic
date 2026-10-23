@@ -2,6 +2,8 @@
    the game boots is logged and shows the 다시 시도 card (platform/analytics.js, ui/loadFail.js). */
 import { initAnalytics } from "./platform/analytics.js";
 import { showLoadFail } from "./ui/loadFail.js";
+import "./i18n/dom.js";
+import "./i18n/langChip.js";
 
 const page = location.pathname.split("/").pop();
 const mode = page.startsWith("back") ? "back" : page.startsWith("side") ? "side"

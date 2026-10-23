@@ -1,3 +1,4 @@
+import { t as tr } from "../i18n/index.js";
 /* 진료실 꾸미기 소품 (core/shop.js PROPS). Bought props stand along the back wall (the towel view's backdrop) and the far
    wall (what the first-person clinic view faces), out of the way of the table and the patient. Built lazily: a shop with
    nothing bought allocates nothing. All geometry/material ids go through withVisualIds so the game's seeded random stream
@@ -106,18 +107,18 @@ const TEX = {
     const g = x.createLinearGradient(0, 0, w, 0); g.addColorStop(0, "#a9741c"); g.addColorStop(.5, "#ffe08a"); g.addColorStop(1, "#a9741c");
     x.fillStyle = g;
     for(let i = 0; i < 7; i++){ const y = 90 + i * 82, ww = 170 - i * 8; x.beginPath(); x.roundRect(w / 2 - ww / 2, y, ww, 52, 18); x.fill(); x.fillRect(w / 2 - 12, y + 52, 24, 30); }
-    x.fillStyle = "#f4efe4"; x.font = '44px "Black Han Sans"'; x.textAlign = "center"; x.fillText("황금 경추", w / 2, 56); x.font = '600 22px "IBM Plex Sans KR"'; x.fillText("C1 – C7 순금 도금", w / 2, 712);
+    x.fillStyle = "#f4efe4"; x.font = '44px "Black Han Sans"'; x.textAlign = "center"; x.fillText(tr("황금 경추"), w / 2, 56); x.font = '600 22px "IBM Plex Sans KR"'; x.fillText(tr("C1 – C7 순금 도금"), w / 2, 712);
   }),
   cert: tex => tex(640, 460, (x, w, h) => {
     x.fillStyle = "#f4efe4"; x.fillRect(0, 0, w, h); x.strokeStyle = "#b9892b"; x.lineWidth = 12; x.strokeRect(14, 14, w - 28, h - 28);
-    x.fillStyle = "#17312c"; x.textAlign = "center"; x.font = '50px "Black Han Sans"'; x.fillText("명예 카이로 박사", w / 2, 130);
-    x.font = '600 26px "IBM Plex Sans KR"'; x.fillText("세계 뚝 협회 인증", w / 2, 200); x.fillText("(인쇄: 어제)", w / 2, 246);
-    x.fillStyle = "#ff7a59"; x.beginPath(); x.arc(w / 2, 340, 42, 0, 7); x.fill(); x.fillStyle = "#f4efe4"; x.font = '40px "Black Han Sans"'; x.fillText("뚝", w / 2, 354);
+    x.fillStyle = "#17312c"; x.textAlign = "center"; x.font = '50px "Black Han Sans"'; x.fillText(tr("명예 카이로 박사"), w / 2, 130);
+    x.font = '600 26px "IBM Plex Sans KR"'; x.fillText(tr("세계 뚝 협회 인증"), w / 2, 200); x.fillText(tr("(인쇄: 어제)"), w / 2, 246);
+    x.fillStyle = "#ff7a59"; x.beginPath(); x.arc(w / 2, 340, 42, 0, 7); x.fill(); x.fillStyle = "#f4efe4"; x.font = '40px "Black Han Sans"'; x.fillText(tr("뚝"), w / 2, 354);
   }),
   neon: tex => tex(512, 256, (x, w, h) => {
     x.clearRect(0, 0, w, h); x.textAlign = "center"; x.textBaseline = "middle"; x.font = '170px "Black Han Sans"';
-    x.shadowColor = "#8adfbf"; x.shadowBlur = 36; x.fillStyle = "#8adfbf"; x.fillText("뚝!", w / 2, h / 2 + 6);
-    x.shadowBlur = 8; x.fillStyle = "#e9fff6"; x.fillText("뚝!", w / 2, h / 2 + 6);
+    x.shadowColor = "#8adfbf"; x.shadowBlur = 36; x.fillStyle = "#8adfbf"; x.fillText(tr("뚝!"), w / 2, h / 2 + 6);
+    x.shadowBlur = 8; x.fillStyle = "#e9fff6"; x.fillText(tr("뚝!"), w / 2, h / 2 + 6);
   })
 };
 

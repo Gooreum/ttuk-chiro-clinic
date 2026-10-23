@@ -1,6 +1,7 @@
 /* 환자 도감 card (core/dex.js has the rules): two tabs, 환자 (32 cards, the ones not met yet are a silhouette) and
    실패 연출 (10 kinds with a one-line gag). Built on first open and appended to #app, so index.html only has the buttons. */
 import { $ } from "../lib/dom.js";
+import { t } from "../i18n/index.js";
 import "./dex.css";
 import { TRAITS } from "../patient/roster.js";
 import { DEX_PATIENTS, DEX_FAILS, dexCounts, dexTitle, firstChapter } from "../core/dex.js";
@@ -15,17 +16,17 @@ function build(){
   root = el("div", "overlay"); root.id = "dex"; root.hidden = true;
   const card = el("div", "card days");
   const head = el("div");
-  head.append(el("div", "sub", "환자 도감"), el("p", "days-lead"));
+  head.append(el("div", "sub", t("환자 도감")), el("p", "days-lead"));
   head.lastChild.id = "dexLead";
   const tabs = el("div", "dex-tabs");
-  [["p", "환자"], ["f", "실패 연출"]].forEach(([k, t]) => {
-    const b = el("button", "", t); b.type = "button"; b.dataset.tab = k;
+  [["p", "환자"], ["f", "실패 연출"]].forEach(([k, lb]) => {
+    const b = el("button", "", t(lb)); b.type = "button"; b.dataset.tab = k;
     b.onclick = () => { tab = k; render(); };
     tabs.appendChild(b);
   });
   const title = el("p", "dex-title"); title.id = "dexTitle";
   const list = el("ul"); list.id = "dexList";
-  const close = el("button", "btn ghost", "돌아가기"); close.type = "button"; close.id = "dexClose";
+  const close = el("button", "btn ghost", t("돌아가기")); close.type = "button"; close.id = "dexClose";
   close.onclick = () => { root.hidden = true; };
   card.append(head, tabs, title, list, close);
   root.appendChild(card);
@@ -61,7 +62,7 @@ function avatarSvg(p){
     + `<ellipse cx="24" cy="19" rx="11" ry="13" fill="${skin}"/>${hair}`
     + `<circle cx="20" cy="18" r="1.3" fill="#222"/><circle cx="28" cy="18" r="1.3" fill="#222"/><path d="M20 26q4 3 8 0" stroke="#7a3b2e" stroke-width="1.4" fill="none" stroke-linecap="round"/>`
     + glasses + extras
-    + `<text x="24" y="53" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="12" fill="#f4efe4" stroke="rgba(0,0,0,.4)" stroke-width=".7" paint-order="stroke">${[...p.name][0]}</text></svg>`;
+    + `<text x="24" y="53" text-anchor="middle" font-family="Black Han Sans,sans-serif" font-size="12" fill="#f4efe4" stroke="rgba(0,0,0,.4)" stroke-width=".7" paint-order="stroke">${[...t(p.name)][0]}</text></svg>`;
 }
 function patientCard(p, m){
   const li = el("li", m ? "" : "miss");
@@ -71,19 +72,19 @@ function patientCard(p, m){
   else av.appendChild(el("span", "", "?"));
   const body = el("div");
   if(m){
-    const who = el("div", "who"); who.append(el("b", "", p.name), el("span", "", `${p.age}세`));
-    if(p.trait) who.appendChild(el("i", "chip", TRAITS[p.trait].label));
-    body.append(who, el("p", "cc", p.cc), el("p", "say", `“${p.lines.start}”`),
-      el("p", "meta", `처음 만난 날 ${m.first} · 치료 ${m.ok}번`));
+    const who = el("div", "who"); who.append(el("b", "", t(p.name)), el("span", "", t("{n}세",{n:p.age})));
+    if(p.trait) who.appendChild(el("i", "chip", t(TRAITS[p.trait].label)));
+    body.append(who, el("p", "cc", t(p.cc)), el("p", "say", `“${t(p.lines.start)}”`),
+      el("p", "meta", t("처음 만난 날 {d} · 치료 {n}번",{d:m.first,n:m.ok})));
     const tales = readableTales(prog(), p.name);
     if(tales.length){   // 뒷이야기: 단골 의뢰를 깬 편만 한 줄씩 적히고, 못 깬 편은 어느 의뢰를 깨면 적히는지만 보인다
       const box = el("div", "tales");
-      tales.forEach(t => box.appendChild(el("p", t.line ? "tale" : "tale lock", t.line ? `${t.ep}편 ${t.title}: ${t.line}` : `${t.ep}편 ${t.title}: 단골 의뢰를 깨면 적혀요.`)));
+      tales.forEach(tl => box.appendChild(el("p", tl.line ? "tale" : "tale lock", tl.line ? t("{ep}편 {title}: {line}",{ep:tl.ep,title:t(tl.title),line:t(tl.line)}) : t("{ep}편 {title}: 단골 의뢰를 깨면 적혀요.",{ep:tl.ep,title:t(tl.title)}))));
       body.appendChild(box);
     }
   }else{
     const ch = firstChapter(p.name);
-    body.append(el("div", "who").appendChild(el("b", "", "???")).parentNode, el("p", "cc", "아직 못 만났어요."), el("p", "meta", ch ? `${ch}장 어딘가에서 와요` : "어딘가에서 와요"));
+    body.append(el("div", "who").appendChild(el("b", "", "???")).parentNode, el("p", "cc", t("아직 못 만났어요.")), el("p", "meta", ch ? t("{n}장 어딘가에서 와요",{n:ch}) : t("어딘가에서 와요")));
   }
   li.append(av, body);
   return li;
@@ -93,9 +94,9 @@ function failCard(f, s){
   li.dataset.id = s ? f.id : "";
   li.appendChild(el("div", "fail-ico", s ? "!" : "?"));
   const body = el("div");
-  const who = el("div", "who"); who.append(el("b", "", s ? f.name : "???"), el("i", "chip", GAME[f.game]));
-  body.append(who, el("p", "cc", s ? f.desc : `${f.game === "all" ? "크게 다치면" : GAME[f.game] + "에서"} 나와요. 아직 못 봤어요.`));
-  if(s) body.appendChild(el("p", "meta", `처음 본 날 ${s.first} · ${s.n}번`));
+  const who = el("div", "who"); who.append(el("b", "", s ? t(f.name) : "???"), el("i", "chip", t(GAME[f.game])));
+  body.append(who, el("p", "cc", s ? t(f.desc) : t("{where} 나와요. 아직 못 봤어요.",{where:f.game === "all" ? t("크게 다치면") : t("{g}에서",{g:t(GAME[f.game])})})));
+  if(s) body.appendChild(el("p", "meta", t("처음 본 날 {d} · {n}번",{d:s.first,n:s.n})));
   li.appendChild(body);
   return li;
 }
@@ -105,12 +106,12 @@ function render(){
   const c = dexCounts(dex);
   root.querySelectorAll(".dex-tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
   const tc = taleCounts(prog());
-  $("#dexLead").textContent = `환자 ${c.met}/${c.patients} · 실패 연출 ${c.fails}/${c.kinds} · 뒷이야기 ${tc.read}/${tc.total}`;
-  const t = dexTitle(dex);
+  $("#dexLead").textContent = t("환자 {a}/{b} · 실패 연출 {c}/{d} · 뒷이야기 {e}/{f}",{a:c.met,b:c.patients,c:c.fails,d:c.kinds,e:tc.read,f:tc.total});
+  const ti = dexTitle(dex);
   const line = $("#dexTitle"); line.textContent = "";
   const tt = taleTitle(prog());
-  if(t || tt){ line.append("칭호 "); if(t) line.append(el("b", "", t)); if(t && tt) line.append(" · "); if(tt) line.append(el("b", "", tt)); }
-  else line.textContent = "환자 5명을 만나면 첫 칭호가 붙어요. 환자와 실패를 다 모으면 마지막 칭호가 붙어요.";
+  if(ti || tt){ line.append(t("칭호") + " "); if(ti) line.append(el("b", "", t(ti))); if(ti && tt) line.append(" · "); if(tt) line.append(el("b", "", t(tt))); }
+  else line.textContent = t("환자 5명을 만나면 첫 칭호가 붙어요. 환자와 실패를 다 모으면 마지막 칭호가 붙어요.");
   const list = $("#dexList"); list.textContent = "";
   if(tab === "p") DEX_PATIENTS.forEach(p => list.appendChild(patientCard(p, dex.met[p.name])));
   else DEX_FAILS.forEach(f => list.appendChild(failCard(f, dex.fails[f.id])));

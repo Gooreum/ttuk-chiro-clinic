@@ -2,6 +2,7 @@
    start(), so the iOS permission calls stay inside the user gesture, AGENTS.md 3-5) -> result card -> dayEnd's twin
    `end`. A quest run is a free-play run (S.day = -1) with S.quest set, so nothing campaign-only (stars of a day,
    boss ads, best score) touches it. */
+import { t } from "../i18n/index.js";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { S } from "./state.js";
@@ -18,8 +19,8 @@ export function mountQuests({ start, back }){
   const qf = {
     sel: -1,
     /* the campaign story card takes over again */
-    reset(){ qf.sel = -1; $("#storyBack").textContent = "일지로"; },
-    sync(quest){ $("#toDays").textContent = quest >= 0 ? "의뢰 목록" : toDaysText; },
+    reset(){ qf.sel = -1; $("#storyBack").textContent = t("일지로"); },
+    sync(quest){ $("#toDays").textContent = quest >= 0 ? t("의뢰 목록") : toDaysText; },
     list(){
       qf.reset();
       $("#days").hidden = true; $("#story").hidden = true;
@@ -37,20 +38,20 @@ export function mountQuests({ start, back }){
       const q = QUESTS[S.quest], cleared = questClears(q, complete, avg), stars = cleared ? questStarsOf(q, avg) : 0;
       const before = prog(), after = afterQuest(before, q, cleared, stars);
       if(after !== before) store.set(CAMPAIGN_KEY, after);
-      $("#rdate").textContent = `단골 의뢰 · ${q.who} ${q.title}`;
+      $("#rdate").textContent = t("단골 의뢰 · {who} {title}",{who:t(q.who),title:t(q.title)});
       const out = $("#dayOutro");
-      out.textContent = cleared ? q.outro : complete ? `평균 ${Math.round(avg)}점. ${q.beat}점을 못 넘었어요. 손 풀고 다시 와요.` : "의뢰를 못 버텼어요. 다시 문 열어 봐요.";
+      out.textContent = cleared ? t(q.outro) : complete ? t("평균 {a}점. {b}점을 못 넘었어요. 손 풀고 다시 와요.",{a:Math.round(avg),b:q.beat}) : t("의뢰를 못 버텼어요. 다시 문 열어 봐요.");
       out.hidden = false;
       document.querySelectorAll(".tale-new").forEach(e => e.remove());
       if(cleared && questStars(before, q) === 0){   // 뒷이야기: 처음 깬 의뢰는 도감 카드에 한 줄이 적힌다
         const p = document.createElement("p"); p.className = "dex-new tale-new";
-        p.textContent = `도감에 뒷이야기가 적혔어요: ${q.who} ${q.ep}편`;
+        p.textContent = t("도감에 뒷이야기가 적혔어요: {who} {ep}편",{who:t(q.who),ep:q.ep});
         $("#rlist").before(p);
       }
       renderDexBtn();
       $("#nextDay").hidden = true;
       $("#toDays").hidden = false;
-      $("#again").textContent = cleared ? "이 의뢰 다시" : "다시 도전";
+      $("#again").textContent = t(cleared ? "이 의뢰 다시" : "다시 도전");
       track(EV.questEnd, { quest_no: S.quest + 1, quest: q.id, who: q.who, rule: q.rule, game: q.game, cleared, stars, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
     }
   };

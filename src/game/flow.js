@@ -1,4 +1,5 @@
 import { $ } from "../lib/dom.js";
+import { t as tl } from "../i18n/index.js";
 import { store } from "../lib/store.js";
 import { T } from "../tuning.js";
 import { S } from "./state.js";
@@ -67,9 +68,9 @@ function aimAt(i){
   S.target = {...p, ...p.sides[sideSlot(i, S.bossSwap)]};
   return S.target;
 }
-const sideLabel = t => `C${t.seg}–C${t.seg+1} · ${t.side > 0 ? "오른쪽" : "왼쪽"} 회전 ${S.sideIdx+1}/2`;
+const sideLabel = t => tl("C{a}–C{b} · {side} 회전 {n}/2", {a: t.seg, b: t.seg+1, side: tl(t.side > 0 ? "오른쪽" : "왼쪽"), n: S.sideIdx+1});
 function showBanner(no, name, trait){
-  $("#bnNo").textContent = no; $("#bnName").textContent = name; $("#bnTrait").textContent = trait;
+  $("#bnNo").textContent = tl(no); $("#bnName").textContent = tl(name); $("#bnTrait").textContent = tl(trait);
   $("#banner").classList.add("show");
   clearTimeout(bannerTimer); bannerTimer = setTimeout(()=>$("#banner").classList.remove("show"), 2300);
 }
@@ -100,18 +101,18 @@ function loadPatient(){
     const target = aimAt(0);
     dexMet(target.name);
     applyLook(target);
-    $("#pno").textContent = `진료 차트 No.${String(S.idx+1).padStart(2,"0")}`;
+    $("#pno").textContent = tl("진료 차트 No.{n}", {n: String(S.idx+1).padStart(2,"0")});
     $("#clock").textContent = clockTxt(S.idx);
-    $("#pname").textContent = target.name;
-    $("#page").textContent = `${target.age}세`;
-    $("#pcc").textContent = target.cc;
-    $("#pseg").textContent = S.game === "towel" ? "목뽑기 · 장력 맞추고 툭" : sideLabel(target);
+    $("#pname").textContent = tl(target.name);
+    $("#page").textContent = tl("{n}세", {n: target.age});
+    $("#pcc").textContent = tl(target.cc);
+    $("#pseg").textContent = S.game === "towel" ? tl("목뽑기 · 장력 맞추고 툭") : sideLabel(target);
     S.towel = S.game === "towel" ? makeTowelTarget(target) : null;
     const tf = tightFactor(S.mods);
     if(S.towel && tf < 1) S.towel = {...S.towel, half: S.towel.half*tf, aimTol: S.towel.aimTol*tf};
     S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
     const tr = target.trait ? TRAITS[target.trait] : null;
-    $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tr.label;
+    $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tl(tr.label);
     renderSpine(target.seg); renderDots();
     S.input.rot = S.input.bend = S.cur.rot = S.cur.bend = 0;
     S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
@@ -121,7 +122,7 @@ function loadPatient(){
     // the new patient's chart, big in the middle through the prep (the old top banner); folds when the head is handed over
     if(S.game === "towel"){
       renderChartSheet(target, S.idx, S.patients.length, S.idx < S.zoneUntil ? "수건 장력을 초록에 맞추고 숨 내쉴 때 툭 당기세요" : "숨 내쉴 때 툭 당기세요");
-      $("#csPlan").textContent = "처방: 수건 견인 · 목 쭈욱";
+      $("#csPlan").textContent = tl("처방: 수건 견인 · 목 쭈욱");
     }else renderChartSheet(target, S.idx, S.patients.length, S.idx < S.zoneUntil ? "링 안의 초록 구역에 맞춰 보세요" : "");
     openChart(true);
     track(EV.patientStart, { ...who(), of: S.patients.length });
@@ -157,7 +158,7 @@ function swapAim(){
   S.bossSwap = true;
   const target = aimAt(0);
   S.inZone = false; S.saidNear = false; S.ghostFrom = S.ghostUntil = 0;
-  $("#pseg").textContent = sideLabel(target) + " · 바뀜";
+  $("#pseg").textContent = sideLabel(target) + tl(" · 바뀜");
   // 7차 플레이테스트: the stamp never showed. The 16 s idle line, the "near" line and the cue pill all call say()/coach()
   // and the stamp sat under them at the same size; now the stamp is big, stays 2.6 s, and nothing else talks meanwhile.
   S.saidIdle = true; S.saidNear = true;
@@ -176,8 +177,8 @@ function switchSide(){
   S.crackT = -1; S.xray = 0; S.xrayHold = 0; S.xrayIn = 0; S.hurtX = 0; S.fracLvl = 0;
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
-  showBanner(`${S.idx+1}번째 환자 · 반대쪽`, `${target.name} 님 (${target.age})`, `${target.side > 0 ? "오른쪽" : "왼쪽"} 회전으로 맞춰 보세요`);
-  if(S.bossTaunt){ $("#pseg").textContent += " · 구역 축소"; stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss", 2600, S.bossBy); }
+  showBanner(tl("{n}번째 환자 · 반대쪽", {n: S.idx+1}), tl("{name} 님 ({age})", {name: tl(target.name), age: target.age}), tl("{side} 회전으로 맞춰 보세요", {side: tl(target.side > 0 ? "오른쪽" : "왼쪽")}));
+  if(S.bossTaunt){ $("#pseg").textContent += tl(" · 구역 축소"); stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss", 2600, S.bossBy); }
   else say("반대쪽도 부탁해요", 1600);
   S.busy = false; S.patientStart = S.breathT0 = performance.now(); S.bossReady = true;
 }
@@ -254,10 +255,10 @@ function success(d, exhale){
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
   setTimeout(()=>floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
-  if(penalty) setTimeout(() => { floater(`시간 초과 -${penalty}`, 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss", 2400, S.bossBy); }, 700);
+  if(penalty) setTimeout(() => { floater(tl("시간 초과 -{n}", {n: penalty}), 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss", 2400, S.bossBy); }, 700);
   let extra = 0;
   if(exhale) setTimeout(()=>floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
-  if(comboBonus) setTimeout(()=>floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
+  if(comboBonus) setTimeout(()=>floater(tl("연속 ×{n} +{b}", {n: S.streak, b: comboBonus}), 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
   // first side: "방금 뭐였어요?!" then the relief line; second side: "다 풀린 것 같아요" then the parting line
   const [l1, l2] = S.sideIdx === 0 ? [target.lines.what, target.lines.ahh] : [target.lines.after, target.lines.done];
@@ -420,7 +421,7 @@ function towelSuccess(d, exhale){
   floater(perfect ? "우두둑!" : "뚜둑!", 50, -headScreen.r - 34);
   setTimeout(() => floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
   if(exhale) setTimeout(() => floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54, "small"), 480);
-  if(comboBonus) setTimeout(() => floater(`연속 ×${S.streak} +${comboBonus}`, 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
+  if(comboBonus) setTimeout(() => floater(tl("연속 ×{n} +{b}", {n: S.streak, b: comboBonus}), 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
   chime(perfect);
   setTimeout(() => say(towelLine(target.name, "ok"), 2400), RELIEF_AT + x + 300);
   setTimeout(() => say(target.lines.done, 1800), THEN_AT + x + 450);
@@ -521,25 +522,26 @@ export function finish(){
   if(isBest) store.set(key, score);
   // towel: one tug per patient. 심야 진료 and 보스 러시 count the treated patients only (the unplayed rest of an endless / 26-patient run would drag the average, and its coins, to nothing), 주간 챌린지 its whole line-up
   const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly || S.daily ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
-  $("#rtitle").textContent = S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝";
-  $("#rdate").textContent = campaign ? `영업 일지 · ${dayLabel(S.day)}${S.hard ? " 역경" : ""} ${DAYS[S.day].title}` : "오늘의 진료 일지";
-  $("#rank").textContent = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
+  $("#rtitle").textContent = tl(S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝");
+  $("#rdate").textContent = campaign ? tl("영업 일지 · {day}{hard} {title}", {day: tl(dayLabel(S.day)), hard: S.hard ? tl(" 역경") : "", title: tl(DAYS[S.day].title)}) : tl("오늘의 진료 일지");
+  const rankKo = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
+  $("#rank").textContent = tl(rankKo);
   $("#rtotal").textContent = score;
   $("#newbest").hidden = !isBest;
   const list = $("#rlist"); list.textContent = "";
   const usedReviews = new Set();
   S.results.forEach(r=>{
     const li = document.createElement("li");
-    const who = document.createElement("span"); who.className = "who"; who.textContent = `${r.name} (${r.age})`;
+    const who = document.createElement("span"); who.className = "who"; who.textContent = tl("{name} ({age})", {name: tl(r.name), age: r.age});
     const pts = document.createElement("span"); pts.className = "pts"; pts.textContent = r.pts ? `+${r.pts}` : "—";
-    const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? "이송" : "중단";
+    const st = document.createElement("span"); st.className = "stars"; st.textContent = r.stars ? "★".repeat(r.stars) + "☆".repeat(3-r.stars) : r.ambulance ? tl("이송") : tl("중단");
     const rev = document.createElement("span"); rev.className = "rev";
-    rev.textContent = "“" + ((r.game ? r.game === "towel" : towel) ? towelReview(r, Math.random, usedReviews) : reviewLine(r, Math.random, usedReviews)) + "”";
+    rev.textContent = "“" + tl((r.game ? r.game === "towel" : towel) ? towelReview(r, Math.random, usedReviews) : reviewLine(r, Math.random, usedReviews)) + "”";
     li.append(who, pts, st);
     const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails) : failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
-      tags.forEach(t => { const i = document.createElement("i"); i.textContent = t; tg.appendChild(i); });
+      tags.forEach(t => { const i = document.createElement("i"), [k, n] = t.split(" ×"); i.textContent = tl(k) + " ×" + n; tg.appendChild(i); });
       li.appendChild(tg);
     }
     li.appendChild(rev);
@@ -547,9 +549,9 @@ export function finish(){
   });
   renderClinicLinks($("#resultClinics"), clinicNow());
   $("#result").hidden = false;
-  if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
+  if(!towel) $("#bestTxt").textContent = tl("최고 기록 {n}점", {n: Math.max(best, isBest ? score : 0)});
   const complete = !S.ambulance && S.pain < S.painMax && S.results.length >= S.patients.length;
-  $("#again").textContent = "한 판 더";   // the free-play primary button: straight into the next run
+  $("#again").textContent = tl("한 판 더");   // the free-play primary button: straight into the next run
   const prior0 = progress();   // before dayEnd saves this run: 진료비 replay check (core/shop.js isReplay)
   const priorStars = S.day >= 0 ? (S.hard ? (prior0.hard || [])[S.day] : prior0.stars[S.day]) : S.quest >= 0 ? questStars(prior0, QUESTS[S.quest]) : S.season >= 0 ? epStars(readSeasonRec(store.get(SEASON_KEY, null)), SEASON_EPS[S.season]) : 0;
   const runStars = S.day >= 0 ? (dayClears(S.day, complete, avg, dayDef(S.day, S.hard)) ? dayStars(avg, dayDef(S.day, S.hard)) : 0) : S.quest >= 0 && dayClears(-1, complete, avg, QUESTS[S.quest]) ? questStarsOf(QUESTS[S.quest], avg) : S.season >= 0 && epClears(SEASON_EPS[S.season], complete, avg) ? epStarsOf(SEASON_EPS[S.season], avg) : 0;
@@ -558,7 +560,7 @@ export function finish(){
   if(S.night) nightResult();
   rushResult(); weeklyResult(complete); dailyResult(complete); dexResult();
   const outcome = runOutcome({ ambulance: S.ambulance, pain: S.pain, complete });
-  track(EV.runEnd, { game: mode(), day: dayNo(), outcome, score, patients: S.results.length, pain: S.pain, best: isBest, continued: S.continued, run_ms: performance.now() - S.runAt, rank: $("#rank").textContent });
+  track(EV.runEnd, { game: mode(), day: dayNo(), outcome, score, patients: S.results.length, pain: S.pain, best: isBest, continued: S.continued, run_ms: performance.now() - S.runAt, rank: rankKo });
   if(complete) track(EV.runComplete, { game: mode(), day: dayNo(), score, continued: S.continued, run_ms: performance.now() - S.runAt });
   screenView("result", { outcome });
   // a run played through: the Toss review prompt once per device (then no interstitial on the same card)
@@ -688,11 +690,11 @@ let storyDay = 0, storyHard = false, endingPending = false;
 /* 장 막간: the first time a chapter's first day opens, its card comes before the story card (core/interlude.js) */
 function openStory(day, hard = false){
   const it = interludeForDay(day), prog = progress();
-  if(it && !interludeSeen(prog, it.before)){ store.set(CAMPAIGN_KEY, markInterludeSeen(prog, it.before)); showInterlude(it, "사연 보기", () => openStoryCard(day, hard)); return; }
+  if(it && !interludeSeen(prog, it.before)){ store.set(CAMPAIGN_KEY, markInterludeSeen(prog, it.before)); showInterlude(it, tl("사연 보기"), () => openStoryCard(day, hard)); return; }
   openStoryCard(day, hard);
 }
 const openStoryCard = (day, hard = false) => { qf.reset(); sf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
-function openDays(){ sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), "일지로", openDays); }); }
+function openDays(){ sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), tl("일지로"), openDays); }); }
 const qf = mountQuests({ start, back: openDays });
 const sf = mountSeason({ start, back: openDays, resetQuest: qf.reset });
 function dayEnd(complete, avg){
@@ -704,16 +706,16 @@ function dayEnd(complete, avg){
   if(after !== before) store.set(CAMPAIGN_KEY, after);
   const next = cleared ? nextDay(after, S.day) : -1;
   const out = $("#dayOutro");
-  const lose = d.lose || "역경은 역경이네요. 손 풀고 다시 와요.";
-  out.textContent = cleared ? (S.hard ? `역경 통과! ${d.hardOutro || d.outro}` : d.outro) : complete ? `평균 ${Math.round(avg)}점. ${d.beat}점을 못 넘었어요. ${lose}` : `${dayLabel(S.day)}${S.hard ? " 역경을" : "를"} 못 버텼어요. 다시 문 열어 봐요.`;
-  if(S.hard && !cleared) out.textContent += " 역경엔 이어하기가 없어요.";
+  const lose = tl(d.lose || "역경은 역경이네요. 손 풀고 다시 와요.");
+  out.textContent = cleared ? (S.hard ? tl("역경 통과! {outro}", {outro: tl(d.hardOutro || d.outro)}) : tl(d.outro)) : complete ? tl("평균 {avg}점. {beat}점을 못 넘었어요. {lose}", {avg: Math.round(avg), beat: d.beat, lose}) : tl(S.hard ? "{day} 역경을 못 버텼어요. 다시 문 열어 봐요." : "{day}를 못 버텼어요. 다시 문 열어 봐요.", {day: tl(dayLabel(S.day))});
+  if(S.hard && !cleared) out.textContent += tl(" 역경엔 이어하기가 없어요.");
   out.hidden = false;
   // the last day cleared for the first time: the next-day button becomes 엔딩 보기 (the ending card, core/campaign.js ENDING)
   endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && before.cleared <= S.day;
-  $("#nextDay").textContent = endingPending ? "엔딩 보기" : "다음 날";
+  $("#nextDay").textContent = tl(endingPending ? "엔딩 보기" : "다음 날");
   $("#nextDay").hidden = next < 0 && !endingPending;
   $("#toDays").hidden = false;
-  $("#again").textContent = cleared ? "이 날 다시" : "다시 도전";
+  $("#again").textContent = tl(cleared ? "이 날 다시" : "다시 도전");
   $("#campaignSub").textContent = campaignLabel(after); renderNightBtn(after); renderRushBtn(after); renderWeeklyBtn(after);
   track(EV.dayEnd, { day: S.day + 1, hard: S.hard ? 1 : 0, cleared, stars: cleared ? dayStars(avg, d) : 0, score: S.score, run_ms: Math.round(performance.now() - S.runAt) });
 }
@@ -755,4 +757,4 @@ mountClinicMenu({ chip: $("#clinicBtn"), menu: $("#clinicMenu"), current: clinic
 // index.html?mode=towel (from the 클리닉 menu): 목뽑기 is the main start button
 if(new URLSearchParams(location.search).get("mode") === "towel"){ $("#startTowel").className = "btn"; $("#start").className = "btn ghost"; }
 screenView("title");
-{ const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? `최고 기록 ${b}점` : "최고 기록 —"; }
+{ const b = store.get("chiroBest", 0); $("#bestTxt").textContent = b ? tl("최고 기록 {n}점", {n: b}) : tl("최고 기록 —"); }

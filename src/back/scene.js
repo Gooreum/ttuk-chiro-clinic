@@ -8,6 +8,7 @@ import {createBackReaction} from "./reaction.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { t } from "../i18n/index.js";
 
 /* Back-press mode scene ("허리 위에서 누르기"): its own renderer, scene and camera (nothing shared with scene/renderer.js).
    Patient01 (박대리) lies prone on the treatment table, face in the face-hole headpiece, arms along the sides
@@ -217,8 +218,8 @@ function buildRoom(scene, track, suite){
   // Match the clinic's paper plaque typography; wait for the actual Korean fonts.
   const sign=track(canvasTex(1024,512,(g,w,h)=>{
     g.fillStyle="#f4efe4";g.fillRect(0,0,w,h);g.strokeStyle="#17312c";g.lineWidth=5;g.strokeRect(22,22,980,468);
-    g.fillStyle="#17312c";g.font='80px "Black Han Sans"';g.fillText("물리치료실",66,175);
-    g.font='500 32px "IBM Plex Sans KR"';g.fillText("뚝 카이로 클리닉",70,245);
+    g.fillStyle="#17312c";g.font='80px "Black Han Sans"';g.fillText(t("물리치료실"),66,175);
+    g.font='500 32px "IBM Plex Sans KR"';g.fillText(t("뚝 카이로 클리닉"),70,245);
     g.fillStyle="#ff7a59";g.fillRect(70,298,110,12);g.fillStyle="#17312c";g.font='128px "Black Han Sans"';g.fillText("03",700,384);
   }));
   const plaque=new THREE.Mesh(track(new THREE.PlaneGeometry(.57,.285)),track(new THREE.MeshStandardMaterial({map:sign,roughness:.84})));

@@ -10,7 +10,7 @@ const list = CASES.filter(c => !c.skip && (!ONLY || ONLY.includes(c.id)));
 const browser = await chromium.launch({ channel: "chromium", args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"] });
 let bad = 0;
 async function one(c){
-  const p = await browser.newPage({ viewport: { width: 844, height: 390 } });
+  const p = await browser.newPage({ viewport: { width: 844, height: 390 }, locale: "ko-KR" });
   const errs = []; p.on("pageerror", e => errs.push(String(e).slice(0, 160)));
   const t = Date.now();
   try{
