@@ -74,6 +74,8 @@ test("계절 손님: 1편을 끝까지 하면 별이 남고 2편이 열린다 (�
 test("계절 손님: 4편을 모두 깨면 진료비 보너스를 계절당 한 번만 받는다", async ({ page }) => {
   const errs = watchErrors(page);
   await seed(page, 7, { eps: { winter1: 3, winter2: 3, winter3: 3 }, bonus: {} });
+  // already stamped today (a future date never stamps), so the first run's attendance coins don't skew the fee comparison
+  await page.addInitScript(() => localStorage.setItem("chiroAttend", JSON.stringify({ last: "2099-12-31", streak: 1, total: 1 })));
   await page.goto("./?season=winter");
   await waitNeckAssets(page);
   await page.click("#seasonBtn");

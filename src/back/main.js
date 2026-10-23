@@ -11,7 +11,7 @@ import {pickReaction} from '../core/faceRig.js';
 import {ROSTER} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
 import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
-import {quietDay,bossMissed} from '../core/monetize.js';
+import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
 import {createBackScene} from './scene.js';
 import {pressedSegment,pressedZone,makeSideTargets,TARGETS,SWEET,POSITION_TOL,tolFor,showGuide,judgeAim,backDistance,pressProfile,reactionTiming,BACK_XRAY,ORGAN_BEAT,makeBackTargets,pressureHint,backViewRot,slowWarp,punchProfile} from './core.js';
 import {BackMotion} from './motion.js';
@@ -174,7 +174,7 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'back',score:S.score,continued:S.continued,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/3);
-  coinReward.show({runKey:S.runAt,avg:S.score/3,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/3,dayDef),hard:HARD,game:'back',day:dayNo||0});
+  coinReward.show({runKey:S.runAt,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued}),avg:S.score/3,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/3,dayDef),hard:HARD,game:'back',day:dayNo||0});
   askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/3,{cracks:3,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/3,dayDef),hard:HARD}));
 }
 function dayEnd(complete,avg){

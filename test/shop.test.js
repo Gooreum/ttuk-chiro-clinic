@@ -21,6 +21,9 @@ describe("진료비 규칙", () => {
     expect(doubleOffer({ earned: 50, hard: true, used: false })).toBe(false);
     expect(doubleOffer({ earned: 50, hard: false, used: true })).toBe(false);
     expect(doubleOffer({ earned: 0, hard: false, used: false })).toBe(false);
+    // a card that already offers the rewarded continue hides the 2x (one rewarded button at a time)
+    expect(doubleOffer({ earned: 50, hard: false, used: false, continueOffered: true })).toBe(false);
+    expect(doubleOffer({ earned: 50, hard: false, used: false, continueOffered: false })).toBe(true);
   });
 });
 
