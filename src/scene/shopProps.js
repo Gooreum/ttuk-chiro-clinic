@@ -78,6 +78,10 @@ const BUILD = {
     const post = x => at(cylm(.03, .03, 1.1, m.wood), x, .55, 0);
     return group(post(-.36), post(.36), at(box(.8, .05, .06, m.wood), 0, 1.1, 0), at(box(.9, .05, .3, m.wood), 0, .03, 0), at(disc, 0, .72, 0), at(cylm(.012, .012, .08, m.dark), 0, 1.04, 0));
   },
+  carpet(){
+    const m = mats();
+    return group(at(box(2.6, .02, .7, std(0x9c1f2e, .9)), 0, .01, 0), at(box(2.6, .022, .06, m.gold), 0, .012, .3), at(box(2.6, .022, .06, m.gold), 0, .012, -.3));
+  },
   chair(){
     const m = mats();
     const back = at(box(.62, .86, .2, m.leather), 0, .82, -.22); back.rotation.x = -.28;
@@ -89,12 +93,12 @@ const BUILD = {
 
 /* slot per prop: x along the wall (local), "wall" props hang, "floor" props stand a little in front of it */
 const SLOT = {
-  poster: [-1.45, .0], cert: [1.5, 0], neon: [-.75, 0],
+  poster: [-1.45, .0], cert: [1.5, 0], neon: [-.75, 0], carpet: [0, .5],
   skull: [1.95, .35], cactus: [-1.95, .35], trophy: [1.2, .3], bust: [-1.2, .3], aquarium: [.9, .35], gong: [-1.9, .5], chair: [1.85, .7]
 };
 const WALL = { poster: 1, cert: 1, neon: 1 };
 const SIDE = {   // right of the table, as close as the pad allows: inside the clinic camera's frame, clear of the towel camera
-  skull: [-.8, .45], cactus: [-1.05, .85], trophy: [-.85, 1.25], bust: [-1.1, 1.6], aquarium: [-.85, 2.0], gong: [-1.1, 2.4], chair: [-.95, 2.8]
+  skull: [-.8, .45], cactus: [-1.05, .85], trophy: [-.85, 1.25], bust: [-1.1, 1.6], aquarium: [-.85, 2.0], gong: [-1.1, 2.4], chair: [-.95, 2.8], carpet: [-.95, 1.6]
 };
 const TEX = {
   poster: tex => tex(512, 740, (x, w, h) => {
@@ -117,15 +121,28 @@ const TEX = {
   })
 };
 
+/* 2단계 업그레이드: base 소품을 다시 칠한다(새 모델 없음). 재질 복제본에 색·금속·발광만 덮는다 */
+const UP = { skull: "skull2", neon: "neon2", trophy: "trophy2", chair: "chair2" };
+function restyle(id, g){
+  const up = (m, o) => { const c = m.clone(); Object.assign(c, o); return c; };
+  g.traverse(o => {
+    if(!o.isMesh) return;
+    if(id === "skull") o.material = o.material === mats().bone || o.material === mats().dark ? up(o.material, { color: new THREE.Color(0xd9a93a).multiplyScalar(.62), metalness: .85, roughness: .3 }) : o.material;
+    if(id === "neon") o.material = up(o.material, { color: new THREE.Color(1, .45, .8) });
+    if(id === "trophy" && o.material === mats().gold) o.material = up(o.material, { color: new THREE.Color(0x9fe8ff).multiplyScalar(.7), metalness: .3, roughness: .05, emissive: new THREE.Color(0x2a6a8a) });
+    if(id === "chair" && o.material === mats().leather) o.material = up(o.material, { color: new THREE.Color(0xd9a93a).multiplyScalar(.62), metalness: .85, roughness: .3 });
+  });
+}
 let root = null;
-const built = {};   // id -> [back group, far group]
-function make(id){
+const built = {};   // id -> { tier, groups: [back group, far group] }
+function make(id, tier = 0){
   const m = BUILD[id], slot = SLOT[id];
   if(!m || !slot) return null;
   const tex = TEX[id] ? TEX[id](canvasTex) : null;
   const sd = SIDE[id];
   return [BACK_Z, FAR_Z, null].filter((z, k) => k < 2 || !WALL[id]).map((z, k) => {
     const g = m(tex);
+    if(tier) restyle(id, g);
     const wrap = new THREE.Group();
     wrap.add(g);
     if(k === 2){   // on the floor beside the table: the spot both first-person cameras look at
@@ -148,10 +165,11 @@ export function syncShopProps(){
   if(!want.length && !root) return;
   withVisualIds(() => {
     if(!root){ root = new THREE.Group(); root.name = "shop-props"; scene.add(root); }
-    PROPS.forEach(p => {
-      const on = owns(st, p.id);
-      if(on && !built[p.id]) built[p.id] = make(p.id);
-      (built[p.id] || []).forEach(g => { g.visible = on; });
+    PROPS.filter(p => p.kind === "prop").forEach(p => {
+      const on = owns(st, p.id), tier = UP[p.id] && owns(st, UP[p.id]) ? 1 : 0;
+      if(built[p.id] && built[p.id].tier !== tier){ built[p.id].groups.forEach(g => root.remove(g)); delete built[p.id]; }
+      if(on && !built[p.id]) built[p.id] = { tier, groups: make(p.id, tier) };
+      ((built[p.id] || {}).groups || []).forEach(g => { g.visible = on; });
     });
     document.documentElement.dataset.shopProps = String(want.length);
   });

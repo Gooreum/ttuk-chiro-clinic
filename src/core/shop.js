@@ -17,11 +17,19 @@ export const ITEMS = [
   { id: "neon",    kind: "prop",   name: "뚝 네온 간판",     line: "밤에도 켜져 있어요.",                          price: 3000 },
   { id: "aquarium",kind: "prop",   name: "금붕어 어항",      line: "금붕어는 목이 없어서 안심이에요.",             price: 3800 },
   { id: "gong",    kind: "prop",   name: "교정 성공 징",     line: "치면 뚝. 안 쳐도 뚝.",                          price: 5500 },
-  { id: "chair",   kind: "prop",   name: "안마의자",         line: "환자는 못 앉게 해요. 원장님 전용.",            price: 7000 }
+  { id: "chair",   kind: "prop",   name: "안마의자",         line: "환자는 못 앉게 해요. 원장님 전용.",            price: 7000 },
+  /* 엔드게임 소비처 (40차): 이미 놓은 소품을 한 단계 올리는 2단계 업그레이드(base 소품이 있어야 살 수 있다)와 레드카펫 */
+  { id: "skull2",  kind: "upgrade", base: "skull",  name: "금니 해골",       line: "해골 모형이 금으로 도금했어요.",               price: 8000 },
+  { id: "neon2",   kind: "upgrade", base: "neon",   name: "분홍 네온",       line: "간판이 분위기를 잡기 시작했어요.",             price: 10000 },
+  { id: "trophy2", kind: "upgrade", base: "trophy", name: "다이아 트로피",   line: "아무도 안 줬는데 이제 반짝이기까지 해요.",     price: 12000 },
+  { id: "chair2",  kind: "upgrade", base: "chair",  name: "황금 안마의자",   line: "앉으면 목이 아니라 지갑이 풀려요.",            price: 15000 },
+  { id: "carpet",  kind: "prop",   name: "VIP 레드카펫",     line: "환자는 신발 벗고 밟으세요.",                   price: 20000 }
 ];
 export const itemById = id => ITEMS.find(i => i.id === id) || null;
 export const PROPS = ITEMS.filter(i => i.kind === "prop");
+export const UPGRADES = ITEMS.filter(i => i.kind === "upgrade");
 export const TOTAL_PROP_COST = PROPS.reduce((n, i) => n + i.price, 0);
+export const TOTAL_UPGRADE_COST = UPGRADES.reduce((n, i) => n + i.price, 0);
 
 /* the stored value -> a clean state (any junk becomes an empty shop) */
 export function readShop(raw){
@@ -57,11 +65,12 @@ export const doubleOffer = ({ earned, hard, used, continueOffered }) => !hard &&
 
 export const add = (st, n) => ({ coins: st.coins + Math.max(0, Math.floor(n)), owned: st.owned });
 
-/* buy one item. Returns { st, ok, why } - why: "coins" | "have" | "full" | "none" */
+/* buy one item. Returns { st, ok, why } - why: "coins" | "have" | "full" | "base" | "none" */
 export function buy(st, id){
   const it = itemById(id);
   if(!it) return { st, ok: false, why: "none" };
-  if(it.kind === "prop" && owns(st, id)) return { st, ok: false, why: "have" };
+  if(it.kind === "upgrade" && !owns(st, it.base)) return { st, ok: false, why: "base" };
+  if(it.kind !== "coupon" && owns(st, id)) return { st, ok: false, why: "have" };
   if(it.kind === "coupon" && count(st, id) >= COUPON_MAX) return { st, ok: false, why: "full" };
   if(st.coins < it.price) return { st, ok: false, why: "coins" };
   return { st: { coins: st.coins - it.price, owned: [...st.owned, id] }, ok: true, why: "" };
