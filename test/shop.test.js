@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, readShop, coinsFor, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
+import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, readShop, coinsFor, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
 
 describe("진료비 규칙", () => {
   it("완주한 판은 평균의 90%쯤, 못 끝낸 판은 절반", () => {
@@ -67,8 +67,28 @@ describe("상점", () => {
     expect(add({ coins: 5, owned: [] }, -3).coins).toBe(5);
     expect(add({ coins: 5, owned: [] }, 7.8).coins).toBe(12);
   });
-  it("소품 전부를 사려면 코인 수천 개 = 수십 판", () => {
-    expect(TOTAL_PROP_COST).toBeGreaterThan(4000);
-    expect(TOTAL_PROP_COST / 100).toBeGreaterThan(40);
+  it("소품 전부를 사려면 코인 수만 개 = 수백 판", () => {
+    expect(TOTAL_PROP_COST).toBeGreaterThan(20000);
+    expect(TOTAL_PROP_COST / 105).toBeGreaterThan(200);
+  });
+});
+
+/* 39차 진행 곡선(docs/economy.md 5절): 보통 실력(평균 100점) 기준으로 상점이 너무 빨리 동나지도, 안 열리지도 않게 */
+describe("상점 진행 곡선", () => {
+  const run = coinsFor({ avg: 100, complete: true, cleared: true });   // 105
+  const ladder = PROPS.map(p => p.price);
+  it("싼 것부터 비싼 순이고 첫 소품은 한두 판 안에 산다", () => {
+    expect(ladder).toEqual([...ladder].sort((a, b) => a - b));
+    expect(ladder[0]).toBeLessThanOrEqual(run * 2);
+  });
+  it("1장 7일만 깨도 소품 둘은 산다", () => {
+    expect(ladder[0] + ladder[1]).toBeLessThanOrEqual(7 * run);
+  });
+  it("영업 일지 56일을 한 번씩만 깨서는 상점이 동나지 않는다", () => {
+    expect(56 * run).toBeLessThan(TOTAL_PROP_COST / 3);
+  });
+  it("가장 비싼 소품 하나가 한 판 상한(160)의 열 배를 넘지 않는다", () => {
+    expect(Math.max(...ladder)).toBeLessThanOrEqual(RUN_COIN_CAP * 50);
+    expect(itemById("pain1").price).toBeGreaterThanOrEqual(run);   // 통증권은 한 판 진료비 이상(공짜 같지 않게)
   });
 });

@@ -8,16 +8,16 @@ export const COUPON_MAX = 5;         // 통증 칸 +1권 you can hold
 /* kind "prop": bought once, stands in the room. kind "coupon": consumable, spent on a 영업 일지 story card. */
 export const ITEMS = [
   { id: "skull",   kind: "prop",   name: "해골 모형",        line: "눈구멍이 자꾸 환자를 쳐다봐요.",              price: 150 },
-  { id: "pain1",   kind: "coupon", name: "통증 칸 +1권",     line: "영업 일지 사연 카드에서 한 번 써요.",          price: 120 },
-  { id: "poster",  kind: "prop",   name: "금칠 척추 포스터", line: "경추 7개가 번쩍번쩍해요.",                    price: 220 },
-  { id: "cert",    kind: "prop",   name: "수상한 인증서",    line: "세계 뚝 협회 인증. 인쇄는 어제 했어요.",       price: 300 },
-  { id: "cactus",  kind: "prop",   name: "척추 선인장",      line: "마디마디 가시가 돋았어요.",                    price: 350 },
-  { id: "trophy",  kind: "prop",   name: "우수 뚝상 트로피", line: "아무도 준 적 없는 상이에요.",                  price: 450 },
-  { id: "bust",    kind: "prop",   name: "원장 흉상",        line: "금빛 얼굴이 문 쪽을 노려봐요.",                price: 600 },
-  { id: "neon",    kind: "prop",   name: "뚝 네온 간판",     line: "밤에도 켜져 있어요.",                          price: 700 },
-  { id: "aquarium",kind: "prop",   name: "금붕어 어항",      line: "금붕어는 목이 없어서 안심이에요.",             price: 800 },
-  { id: "gong",    kind: "prop",   name: "교정 성공 징",     line: "치면 뚝. 안 쳐도 뚝.",                          price: 900 },
-  { id: "chair",   kind: "prop",   name: "안마의자",         line: "환자는 못 앉게 해요. 원장님 전용.",            price: 1200 }
+  { id: "pain1",   kind: "coupon", name: "통증 칸 +1권",     line: "영업 일지 사연 카드에서 한 번 써요.",          price: 200 },
+  { id: "poster",  kind: "prop",   name: "금칠 척추 포스터", line: "경추 7개가 번쩍번쩍해요.",                    price: 400 },
+  { id: "cert",    kind: "prop",   name: "수상한 인증서",    line: "세계 뚝 협회 인증. 인쇄는 어제 했어요.",       price: 700 },
+  { id: "cactus",  kind: "prop",   name: "척추 선인장",      line: "마디마디 가시가 돋았어요.",                    price: 1100 },
+  { id: "trophy",  kind: "prop",   name: "우수 뚝상 트로피", line: "아무도 준 적 없는 상이에요.",                  price: 1600 },
+  { id: "bust",    kind: "prop",   name: "원장 흉상",        line: "금빛 얼굴이 문 쪽을 노려봐요.",                price: 2300 },
+  { id: "neon",    kind: "prop",   name: "뚝 네온 간판",     line: "밤에도 켜져 있어요.",                          price: 3000 },
+  { id: "aquarium",kind: "prop",   name: "금붕어 어항",      line: "금붕어는 목이 없어서 안심이에요.",             price: 3800 },
+  { id: "gong",    kind: "prop",   name: "교정 성공 징",     line: "치면 뚝. 안 쳐도 뚝.",                          price: 5500 },
+  { id: "chair",   kind: "prop",   name: "안마의자",         line: "환자는 못 앉게 해요. 원장님 전용.",            price: 7000 }
 ];
 export const itemById = id => ITEMS.find(i => i.id === id) || null;
 export const PROPS = ITEMS.filter(i => i.kind === "prop");
