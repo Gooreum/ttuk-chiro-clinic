@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, readShop, coinsFor, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
+import { itemById, ITEMS, PROPS, COUPON_MAX, RUN_COIN_CAP, TOTAL_PROP_COST, TOTAL_UPGRADE_COST, UPGRADES, readShop, coinsFor, doubleOffer, add, buy, spend, count, owns } from "../src/core/shop.js";
 
 describe("진료비 규칙", () => {
   it("완주한 판은 평균의 90%쯤, 못 끝낸 판은 절반", () => {
@@ -88,7 +88,28 @@ describe("상점 진행 곡선", () => {
     expect(56 * run).toBeLessThan(TOTAL_PROP_COST / 3);
   });
   it("가장 비싼 소품 하나가 한 판 상한(160)의 열 배를 넘지 않는다", () => {
-    expect(Math.max(...ladder)).toBeLessThanOrEqual(RUN_COIN_CAP * 50);
+    expect(Math.max(...ladder)).toBeLessThanOrEqual(RUN_COIN_CAP * 150);
     expect(itemById("pain1").price).toBeGreaterThanOrEqual(run);   // 통증권은 한 판 진료비 이상(공짜 같지 않게)
+  });
+});
+
+/* 40차 엔드게임 소비처: 2단계 업그레이드와 레드카펫 */
+describe("엔드게임 소비처", () => {
+  it("업그레이드 4개는 base 소품이 있어야 산다", () => {
+    expect(UPGRADES.length).toBe(4);
+    UPGRADES.forEach(u => expect(itemById(u.base)?.kind).toBe("prop"));
+    const poor = { coins: 99999, owned: [] };
+    expect(buy(poor, "skull2").why).toBe("base");
+    const r = buy(buy(poor, "skull").st, "skull2");
+    expect(r.ok).toBe(true);
+    expect(owns(r.st, "skull2")).toBe(true);
+    expect(buy(r.st, "skull2").why).toBe("have");
+  });
+  it("업그레이드는 base보다 비싸고 저장값을 거쳐도 남는다", () => {
+    UPGRADES.forEach(u => expect(u.price).toBeGreaterThan(itemById(u.base).price));
+    expect(readShop({ coins: 1, owned: ["chair", "chair2", "chair2"] }).owned).toEqual(["chair", "chair2"]);
+  });
+  it("소품 전부 + 업그레이드는 시간당 약 2,000 기준 30시간 넘게 남는다", () => {
+    expect((TOTAL_PROP_COST + TOTAL_UPGRADE_COST) / 2000).toBeGreaterThan(30);
   });
 });

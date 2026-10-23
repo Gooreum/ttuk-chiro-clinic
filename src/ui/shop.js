@@ -5,7 +5,7 @@
 import "./shop.css";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
-import { SHOP_KEY, ITEMS, readShop, count, owns, coinsFor, doubleOffer, add, buy, spend } from "../core/shop.js";
+import { SHOP_KEY, ITEMS, itemById, readShop, count, owns, coinsFor, doubleOffer, add, buy, spend } from "../core/shop.js";
 import { adsOn as isToss, canWatchRewarded, watchRewarded, adFree } from "../platform/ads.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
@@ -52,11 +52,11 @@ export function mountShop(){
     list.textContent = "";
     ITEMS.forEach(it => {
       const li = el("li"), b = el("button"); b.type = "button"; b.dataset.item = it.id;
-      const have = it.kind === "prop" && owns(st, it.id), n = count(st, it.id);
-      b.append(el("b", null, it.name), el("small", null, it.kind === "coupon" && n ? `${it.line} (${n}장 있음)` : it.line));
-      b.appendChild(el("i", null, have ? "놓였어요" : String(it.price)));
+      const have = it.kind !== "coupon" && owns(st, it.id), locked = it.kind === "upgrade" && !owns(st, it.base), n = count(st, it.id);
+      b.append(el("b", null, it.name), el("small", null, locked ? `${itemById(it.base).name}부터 놓아요.` : it.kind === "coupon" && n ? `${it.line} (${n}장 있음)` : it.line));
+      b.appendChild(el("i", null, have ? "놓였어요" : locked ? "잠김" : String(it.price)));
       if(have){ b.classList.add("have"); b.disabled = true; }
-      else if(st.coins < it.price) b.classList.add("poor");
+      else if(locked || st.coins < it.price) b.classList.add("poor");
       if(flashId === it.id) b.classList.add("flash");
       b.onclick = () => {
         const r = buy(loadShop(), it.id);
