@@ -559,12 +559,9 @@ export function finish(){
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
   const endedBad = S.ambulance || S.pain >= S.painMax;
   const bossMiss = campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay());
-  /* 단골 의뢰·계절 손님 cleared card: like a cleared 영업 일지 day, its outro punchline stays clear of an ad (the interstitial waits for the leave buttons) */
-  const sideDef = S.quest >= 0 ? QUESTS[S.quest] : S.season >= 0 ? SEASON_EPS[S.season] : null;
-  const deferNow = deferAd || (!!sideDef && dayClears(-1, complete, avg, sideDef));
   coinReward.show({ runKey: S.runAt, avg, continueOffered: continueOffer({ endedBad, bossMiss, used: S.continued }) && !S.hard, complete: complete || !!S.night || !!S.rush, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : S.daily ? "daily" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
   shareCard(complete, avg, deferAd);
-  askReview(complete).then(asked => monetize.showResult({ endedBad, bossMiss, used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly || S.daily), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat), deferInterstitial: deferNow }));
+  askReview(complete).then(asked => monetize.showResult({ endedBad, bossMiss, used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly || S.daily), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
 }
 /* 자랑하기 / 랭킹 보기 on the result card (platform/share.js, rules core/share.js): night and rush always, a 영업 일지 day only when
    cleared. 랭킹 보기 needs the Toss game-center leaderboard (Toss build); the 심야 진료 patient count is the one score submitted. */
