@@ -18,7 +18,7 @@ export function campaignLabel(prog){
 /* chapter tabs (#chTabs) over the day list; a chapter opens when its first day does. Starts on the chapter of the
    next day to play. */
 let shownCh = 0;
-export function renderDays(prog, onPick, ch = 0, onInterlude = null){
+export function renderDays(prog, onPick, ch = 0, onInterlude = null, onEnding = null){
   const nextCh = DAYS[Math.min(prog.cleared, DAYS.length - 1)].ch;
   shownCh = ch || nextCh;
   const tabs = $("#chTabs"); tabs.textContent = "";
@@ -32,7 +32,7 @@ export function renderDays(prog, onPick, ch = 0, onInterlude = null){
     tab.textContent = tab.disabled ? t("{n}장",{n:c.no}) : t("{n}장 {title}{star}",{n:c.no,title:t(c.title),star:allHard ? " ★" : ""});   // a locked chapter keeps its title a surprise
     if(allHard) tab.classList.add("hard-all");
     if(c.no === shownCh) tab.classList.add("on");
-    tab.onclick = () => renderDays(prog, onPick, c.no, onInterlude);
+    tab.onclick = () => renderDays(prog, onPick, c.no, onInterlude, onEnding);
     tabs.appendChild(tab);
   });
   // eight chapters: one scrolling row, the open one in view
@@ -42,6 +42,9 @@ export function renderDays(prog, onPick, ch = 0, onInterlude = null){
   ib.hidden = !(onInterlude && interludeOpen(prog, shownCh));
   ib.dataset.ch = String(shownCh);
   ib.onclick = () => onInterlude && onInterlude(shownCh);
+  const eb = $("#chEnding");   // all 56 days cleared: the ending card again
+  eb.hidden = !(onEnding && prog.cleared >= DAYS.length);
+  eb.onclick = () => onEnding && onEnding();
   $("#chLead").textContent = t(CHAPTERS.find(c => c.no === shownCh).lead);
   const list = $("#dayList"); list.textContent = "";
   DAYS.forEach((d, i) => {
@@ -98,7 +101,7 @@ export function showStory(day, hard = false, canHard = false){
   $("#storyTitle").textContent = t(d.title);
   const ul = $("#storyLines"); ul.textContent = "";
   // 역경 repeats only the day's situation line plus its real rules (the plain intro's numbers would contradict them)
-  const hardRule = () => t("역경: ") + [t("통증 {n}번이면 끝",{n:d.painMax}), d.zone ? t("구역 안내 {n}명",{n:d.zone}) : t("구역 안내 없음"), d.mods && d.mods.tight ? t("구역도 좁아요") : "", d.beat ? t("평균 {n}점",{n:d.beat}) : ""].filter(Boolean).join(", ") + ".";
+  const hardRule = () => t("역경: ") + [t("통증 {n}번이면 끝",{n:d.painMax}), d.zone ? t("초록 구역 안내 {n}명",{n:d.zone}) : t("초록 구역 안내 없음"), d.mods && d.mods.tight ? t("구역도 좁아요") : "", d.beat ? t("평균 {n}점",{n:d.beat}) : ""].filter(Boolean).join(", ") + ".";
   const lines = [...(hard ? [d.intro[0], hardRule()] : d.intro), ...(bossRules(d).length && d.bossTaunt ? [d.bossTaunt] : [])];
   lines.forEach(line => { const li = document.createElement("li"); li.textContent = t(line); ul.appendChild(li); });
   const rules = $("#storyRules"); rules.textContent = "";
@@ -109,13 +112,13 @@ export function showStory(day, hard = false, canHard = false){
   chip(t("통증 {n}번이면 영업 끝",{n:d.painMax}), d.painMax < 3);
   const noisy = !!(d.mods && d.mods.noisy), noZone = d.game !== "back" && d.game !== "side" && !d.zone;
   // 안내가 둘 다 없는 날은 칩 하나로 (8장 7일 같은 날에 "구역 안내 없음"과 "숨 안내 없음"이 나란히 떴다)
-  if(noZone && noisy) chip(t("구역·숨 안내 없음"), true);
+  if(noZone && noisy) chip(t("초록 구역·숨 안내 없음"), true);
   else{
-    if(d.game !== "back" && d.game !== "side") chip(d.zone ? t("초록 구역 안내 {n}명",{n:d.zone}) : t("구역 안내 없음"), !d.zone);
+    if(d.game !== "back" && d.game !== "side") chip(d.zone ? t("초록 구역 안내 {n}명",{n:d.zone}) : t("초록 구역 안내 없음"), !d.zone);
     if(noisy) chip(t("숨 안내 없음"), true);
   }
   if(d.mods && d.mods.tight) chip(t(d.mods.tighter ? "구역이 아주 좁아요" : "구역이 좁아요"), true);
-  bossChips(d).forEach(c => chip(t(c), true));
+  bossChips(d).forEach(c => chip(c, true));   // already translated, 역경 timer seconds filled in
   if(d.beat) chip(t(hard ? "역경 · 평균 {n}점 넘기기" : "보스 · 평균 {n}점 넘기기",{n:d.beat}), true);
   $("#story").hidden = false;
 }

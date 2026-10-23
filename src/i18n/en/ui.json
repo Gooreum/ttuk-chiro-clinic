@@ -552,7 +552,7 @@
  "핸들처럼 돌리면 머리가 회전": "Turn it like a steering wheel to rotate the head",
  "허리 높이를 맞추고": "to set the back height, then",
  "허리가 비명을 질렀어요": "The back screamed",
- "허리까지 시원하게.": "Cooled the back too.",
+ "허리까지 시원하게.": "Back feels brand new.",
  "허리비틀기": "Back Twist",
  "허리비틀기 · 뚝 카이로 클리닉": "Back Twist · Crack! Chiro Clinic",
  "허리비틀기 · 연습 진료": "Back Twist · Practice Run",
@@ -583,5 +583,16 @@
  "흐읍…": "Hhhh...",
  "흠…": "Hmm...",
  "힘 빼세요. 손을 얹고 있어요…": "Relax. Hands going on...",
- "힘 빼세요. 어깨랑 골반에 손을 얹어요…": "Relax. Hands going on the shoulder and pelvis..."
+ "힘 빼세요. 어깨랑 골반에 손을 얹어요…": "Relax. Hands going on the shoulder and pelvis...",
+ "한 쪽당 {n}초 안에 꺾기": "Crack within {n}s per side",
+ "한 쪽당 {n}초. 넘기면 -{p}점이에요": "{n}s per side. Go over and it's -{p} points",
+ "중심 금": "Off-Center Crack",
+ "중심 골절": "Off-Center Fracture",
+ "너무 팽팽했어요! 금 갔어요": "Way too taut! It cracked",
+ "초록 구역 안내 없음": "No green zone guide",
+ "초록 구역·숨 안내 없음": "No green zone or breath guide",
+ "<b>위쪽을 젖혀</b> 장력 · <b>좌우로 기울여</b> 중심 · <b>툭 당겨</b> 견인": "<b>Tilt the top back</b> for tension · <b>tilt left/right</b> to center · <b>flick</b> to pull",
+ "<b>위아래</b> 장력 · <b>좌우</b> 중심 · <b>휙 쓸어서</b> 당기기": "<b>Up/down</b> tension · <b>left/right</b> center · <b>swipe</b> to pull",
+ "엔딩 다시 보기": "Replay Ending",
+ "빗나가면 통증 +1 · 금·골절은 바로 구급차": "Miss: +1 pain · Crack or break: ambulance"
 }

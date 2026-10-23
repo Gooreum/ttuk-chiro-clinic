@@ -59,6 +59,19 @@ describe("단골 의뢰", () => {
     const opens = QUESTS.filter(q => questOpen(save(56, Object.fromEntries(QUESTS.map(x => [x.id, 1]))), q));
     expect(opens.length).toBe(64);
   });
+  it("holds a regular's job-ending finale until the main story is done with them", () => {
+    const last = name => DAYS.findLastIndex(d => d.patients.includes(name));
+    [["송기사3", "송기사"], ["최교수3", "최교수"], ["나공무3", "나공무"]].forEach(([id, who]) => {
+      const q = QUESTS.find(x => x.id === id), prev = {[`${who}2`]: 1};
+      expect(q.after, id).toBe(last(who));
+      expect(questUnlockDay(q), id).toBe(last(who));
+      expect(questOpen(save(last(who), prev), q), id).toBe(false);   // still driving / teaching / inspecting
+      expect(questOpen(save(last(who) + 1, prev), q), id).toBe(true);
+    });
+    expect(last("송기사")).toBeGreaterThan(QUESTS.find(x => x.id === "송기사3").patients.map(n => DAYS.findIndex(d => d.patients.includes(n)))[0]);
+    // every other quest keeps the first-appearance rule
+    QUESTS.filter(q => !q.after).forEach(q => expect(questUnlockDay(q)).toBe(Math.max(...q.patients.map(n => DAYS.findIndex(d => d.patients.includes(n))))));
+  });
  it("opens a 3편 only after the 2편 is cleared, like the 2편 after the 1편", () => {
     const third = QUESTS.find(q => q.id === "박대리3");
     const done = Object.fromEntries(QUESTS.map(x => [x.id, 1]));

@@ -8,6 +8,8 @@
    fake   the breath bonus pays on the in-breath instead of the out-breath (and the therapist's breath cues stay quiet)
    swap   SWAP_AT ms into the first side the patient changes his mind: the target becomes the opposite side's, once
    shrink the zone narrows the longer you aim, down to SHRINK_MIN over SHRINK_MS (the nervous trait's rule, for everyone) */
+import { t } from "../i18n/index.js";
+
 export const TAUNT_ZONE = 0.8;
 export const TIMER_SEC = 12, HARD_TIMER_SEC = 9, TIMER_PENALTY = 20, TIMER_WARN = 5;   // 7차 플레이테스트: 20초는 클리어율을 4~10점밖에 못 깎았다
 export const SWAP_AT = 6000;
@@ -15,21 +17,23 @@ export const SHRINK_MS = 18000, SHRINK_MIN = 0.65;
 
 export const BOSS_RULES = {
   taunt:  { chip: "첫 꺾기 PERFECT 아니면 반대쪽 구역 축소", cue: "첫 쪽을 PERFECT로 못 하면 반대쪽 구역이 좁아져요" },
-  timer:  { chip: "한 쪽당 12초 안에 꺾기", cue: "한 쪽당 12초. 넘기면 -20점이에요" },
+  timer:  { chip: "한 쪽당 {n}초 안에 꺾기", cue: "한 쪽당 {n}초. 넘기면 -{p}점이에요" },   // {n} = timerSec (역경 9초), {p} = TIMER_PENALTY: ruleText
   fake:   { chip: "숨 안내가 수상함", cue: "오늘은 숨 안내가 수상해요. 박자를 직접 느껴 보세요" },
   swap:   { chip: "중간에 목표가 반대쪽으로 바뀜", cue: "한 번은 마음이 바뀌어요. 끝까지 보고 맞추세요" },
   shrink: { chip: "오래 조준할수록 구역이 좁아짐", cue: "오래 재면 구역이 좁아져요. 빨리 정하세요" }
 };
 export const bossRules = def => def && Array.isArray(def.boss) ? def.boss.filter(r => BOSS_RULES[r]) : [];
 export const hasRule = (rules, r) => !!rules && rules.includes(r);
-/* chips for the story card (UI wording is BOSS_RULES.chip) */
-/* the cue pills one after another (8장 has two rules; one pill with both was too long) */
-export const bossCues = rules => (rules || []).filter(r => BOSS_RULES[r]).map(r => BOSS_RULES[r].cue);
+/* a chip / cue in the screen language, the timer's seconds filled in (역경 chip said 12초 on a 9-second clock, 2026-10-23 audit) */
+export const ruleText = (text, hard = false) => t(text, {n: timerSec(hard), p: TIMER_PENALTY});
+/* the cue pills one after another (8장 has two rules; one pill with both was too long); already translated */
+export const bossCues = (rules, hard = false) => (rules || []).filter(r => BOSS_RULES[r]).map(r => ruleText(BOSS_RULES[r].cue, hard));
 /* the live line of a rule (def.bossLive[rule]) and who says it (def.bossBy) */
 export const liveLine = (live, rule, fallback = "") => (live && live[rule]) || fallback;
 /* the timer pill shakes and ticks for the last TIMER_WARN seconds */
 export const timerWarn = left => left !== null && left > 0 && left <= TIMER_WARN;
-export const bossChips = def => bossRules(def).map(r => BOSS_RULES[r].chip);
+/* chips for the story card (wording BOSS_RULES.chip), already translated; a 역경 def (hardDay sets hard) gets its clock */
+export const bossChips = (def, hard = !!(def && def.hard)) => bossRules(def).map(r => ruleText(BOSS_RULES[r].chip, hard));
 
 /* zone factor of the rules (multiplies core/feel.js tolMul): the aim time (ms) and whether a taunt is on */
 export function bossTolMul(rules, elapsedMs = 0, taunted = false){

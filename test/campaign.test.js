@@ -163,3 +163,24 @@ describe("campaign", () => {
     expect(tolMul("nervous", 60000, true)).toBeCloseTo(0.48, 10);
   });
 });
+
+/* story text promises a pain count ("통증 두 번이면", "두 번 헛당기면", "한 번이라도 삐끗하면"): it must be the run's painMax,
+   and a 목뽑기 run says 헛당김, not 삐끗 (삐끗 is the towel's side-skew fail, an ambulance) */
+import { QUESTS } from "../src/core/quests.js";
+import { SEASON_EPS } from "../src/core/season.js";
+const PAIN_N = {"한": 1, "두": 2, "세": 3, "네": 4};
+const PAIN_RE = /(?:통증이?|헛당김|실수)\s*([한두세네]|\d)\s*번|([한두세네]|\d)\s*번(?:이라도)?\s*(?:삐끗|헛당|통증)|삐끗\s*([한두세네]|\d)\s*번/g;
+function painClaims(d){
+  const txt = [...(d.intro || []), d.outro || "", d.lose || ""].join(" | ");
+  return [...txt.matchAll(PAIN_RE)].map(m => { const w = m[1] || m[2] || m[3]; return {said: m[0], n: PAIN_N[w] ?? +w}; });
+}
+describe("pain counts in story text", () => {
+  const runs = [...DAYS.map((d, i) => [`day ${i + 1}`, d]), ...QUESTS.map(q => [q.id, q]), ...SEASON_EPS.map(e => [e.id, e])];
+  it("match the run's painMax", () => {
+    runs.forEach(([tag, d]) => painClaims(d).forEach(c => expect(c.n, `${tag}: ${c.said}`).toBe(d.painMax)));
+    expect(runs.filter(([, d]) => painClaims(d).length).length).toBeGreaterThan(30);   // the regex still finds them
+  });
+  it("say 헛당김, not 삐끗, on towel runs", () => {
+    runs.filter(([, d]) => d.game === "towel").forEach(([tag, d]) => expect([...(d.intro || []), d.outro, d.lose || ""].join(" "), tag).not.toMatch(/삐끗/));
+  });
+});
