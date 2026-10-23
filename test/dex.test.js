@@ -9,9 +9,9 @@ import { FAIL_TAG, FORCE_TAG } from "../src/core/fail.js";
 const empty = () => readDex(null);
 
 describe("dex: catalog", () => {
-  it("has the 39 patients of the roster and the cast; the cast and the first five regulars are in some campaign day", () => {
-    expect(DEX_PATIENTS).toHaveLength(39);
-    expect(new Set(DEX_PATIENTS.map(p => p.name)).size).toBe(39);
+  it("has the 40 patients of the roster and the cast; the cast and the first five regulars are in some campaign day", () => {
+    expect(DEX_PATIENTS).toHaveLength(40);
+    expect(new Set(DEX_PATIENTS.map(p => p.name)).size).toBe(40);
     // the 2026-10-23 body types (patient06..10) come only in free runs (ui/dex.js hint "일반 진료에서 만나요")
     DEX_PATIENTS.filter(p => !bodyOf(p) || CAST.includes(p)).forEach(p => expect(firstChapter(p.name)).toBeGreaterThan(0));
     expect(DAYS.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe("dex: counts and title", () => {
   it("counts and titles by what is collected", () => {
     let d = empty();
     expect(dexTitle(d)).toBe("");
-    expect(dexCounts(d)).toEqual({ met: 0, patients: 39, fails: 0, kinds: 10 });
+    expect(dexCounts(d)).toEqual({ met: 0, patients: 40, fails: 0, kinds: 10 });
     DEX_PATIENTS.slice(0, 5).forEach(p => { d = dexMeet(d, p.name, "x"); });
     expect(dexTitle(d)).toBe("단골 수집가");
     DEX_PATIENTS.slice(5, 16).forEach(p => { d = dexMeet(d, p.name, "x"); });

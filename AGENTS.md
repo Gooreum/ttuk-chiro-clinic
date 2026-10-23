@@ -427,3 +427,5 @@
   - 에셋 파이프라인: 두 자리 id, 어린이는 `fit: "auto"`로 목 자르기·손 위치를 키에 맞춰 줄인다, 옷 밖으로 비치는 피부는 `tuck`. 긴 소매 옷은 손 IK가 안 풀려 반팔만 쓴다. 머리 내보내기는 16GB에서 두 개씩만 병렬로(`scripts/assets/README.md`). 수건 시뮬레이션은 10명을 한 번에 굽는다.
   - 테스트용: 촬영·케이스 빌드의 `window.__game.roll(name)`이 로스터 환자 하나를 굴린다(`e2e/body.spec.js`). 케이스 `clinic-ok-patient-{jo,han,ma,boksun,kid}`, `towel-ok-perfect-{...}`.
   - 폰 실기기 확인 전: 체형별 난이도 체감(특히 어린이·관리형 빠른 숨), 다운로드 증가(진료실 약 +3.3MB, towel-stage 약 +5.8MB).
+- 이미지 기반 새 환자(2026-10-24, 사용자: "체형별로 특이성이 존나 있어야돼 ... 미녀 얼굴은 좋은데 몸매도 글래머러스 해야돼" → "지금 한미모는 냅두고 뉴 캐릭터로 넣자. 일단 목꺾기에만 넣어봐"): 최필라(27, 필라테스 강사, flexible, 몸 유형 관리형). Codex 시안 4방향 → Tripo 멀티뷰 3D → `scripts/assets/image3d_patient.py`(절차는 `scripts/assets/README.md` "이미지 기반 환자"). `ROSTER`의 `games:["clinic"]`이 목뽑기 추첨(`rosterFor(game)`, `makePatients`의 4번째 인자)과 `?patient=` 지정에서 뺀다. towel-stage 사본이 없어 `realAssets.js` `NO_STAGE`가 수건 큐에서 건너뛴다. 심야·주간 풀(`NIGHT_POOL`)과 영업 일지에는 넣지 않았다. 도감은 40명. 표정 블렌드셰이프가 없어 얼굴이 안 움직이고, 목 아래 머리카락은 목을 돌리면 끊겨 보인다. 폰 실기기 확인 전.
+

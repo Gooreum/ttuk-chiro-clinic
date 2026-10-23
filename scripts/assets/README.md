@@ -96,6 +96,20 @@ python3 scripts/assets/patient_hand_collision.py $W/detail
 
 결과: 다섯 명 × 호흡 0/0.5/1 × 세 표면 쌍 삼각형 교차 0, 최종 수직 여유 최솟값 손/손 1.63 mm(09), 아래 손/셔츠 1.40 mm(08), VERIFY_ONLY 원본 버퍼 변경 0. 두 자리 번호를 위해 바꾼 곳: `towel_stage_textures.py`(`int(pid[-2:])`, 셔츠 색 10개, 06 브르타뉴 줄무늬·07 블러시 저지와 핀턱·08 싱글렛 옆판·09 물방울 블라우스·10 럭비 줄무늬를 부드러운 경계로, 회색 머리 은빛 처리 02·09, 주름 02·05·09), `towel_stage_characters.mjs`(`pid.slice(-2)`, 머리카락 이름에 ponytail/long/braid/afro), `hand_anatomy.mjs`(`ASSET_IDS`·`HAND_TEMPLATE`), `patient_hand_collision.py`(`patient[0-9][0-9]*`), `patient_detail_maps.py`(나이 06:28·07:26·08:38·09:79·10:11, 수염은 남자 어른 06·08만, 젊은 얼굴 노멀 512), `patient_detail.mjs`(봉제 가장자리 색).
 
+## 이미지 기반 환자 (patient11 최필라, 2026-10-24)
+
+MPFB가 아니라 이미지에서 만든 몸이다(사용자: "체형별로 특이성이 존나 있어야돼" → 시안을 3D로 "백프로 동일하게"). 목꺾기 전용이고 towel-stage 사본은 없다(`realAssets.js` `NO_STAGE`).
+
+1. Codex(이미지 생성)로 같은 캐릭터 4방향 턴어라운드(정면·왼쪽·뒤·오른쪽, A포즈, 1024x1536)를 그린다. 시안 한 장만 3D로 바꾸면 뒤통수·옆모습을 추측한다.
+2. Higgsfield `tripo_h3_1_multiview_to_3d`(texture/geometry detailed, 12크레딧) → 62 MB, 삼각형 195만 개.
+3. 줄이기: `gltf-transform simplify --ratio 0.045 --error 0.002` → `resize 2048`. Blender Decimate는 UV 이음매를 뭉개 흰 선이 생기고(텍스처 패딩으로도 안 없어짐), Meshy remesh는 62 MB 입력에서 실패했다.
+4. `blender -b -t 4 --python image3d_patient.py -- s2.glb patient11.glb body.glb patient11`: 1.65 m로 맞추고, 얼굴을 -y로 돌리고(이 메시는 +x를 봤다), 뒤로 3.8° 기운 몸을 세운 뒤, z 1.40(목 중간)에서 bisect로 머리와 몸을 나눈다. 몸에는 2본 스킨(`body`/`neck`, 가중치는 게임의 `neckColumn`이 다시 계산)과 `breath` 모양 키(가슴 2.2 cm·배 1.2 cm 앞으로, 어깨 2 cm)를 단다. 출력의 MEASURE는 crown·chin tip·back.
+5. 머리 `resize 2048` → `webp` → `meshopt`(550 KB), 몸 `resize 1024` → `webp` → `meshopt`(640 KB).
+
+`MODELS.patient11`: crown은 머리카락 꼭대기(1.6484), chin은 06/08처럼 patient01 비율(crown − 1.178 × (crown − 턱끝 1.427) = 1.3876), back은 머리카락 뒤(-0.083)가 아니라 -0.045다. 머리카락 부피만큼 머리가 베개 위로 떠서 몸 전체가 테이블 위 4 cm에 떠 있었다.
+
+한계: 머리 메시에 표정 블렌드셰이프가 없어 얼굴 표정·눈 깜빡임이 안 움직인다. 목 아래로 늘어진 머리카락은 몸 쪽에 남아 목을 돌리면 끊겨 보인다. 팔은 A포즈 그대로다(Meshy 자동 리깅은 팔 뼈가 엉덩이에 붙어 팔을 돌리면 골반이 찌그러졌다).
+
 ## 환자 몸
 
 `blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 두 손을 배 위에 올린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후
