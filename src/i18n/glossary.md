@@ -102,6 +102,7 @@ the code (trimmed); values are the English line. Keep every `{placeholder}` and 
 | 마동철 | Iron Ma | huge ssireum wrestler, "has no neck" |
 | 복순할매 | Granny Boksun | 79, market greens seller, rural granny speech |
 | 정꼬마 | Little Jung | 11-year-old kid; keep his lines clean, no swearing |
+| 최필라 | Pilates Choi | Pilates instructor (목꺾기 only); core / breathing / reformer puns |
 
 ## Body types (core/body.js chips)
 | Korean | English |

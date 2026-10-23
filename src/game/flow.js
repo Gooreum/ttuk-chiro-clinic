@@ -5,7 +5,7 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath, bonusExhale } from "./feel.js";
 import { tightFactor } from "../core/feel.js";
-import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, PER_DAY, makePatients } from "../patient/roster.js";
+import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, PER_DAY, makePatients, rosterFor } from "../patient/roster.js";
 import { bodyOf } from "../core/body.js";
 import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
@@ -667,9 +667,9 @@ async function start(game, day = -1, hard = false, extraPain = 0, quest = -1, se
   track(EV.runStart, { game: game === "night" || game === "rush" || game === "weekly" || game === "daily" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
   const nb = nightBegin(game), rb = rushBegin(game), wb = weeklyBegin(game), db = dailyBegin(game);   // each also clears its own state when it is not the run being started
-  S.patients = nb || rb || wb || db || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients());
+  S.patients = nb || rb || wb || db || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients(Math.random, PER_DAY, null, rosterFor(game)));
   // ?patient=마동철: a free run starts with that roster patient (user: "캐릭터당 주소 갖고와", 2026-10-24)
-  const pick = !nb && !rb && !wb && !db && !d && ROSTER.find(r => r.name === new URLSearchParams(location.search).get("patient"));
+  const pick = !nb && !rb && !wb && !db && !d && rosterFor(game).find(r => r.name === new URLSearchParams(location.search).get("patient"));
   if(pick) S.patients = [...makePatients(Math.random, 1, [pick]), ...S.patients.filter(p => p.name !== pick.name)].slice(0, PER_DAY);
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");

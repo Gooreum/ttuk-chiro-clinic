@@ -84,8 +84,18 @@ export const ROSTER = [
    lines:{start:"엄마한테는 학원 간다고 했어요. 비밀이에요!", near:"오, 거기가 게임하는 쪽이에요", ouch:"으앙! 아파요!", jolt:"으앗!", sigh:"휴우…", what:"우와, 방금 레벨업 소리 났어요!", ahh:"우와… 목이 새 거 됐어요!",
           after:"반대쪽도 아이템 먹었어요", done:"친구들한테 자랑할 거예요. 엄마 빼고요", idle:"학원 끝날 시간인데…",
           dud:"…로딩 중이에요?", finger:"선생님 손가락도 게임 많이 했어요?", stop:"잠깐만요! 일시정지!", doubt:"이번엔 진짜 깨 주세요", quit:"집에 갈래요. 엄마한테 다 말할 거예요!",
-          fail:["엄마한테 이를 거예요…", "게임이었으면 리셋했어요", "선생님, 이번 판은 패배예요"]}}
+          fail:["엄마한테 이를 거예요…", "게임이었으면 리셋했어요", "선생님, 이번 판은 패배예요"]}},
+  // image-to-3D body (2026-10-24, Codex concept -> Tripo multi-view -> scripts in scripts/assets/README.md): 목꺾기 only for now,
+  // there is no towel-stage copy (user: "지금 한미모는 냅두고 뉴 캐릭터로 넣자. 일단 목꺾기에만 넣어봐")
+  {name:"최필라", xr:"flat", age:27, cc:"필라테스 강사. 회원들 코어 잡아 주다 정작 자기 목이 일자로 굳었어요.", seg:5, side:-1, tolR:7, tolB:5, breath:3.6, burn:0.3, trait:"flexible", games:["clinic"],
+   look:{hair:"long", hairCol:0x1e140f, skin:0xf0cdb4, gown:0x22324f, glasses:false, model:"patient11"},
+   react:{jolt:["gasp", "startle"], ahh:["sigh"], first:["awake", "bliss", "wow"], then:["beam", "relief"], big:["beam", "laugh"]},
+   lines:{start:"코어에 힘 주고 누울게요. 목은 힘 빼고요, 아마도", near:"어, 거기 코어랑 연결된 데예요", ouch:"악! 리포머 스프링 튕겼어요!", jolt:"헙!", sigh:"후우우…", what:"방금 그거… 척추 분절이에요?", ahh:"하아… 플랭크 3분 끝난 기분이에요",
+          after:"반대쪽도 정렬 완료", done:"다음 수업에 회원님들한테 자랑할게요", idle:"수업 10분 전인데…",
+          dud:"…이거 워밍업이죠?", finger:"선생님 손가락 코어가 약하시네요", stop:"잠깐! 호흡부터 맞춰요!", doubt:"이번엔 들숨에 준비, 날숨에 툭이요", quit:"오늘 수업 환불이에요",
+          fail:["이건 자세 교정 반대예요", "회원님들이 보면 안 돼요", "목이 리포머에 낀 것 같아요"]}}
 ];
+export const rosterFor = game => ROSTER.filter(p => !p.games || p.games.includes(game));   // games: the modes a patient has a body for
 export const SHOW_ZONE_UNTIL = 2;
 export const REVIEWS = {
   3:["손이 약손이에요. 단골 할게요", "들어올 때랑 나갈 때 목이 달라요", "소리부터 시원했어요"],
@@ -97,8 +107,8 @@ export const REVIEWS = {
    A day sees PER_DAY patients drawn from the roster in random order (5 of the same loop dragged, user 2026-10-16).
    fixed: a 영업 일지 day's patients (core/campaign.js dayRoster), taken as given in that order. */
 export const PER_DAY = 3;
-export function makePatients(rand = Math.random, count = PER_DAY, fixed = null){
-  const pool = fixed ? fixed.slice() : ROSTER.slice();
+export function makePatients(rand = Math.random, count = PER_DAY, fixed = null, from = ROSTER){
+  const pool = fixed ? fixed.slice() : from.slice();
   if(!fixed) for(let i = pool.length - 1; i > 0; i--){ const j = Math.floor(rand()*(i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   return pool.slice(0, fixed ? pool.length : count).map(p => {
     const big = p.trait === "flexible", old = p.trait === "elder", b = bodyOf(p), k = b ? b.mag : 1;

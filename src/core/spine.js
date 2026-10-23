@@ -15,7 +15,8 @@ export const SPINE = {
   "한미모":   {curve: -10, lateral: 6,  disc: [1, 1, 1, 0.9, 0.88, 1],         spurs: 0},     // 12시간 인사 각도: 살짝 일자목
   "마동철":   {curve: 8,   lateral: -3, disc: [1.05, 1, 0.95, 0.9, 0.75, 0.85], spurs: 0.2},  // 씨름: 곡선은 튼튼, 아래 디스크가 짓눌림
   "복순할매": {curve: -18, lateral: 11, disc: [0.85, 0.75, 0.62, 0.5, 0.48, 0.72], spurs: 0.85}, // 79세 쪼그려 앉기 50년: 기울고 납작, 골극
-  "정꼬마":   {curve: -12, lateral: 2,  disc: [1.1, 1.1, 1.08, 1.05, 1.05, 1.1], spurs: 0}     // 11세: 디스크는 탱탱한데 태블릿 일자목
+  "정꼬마":   {curve: -12, lateral: 2,  disc: [1.1, 1.1, 1.08, 1.05, 1.05, 1.1], spurs: 0},    // 11세: 디스크는 탱탱한데 태블릿 일자목
+  "최필라":   {curve: -16, lateral: -3, disc: [1, 1, 0.95, 0.88, 0.92, 1],      spurs: 0}      // 필라테스 강사: 코어는 튼튼, 목만 일자
 };
 const FALLBACK = {curve: 0, lateral: 0, disc: [1, 1, 1, 1, 1, 1], spurs: 0};
 export const spineOf = name => SPINE[name] || FALLBACK;

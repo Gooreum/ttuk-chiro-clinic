@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { ROSTER, PER_DAY, makePatients } from "../src/patient/roster.js";
+import { ROSTER, PER_DAY, makePatients, rosterFor } from "../src/patient/roster.js";
 import { bodyOf } from "../src/core/body.js";
 
 describe("makePatients", () => {
@@ -43,5 +43,11 @@ describe("makePatients", () => {
     makePatients(Math.random, ROSTER.length).filter(p => !bodyOf(p)).forEach(p => {
       expect([p.limR, p.limB]).toEqual(p.trait === "elder" ? [50, 22] : [63, 27]);
     });
+  });
+  it("keeps a clinic-only body out of the towel draw (rosterFor)", () => {
+    const clinicOnly = ROSTER.filter(p => p.games && !p.games.includes("towel")).map(p => p.name);
+    expect(clinicOnly).toEqual(["최필라"]);
+    expect(rosterFor("clinic").map(p => p.name)).toContain("최필라");
+    for(let k = 0; k < 200; k++) makePatients(Math.random, PER_DAY, null, rosterFor("towel")).forEach(p => expect(clinicOnly).not.toContain(p.name));
   });
 });

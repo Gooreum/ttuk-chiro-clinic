@@ -79,8 +79,15 @@ const MODELS = {
   patient07: {crown: 1.5043, chin: 1.2129, back: -0.0539},
   patient08: {crown: 1.6227, chin: 1.3551, back: -0.1139},   // chin: see below (thick neck)
   patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
-  patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471}
+  patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471},
+  patient11: {crown: 1.6484, chin: 1.3876, back: -0.045}     // image-to-3D, see below
 };
+/* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
+   crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
+   (-0.083) but where the body lies on the table: the hair bulk held the head 4 cm up and the whole body floated over the
+   table, so the head sinks into the pillow a little instead. Clinic only: no towel-stage
+   copy, so the towel queue skips it (NO_STAGE) instead of asking for files that are not there. */
+const NO_STAGE = new Set(["patient11"]);
 /* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
    y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
    (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
@@ -391,7 +398,7 @@ const loading = {};
 const needModel = (id, towelStage = false) => loading[(towelStage ? "t:" : "") + id] || (loading[(towelStage ? "t:" : "") + id] = loadPatientModel(id, towelStage));
 function loadQueue(towelStage){
   const next = () => {
-    const id = [wantModel, ...Object.keys(MODELS)].find(i => MODELS[i] && !loading[(towelStage ? "t:" : "") + i]);
+    const id = [wantModel, ...Object.keys(MODELS)].find(i => MODELS[i] && !(towelStage && NO_STAGE.has(i)) && !loading[(towelStage ? "t:" : "") + i]);
     return id ? needModel(id, towelStage).catch(err => { console.warn("realistic patient not loaded, keeping primitives", id, err); }).then(next) : null;
   };
   return Promise.resolve().then(next);
@@ -1139,7 +1146,7 @@ export function setRealPatient(id, look){
   if(id && MODELS[id]) needModel(id).catch(() => {});   // the body on the table jumps the queue
   if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")){
     loadTowelCharacters();
-    if(id && MODELS[id]) needModel(id, true).catch(() => {});
+    if(id && MODELS[id] && !NO_STAGE.has(id)) needModel(id, true).catch(() => {});
   }
   const cur = current();
   restorePrimitiveHead();
