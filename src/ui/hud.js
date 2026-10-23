@@ -23,7 +23,10 @@ export function floater(text, dx, dy, cls, ms = 1000){
   domHud.floater(text, headScreen.x + dx,
     Math.min(headScreen.y + dy, (canvas.clientHeight || innerHeight) - 56), cls, ms);
 }
-export function renderPain(){ document.querySelectorAll(".pain i").forEach((el,i)=>{ el.classList.toggle("on", i < S.pain); el.hidden = i >= S.painMax; }); }
+export function renderPain(){
+  document.querySelectorAll(".pain i").forEach((el,i)=>{ el.classList.toggle("on", i < S.pain); el.hidden = i >= S.painMax; });
+  const p = $(".clinic-app .pain"); if(p) p.setAttribute("aria-label", t("통증 {n}회 / {max}회", {n: S.pain, max: S.painMax}));   // like back / side
+}
 export function renderDots(){
   const d = $("#dots"); d.textContent = "";
   // 심야 진료 (a list that keeps growing) and 보스 러시 (26 patients): a row of dots wrapped the chart's header to three lines (pt10b), so a count instead
@@ -53,15 +56,24 @@ export function renderChartSheet(target, idx, total, hint = ""){
 }
 let sheetTimer = 0;
 // fit the sheet on the screen: #app's pre-rotation size (input/orientation.js), never vh, which is the portrait viewport
-// when #app is rotated. --fx/--fy: how far it folds toward the small chart top left
+// when #app is rotated. --fx/--fy: how far it folds toward the small chart top left. Short screens (a landscape phone,
+// 320-430px) get the compact sheet (.short, style.css); the whole board with its clamp and tilt goes in 88% of the height
+// and nothing floors the scale, so it can't overflow (user: "차트 화면이 너무 커서 한번에 안보이고 잘려", 2026-10-23)
+const TILT = Math.sin(1.2*Math.PI/180), CLAMP_UP = 10;   // the board's rotate(-1.2deg), the clamp's top:-10px
 function fitSheet(el){
-  const app = $("#app"), b = el.querySelector(".board");
+  const app = $("#app"), b = el.querySelector(".board"), W = app.clientWidth, H = app.clientHeight;
+  el.classList.toggle("short", H < 460);
   b.style.setProperty("--fit", 1);
-  const k = Math.min(1, (app.clientHeight - 24)/b.offsetHeight, (app.clientWidth - 24)/b.offsetWidth);
-  b.style.setProperty("--fit", Math.max(0.6, k).toFixed(3));
-  b.style.setProperty("--fx", -0.38*app.clientWidth + "px");
-  b.style.setProperty("--fy", -0.38*app.clientHeight + "px");
+  const bw = b.offsetWidth, bh = b.offsetHeight;
+  // centred, so the clamp's overhang counts on both sides
+  const k = Math.min(1, H*0.88/(bh + bw*TILT + 2*CLAMP_UP), W*0.94/(bw + bh*TILT));
+  b.style.setProperty("--fit", k.toFixed(3));
+  b.style.setProperty("--fx", -0.38*W + "px");
+  b.style.setProperty("--fy", -0.38*H + "px");
 }
+// turned / resized while it is open: fit again (the rotation swaps #app's width and height)
+if(typeof ResizeObserver !== "undefined") new ResizeObserver(() => { if(S.chartOpen) fitSheet($("#chartSheet")); }).observe($("#app"));
+else addEventListener("resize", () => requestAnimationFrame(() => { if(S.chartOpen) fitSheet($("#chartSheet")); }));
 export function openChart(auto){
   if(!auto && (S.phase !== "play" || S.busy || S.chartOpen)) return;
   const el = $("#chartSheet");
@@ -88,8 +100,9 @@ export function setModeText(){
   $("#app").classList.toggle("towel-look", S.game === "towel");
   const key = matchMedia("(pointer: coarse)").matches ? "" : ' <span class="towel-key">' + t("· 스페이스") + "</span>";
   if(S.game === "towel"){
-    $("#mode").innerHTML = S.mode === "tilt" ? t("<b>위쪽을 몸 쪽으로 젖혀</b> 수건 장력 · <b>툭 당겨</b> 견인")
-      : t("<b>위아래 드래그</b>로 수건 장력 · <b>휙 쓸어서</b> 당기기") + key;
+    // 좌우 중심 too: a skew is an ambulance (2026-10-23 audit)
+    $("#mode").innerHTML = S.mode === "tilt" ? t("<b>위쪽을 젖혀</b> 장력 · <b>좌우로 기울여</b> 중심 · <b>툭 당겨</b> 견인")
+      : t("<b>위아래</b> 장력 · <b>좌우</b> 중심 · <b>휙 쓸어서</b> 당기기") + key;
     return;
   }
   $("#mode").innerHTML = S.mode === "tilt"

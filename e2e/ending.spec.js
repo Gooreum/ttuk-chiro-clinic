@@ -24,3 +24,23 @@ test("엔딩: 56일차를 처음 깨면 엔딩 카드가 뜬다", async ({ page 
   await expect(page.locator("#days")).toBeVisible();
   errs.check();
 });
+
+// 엔딩 다시 보기 (2026-10-23 audit): 결과 카드에서 엔딩 보기를 안 누르고 나가도 다음에 영업 일지를 열면 엔딩이 먼저 뜨고
+// (chiroCampaign.endingSeen 저장), 그 뒤로는 일지의 '엔딩 다시 보기' 칩으로 다시 본다.
+test("엔딩: 못 본 엔딩은 영업 일지에서 먼저 뜨고, 칩으로 다시 본다", async ({ page }) => {
+  const errs = watchErrors(page);
+  await page.addInitScript(() => { if(!sessionStorage.getItem("seeded")){ sessionStorage.setItem("seeded", "1"); localStorage.setItem("chiroCampaign", JSON.stringify({ cleared: 56, stars: Array(56).fill(2), hard: Array(56).fill(0), seen: [2, 3, 4, 5, 6, 7, 8] })); } });
+  await page.goto("./?days=1");
+  await expect(page.locator("#ending")).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("chiroCampaign")).endingSeen)).toBe(true);
+  await page.click("#endingClose");
+  await expect(page.locator("#days")).toBeVisible();
+  await expect(page.locator("#chEnding")).toBeVisible();
+  await page.click("#chEnding");
+  await expect(page.locator("#ending")).toBeVisible();
+  await page.click("#endingClose");
+  await page.reload();   // ?days=1 opens the 영업 일지 again: the list this time, the ending was seen
+  await expect(page.locator("#days")).toBeVisible();
+  await expect(page.locator("#ending")).toBeHidden();
+  errs.check();
+});

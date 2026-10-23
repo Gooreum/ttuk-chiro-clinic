@@ -149,10 +149,14 @@ export function towelReaction(name, burn = 0){
 
 // the big stamp on a wrong tug, and the day log chips
 export const TOWEL_STAMP = { over: "쭈와아악?!", slip: "쏙!", skew: "삐끗?!", taut: "빠직?!" };
-export const TOWEL_TAG = { over: "엿가락", slip: "헛당김", skew: "삐끗", taut: "금" };
-export function towelTags(fails){
-  const n = {}; (fails || []).forEach(k => { n[k] = (n[k] || 0) + 1; });
-  return Object.keys(TOWEL_TAG).filter(k => n[k]).map(k => `${TOWEL_TAG[k]} ×${n[k]}`);
+export const TOWEL_TAG = { over: "엿가락", slip: "헛당김", skew: "삐끗", taut: "금" };   // keys = dex ids t-<kind> (core/dex.js failId): keep them
+// a skew is always a crack or a break (skewTier) and an ambulance: its chip says which, not a mild 삐끗 (2026-10-23 audit)
+export const SKEW_TAG = { 1: "중심 금", 2: "중심 골절" };
+const towelTag = (k, tier) => (k === "skew" && SKEW_TAG[tier]) || TOWEL_TAG[k];
+const TAG_ORDER = ["엿가락", "헛당김", "중심 금", "중심 골절", "삐끗", "금"];
+export function towelTags(fails, tiers){
+  const n = {}; (fails || []).forEach((k, i) => { const tag = towelTag(k, tiers && tiers[i]); if(tag) n[tag] = (n[tag] || 0) + 1; });
+  return TAG_ORDER.filter(tag => n[tag]).map(tag => tag + " ×" + n[tag]);
 }
 // each patient's lines: tense as the tension reaches the band, tight past the limit (once each while aiming), ok after a good tug, over when the neck goes too long, slip when the towel comes off
 export const TOWEL_LINES = {

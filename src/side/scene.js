@@ -29,7 +29,7 @@ import {therapistStyle} from "../back/therapistMotion.js";
      goal       {height, roll} the target ring */
 
 const BASE = import.meta.env.BASE_URL + "models/side/";
-const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x7fd1b9};
+const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x8adfbf};   // ui/clinic-hud.css tokens (mint = --mint, as in back/scene.js)
 const CAM_ELEV = 40, CAM_AZ = 128, CAM_FOV = 38;
 export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)

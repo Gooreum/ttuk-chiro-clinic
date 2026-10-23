@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { watchErrors, waitNeckAssets } from "./helpers.js";
 
-const CLEARED = JSON.stringify({ cleared: 56, stars: Array(56).fill(3), hard: Array(56).fill(0) });
+// endingSeen: an unseen ending opens first on 영업 일지 (e2e/ending.spec.js)
+const CLEARED = JSON.stringify({ cleared: 56, stars: Array(56).fill(3), hard: Array(56).fill(0), endingSeen: true });
 
 test("심야 진료: 56일 전에는 타이틀과 영업 일지 양쪽에서 잠겨 있다", async ({ page }) => {
   const errs = watchErrors(page);

@@ -150,7 +150,7 @@ function loadPatient(){
 function bossCue(){
   if(S.phase !== "play" || !S.boss.length) return;
   // one pill per rule, one after the other (8장 has two; both in one pill was too long)
-  bossCues(S.boss).forEach((cue, i) => setTimeout(() => { if(S.phase === "play" && S.bossReady) coach(cue, 2200); }, i * 2400));
+  bossCues(S.boss, S.hard).forEach((cue, i) => setTimeout(() => { if(S.phase === "play" && S.bossReady) coach(cue, 2200); }, i * 2400));
 }
 /* swap: the patient changes his mind, the target is the opposite side's from now on (same head, same x-ray segment) */
 function swapAim(){
@@ -445,7 +445,7 @@ function towelHurt(kind){
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
   const cw = () => canvas.clientWidth || innerWidth, ch = () => canvas.clientHeight || innerHeight;
-  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "조금 너무 팽팽했어요!" : "수건이 너무 느슨했어요",
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "너무 팽팽했어요! 금 갔어요" : "수건이 너무 느슨했어요",
     kind === "over" ? "over" : tier ? (tier > 1 ? "break" : "crack") : "dud", kind === "slip" ? 1700 : 950);   // over / skew / taut: gone before the x-ray
   // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
   crackSound(kind === "slip" ? 2 : 3);
@@ -538,7 +538,7 @@ export function finish(){
     const rev = document.createElement("span"); rev.className = "rev";
     rev.textContent = "“" + tl((r.game ? r.game === "towel" : towel) ? towelReview(r, Math.random, usedReviews) : reviewLine(r, Math.random, usedReviews)) + "”";
     li.append(who, pts, st);
-    const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails) : failTags(r.fails, r.tiers);
+    const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails, r.tiers) : failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
       tags.forEach(t => { const i = document.createElement("i"), [k, n] = t.split(" ×"); i.textContent = tl(k) + " ×" + n; tg.appendChild(i); });
@@ -694,7 +694,21 @@ function openStory(day, hard = false){
   openStoryCard(day, hard);
 }
 const openStoryCard = (day, hard = false) => { qf.reset(); sf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
-function openDays(){ sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), tl("일지로"), openDays); }); }
+function openDays(){
+  // 56일 cleared but the ending card never opened (left the result card without 엔딩 보기): it comes first, once
+  if(endingDue(progress())){ openEnding(); return; }
+  sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress());
+  renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), tl("일지로"), openDays); }, () => { $("#days").hidden = true; openEnding(); });
+}
+/* 엔딩 (core/campaign.js ENDING): seen once -> chiroCampaign.endingSeen (readProgress keeps it; old saves have none), then
+   the 영업 일지's 엔딩 다시 보기 chip opens it again (2026-10-23 audit: endingPending lived in memory only, so leaving the
+   result card lost the ending for good) */
+const endingDue = prog => prog.cleared >= DAYS.length && !prog.endingSeen;
+function openEnding(){
+  const prog = progress();
+  if(!prog.endingSeen) store.set(CAMPAIGN_KEY, {...prog, endingSeen: true});
+  endingPending = false; $("#result").hidden = true; showEnding();
+}
 const qf = mountQuests({ start, back: openDays });
 const sf = mountSeason({ start, back: openDays, resetQuest: qf.reset });
 function dayEnd(complete, avg){
@@ -711,7 +725,7 @@ function dayEnd(complete, avg){
   if(S.hard && !cleared) out.textContent += tl(" 역경엔 이어하기가 없어요.");
   out.hidden = false;
   // the last day cleared for the first time: the next-day button becomes 엔딩 보기 (the ending card, core/campaign.js ENDING)
-  endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && before.cleared <= S.day;
+  endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && endingDue(after);
   $("#nextDay").textContent = tl(endingPending ? "엔딩 보기" : "다음 날");
   $("#nextDay").hidden = next < 0 && !endingPending;
   $("#toDays").hidden = false;
@@ -737,7 +751,7 @@ $("#storyHard").addEventListener("click", () => openStory(storyDay, !storyHard))
 $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; if(qf.sel >= 0) qf.list(); else if(sf.sel >= 0) sf.list(); else openDays(); });
 $("#nextDay").addEventListener("click", () => {
   $("#result").hidden = true;
-  if(endingPending){ endingPending = false; showEnding(); track(EV.click, { target: "ending" }); return; }
+  if(endingPending){ openEnding(); track(EV.click, { target: "ending" }); return; }
   if(S.day + 1 >= DAYS.length) return;   // no day after the last (the button is hidden then; the ending card is the way out)
   openStory(S.day + 1);
 });

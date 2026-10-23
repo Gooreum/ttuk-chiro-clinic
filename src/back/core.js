@@ -3,6 +3,7 @@ import {forceTier,failKind,FAIL_AMP,FORCE_AMP} from '../core/fail.js';
 import {crackProfile} from '../core/crack.js';
 import {scoreSuccess} from '../core/scoring.js';
 import {tightFactor} from '../core/feel.js';
+import {DAYS,dayOpen,hardOpen} from '../core/campaign.js';
 // Game-only pressure and motion curves. No DOM, rendering or device dependencies.
 export const TARGETS = [0.18, 0.50, 0.82];
 export const BACK_XRAY={start:.7,full:.9,release:1.25,released:2.65,fade:3.1,end:3.5};
@@ -109,3 +110,17 @@ export function punchProfile(t,at=SLOW.at){
   const u=t-at;
   return u<.1?ease(0,.1,u):1-ease(.1,.7,u);
 }
+// 영업 일지 day from back.html / side.html's URL (?day=N&hard=1&pain=1, game 'back' / 'side'). A day not open yet is refused
+// (locked: the page sends the player to the day list), 역경 needs the day's 3 stars (core/campaign.js hardOpen), and the
+// 통증 칸 +1 slot (the story card's ad or coupon) only counts on an open plain day reached by a fresh navigation, not a
+// reload or a back / forward (fresh). dev (shot / cases builds) opens any day: the e2e specs and cases jump straight in.
+export function dayQuery(search,prog,game,{fresh=true,dev=false}={}){
+  const q=new URLSearchParams(search),n=q.has('day')?Number(q.get('day')):NaN;
+  if(!Number.isInteger(n)||!DAYS[n]||DAYS[n].game!==game)return {day:-1,hard:false,pain:false,locked:false};
+  if(!dev&&!dayOpen(prog,n))return {day:-1,hard:false,pain:false,locked:true};
+  const hard=q.get('hard')==='1'&&(dev||hardOpen(prog,n));
+  return {day:n,hard,pain:!hard&&q.get('pain')==='1'&&(dev||fresh),locked:false};
+}
+// The result card's big title, the neck modes' rule (game/flow.js finish): the ambulance, then the pain limit (a 영업 일지
+// day short of the usual 3 pain slots shuts the clinic), then the mode's own success line.
+export const resultTitle=({ambulance,painOut,campaign,painMax},success)=>ambulance?'구급차가 왔어요':painOut?(campaign&&painMax<3?'영업 정지':'환자가 도망갔어요'):success;

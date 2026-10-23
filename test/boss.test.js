@@ -106,6 +106,14 @@ describe("7차 플레이테스트 additions", () => {
     expect(timerWarn(6)).toBe(false); expect(timerWarn(5)).toBe(true); expect(timerWarn(1)).toBe(true);
     expect(timerWarn(0)).toBe(false); expect(timerWarn(null)).toBe(false);
   });
+  it("says the clock it runs: 12 s, 9 s on 역경 (chip and cue, 2026-10-23 audit)", () => {
+    const i = DAYS.findIndex(d => d.boss && d.boss.includes("timer"));
+    expect(bossChips(DAYS[i])).toContain("한 쪽당 12초 안에 꺾기");
+    expect(bossChips(hardDay(i))).toContain("한 쪽당 9초 안에 꺾기");
+    expect(bossCues(["timer"])).toEqual(["한 쪽당 12초. 넘기면 -20점이에요"]);
+    expect(bossCues(["timer"], true)).toEqual(["한 쪽당 9초. 넘기면 -20점이에요"]);
+    expect(bossChips(hardDay(i)).join(" ")).not.toMatch(/\{/);
+  });
   it("shows the cues of a two-rule boss one at a time", () => {
     expect(bossCues(["taunt", "swap"]).length).toBe(2);
     expect(bossCues(["x"])).toEqual([]);

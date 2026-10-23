@@ -1,9 +1,10 @@
 /* Side-posture mode layout. Shared HUD lives in ui/clinic-hud.css; the lock / relock buttons, the impact words and the
    burst stamp share the back mode's look (src/back/style.css), so they are imported, not copied. */
 @import "../back/style.css";
-#sideApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room)}
-#sideApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px))}
-#sideApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px))}
+/* fixed like #backApp: the insets ride on --gl / --gr / --gb (see back/style.css) */
+#sideApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room);--gb:calc(12px + env(safe-area-inset-bottom,0px))}
+#sideApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px));--gb:calc(12px + env(safe-area-inset-left,0px))}
+#sideApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px));--gb:calc(12px + env(safe-area-inset-right,0px))}
 #sideCanvas,#sideHud{position:absolute;width:100%;height:100%;inset:0;display:block}
 #sideCanvas{touch-action:none;z-index:-1}
 #sideHud{pointer-events:none;z-index:1}
@@ -13,7 +14,7 @@
 #sideApp[data-phase=anim] > .bottom,#sideApp[data-phase=anim] #sideHud,#sideApp[data-phase=roll] > .bottom,#sideApp[data-phase=roll] #sideHud,
 #sideApp[data-phase=turn] > .bottom,#sideApp[data-phase=anim] #sideMotionNotice{visibility:hidden}
 /* "반대쪽으로" sits where the lock button sat, bigger: the one thing to do between the two sides */
-.flip-btn{z-index:5;bottom:calc(18px + env(safe-area-inset-bottom,0px));min-width:230px;font-size:24px;animation:lockReady .9s ease-in-out infinite}
+.flip-btn{z-index:5;bottom:calc(var(--gb) + 6px);min-width:230px;font-size:24px;animation:lockReady .9s ease-in-out infinite}
 .flip-btn[hidden]{display:none}
 /* comic captions for the gags (packed roll-over, twisted exit ...): one fixed spot, one at a time */
 .side-gag{position:absolute;left:50%;bottom:22%;transform:translateX(-50%) rotate(-3deg);z-index:4;pointer-events:none;
@@ -44,13 +45,9 @@
    not on the film; a disaster keeps the one burst, not the stamp too. #sideSpeech is placed inline, hence !important. */
 #sideApp.xray-on .float,#sideApp.xray-on #sideImpact{visibility:hidden}
 #sideApp.xray-burst .stamp-card{opacity:0}
-/* 33차: 척추 왼쪽 아래 끝을 가리던 자리(60%)에서 왼쪽 위 구석(차트 아래)으로 옮긴다 */
-#sideApp.xray-on .stamp-card{left:12%;top:26%;max-width:18%;padding:8px 10px 7px;transform:translate(-50%,-50%) rotate(-9deg) scale(.8);animation:none}
-#sideApp.xray-on .stamp-card b{font-size:24px}
-#sideApp.xray-on .stamp-card small{font-size:11px}
-#sideApp.xray-on .bubble{left:90%!important;top:82%!important;max-width:18%!important}
-#sideApp .cut-label.burst{left:10%;top:76px;max-width:19%;padding:7px 10px 8px;white-space:normal;font-size:clamp(18px,3.4cqw,24px)}
-/* 영업 일지 day (side.html?day=N) */
-#sideApp .day-no{margin:0;font:600 13px 'IBM Plex Sans KR',sans-serif;color:var(--coral,#ff7a59)}
-#sideApp .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;color:#17312c;border-radius:8px;padding:8px 10px}
+/* the stamp folds into the top-left corner like every mode's film (ui/clinic-hud.css .clinic-app.xray-on .stamp-card).
+   The side bands start at the safe gutters (--gl / --gr): the bubble's right edge and the burst's left edge sit on them. */
+#sideApp.xray-on .bubble{left:calc(100% - var(--gr) - 9%)!important;top:82%!important;max-width:18%!important}
+#sideApp .cut-label.burst{left:calc(var(--gl) + 9.5%);top:76px;max-width:19%;padding:7px 10px 8px;white-space:normal;font-size:clamp(18px,3.4cqw,24px)}
+/* 영업 일지 day (side.html?day=N): .day-no / .day-outro are shared (ui/clinic-hud.css) */
 #sideApp a.btn{display:block;text-align:center;text-decoration:none}

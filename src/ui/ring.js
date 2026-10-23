@@ -202,7 +202,10 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const x = Math.min(cx + Math.max(R*1.7, 136), Wd - 76), top = clamp(cy - h*0.55, 82, H - h - 28);
   const over = t > tg.limit, taut = !over && t > tg.mid + tg.half;
   const colors = {bone:C_BONE,coral:C_CORAL,mint:C_MINT};
-  drawVGauge(ctx,{x,top,h,value:t,band:[tg.mid-tg.half,tg.mid+tg.half],limit:tg.limit,title:tr("수건 장력"),hot:zone||over||taut,colors});
+  // zone guide off (S.idx >= S.zoneUntil, every 역경): like the neck ring's green zone, the band and the words that give it
+  // away go; the limit line and 너무 팽팽해요 past it stay (2026-10-23 audit). A zero band at the limit = no band, no crack fill
+  const guide = S.idx < S.zoneUntil;
+  drawVGauge(ctx,{x,top,h,value:t,band:guide ? [tg.mid-tg.half,tg.mid+tg.half] : [tg.limit,tg.limit],limit:tg.limit,title:tr("수건 장력"),hot:over||(guide && (zone||taut)),colors});
   breathArc(ctx, now, br, fade, cx, cy, R);
   breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
@@ -215,7 +218,8 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const by = clamp((zR.w ? zR.bottom : H - 12) - 19, 40, H - 20);
   drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:tr("좌우 중심"),colors});
   // over the card: what to do
-  const msg = tr(over || taut ? "너무 팽팽해요!" : zone ? "지금! 툭 당겨요" : offC && towelTension(S.cur.bend) > tg.mid - tg.half - 0.2 ? "좌우 중심을 맞춰요" : t > tg.mid - tg.half - 0.2 ? "조금 더" : "");
-  drawHint(ctx,{x:mx,y:by-40,text:msg,hot:zone||over||offC,colors});
+  const near = guide ? t > tg.mid - tg.half - 0.2 : t > 0.15;
+  const msg = tr(over || (guide && taut) ? "너무 팽팽해요!" : guide && zone ? "지금! 툭 당겨요" : offC && near ? "좌우 중심을 맞춰요" : guide && near ? "조금 더" : "");
+  drawHint(ctx,{x:mx,y:by-40,text:msg,hot:over||offC||(guide && zone),colors});
   ctx.globalAlpha = 1;
 }

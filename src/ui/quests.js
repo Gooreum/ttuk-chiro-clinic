@@ -57,8 +57,8 @@ export function showQuestStory(q){
   const chip = (text, warn) => { const i = document.createElement("i"); i.textContent = t(text); if(warn) i.className = "warn"; rules.appendChild(i); };
   chip(GAME_NAME[q.game]);
   chip(t("환자 {n}명",{n:q.patients.length}), q.rule === "many");
-  chip(t("통증 {n}번이면 영업 끝",{n:q.painMax}), q.painMax < 3);
-  chip("구역 안내 없음", true);
+  chip(t("통증 {n}번이면 끝",{n:q.painMax}), q.painMax < 3);
+  chip("초록 구역 안내 없음", true);
   if(q.mods && q.mods.tight) chip("구역이 좁아요", true);
   if(q.mods && q.mods.noisy) chip("숨 안내 없음", true);
   if(q.beat) chip(t("의뢰 · 평균 {n}점 넘기기",{n:q.beat}), true);

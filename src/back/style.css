@@ -1,7 +1,10 @@
 /* Back scene layout and mode-specific effects. Shared HUD lives in ui/clinic-hud.css. */
-#backApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room)}
-#backApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px))}
-#backApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px))}
+/* The app is position:fixed at innerWidth x innerHeight (main.js resize), so the root's safe-area padding does not reach
+   it: --gl / --gr / --gb carry the insets. Self-rotated, the app's left edge is the screen's top (rot90) or bottom
+   (rot270) and its bottom edge the screen's left (rot90) or right (rot270). */
+#backApp{position:fixed;overflow:hidden;transform-origin:0 0;isolation:isolate;container-type:size;background:var(--room);--gb:calc(12px + env(safe-area-inset-bottom,0px))}
+#backApp.self-rotated{--gl:calc(16px + env(safe-area-inset-top,0px));--gr:calc(16px + env(safe-area-inset-bottom,0px));--gb:calc(12px + env(safe-area-inset-left,0px))}
+#backApp.self-rotated.rot270{--gl:calc(16px + env(safe-area-inset-bottom,0px));--gr:calc(16px + env(safe-area-inset-top,0px));--gb:calc(12px + env(safe-area-inset-right,0px))}
 #backCanvas,#backHud{position:absolute;width:100%;height:100%;inset:0;display:block}
 #backCanvas{touch-action:none;z-index:-1}
 #backHud{pointer-events:none;z-index:1}
@@ -9,18 +12,18 @@
 #backApp > .top,#backApp > .bottom{z-index:2}
 /* Height first (front/back tilt), then 고정 opens left/right + push; 높이 다시 goes back (user, 2026-10-18). */
 .lock-btn{pointer-events:auto;position:absolute;left:50%;bottom:0;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;
-  min-width:190px;padding:9px 26px 11px;border:2px solid #f4efe4;border-radius:999px;background:linear-gradient(180deg,#9fe6cf,#7fd1b9);color:#0f231f;
-  font:400 21px var(--display);letter-spacing:.02em;cursor:pointer;box-shadow:0 0 0 4px #7fd1b933,0 10px 24px #0f231f88;transition:transform .08s}
+  min-width:190px;padding:9px 26px 11px;border:2px solid var(--paper);border-radius:999px;background:linear-gradient(180deg,var(--mint-hi),var(--mint));color:var(--room-deep);
+  font:400 21px var(--display);letter-spacing:.02em;cursor:pointer;box-shadow:0 0 0 4px rgba(138,223,191,.2),0 10px 24px rgba(15,35,31,.53);transition:transform .08s}
 .lock-btn small{font:700 10px var(--body);letter-spacing:.08em;opacity:.7}
 .lock-btn:active{transform:translateX(-50%) scale(.95)}
 .lock-btn.ready{animation:lockReady .9s ease-in-out infinite}
-@keyframes lockReady{50%{box-shadow:0 0 0 10px #7fd1b955,0 0 34px #7fd1b9cc,0 10px 24px #0f231f88}}
+@keyframes lockReady{50%{box-shadow:0 0 0 10px rgba(138,223,191,.33),0 0 34px rgba(138,223,191,.8),0 10px 24px rgba(15,35,31,.53)}}   /* --mint at .33 / .8 */
 .relock-btn{pointer-events:auto;position:absolute;right:0;bottom:calc(50cqh - 40px);display:flex;flex-direction:column;align-items:center;gap:5px;
-  width:62px;padding:10px 0 9px;border:1.5px solid #7fd1b9;border-radius:18px;background:rgba(15,35,31,.86);color:#7fd1b9;backdrop-filter:blur(6px);
+  width:62px;padding:10px 0 9px;border:1.5px solid var(--mint);border-radius:18px;background:rgba(15,35,31,.86);color:var(--mint);backdrop-filter:blur(6px);
   font:700 11px/1.2 var(--body);text-align:center;cursor:pointer;box-shadow:0 6px 18px #0f231f80;transition:transform .08s}
 .relock-btn:active{transform:scale(.94)}
-.relock-btn i{position:relative;width:2px;height:20px;background:#7fd1b9;border-radius:1px}
-.relock-btn i::before,.relock-btn i::after{content:"";position:absolute;left:50%;width:8px;height:8px;border:solid #7fd1b9;border-width:2px 0 0 2px;transform:translateX(-50%) rotate(45deg)}
+.relock-btn i{position:relative;width:2px;height:20px;background:var(--mint);border-radius:1px}
+.relock-btn i::before,.relock-btn i::after{content:"";position:absolute;left:50%;width:8px;height:8px;border:solid var(--mint);border-width:2px 0 0 2px;transform:translateX(-50%) rotate(45deg)}
 .relock-btn i::before{top:-1px}.relock-btn i::after{bottom:-1px;transform:translateX(-50%) rotate(225deg)}
 #backMotionNotice{pointer-events:auto;white-space:normal;width:max-content;max-width:90%;text-align:center}
 #backApp.face-closeup > .top,#backApp.face-closeup > .bottom,#backApp.face-closeup #backHud,
@@ -61,10 +64,6 @@
   box-shadow:0 0 0 5px #ff7a5950,0 0 40px #ff7a59aa,0 12px 28px #0f231fa0;animation:burstStamp .34s cubic-bezier(.2,1.7,.4,1) both}
 .cut-label.burst small{display:block;margin-top:3px;font:700 11px var(--body);letter-spacing:.04em;opacity:.88}
 @keyframes burstStamp{from{transform:translateX(-50%) scale(2.1) rotate(-8deg);opacity:0}to{transform:translateX(-50%) scale(1) rotate(-2deg);opacity:1}}
-/* 영업 일지 day (back.html?day=N) */
-#backApp .day-no{margin:0;font:600 13px 'IBM Plex Sans KR',sans-serif;color:var(--coral,#ff7a59)}
-#backApp .day-outro{margin:0;font-size:13.5px;line-height:1.5;background:#e9e2d2;color:#17312c;border-radius:8px;padding:8px 10px}
+/* 영업 일지 day (back.html?day=N): .day-no / .day-outro are shared (ui/clinic-hud.css). The film's stamp tuck (31차) is
+   the shared .clinic-app.xray-on rule there too. */
 #backApp a.btn{display:block;text-align:center;text-decoration:none}
-
-/* 31차: 필름이 열리면 PERFECT·실패 도장을 왼쪽 위 구석으로 접어 척추 왼쪽을 가리지 않게 한다(27차 .tuck과 같은 자리) */
-#backApp.xray-on .stamp-card{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}

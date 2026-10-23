@@ -2,7 +2,8 @@ import { t as tr } from "../i18n/index.js";
 import { clamp } from "../lib/math.js";
 
 // Pure canvas instruments shared by neck traction and back pressing. All values are normalized by the caller.
-const DEFAULT_COLORS = {bone:"#f1eadc", coral:"#ff7a59", mint:"#8adfbf"};
+const DEFAULT_COLORS = {bone:"#f1eadc", coral:"#ff7a59", mint:"#8adfbf"};   // ui/clinic-hud.css --bone, --coral, --mint
+export const GAUGE_COLORS = DEFAULT_COLORS;
 
 // x of a gauge on the left edge (back / side modes): its card (x-35 .. x+55) stays clear of the notch / Dynamic Island.
 // gl is the app's --gl (16px + the left safe-area inset, the top / bottom one when self-rotated); 43 when there is none
