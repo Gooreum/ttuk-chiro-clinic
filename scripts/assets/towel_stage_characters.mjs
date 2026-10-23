@@ -76,7 +76,7 @@ for(const pid of (process.env.ASSET_IDS?.split(',') || ['patient01','patient02',
  const out=path.join(work,`${pid}-${part}`);fs.mkdirSync(out,{recursive:true});const jobs=[];
  for(const node of d.getRoot().listNodes())for(const prim of node.getMesh()?.listPrimitives()||[]){
   const m=prim.getMaterial(),name=m.getName(),tex=m.getBaseColorTexture();if(!tex)continue;
-  const kind=name.endsWith('.body')?'face':name.endsWith('.skin')?'skin':name.endsWith('.shirt')?'shirt':name.endsWith('.pants')?'pants':/\.(short|bob)/.test(name)?'hair':name.endsWith('.sleeve')?'sleeve':null;
+  const kind=name.endsWith('.body')?'face':name.endsWith('.skin')?'skin':name.endsWith('.shirt')?'shirt':name.endsWith('.pants')?'pants':/\.(short|bob|ponytail|long|braid|afro)/.test(name)?'hair':name.endsWith('.sleeve')?'sleeve':null;
   if(!kind)continue;
   const stem=path.join(out,kind);fs.writeFileSync(stem+'.image',tex.getImage());const wp=worldPositions(node,prim);
   fs.writeFileSync(stem+'.json',JSON.stringify({pid,kind,positions:wp,uv:prim.getAttribute('TEXCOORD_0')?.getArray()?Array.from(prim.getAttribute('TEXCOORD_0').getArray()):null,indices:Array.from(prim.getIndices().getArray())}));
@@ -87,7 +87,7 @@ for(const pid of (process.env.ASSET_IDS?.split(',') || ['patient01','patient02',
   if(kind==='face'){
    // Individual facial planes, in metres. Preserve every point at and below the jaw/neck attachment.
    const P=prim.getAttribute('POSITION'),a=P.getArray(),W=new THREE.Matrix4().fromArray(node.getWorldMatrix()),inv=W.clone().invert(),top=Math.max(...wp.map(p=>p[1]));
-   for(let i=0;i<P.getCount();i++){const [x,y,z]=wp[i],rel=top-y;if(rel<.055||rel>.225||z<.075)continue;const cheek=Math.exp(-(((Math.abs(x)-.045)/.026)**2)-((rel-.145)/.038)**2),nose=Math.exp(-((x/.018)**2)-((rel-.132)/.035)**2); const idx=Number(pid.slice(-1)),dx=(idx===3?.002:idx===5?.0025:idx===4?-.001:.001)*cheek*Math.sign(x),dz=(idx===1?.003:idx===2?-.001:idx===3?.004:idx===4?.002:.003)*nose;v3.set(x+dx,y,z+dz).applyMatrix4(inv);a.set(v3.toArray(),i*3);}
+   for(let i=0;i<P.getCount();i++){const [x,y,z]=wp[i],rel=top-y;if(rel<.055||rel>.225||z<.075)continue;const cheek=Math.exp(-(((Math.abs(x)-.045)/.026)**2)-((rel-.145)/.038)**2),nose=Math.exp(-((x/.018)**2)-((rel-.132)/.035)**2); const idx=Number(pid.slice(-2)),dx=(idx===3?.002:idx===5?.0025:idx===4||idx===7?-.001:idx===6?-.0015:idx===8?.003:.001)*cheek*Math.sign(x),dz=(idx===1?.003:idx===2?-.001:idx===3?.004:idx===4||idx===7?.002:idx===10?.0015:.003)*nose;v3.set(x+dx,y,z+dz).applyMatrix4(inv);a.set(v3.toArray(),i*3);}
   }
   if(kind==='hair'){
    const P=prim.getAttribute('POSITION'),a=P.getArray(),W=new THREE.Matrix4().fromArray(node.getWorldMatrix()),inv=W.clone().invert(),top=Math.max(...wp.map(p=>p[1]));for(let i=0;i<P.getCount();i++){let [x,y,z]=wp[i];const t=Math.max(0,1-(top-y)/.12);if(pid==='patient01'){x+=t*.006;y+=Math.max(0,-x)*t*.12;}if(pid==='patient03'){y+=t*(.006+.004*Math.sin(x*190+z*90));x+=t*.004*Math.sin(z*110);}if(pid==='patient04')x*=1+.035*(1-t);v3.set(x,y,z).applyMatrix4(inv);a.set(v3.toArray(),i*3);}

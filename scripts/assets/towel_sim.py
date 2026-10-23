@@ -31,7 +31,7 @@
    - material towel.cloth: off-white albedo made from the photo terry texture's luminance, its normal map, tiling at
      real scale (one tile = 0.367 m), roughness 0.95, sheen; a greyer flat woven (dobby) band near each end and a hem
      line as vertex colour.
-   All five meshes go under one empty `towel_sim` (identity) in out_raw.glb."""
+   All the patients' meshes go under one empty `towel_sim` (identity) in out_raw.glb."""
 import bpy, sys, os, math
 import numpy as np
 from mathutils import Vector, Matrix
@@ -53,6 +53,11 @@ MODELS = {
     "patient03": (1.6278, 1.3606, -0.0611),
     "patient04": (1.495, 1.2016, -0.0559),
     "patient05": (1.6113, 1.3546, -0.0749),
+    "patient06": (1.6273, 1.3669, -0.0612),
+    "patient07": (1.5043, 1.2129, -0.0539),
+    "patient08": (1.6227, 1.3551, -0.1139),
+    "patient09": (1.4897, 1.1960, -0.0375),
+    "patient10": (1.3196, 1.0637, -0.0471),
 }
 PRIM = (-0.134, 0.142, -0.110)          # crown z, chin z, back y (head-local)
 GRIP = (0.118, 0.03, 0.035)             # TOWEL_GRIP, s = +1 (x mirrored for the right fist)
@@ -269,7 +274,12 @@ def catmull(P, n=24):
     return np.array(out)
 
 
-def landmarks(bvh):
+# chin edge override (head-local z): the child's lips make a sharper step in the front profile than his small chin, so
+# the steepest-drop search lands on the mouth (z 0.030) and the X would cross his lips
+CHIN_EDGE = {"patient10": 0.074}
+
+
+def landmarks(bvh, pid=None):
     def ray(o, d):
         hit = bvh.ray_cast(H(*o), H(*d))[0]
         return HL(hit) if hit is not None else None
@@ -280,7 +290,7 @@ def landmarks(bvh):
         front.append(h[1] if h is not None else np.nan)
     front = np.array(front)
     drop = np.nan_to_num(front[:-4]-front[4:], nan=-1.0)    # the chin's underside: the front profile falls away
-    zc = float(zs[int(np.argmax(drop))+2])
+    zc = CHIN_EDGE.get(pid, float(zs[int(np.argmax(drop))+2]))
     zn = zc + 0.022
     f = ray((0, 0.3, zn), (0, -1, 0))
     b = ray((0, -0.3, zn), (0, 1, 0))
@@ -294,7 +304,7 @@ def build_start(pid, bvh_skin, bvh_all):
     TOWEL_PULL toward -z, the loop drawn up snug under the occiput and into the chin). These are the cloth's goal
     shapes: the sim hangs the band on them with soft goal springs (stiff in the fists, none in the loose ends), so
     gravity, the body and the cloth's own stiffness make the sag, folds and the hang of the ends."""
-    zc, zn, yc, ray = landmarks(bvh_skin)
+    zc, zn, yc, ray = landmarks(bvh_skin, pid)
 
     def surf(theta, z, gap):
         """the skin round the neck axis at (angle, z): from the axis outward on the neck (the first skin it meets), from
@@ -829,7 +839,7 @@ def main():
             for s, lab in ((1, "left"), (-1, "right")):
                 i = np.argmin(np.abs(u - s*(LENGTH/2)))
                 print(f"END {pid} {nm} {lab} tail tip head-local {np.round(S[i, NV//2], 3)}")
-        if PREVIEW and pid in ("patient01", "patient04"):
+        if PREVIEW and pid in os.environ.get("TOWEL_PREVIEW_IDS", "patient01,patient04").split(","):
             if "towel_sim_cloth" in bpy.data.objects:
                 bpy.data.objects["towel_sim_cloth"].hide_viewport = True
             preview(pid, ob)

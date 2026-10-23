@@ -12,7 +12,8 @@ const {NodeIO}=require('@gltf-transform/core'),{ALL_EXTENSIONS}=require('@gltf-t
 await Promise.all([MeshoptDecoder.ready,MeshoptEncoder.ready]);
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.decoder':MeshoptDecoder,'meshopt.encoder':MeshoptEncoder});
 const work=process.argv[2]||'/private/tmp/ttuk-therapist-detail';fs.mkdirSync(work,{recursive:true});
-const files=['public/models/towel-stage/hands/arms.glb','public/models/towel-stage/therapist/therapist.glb','public/models/towel-stage/room.glb','public/models/towel-stage/towel/towel_sim.glb'];
+// DETAIL_FILES=towel_sim (comma list of file-name fragments, matched on the base name) re-details only those files, e.g. after re-baking the towel sim.
+const files=['public/models/towel-stage/hands/arms.glb','public/models/towel-stage/therapist/therapist.glb','public/models/towel-stage/room.glb','public/models/towel-stage/towel/towel_sim.glb'].filter(f=>!process.env.DETAIL_FILES||process.env.DETAIL_FILES.split(',').some(k=>path.basename(f).includes(k)));
 const vec=a=>new T.Vector3().fromArray(a),mat=a=>new T.Matrix4().fromArray(a),smooth=(a,b,x)=>{const t=T.MathUtils.clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 function geometry(node,p){
  const P=p.getAttribute('POSITION'),sk=node.getSkin(),positions=[],transforms=[];

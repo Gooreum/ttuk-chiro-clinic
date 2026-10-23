@@ -19,7 +19,7 @@ P="bl_ext.user_default.mpfb"
 HS=importlib.import_module(P+".services.humanservice").HumanService
 TS=importlib.import_module(P+".services.targetservice").TargetService
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from patients import human_info
+from patients import human_info, fit_scale, CHIN_TIP, PATIENTS
 ARGS=sys.argv[sys.argv.index("--")+1:]
 OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if len(ARGS)>2 else 16
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
@@ -47,9 +47,10 @@ def group_verts(o, names):
     return {v.index for v in o.data.vertices if any(g.group in idx and g.weight>0 for g in v.groups)}
 helper=group_verts(body, ["HelperGeometry","JointCubes"])
 top=max((mw@v.co).z for v in body.data.vertices if v.index not in helper)
-CUT=top-0.30
-print("TOP", round(top,4), "CUT", round(CUT,4))
-def head_keeps(p): return not (p.z < CUT or (p.z < top-0.225 and abs(p.x) > 0.072))
+K=fit_scale(PID, top, (mw@body.data.vertices[CHIN_TIP].co).z)     # 1.0 for adult-sized bodies (patients.py)
+CUT=top-0.30*K
+print("TOP", round(top,4), "CUT", round(CUT,4), "FIT", round(K,4))
+def head_keeps(p): return not (p.z < CUT or (p.z < top-0.225*K and abs(p.x) > 0.072*K))
 headv={v.index for v in body.data.vertices if v.index not in helper and head_keeps(mw@v.co)}
 # hidden under the clothes (MPFB's delete-group mask modifiers)
 hidden=set()
@@ -105,11 +106,11 @@ SHIRT0=bvh_of([cloth])
 def front(x, z):
     """point and outward normal of the shirt's front at (x, z)"""
     hit=SHIRT0.ray_cast(Vector((x, -1.0, z)), Vector((0, 1, 0)))
-    return (hit[0], hit[1]) if hit[0] else (Vector((x, -0.14, z)), Vector((0, -1, 0)))
-X_HAND={"r": 0.085, "l": 0.10}  # wrists this far from the midline
+    return (hit[0], hit[1]) if hit[0] else (Vector((x, -0.14*K, z)), Vector((0, -1, 0)))
+X_HAND={"r": 0.085*K, "l": 0.10*K}  # wrists this far from the midline
 T_HAND={"r": 0.34, "l": 0.37}    # wrist height, fraction pelvis -> clavicle (navel): the under hand a little lower
 D_HAND={"r": -0.35, "l": -0.50}  # hands slope toward the feet as they cross the midline
-GAP={"r": 0.02, "l": 0.04}       # wrist bone in front of the shirt (solved below so the palms just touch)
+GAP={"r": 0.02*K, "l": 0.04*K}   # wrist bone in front of the shirt (solved below so the palms just touch)
 CURL={"r": (4, 9, 15), "l": (6, 14, 22)}  # finger segments bend toward the belly (degrees from the palm plane, cumulative): relaxed
 THUMB={"r": (-3, 0, 3), "l": (-12, -4, 2)}  # thumbs lie along the index, the top one lifted (at rest they would dig in)
 POLE={"r": 1.2, "l": 1.2}        # elbow pole (out, back): back toward the table until the forearm would cut the shirt
@@ -122,7 +123,7 @@ def pose_arms():
         P0,_=front(x, z); Wr=Vector((x, P0.y-GAP[sd], z))
         # the hand lies along the belly: fingers toward the midline and the feet, palm facing the shirt under its middle
         D=Vector((-s, 0.0, D_HAND[sd])).normalized()
-        _,Nm=front(x+0.08*D.x, z+0.08*D.z); Pt,_=front(x+0.16*D.x, z+0.16*D.z)
+        _,Nm=front(x+0.08*K*D.x, z+0.08*K*D.z); Pt,_=front(x+0.16*K*D.x, z+0.16*K*D.z)
         D=(Pt-P0).normalized(); N=-Nm
         # two-bone IK: elbow on the circle around shoulder->wrist, toward the pole (out and back to the table)
         S=head(ua); Lu=(head(la)-S).length; Lf=LF[sd]
@@ -259,6 +260,26 @@ keep_faces(pants, pants_faces)
 for o in (cloth, pants):
     for g in list(o.vertex_groups): o.vertex_groups.remove(g)
     print("CLOTH", o.name, len(o.data.vertices), "verts", sum(len(p.vertices)-2 for p in o.data.polygons), "tris")
+# optional (patients.py "tuck"): skin that pokes through the shirt (extreme muscle/weight: shoulders, trapezius) is pulled
+# back under it. Only skin whose nearest shirt face is an inner face (no hem/collar/sleeve-edge vertex) is touched.
+TUCK=PATIENTS[PID].get("tuck", 0.0)
+if TUCK:
+    sh=cloth.data; edge_count={}
+    for e in sh.edges: edge_count[e.key]=0
+    for pl in sh.polygons:
+        for k in pl.edge_keys: edge_count[k]+=1
+    rim={i for k,c in edge_count.items() if c==1 for i in k}
+    near_rim={pl.index for pl in sh.polygons if any(i in rim for i in pl.vertices)}
+    tr=BVHTree.FromPolygons([v.co for v in sh.vertices], [list(pl.vertices) for pl in sh.polygons])
+    moved=0
+    for v in body.data.vertices:
+        loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
+        if loc is None or fi in near_rim: continue
+        d=(v.co-loc).dot(nrm)
+        # poke-through is shallow and the skin faces the same way as the shirt (a forearm lying on the belly faces it)
+        if -TUCK < d < 0.01 and v.normal.dot(nrm) > 0.5:
+            v.co=loc-nrm*TUCK; moved+=1
+    print("TUCK", TUCK, "skin verts pulled under the shirt", moved)
 # AO + normal only: the colour comes from the game palette
 for o,name in ((cloth,"patient.shirt"),(pants,"patient.pants")):
     fm=bpy.data.materials.new(name); fm.use_nodes=True
@@ -311,22 +332,22 @@ def bell(t, c, r):
 def rise(z):
     """Chest leads, the belly follows softly; both fade out before the pelvis and the collarbones."""
     t=(z-Z_PELVIS)/(Z_CLAV-Z_PELVIS)
-    return BREATH_CHEST*bell(t, 0.68, 0.36) + BREATH_BELLY*bell(t, 0.3, 0.3)
+    return (BREATH_CHEST*bell(t, 0.68, 0.36) + BREATH_BELLY*bell(t, 0.3, 0.3))*K
 def breath_key(o, yc):
     o.shape_key_add(name="Basis", from_mix=False)
     k=o.shape_key_add(name="breath", from_mix=False)
     for v,d in zip(o.data.vertices, k.data):
         p=v.co
-        front=smooth(-0.02, 0.1, yc - p.y)                  # 0 behind the torso's mid-depth, 1 toward the front
-        side=smooth(0.0, 1.0, 1.0 - abs(p.x)/0.24)
+        front=smooth(-0.02*K, 0.1*K, yc - p.y)              # 0 behind the torso's mid-depth, 1 toward the front
+        side=smooth(0.0, 1.0, 1.0 - abs(p.x)/(0.24*K))
         r=rise(p.z)*front*side
         # the rib cage widens a little with the chest, not the belly
-        wide=0.25*BREATH_CHEST*bell((p.z-Z_PELVIS)/(Z_CLAV-Z_PELVIS), 0.68, 0.36)*front*side
+        wide=0.25*BREATH_CHEST*K*bell((p.z-Z_PELVIS)/(Z_CLAV-Z_PELVIS), 0.68, 0.36)*front*side
         # shoulders and the top of the arms ride up, well clear of the neck seam (|x| <= 0.072)
-        sh=smooth(0.11, 0.18, abs(p.x))*smooth(Z_CLAV-0.32, Z_CLAV-0.12, p.z)
-        d.co=p+Vector((wide*(1 if p.x>0 else -1), -r, SHRUG*sh))     # rises, widens, shrugs
+        sh=smooth(0.11*K, 0.18*K, abs(p.x))*smooth(Z_CLAV-0.32*K, Z_CLAV-0.12*K, p.z)
+        d.co=p+Vector((wide*(1 if p.x>0 else -1), -r, SHRUG*K*sh))     # rises, widens, shrugs
     k.value=0.0
-ys=[v.co.y for v in cloth.data.vertices if abs(v.co.z-Z_CHEST)<0.05 and abs(v.co.x)<0.12]
+ys=[v.co.y for v in cloth.data.vertices if abs(v.co.z-Z_CHEST)<0.05*K and abs(v.co.x)<0.12*K]
 yc=(min(ys)+max(ys))/2 if ys else 0.0
 print("TORSO yc %.3f" % yc)
 for o in (body, cloth): breath_key(o, yc)
@@ -335,14 +356,14 @@ for o in (body, cloth): breath_key(o, yc)
 ab=bpy.data.armatures.new("patient_body"); ao_=bpy.data.objects.new("patient_body", ab); bpy.context.collection.objects.link(ao_)
 bpy.context.view_layer.objects.active=ao_; bpy.ops.object.mode_set(mode="EDIT")
 r=ab.edit_bones.new("body"); r.head=(0,0,Z_PELVIS); r.tail=(0,0,Z_PELVIS+0.1)
-n=ab.edit_bones.new("neck"); n.head=(0,0,CUT-0.03); n.tail=(0,0,CUT+0.05); n.parent=r
+n=ab.edit_bones.new("neck"); n.head=(0,0,CUT-0.03*K); n.tail=(0,0,CUT+0.05*K); n.parent=r
 bpy.ops.object.mode_set(mode="OBJECT")
 for o in (body, cloth, pants):
     gb=o.vertex_groups.new(name="body"); gn=o.vertex_groups.new(name="neck")
     nn=0
     for v in o.data.vertices:
         _,_,dist=tree.find(o.matrix_world@v.co)
-        w=max(0.0, 1.0 - dist/NECK_FADE); w=w*w*(3-2*w)
+        w=max(0.0, 1.0 - dist/(NECK_FADE*K)); w=w*w*(3-2*w)
         if w>0.001: gn.add([v.index], w, "REPLACE"); nn+=1
         if w<0.999: gb.add([v.index], 1.0-w, "REPLACE")
     print("NECK WEIGHTS", o.name, nn)

@@ -16,7 +16,10 @@ const {MeshoptDecoder,MeshoptEncoder}=require('meshoptimizer');
 await Promise.all([MeshoptDecoder.ready,MeshoptEncoder.ready]);
 const io=new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({'meshopt.decoder':MeshoptDecoder,'meshopt.encoder':MeshoptEncoder});
 const work=process.argv[2]||'/private/tmp/ttuk-hand-anatomy';fs.mkdirSync(work,{recursive:true});
-const files=['public/models/hands/arms.glb','public/models/towel-stage/hands/arms.glb',...['01','02','03','04','05'].map(n=>`public/models/towel-stage/patient${n}/body.glb`)];
+// ASSET_IDS=06,07 (or patient06,...) sculpts only those towel patient bodies and leaves both arms GLBs alone;
+// HAND_TEMPLATE (optional) is the unsculpted clinic arms GLB used for the landmark transfer.
+const assetIds=process.env.ASSET_IDS?.split(',').map(n=>n.replace(/^patient/,'').padStart(2,'0'));
+const files=assetIds?assetIds.map(n=>`public/models/towel-stage/patient${n}/body.glb`):['public/models/hands/arms.glb','public/models/towel-stage/hands/arms.glb',...['01','02','03','04','05'].map(n=>`public/models/towel-stage/patient${n}/body.glb`)];
 const vec=a=>new THREE.Vector3().fromArray(a),gauss=(x,w)=>Math.exp(-((x/w)**2)),smooth=(a,b,x)=>{const t=THREE.MathUtils.clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 function acc(d,a,type){return d.createAccessor().setType(type).setArray(a).setBuffer(d.getRoot().listBuffers()[0]);}
 function triangles(d){return d.getRoot().listMeshes().reduce((n,m)=>n+m.listPrimitives().reduce((s,p)=>s+p.getIndices().getCount()/3,0),0);}
@@ -117,7 +120,7 @@ function transferredLandmarks(template,p,wp,ids){
  const out=[];for(const [name,point]of template.joints){const candidates=pairs.filter(([i])=>template.normals[i].dot(template.back)>.2).sort((a,b)=>template.wp[a[0]].distanceTo(point)-template.wp[b[0]].distanceTo(point)).slice(0,6);if(!candidates.length)continue;const center=new THREE.Vector3();let sum=0;for(const[i,j]of candidates){const weight=1/(.002+template.wp[i].distanceTo(point))**3;center.addScaledVector(wp[j],weight);sum+=weight;}center.divideScalar(sum);out.push({point:center,amplitude:name.endsWith('01')?.0027:.0013,radius:name.endsWith('01')?.010:.0065});}
  return out;
 }
-const templateSource=path.join(work,'source/public/models/hands/arms.glb');fs.mkdirSync(path.dirname(templateSource),{recursive:true});if(!fs.existsSync(templateSource))fs.copyFileSync(files[0],templateSource);
+const templateSource=path.join(work,'source/public/models/hands/arms.glb');fs.mkdirSync(path.dirname(templateSource),{recursive:true});if(!fs.existsSync(templateSource))fs.copyFileSync(process.env.HAND_TEMPLATE||'public/models/hands/arms.glb',templateSource);
 const td=await io.read(templateSource);await td.transform(dequantize());const tn=td.getRoot().listNodes().find(n=>n.getName()==='arm_skin_l'),tp=tn.getMesh().listPrimitives()[0],tg=geometry(tn,tp),tj=td.getRoot().listNodes(),atBone=name=>new THREE.Vector3().setFromMatrixPosition(new THREE.Matrix4().fromArray(tj.find(n=>n.getName()===name+'_l').getWorldMatrix()));
 const tw=atBone('hand'),tf=atBone('middle_01').sub(tw).normalize(),ta=atBone('pinky_01').sub(atBone('index_01'));ta.addScaledVector(tf,-ta.dot(tf)).normalize();const tb=tf.clone().cross(ta);if(atBone('thumb_03').sub(tw).dot(tb)<0)tb.negate();tb.negate();
 const template={ids:components(tp).find(g=>g.length===1817),adj:adjacency(tp),wp:tg.positions,back:tb,normals:tg.positions.map((_,i)=>vec(tp.getAttribute('NORMAL').getElement(i,[]))),joints:['index','middle','ring','pinky'].flatMap(f=>['01','02','03'].map(j=>[f+j,atBone(f+'_'+j)]))};

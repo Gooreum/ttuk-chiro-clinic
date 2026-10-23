@@ -3,7 +3,8 @@ import { S } from "../game/state.js";
 import { adjust } from "../game/flow.js";
 import * as feel from "../game/feel.js";
 import * as tw from "../core/towel.js";
-import { makePatients } from "../patient/roster.js";
+import { makePatients, ROSTER } from "../patient/roster.js";
+import { CAST } from "../patient/cast.js";
 import { showEnding } from "../ui/campaign.js";
 import { DEX_PATIENTS, DEX_FAILS } from "../core/dex.js";
 import { WEEKLY_RULES, weekNo, ruleOfWeek } from "../core/weekly.js";
@@ -146,7 +147,7 @@ runCase({
     if(c.patient){
       const i = S.patients.findIndex(p => p.name === c.patient);
       if(i > 0){ const [p] = S.patients.splice(i, 1); S.patients.unshift(p); }
-      else if(i < 0){ const p = makePatients().find(q => q.name === c.patient); if(p) S.patients.splice(0, 1, p); }
+      else if(i < 0){ const [p] = makePatients(Math.random, 1, [...ROSTER, ...CAST].filter(q => q.name === c.patient)); if(p) S.patients.splice(0, 1, p); }   // not in today's three: roll that one patient
     }
   },
   async play(c){

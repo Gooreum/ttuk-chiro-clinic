@@ -62,7 +62,7 @@ function loadSim(){
       // Each patient node contains the original cloth plus its sewn edge primitive.
       // Keep the parent transform and drive both primitives with the original taut morph.
       g.scene.traverse(o => {
-        if(/^towel_patient0\d$/.test(o.name)) simMeshes[o.name.match(/patient0\d/)[0]] = o;
+        if(/^towel_patient\d\d$/.test(o.name)) simMeshes[o.name.match(/patient\d\d/)[0]] = o;
         if(!o.isMesh) return;
         o.frustumCulled = false; o.castShadow = o.receiveShadow = true;
         finishCloth(o.material, env);

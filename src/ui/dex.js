@@ -3,7 +3,8 @@
 import { $ } from "../lib/dom.js";
 import { t } from "../i18n/index.js";
 import "./dex.css";
-import { TRAITS } from "../patient/roster.js";
+import { TRAITS, ROSTER } from "../patient/roster.js";
+import { bodyOf } from "../core/body.js";
 import { DEX_PATIENTS, DEX_FAILS, dexCounts, dexTitle, firstChapter } from "../core/dex.js";
 import { readableTales, taleCounts, taleTitle } from "../core/tales.js";
 
@@ -74,6 +75,7 @@ function patientCard(p, m){
   if(m){
     const who = el("div", "who"); who.append(el("b", "", t(p.name)), el("span", "", t("{n}세",{n:p.age})));
     if(p.trait) who.appendChild(el("i", "chip", t(TRAITS[p.trait].label)));
+    const bd = bodyOf(p); if(bd) who.appendChild(el("i", "chip", t(bd.label)));
     body.append(who, el("p", "cc", t(p.cc)), el("p", "say", `“${t(p.lines.start)}”`),
       el("p", "meta", t("처음 만난 날 {d} · 치료 {n}번",{d:m.first,n:m.ok})));
     const tales = readableTales(prog(), p.name);
@@ -84,7 +86,7 @@ function patientCard(p, m){
     }
   }else{
     const ch = firstChapter(p.name);
-    body.append(el("div", "who").appendChild(el("b", "", "???")).parentNode, el("p", "cc", t("아직 못 만났어요.")), el("p", "meta", ch ? t("{n}장 어딘가에서 와요",{n:ch}) : t("어딘가에서 와요")));
+    body.append(el("div", "who").appendChild(el("b", "", "???")).parentNode, el("p", "cc", t("아직 못 만났어요.")), el("p", "meta", ch ? t("{n}장 어딘가에서 와요",{n:ch}) : ROSTER.some(r => r.name === p.name) ? t("일반 진료에서 만나요") : t("어딘가에서 와요")));   // the 2026-10-23 body types come only in free runs
   }
   li.append(av, body);
   return li;

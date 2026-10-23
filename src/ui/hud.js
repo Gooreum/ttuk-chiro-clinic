@@ -5,6 +5,7 @@ import { canvas, camera } from "../scene/renderer.js";
 import { head, tmpA, tmpB, tmpC } from "../scene/patientModel.js";
 import { t } from "../i18n/index.js";
 import { TRAITS } from "../patient/roster.js";
+import { bodyOf } from "../core/body.js";
 
 /* DOM HUD helpers: toast, speech bubble, floating text, chart card, mini spine, mode line. */
 const domHud = makeHud($("#app"));
@@ -44,14 +45,14 @@ export function renderSpine(n, s = $("#spine")){
    차트 모양처럼", 2026-10-15). game/flow.js opens it for each new patient through the prep and folds it when the head is
    handed over; the small chart top left opens it again. While it is open, aiming and cracking stop (uiBlocked). */
 export function renderChartSheet(target, idx, total, hint = ""){
-  const tr = target.trait ? TRAITS[target.trait] : null, seg = `C${target.seg}–C${target.seg+1}`;
+  const tr = target.trait ? TRAITS[target.trait] : null, bd = bodyOf(target), seg = `C${target.seg}–C${target.seg+1}`;
   $("#csNo").textContent = `No.${String(idx+1).padStart(2,"0")}`; $("#csTime").textContent = clockTxt(idx);
   $("#csName").textContent = t(target.name); $("#csAge").textContent = t("{n}세", {n: target.age});
-  $("#csVisit").textContent = t("{n}번째 / {total}", {n: idx+1, total}); $("#csTrait").textContent = tr ? t(tr.label) : "—";
+  $("#csVisit").textContent = t("{n}번째 / {total}", {n: idx+1, total}); $("#csTrait").textContent = [tr && t(tr.label), bd && t(bd.label)].filter(Boolean).join(" · ") || "—";
   $("#csCC").textContent = t(target.cc);
   $("#csSeg").textContent = seg;
   $("#csPlan").textContent = t("{side} 회전 교정 · 양쪽 모두", {side: t(target.side > 0 ? "오른쪽" : "왼쪽")});
-  $("#csNote").textContent = [tr ? t(tr.desc) : "", t(hint) || (tr ? "" : t("숨을 내쉴 때 툭 꺾어 주세요"))].filter(Boolean).join(" · ");
+  $("#csNote").textContent = [bd ? t(bd.desc) : "", tr ? t(tr.desc) : "", t(hint) || (tr || bd ? "" : t("숨을 내쉴 때 툭 꺾어 주세요"))].filter(Boolean).join(" · ");
   renderSpine(target.seg, $("#csSpine"));
 }
 let sheetTimer = 0;
