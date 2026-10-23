@@ -84,7 +84,7 @@ export function mountCoupon(){
   if(anchor) anchor.insertAdjacentElement("afterend", btn);
   let day = -1, hard = false;
   const pending = new Set();
-  const text = () => pending.has(day) ? "통증 칸 +1권 쓰는 중" : `통증 칸 +1권 쓰기 (${count(loadShop(), "pain1")}장)`;
+  const text = () => pending.has(day) ? "통증권 쓰는 중" : `통증권 쓰기 (${count(loadShop(), "pain1")}장)`;
   const refresh = () => {
     // the story card is shared with 단골 의뢰 (its number reads "단골 의뢰 · ..."): only a plain 영업 일지 day takes a coupon
     const questCard = /^(단골 의뢰|계절 손님)/.test(($("#storyNo") || {}).textContent || "");
