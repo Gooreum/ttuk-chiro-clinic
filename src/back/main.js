@@ -290,7 +290,7 @@ mountClinicMenu({chip:$('backClinic'),menu:$('backClinicMenu'),current:()=>'back
 if(dayDef){
   const nm=$('backName');nm.textContent=patient.name;const ag=document.createElement('small');ag.textContent=`${patient.age}세`;nm.append(ag);
   $('backDayNo').textContent=`영업 일지 · ${dayLabel(DAY)}${HARD?' 역경':''} ${dayDef.title}`;$('backDayNo').hidden=false;
-  $('backWelcomeText').textContent=`${patient.name}, ${patient.age}세. ${patient.cc}`;
+  $('backWelcomeText').textContent=`${patient.name}, ${patient.age}세. ${ROSTER.some(r=>r.name===patient.name)&&dayDef.lines&&dayDef.lines[patient.name]?`“${dayDef.lines[patient.name]}”`:patient.cc}`;   // a roster patient's own cc is about the neck (박대리 on 3장 1일차): the day's first line says what hurts today
   $('backMistakes').replaceChildren('통증 ',...Array.from({length:painMax},()=>document.createElement('i')));
 }
 $('backTuneClose').addEventListener('click',closeTune);
