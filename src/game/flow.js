@@ -9,7 +9,8 @@ import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterH
 import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel, showEnding, showInterlude } from "../ui/campaign.js";
 import { mountQuests } from "./questFlow.js";
-import { QUESTS, questRoster } from "../core/quests.js";
+import { QUESTS, questRoster, questStars, questStarsOf } from "../core/quests.js";
+import { isReplay } from "../core/shop.js";
 import { mountSeason, renderSeasonBtn } from "./seasonFlow.js";
 import { SEASON_EPS, seasonRoster } from "../core/season.js";
 import { scoreSuccess, rankTitle, patientStars, crackAvg, mixedCracks } from "../core/scoring.js";
@@ -548,6 +549,10 @@ export function finish(){
   if(!towel) $("#bestTxt").textContent = `최고 기록 ${Math.max(best, isBest ? score : 0)}점`;
   const complete = !S.ambulance && S.pain < S.painMax && S.results.length >= S.patients.length;
   $("#again").textContent = "한 판 더";   // the free-play primary button: straight into the next run
+  const prior0 = progress();   // before dayEnd saves this run: 진료비 replay check (core/shop.js isReplay)
+  const priorStars = S.day >= 0 ? (S.hard ? (prior0.hard || [])[S.day] : prior0.stars[S.day]) : S.quest >= 0 ? questStars(prior0, QUESTS[S.quest]) : 0;
+  const runStars = S.day >= 0 ? (dayClears(S.day, complete, avg, dayDef(S.day, S.hard)) ? dayStars(avg, dayDef(S.day, S.hard)) : 0) : S.quest >= 0 && dayClears(-1, complete, avg, QUESTS[S.quest]) ? questStarsOf(QUESTS[S.quest], avg) : 0;
+  const replay = isReplay(priorStars, runStars);
   dayEnd(complete, avg);
   if(S.night) nightResult();
   rushResult(); weeklyResult(complete); dailyResult(complete); dexResult();
@@ -559,7 +564,7 @@ export function finish(){
   const deferAd = campaign && dayClears(S.day, complete, avg, dayDef(S.day, S.hard));
   const endedBad = S.ambulance || S.pain >= S.painMax;
   const bossMiss = campaign && !S.hard && bossMissed(dayDef(S.day, S.hard).beat, complete, avg, bossReplay());
-  coinReward.show({ runKey: S.runAt, avg, continueOffered: continueOffer({ endedBad, bossMiss, used: S.continued }) && !S.hard, complete: complete || !!S.night || !!S.rush, cleared: deferAd, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : S.daily ? "daily" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
+  coinReward.show({ runKey: S.runAt, avg, continueOffered: continueOffer({ endedBad, bossMiss, used: S.continued }) && !S.hard, complete: complete || !!S.night || !!S.rush, cleared: deferAd, replay, hard: S.hard, game: S.night ? "night" : S.weekly ? "weekly" : S.daily ? "daily" : mode(), day: S.day >= 0 ? S.day + 1 : 0 });   // 진료비 (core/shop.js)
   shareCard(complete, avg, deferAd);
   askReview(complete).then(asked => monetize.showResult({ endedBad, bossMiss, used: S.continued, hard: S.hard, night: !!(S.night || S.rush || S.weekly || S.daily), skipInterstitial: asked || quietDay(S.day, S.day >= 0 && !!DAYS[S.day].beat) }));
 }

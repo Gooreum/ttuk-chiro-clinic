@@ -205,8 +205,9 @@ function finish(){
   track(EV.runEnd,{game:'side',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:!!S.continued,run_ms:performance.now()-S.runAt,rank:$('sideRank').textContent});
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
+  const prior=dayDef?(HARD?(readProgress(store.get(CAMPAIGN_KEY,null)).hard||[])[DAY]:readProgress(store.get(CAMPAIGN_KEY,null)).stars[DAY])|0:0,replay=prior>0&&!!dayDef&&(dayClears(DAY,complete,S.score/2,dayDef)?dayStars(S.score/2,dayDef):0)<=prior;   // 진료비 replay (core/shop.js isReplay)
   dayEnd(complete,S.score/2);
-  coinReward.show({runKey:S.runAt,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued}),avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
+  coinReward.show({runKey:S.runAt,replay,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued}),avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
   askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),hard:HARD}));
 }
 function dayEnd(complete,avg){

@@ -125,10 +125,10 @@ export function mountCoinReward(anchor){
   anchor.insertAdjacentElement("beforebegin", att);
   anchor.insertAdjacentElement("beforebegin", line);
   anchor.insertAdjacentElement("beforebegin", dbl);
-  let key = null, paid = 0, doubled = false, hard = false, busy = false, meta = {}, cont = false;
+  let key = null, replay = false, paid = 0, doubled = false, hard = false, busy = false, meta = {}, cont = false;
   const label = () => adFree() ? "진료비 2배 받기" : "광고 보고 진료비 2배";
   const paint = () => {
-    amt.textContent = `+${paid}`; tot.textContent = `합계 ${loadShop().coins}`;
+    amt.textContent = `+${paid}`; tot.textContent = `합계 ${loadShop().coins}` + (replay ? " · 다시 깬 날은 40%" : "");
     line.hidden = paid <= 0;   // a run that earned nothing (주간 실패 등) shows no "+0" line
     dbl.hidden = !(isToss && (canWatchRewarded() || adFree()) && doubleOffer({ earned: paid, hard, used: doubled, continueOffered: cont }));
     dbl.textContent = label();
@@ -146,9 +146,9 @@ export function mountCoinReward(anchor){
     paid *= 2; paint();
   });
   return {
-    show({ runKey, avg, complete, cleared, hard: h, game, day, continueOffered }){
-      cont = !!continueOffered;
-      const earned = coinsFor({ avg, complete, cleared, hard: h });
+    show({ runKey, avg, complete, cleared, hard: h, game, day, continueOffered, replay: rp }){
+      cont = !!continueOffered; replay = !!rp;
+      const earned = coinsFor({ avg, complete, cleared, hard: h, replay: rp });
       if(runKey !== key){
         key = runKey; paid = 0; doubled = false; att.hidden = true;
         const m = complete || earned > 0 ? stampAttend() : null;
