@@ -10,7 +10,7 @@ import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fa
 import {ROSTER} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
 import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
-import {quietDay,bossMissed} from '../core/monetize.js';
+import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
 import {mountMonetize} from '../ui/monetize.js';
 import {mountCoinReward} from '../ui/shop.js';
 import {createSideScene,ROLL_S} from './scene.js';
@@ -206,7 +206,7 @@ function finish(){
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
   dayEnd(complete,S.score/2);
-  coinReward.show({runKey:S.runAt,avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
+  coinReward.show({runKey:S.runAt,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued}),avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
   askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),deferInterstitial:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD}));
 }
 function dayEnd(complete,avg){

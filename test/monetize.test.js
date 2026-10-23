@@ -63,3 +63,25 @@ describe("monetize", () => {
     expect(continueOffer({ endedBad: true, bossMiss: true, used: true })).toBe(false);
   });
 });
+
+import { continueOffer as _co, clearAdDue as _cad } from "../src/core/monetize.js";
+import { doubleOffer as _do } from "../src/core/shop.js";
+import { dayClears as _dc } from "../src/core/campaign.js";
+import { QUESTS as _Q, questClears as _qc } from "../src/core/quests.js";
+import { SEASON_EPS as _SE, epClears as _ec } from "../src/core/season.js";
+describe("36차 보상 광고 정리", () => {
+  it("이어하기가 뜨는 카드(통증·구급차·보스 아깝게)에서는 진료비 2배가 숨고, 이어하기를 쓴 뒤 카드에서는 다시 뜬다", () => {
+    for(const c of [{ endedBad: true }, { bossMiss: true }]){
+      expect(_do({ earned: 40, hard: false, used: false, continueOffered: _co({ ...c, used: false }) })).toBe(false);
+      expect(_do({ earned: 40, hard: false, used: false, continueOffered: _co({ ...c, used: true }) })).toBe(true);
+    }
+    expect(_do({ earned: 40, hard: false, used: false, continueOffered: _co({ endedBad: false, bossMiss: false, used: false }) })).toBe(true);
+  });
+  it("단골 의뢰·계절 손님도 깬 카드만 전면광고를 미룬다 (두 번에 한 번)", () => {
+    expect(_qc(_Q[0], true, 999)).toBe(true);
+    expect(_qc(_Q[0], false, 999)).toBe(false);
+    expect(_ec(_SE[0], true, 999)).toBe(true);
+    expect(_dc(-1, false, 999, _Q[0])).toBe(false);
+    expect([1, 2, 3, 4].map(_cad)).toEqual([false, true, false, true]);
+  });
+});

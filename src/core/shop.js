@@ -50,7 +50,10 @@ export function coinsFor({ avg, complete, cleared, hard }){
   return Math.max(0, Math.min(RUN_COIN_CAP, n));
 }
 /* the rewarded "진료비 2배": once per run, never on 역경 (no ad there), and only when a run paid something */
-export const doubleOffer = ({ earned, hard, used }) => !hard && !used && earned > 0;
+/* continueOffered: the card already offers the rewarded "이어하기" / "마지막 환자 다시" (core/monetize.js continueOffer).
+   Two rewarded buttons on one card read as a double toll and the continue is worth more, so the 2x waits: once the
+   continue is spent (or declined) and the run finishes again, the 2x shows on that card. */
+export const doubleOffer = ({ earned, hard, used, continueOffered }) => !hard && !used && !continueOffered && earned > 0;
 
 export const add = (st, n) => ({ coins: st.coins + Math.max(0, Math.floor(n)), owned: st.owned });
 
