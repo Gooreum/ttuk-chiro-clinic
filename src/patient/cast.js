@@ -78,26 +78,26 @@ const CAST_DEF = [
           ahh:"와… 불 끈 기분이야", after:"반대쪽도 잘 익었어", done:"고기 먹으러 와. 서비스 줄게", idle:"육수 끓는데…",
           dud:"덜 익었네. 한 번 더 뒤집어", finger:"자네 손가락 집게에 집혔나?", stop:"잠깐! 불 좀 줄여!", doubt:"이번엔 잘 익혀 봐", quit:"체인점 가서 번호표 뽑아 보겠네",
           fail:["이건 탄 고기야", "오늘 장사 접어야겠네", "목이 꼬치처럼 꽂혔어"]}},
-  {base:"이라이더", name:"근육왕", age:35, cc:"동네 헬스장 관장. 데드리프트 300kg 하다 허리가 '띵' 했어요.", seg:4, side:1, tolR:6, tolB:4.5, breath:3.8, burn:1.0, trait:"stiff",
+  {base:"마동철", name:"근육왕", age:35, cc:"동네 헬스장 관장. 데드리프트 300kg 하다 허리가 '띵' 했어요.", seg:4, side:1, tolR:6, tolB:4.5, breath:3.8, burn:1.0, trait:"stiff",
    gown:0x2f2f36,
    lines:{start:"허리? 안 아파. 그냥 '띵' 했을 뿐이야", near:"흡! 거기 기립근이야", ouch:"크악! 이건 1RM 넘었어!", jolt:"흡!", sigh:"후우우…", what:"방금… 내 척추가 PR 갱신했나?",
           ahh:"와… 이건 프로틴보다 좋네", after:"왼쪽 오른쪽 데칼코마니다", done:"우리 회원들 보낼게. 너도 운동 좀 해", idle:"세트 사이 쉬는 시간 끝났는데",
           dud:"그게 다야? 워밍업도 안 됐어", finger:"자네 손가락이 근육을 못 이겼군", stop:"잠깐! 스트레칭 먼저!", doubt:"이번엔 고중량으로 와", quit:"스쿼트하러 간다. 혼자서",
           fail:["내 근육이 너무 두꺼웠나", "이건 부상 세트야", "회원들이 다 봤어…"]}},
   // 4장 휴가철 출장
-  {base:"김사장", name:"강해녀", age:68, cc:"물질 40년. 목이 아니라 바다가 삐뚤어졌다고 우겨요.", seg:5, side:-1, tolR:5.8, tolB:4.2, breath:5.0, burn:2.4, trait:"elder",
+  {base:"복순할매", name:"강해녀", age:68, cc:"물질 40년. 목이 아니라 바다가 삐뚤어졌다고 우겨요.", seg:5, side:-1, tolR:5.8, tolB:4.2, breath:5.0, burn:2.4, trait:"elder",
    gown:0x3f7f8f,
    lines:{start:"내 목은 괜찮아. 바다가 삐뚤어졌지", near:"어어, 거기 숨 참는 곳이야", ouch:"아이고 바닷물 먹었다!", jolt:"흡!", sigh:"후우…", what:"방금 파도가 왔나?",
           ahh:"어허… 바다가 평평해졌네", after:"반대쪽도 물때 맞네", done:"소라 가져가. 서비스야", idle:"조류 바뀌는데…",
           dud:"어? 파도가 안 오네", finger:"자네 손가락이 해초에 걸렸나", stop:"잠깐! 숨 쉬어야 해!", doubt:"이번엔 파도 타듯 해 봐", quit:"나는 바다로 돌아간다",
           fail:["이건 물때를 못 맞춘 거야", "바다가 화났네", "내 목이 소라 껍데기가 됐어"]}},
-  {base:"이라이더", name:"이마라톤", age:36, cc:"풀코스 완주. 목이 몸보다 먼저 결승선에 도착했어요.", seg:4, side:1, tolR:7.2, tolB:5.2, breath:3.0, burn:0.3, trait:"flexible",
+  {base:"조멸치", name:"이마라톤", age:36, cc:"풀코스 완주. 목이 몸보다 먼저 결승선에 도착했어요.", seg:4, side:1, tolR:7.2, tolB:5.2, breath:3.0, burn:0.3, trait:"flexible",
    gown:0x4f8fd0,
    lines:{start:"42.195km 달렸어요. 목만 먼저 도착했어요", near:"오, 거기가 5km 지점이에요", ouch:"악! 쥐났어요!", jolt:"헉!", sigh:"하아…", what:"방금 페이스 올랐나요?",
           ahh:"와… 결승선이다", after:"후반 레이스도 순항이에요", done:"다음 대회에 쌤 부를게요", idle:"스트레칭 하다 대회 끝나겠어요",
           dud:"…워밍업 구간인가요", finger:"쌤 손가락이 먼저 쥐났어요", stop:"잠깐! 급수대요!", doubt:"이번엔 기록 단축 가요", quit:"포기하겠습니다. 기권패요",
           fail:["이건 DNF예요", "기록이 5분 늦었어요", "다음 대회는 목만 먼저 보낼게요"]}},
-  {base:"김사장", name:"사모님", age:61, cc:"김사장 부인. 남편 흉을 보다 허리가 접혔어요.", seg:6, side:1, tolR:6.2, tolB:4.6, breath:4.4, burn:2.0, trait:"elder",
+  {base:"복순할매", name:"사모님", age:61, cc:"김사장 부인. 남편 흉을 보다 허리가 접혔어요.", seg:6, side:1, tolR:6.2, tolB:4.6, breath:4.4, burn:2.0, trait:"elder",
    gown:0xc78fa6,
    lines:{start:"우리 영감 흉 좀 볼게요. 먼저 허리 좀", near:"어머, 거기는 방석 닿던 데예요", ouch:"아이고 영감!", jolt:"어머!", sigh:"휴우…", what:"어머 방금 뭐죠?",
           ahh:"시원하네… 드라마 줄거리가 안 떠올라요", after:"이쪽은 조용히 풀었어요", done:"영감한테는 비밀이에요", idle:"드라마 재방송 시작하는데",
@@ -123,13 +123,13 @@ const CAST_DEF = [
           ahh:"와… 그린이 보여요", after:"반대쪽도 페어웨이 안착", done:"다음 대회 때 초대할게요", idle:"티타임 놓치겠어요",
           dud:"…이건 뒷땅이에요", finger:"쌤 손가락이 슬라이스 났어요", stop:"잠깐! 퍼팅 라인 보고요!", doubt:"이번엔 홀인원 가요", quit:"캐디한테 전화할게요",
           fail:["이건 더블 보기예요", "OB 내서 미안해요", "목이 해저드에 빠졌어요"]}},
-  {base:"정작가", name:"유어시", age:25, cc:"정작가 어시스턴트. 배경만 그리다 고개가 앞으로 꺾였어요.", seg:3, side:1, tolR:7.8, tolB:5.6, breath:3.4, burn:0.6, trait:"nervous",
+  {base:"한미모", name:"유어시", age:25, cc:"정작가 어시스턴트. 배경만 그리다 고개가 앞으로 꺾였어요.", seg:3, side:1, tolR:7.8, tolB:5.6, breath:3.4, burn:0.6, trait:"nervous",
    gown:0x9a6fb0,
    lines:{start:"배경 마감 사흘째예요. 고개가 안 들려요", near:"어, 거기가 지평선 그리는 쪽이에요", ouch:"아야! 펜 부러졌어요!", jolt:"헙!", sigh:"하…", what:"방금… 선이 번졌나요?",
           ahh:"와… 배경 마감 끝난 기분이에요. 지평선이 평평해요", after:"반대쪽도 채색 완료", done:"작가님한테 말하지 마요", idle:"배경 아직 남았는데",
           dud:"…밑선 같은 느낌이에요", finger:"쌤 손가락이 지우개 됐어요", stop:"잠깐! 마감이에요!", doubt:"이번엔 완성본으로요", quit:"작가님한테 일러바칠래요",
           fail:["이건 밑그림 수준이에요", "작가님이 보면 휴재예요", "다음 화에서 수습할게요"]}},
-  {base:"이라이더", name:"이스쿠터", age:24, cc:"이라이더 동생. 형을 따라 하다 같은 데가 걸렸어요.", seg:3, side:-1, tolR:7.4, tolB:5.2, breath:3.2, burn:0.2, trait:"flexible",
+  {base:"조멸치", name:"이스쿠터", age:24, cc:"이라이더 동생. 형을 따라 하다 같은 데가 걸렸어요.", seg:3, side:-1, tolR:7.4, tolB:5.2, breath:3.2, burn:0.2, trait:"flexible",
    gown:0xe0a84a,
    lines:{start:"형이 여기 좋다던데요. 저도 같은 데 아파요", near:"어, 형도 거기서 소리 났대요", ouch:"악! 형한테 이를 거야!", jolt:"으악!", sigh:"하아…", what:"방금 소리 형이랑 똑같았어요",
           ahh:"와… 형이 왜 갔는지 알겠다", after:"반대쪽도 형처럼 풀렸다", done:"형보다 먼저 왔다고 말해야지", idle:"스쿠터 주차 중인데…",
@@ -177,7 +177,7 @@ const CAST_DEF = [
           fail:["이건 도깨비 장난이 아니구먼", "내 방망이가 어디 갔지", "도깨비 방망이로도 못 고치겠구먼"]}},
 
   // 8장 프랜차이즈 전쟁
-  {base:"김사장", name:"메가회장", age:60, cc:"메가 척추그룹 회장. 돈이 많은데 허리는 두꺼워요.", seg:5, side:-1, tolR:5.6, tolB:4.0, breath:5.0, burn:1.4, trait:"stiff",
+  {base:"마동철", name:"메가회장", age:60, cc:"메가 척추그룹 회장. 돈이 많은데 허리는 두꺼워요.", seg:5, side:-1, tolR:5.6, tolB:4.0, breath:5.0, burn:1.4, trait:"stiff",
    gown:0x1c1c1c,
    lines:{start:"본인은 메가 척추그룹 회장이오. 돈으로 안 되는 게 허리라니", near:"음, 거기에 투자하겠소", ouch:"내 허리 지분이!", jolt:"흡!", sigh:"후우…", what:"방금… 주가 오른 소리 아니오?",
           ahh:"이건 매출보다 시원하군", after:"반대쪽도 흑자", done:"인수 제안은 유효하오", idle:"회의 시간이 지났는데",
@@ -195,7 +195,8 @@ const CAST_DEF = [
    hair/hairCol/skin/glasses: the primitive head. props: toy props hung on the head (both primitive and realistic).
    realHair {col, lift, hide}: the realistic hair cards (lift = flat glow so white hair shows on a dark texture; hide
    drops them when a prop wig replaces them). realSkin: multiplies the realistic head and neck skin. The final-boss trio
-   shared 김사장's face, so each gets its own silhouette: a long white beard, a silver wig with gold glasses, and horns. */
+   shared 김사장's face, so each gets its own silhouette: a long white beard, a silver wig with gold glasses, and horns.
+   (2026-10-23 body types: 메가회장 and 근육왕 now borrow 마동철, 강해녀/사모님 복순할매, 이스쿠터/이마라톤 조멸치, 유어시 한미모.) */
 const CAST_LOOK = {
   "문약사":     {gown:0xf0f2ee, realGown:true, glasses:false, props:["glassesBig"], realSkin:0xfff0e6},
   "허통장":     {realGown:true, hair:"bald", hairCol:0xd8d4cc, props:["tuftBald", "browsWhite"], realSkin:0xf6d8c4},

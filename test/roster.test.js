@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ROSTER, PER_DAY, makePatients } from "../src/patient/roster.js";
+import { bodyOf } from "../src/core/body.js";
 
 describe("makePatients", () => {
   it("gives every patient two sides: complaint side first, then the opposite", () => {
@@ -38,8 +39,8 @@ describe("makePatients", () => {
       expect(mag).toBeLessThanOrEqual(hi);
     }));
   });
-  it("keeps danger limits (elder 50/22, others 63/27)", () => {
-    makePatients().forEach(p => {
+  it("keeps danger limits (elder 50/22, others 63/27; a body type scales them, test/body.test.js)", () => {
+    makePatients(Math.random, ROSTER.length).filter(p => !bodyOf(p)).forEach(p => {
       expect([p.limR, p.limB]).toEqual(p.trait === "elder" ? [50, 22] : [63, 27]);
     });
   });

@@ -74,8 +74,17 @@ const MODELS = {
   patient02: {crown: 1.6154, chin: 1.3592, back: -0.0647},
   patient03: {crown: 1.6278, chin: 1.3606, back: -0.0611},
   patient04: {crown: 1.495, chin: 1.2016, back: -0.0559},
-  patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749}
+  patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749},
+  patient06: {crown: 1.6273, chin: 1.3669, back: -0.0612},   // chin: see below (thin neck)
+  patient07: {crown: 1.5043, chin: 1.2129, back: -0.0539},
+  patient08: {crown: 1.6227, chin: 1.3551, back: -0.1139},   // chin: see below (thick neck)
+  patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
+  patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471}
 };
+/* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
+   y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
+   (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
+   so their heads come out patient01-sized (scripts/assets/README.md). */
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
 const TOWEL_REST_HEAD = head.position.clone();
 function glbRoot(g){
@@ -376,12 +385,23 @@ function loadPatientModel(id, towelStage = false){
     if(wantModel === id) setRealPatient(id, lastLook);
   });
 }
+/* Ten bodies are ~10 MB, so they come one at a time and the body on the table goes first: setRealPatient asks for its
+   model at once and the background queue always takes the wanted model before the next one in MODELS order. */
+const loading = {};
+const needModel = (id, towelStage = false) => loading[(towelStage ? "t:" : "") + id] || (loading[(towelStage ? "t:" : "") + id] = loadPatientModel(id, towelStage));
+function loadQueue(towelStage){
+  const next = () => {
+    const id = [wantModel, ...Object.keys(MODELS)].find(i => MODELS[i] && !loading[(towelStage ? "t:" : "") + i]);
+    return id ? needModel(id, towelStage).catch(err => { console.warn("realistic patient not loaded, keeping primitives", id, err); }).then(next) : null;
+  };
+  return Promise.resolve().then(next);
+}
 let towelAssetsP = null;
 // Both suite modes share the detailed art; original models remain the asynchronous/failure fallback.
 function loadTowelCharacters(){
   if(towelAssetsP) return towelAssetsP;
   document.documentElement.dataset.towelCharacters = "loading";
-  const patients = Object.keys(MODELS).reduce((p, id) => p.then(() => loadPatientModel(id, true)), Promise.resolve());
+  const patients = loadQueue(true);
   const arms = Promise.all([load(BASE + "towel-stage/hands/arms.glb"), getEnv()]).then(([g, env]) => {
     withVisualIds(() => {
       const made = {}, matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env, true));
@@ -402,17 +422,15 @@ function loadTowelCharacters(){
   return towelAssetsP;
 }
 export function loadRealAssets(){
-  const [first, ...rest] = Object.keys(MODELS), t0 = performance.now();
-  loadPatientModel(first).then(() => {
+  const first = wantModel && MODELS[wantModel] ? wantModel : Object.keys(MODELS)[0], t0 = performance.now();
+  needModel(first).then(() => {
     document.documentElement.dataset.head = "ready";
     assetLoad("patient_first", true, t0);
   }).catch(err => {
     console.warn("realistic patient not loaded, keeping primitives", first, err);
     document.documentElement.dataset.head = "failed";
     assetLoad("patient_first", false, t0, err && err.message);
-  }).then(() => rest.reduce((p, id) => p.then(() => loadPatientModel(id).catch(err => {
-    console.warn("realistic patient not loaded, keeping primitives", id, err);
-  })), Promise.resolve()));
+  }).then(() => loadQueue(false));
   Promise.all([load(BASE + "hands/arms.glb"), getEnv()]).then(([g, env]) => {
     const made = {};
     const matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env));
@@ -607,6 +625,7 @@ function placeArm(root, s, matFor, towelStage = false){
    Rays in head-local space toward the head's long axis (static rest geometry; the expression blendshapes are small).
    The ear on each side is the outermost skin vertex; the head's width scales the offsets. */
 const _rc = new THREE.Raycaster();
+const EAR_Z = [-0.08, 0.03];
 function measureHead(model){
   const clinic = S.game === "clinic", key = clinic ? "clinicHandPoses" : "handPoses";
   if(model[key] !== undefined) return model[key];
@@ -626,6 +645,9 @@ function measureHead(model){
     let best = -1;
     for(let i = 0; i < pos.count; i++){
       p.fromBufferAttribute(pos, i).applyMatrix4(probe.matrixWorld);
+      // only the ear band (head-local z, patient01..05 ears at -0.04..-0.01): the heavy neck of 마동철 / 복순할매 below
+      // the jaw is wider than their ears, the poses then missed the head and the hands fell back to the capsules
+      if(p.z < EAR_Z[0] || p.z > EAR_Z[1]) continue;
       if(p.x*s > best){ best = p.x*s; ears[s] = p.clone(); }
     }
   });
@@ -1114,7 +1136,11 @@ function castTone(cur, look){
 /* Realistic head + body of patient `id` (null: primitives). */
 export function setRealPatient(id, look){
   wantModel = id; lastLook = look || lastLook;
-  if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")) loadTowelCharacters();
+  if(id && MODELS[id]) needModel(id).catch(() => {});   // the body on the table jumps the queue
+  if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")){
+    loadTowelCharacters();
+    if(id && MODELS[id]) needModel(id, true).catch(() => {});
+  }
   const cur = current();
   restorePrimitiveHead();
   allModels().forEach(m => { m.head.visible = m === cur; m.body.visible = m === cur; });

@@ -1,4 +1,5 @@
 import { clamp } from "../lib/math.js";
+import { bodyOf, towelBody } from "./body.js";
 import { REVIEWS } from "../patient/roster.js";
 import { starPool, chooseReview } from "./personaReviews.js";
 
@@ -17,7 +18,9 @@ export function makeTowelTarget(p, rand = Math.random){
   // the left / right focus (user: "좌우 중심 초점이 안 맞으면 목이 그쪽으로 꺾이면서 빠지고 골절되던가 금이 가는",
   // 2026-10-16): the aim's horizontal axis (S.cur.rot, degrees) has to sit on this patient's centre, a little off zero
   // as the head lies. Drawn after the tension band so the band's draws stay as they were.
-  return {mid, half, limit, aim: (rand()*2 - 1)*AIM_SPREAD, aimTol: tense ? AIM_TOL*0.7 : AIM_TOL};
+  const tg = {mid, half, limit, aim: (rand()*2 - 1)*AIM_SPREAD, aimTol: tense ? AIM_TOL*0.7 : AIM_TOL};
+  const b = bodyOf(p);   // core/body.js: the body type moves and narrows the band
+  return b ? towelBody(tg, b.towel) : tg;
 }
 // degrees: half the width of the centre, how far the centre lies off zero (estimates before phone play)
 export const AIM_TOL = 7, AIM_SPREAD = 8;
@@ -133,7 +136,11 @@ export const TOWEL_COOL = {
     "사모님": "어머… 존나 시원해요… 어깨 뭉침이 다 날아가네",
     "최프로": "와… 시원하다… 홀인원 한 느낌…",
     "야알바": "와… 시원해요… 야간 수당 받은 느낌…",
-    "뚝튜브": "와 시원해요… 이건 건너뛰기 없이 끝까지 볼 영상이에요"
+    "뚝튜브": "와 시원해요… 이건 건너뛰기 없이 끝까지 볼 영상이에요",
+  // body types (2026-10-23); the kid never swears (burn 0)
+  "조멸치": "와… 존나 시원하다… 배포 성공한 느낌…", "한미모": "하아… 존나 시원해요… 착륙 방송 나온 느낌…",
+  "마동철": "으어… 존나 시원하다… 나 목 있었네…", "복순할매": "아이고… 존나 시원허네… 50년 묵은 고사리가 펴지네",
+  "정꼬마": "우와 시원해요!! 게임 이긴 느낌!!"
 };
 export const towelCool = name => TOWEL_COOL[name] || "와… 시원하다…";
 export const BURN_FROM = 250, COOL_AFTER = 900;
@@ -202,7 +209,17 @@ export const TOWEL_LINES = {
     "야알바":   {tense: "어… 목이 야간 근무처럼 늘어나요", tight: "잠깐! 교대 시간이에요!",
       ok: "목이 퇴근한 것처럼 가벼워요", over: "목이 계산대보다 길어졌어요!", slip: "수건이 폐기됐어요", skew: "목이 바코드처럼 틀어졌어요!", taut: "방금 그 소리, 폐기 알림이에요"},
     "뚝튜브":   {tense: "목 늘어나는 중! 자막 크게 갑니다!", tight: "잠깐! 이 장면 연령 제한 걸려요!",
-      ok: "목 5cm 늘었습니다! 비포 애프터 분할 화면 갑니다!", over: "목이 프레임 밖으로 나갔어요! 앵글 다시 잡아요!", slip: "수건이 빠졌어요. 이 컷은 NG 모음에 넣을게요", skew: "목이 옆으로 접혔어요, 화면 회전한 줄 알았어요", taut: "방금 소리, 효과음 아니죠? 아픈 소리죠?"}
+      ok: "목 5cm 늘었습니다! 비포 애프터 분할 화면 갑니다!", over: "목이 프레임 밖으로 나갔어요! 앵글 다시 잡아요!", slip: "수건이 빠졌어요. 이 컷은 NG 모음에 넣을게요", skew: "목이 옆으로 접혔어요, 화면 회전한 줄 알았어요", taut: "방금 소리, 효과음 아니죠? 아픈 소리죠?"},
+  "조멸치":   {tense: "어… 목이 무한 스크롤 되는데요?", tight: "잠깐! 목에서 메모리 누수 나요!",
+    ok: "목 길이 업데이트 완료. 패치 노트 쓸게요", over: "목이 젓가락에서 낚싯대 됐어요!", slip: "수건만 배포됐네요…", skew: "목이 옆으로 브랜치 쳤어요!", taut: "빠직? 이거 크리티컬 버그예요!"},
+  "한미모":   {tense: "목이 기내 통로처럼 늘어나요", tight: "잠깐! 이건 비상 탈출이에요!",
+    ok: "목이 길어져서 짐칸에 손이 닿겠어요", over: "목이 활주로처럼 길어졌어요!", slip: "수건이 먼저 내렸네요", skew: "목이 옆 좌석으로 갔어요!", taut: "방금 그 소리, 블랙박스에 남았어요"},
+  "마동철":   {tense: "오… 목이 나오고 있어요. 처음 봐요", tight: "잠깐! 숨겨 둔 목까지 다 나와요!",
+    ok: "목이 생겼어요! 사진 찍어 주세요!", over: "목이 생기다 못해 기린이 됐어요!", slip: "수건이 제 승모근에 튕겨 나갔어요", skew: "목이 밭다리 걸렸어요!", taut: "빠직! 이건 샅바 끊어지는 소리예요"},
+  "복순할매": {tense: "어이구, 목이 엿처럼 늘어나네", tight: "아이고 잠깐! 할미 목 뽑혀!",
+    ok: "아이고, 키가 커서 좌판이 낮아 보이네", over: "아이고 내 목이 대파만큼 길어졌어!", slip: "수건이 콩나물처럼 쏙 빠졌네", skew: "아이고 목이 옆 가게로 갔어!", taut: "빠직? 할미 뼈 소리여 이거?"},
+  "정꼬마":   {tense: "우와 목이 늘어나요! 고무고무!", tight: "잠깐만요! 목 끊어지면 엄마한테 혼나요!",
+    ok: "키 컸다! 이제 놀이기구 탈 수 있겠다!", over: "으앙 목이 기린 됐어요! 사진 찍어도 돼요?", slip: "수건만 빠졌어요. 다시 해요!", skew: "목이 옆으로 갔어요! 버그예요!", taut: "빠직 소리 났어요… 엄마한테 이를 거예요"}
 };
 const TOWEL_LINE_FALLBACK = {tense: "어… 목이 늘어나는 느낌이에요", tight: "저기요 목 끊어져요?!", ok: "목이… 길어졌어요?", over: "목이 엿가락이 됐어요!", slip: "수건만 빠졌는데요?", skew: "목이 옆으로 꺾였어요!", taut: "목에서 빠직 했어요!"};
 export const towelLine = (name, kind) => (TOWEL_LINES[name] || TOWEL_LINE_FALLBACK)[kind] || TOWEL_LINE_FALLBACK[kind] || "";

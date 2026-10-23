@@ -6,6 +6,7 @@ import { S } from "./state.js";
 import { distNorm, breath, bonusExhale } from "./feel.js";
 import { tightFactor } from "../core/feel.js";
 import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
+import { bodyOf } from "../core/body.js";
 import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel, showEnding, showInterlude } from "../ui/campaign.js";
@@ -111,8 +112,8 @@ function loadPatient(){
     const tf = tightFactor(S.mods);
     if(S.towel && tf < 1) S.towel = {...S.towel, half: S.towel.half*tf, aimTol: S.towel.aimTol*tf};
     S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
-    const tr = target.trait ? TRAITS[target.trait] : null;
-    $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tl(tr.label);
+    const tr = target.trait ? TRAITS[target.trait] : null, bd = bodyOf(target);   // core/body.js: the body type sits beside the trait
+    $("#ptrait").hidden = !tr && !bd; $("#ptrait").textContent = [tr && tl(tr.label), bd && tl(bd.label)].filter(Boolean).join(" · ");
     renderSpine(target.seg); renderDots();
     S.input.rot = S.input.bend = S.cur.rot = S.cur.bend = 0;
     S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;

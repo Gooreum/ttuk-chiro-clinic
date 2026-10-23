@@ -97,5 +97,19 @@ the code (trimmed); values are the English line. Keep every `{placeholder}` and 
 | 도깨비영감 | Goblin Gramps | |
 | 메가회장 | Chairman Mega | |
 | 뚝할배 | Grandpa Crack | the clinic's first doctor |
+| 조멸치 | Anchovy Jo | skinny all-nighter developer (멸치 = scrawny) |
+| 한미모 | Beauty Han | glam flight attendant |
+| 마동철 | Iron Ma | huge ssireum wrestler, "has no neck" |
+| 복순할매 | Granny Boksun | 79, market greens seller, rural granny speech |
+| 정꼬마 | Little Jung | 11-year-old kid; keep his lines clean, no swearing |
+
+## Body types (core/body.js chips)
+| Korean | English |
+|---|---|
+| 마른 체형 | Skinny |
+| 관리형 | Glam |
+| 근육돼지 | Muscle Hog |
+| 할머니 | Granny |
+| 어린이 | Kid |
 
 Unlisted job titles: translate naturally and briefly.

@@ -9,7 +9,21 @@ const T = (id, mode, result, title, repro, expect, tags, extra) => ({ id, mode, 
 export const MODES = { clinic: "목꺾기", towel: "목뽑기", back: "허리펴기", side: "허리비틀기" };
 export const RESULTS = { success: "성공", fail: "실패", crisis: "금·골절·구급차", end: "종료·결과", info: "안내" };
 
-const PATIENT = { "박대리": "박대리(32) 일자목", "최교수": "최교수(54) 긴장형", "이라이더": "이라이더(27) 근육 뭉침", "정작가": "정작가(31) 유연함", "김사장": "김사장(63) 어르신" };
+const PATIENT = { "박대리": "박대리(32) 일자목", "최교수": "최교수(54) 긴장형", "이라이더": "이라이더(27) 근육 뭉침", "정작가": "정작가(31) 유연함", "김사장": "김사장(63) 어르신",
+  "조멸치": "조멸치(28) 마른 체형", "한미모": "한미모(26) 관리형", "마동철": "마동철(38) 근육돼지", "복순할매": "복순할매(79) 할머니", "정꼬마": "정꼬마(11) 어린이" };
+// body-type patients (core/body.js): case id slug and what their difficulty looks like in each mode
+const BODY_CASE = {
+  "조멸치": { id: "jo", clinic: "밤샘 개발자가 '방금 그거… 핫픽스예요?' 하고 놀란다. 마른 체형: 목이 가늘어 많이 돌려야 하는데 위험선이 가까워 조금만 더 가도 넘는다.",
+    towel: "마른 체형: 위험선이 가까워 수건이 금방 끊어진다(조금만 더 당겨도 과당김). 성공하면 짧게 욕하고 '배포 성공한 느낌…'." },
+  "한미모": { id: "han", clinic: "승무원이 '방금 그거… 기장님 방송이에요?' 하고 미소 근육이 퇴근한다. 관리형: 숨이 짧아 날숨 틈이 빨리 지나가서 날숨 보너스를 노리기 어렵다.",
+    towel: "관리형: 띠가 조금 좁고 숨이 짧아 날숨 틈이 빨리 지나간다. 성공하면 '착륙 방송 나온 느낌…'." },
+  "마동철": { id: "ma", clinic: "씨름선수가 '방금… 제 목 나온 거예요?' 한다. 근육돼지: 구역은 넓지만 머리가 묵직해 조준이 굼뜨다(근육 뭉침).",
+    towel: "근육돼지: 띠가 넓지만 목이 두꺼워 수건을 끝까지(높은 장력까지) 당겨야 한다. 성공하면 한참 욕하다 '나 목 있었네…'." },
+  "복순할매": { id: "boksun", clinic: "할머니가 '방금 뭐여? 장판 터지는 소리여?' 한다. 할머니: 뼈가 약해 구역이 좁고 위험선이 가깝다.",
+    towel: "할머니: 띠가 낮고 좁으며 위험선도 가깝다. 성공하면 한참 욕하다 '50년 묵은 고사리가 펴지네'." },
+  "정꼬마": { id: "kid", clinic: "아이가 '우와, 방금 레벨업 소리 났어요!' 한다. 어린이: 가만히 있질 않아 구역이 좁고 숨이 빠르다.",
+    towel: "어린이: 띠와 좌우 중심 허용이 좁고 숨이 빠르다. 욕 없이 바로 '게임 이긴 느낌!!'." }
+};
 
 export const CASES = [
   // ───────────────────────── 목꺾기 ─────────────────────────
@@ -32,6 +46,9 @@ export const CASES = [
     `${PATIENT[name]} 환자의 증상 쪽을 정확히 꺾는다.`,
     { "최교수": "겁 많은 환자: 어? 방금 그게 다예요 식으로 놀란다. 긴장형이라 오래 끌면 허용 범위가 줄어드는 환자다.", "이라이더": "배달 기사답게 헐, 방금 뭐예요 하며 웃는다. 근육 뭉침이라 머리가 묵직하다.", "정작가": "침착한 환자: 눈을 감은 채 움찔하지 않고 입을 다문 작은 미소로 끝난다. 유연함이라 크게 돌려야 한다.", "김사장": "어르신: 어이쿠야, 어허 시원하다. 위험 한계가 낮고 목표가 작다." }[name],
     ["성공", "환자별", name], { patient: name, steps: [{ pos: "target", exhale: true, after: "next" }], tail: 2 })),
+  ...Object.entries(BODY_CASE).map(([name, b]) => T(`clinic-ok-patient-${b.id}`, "clinic", "success", `환자별 성공 반응: ${name} (체형)`,
+    `${PATIENT[name]} 환자의 증상 쪽을 정확히 꺾는다.`, b.clinic,
+    ["성공", "환자별", "체형", name], { patient: name, steps: [{ pos: "target", exhale: true, after: "next" }], tail: 2 })),
   T("clinic-day-clear", "clinic", "end", "한 판 전체 성공 → 오늘 진료 끝 (진료 일지)",
     "환자 3명의 양쪽(총 6번)을 모두 정확히 꺾는다.",
     "환자가 바뀔 때마다 진료 기록지가 크게 뜨고 접힌다. 마지막에 '오늘 진료 끝' 결과 카드: 총점, 등급, 환자별 별점과 후기.",
@@ -327,6 +344,9 @@ export const CASES = [
     "나이 많은 환자는 아 시파파파학 하며 3.6초 동안 아파하다 멍해진 뒤 존나 시원하구먼. 반응이 끝날 때까지 다음 환자가 기다린다.",
     ["성공", "GOOD", "김사장", "burn"],
     { game: "towel", patient: "김사장", steps: [{ tow: "good", exhale: false, after: "next" }], tail: 2, timeout: 150 }),
+  ...Object.entries(BODY_CASE).map(([name, b]) => T(`towel-ok-perfect-${b.id}`, "towel", "success", `목뽑기 PERFECT: ${name} (체형)`,
+    `${PATIENT[name]} 환자의 수건 장력을 초록 구역 정중앙에 맞추고 좌우 중심도 맞춘 뒤 툭 당긴다.`, b.towel,
+    ["성공", "PERFECT", "체형", name], { game: "towel", patient: name, steps: [{ tow: "perfect", exhale: true, after: "next" }], tail: 2, timeout: 150 })),
   T("towel-day-clear", "towel", "end", "목뽑기 한 판 전체 성공 → 목뽑기 끝",
     "환자 3명을 한 번씩 정확히 당긴다.",
     "환자마다 반응 길이가 다르다. 마지막에 '목뽑기 끝' 결과 카드(총점, 등급, 후기).",

@@ -16,7 +16,7 @@ export const distNorm = () => __FORCE_HIT__ ? 0.2 : distAtNow(S.cur.rot, S.cur.b
 export const closeness = (rot, bend) => closenessOf(distAtNow(rot, bend));
 export function applyDelta(dr, db){
   const stiff = S.target && S.target.trait === "stiff";
-  const g = deltaGain(T.heavy, stiff, closeness(S.input.rot, S.input.bend));
+  const g = deltaGain(T.heavy + (S.target && S.target.heavy || 0), stiff, closeness(S.input.rot, S.input.bend));   // core/body.js heavy
   S.input.rot = clamp(S.input.rot + dr*g, -75, 75);
   S.input.bend = clamp(S.input.bend + db*g, -32, 32);
 }

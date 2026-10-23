@@ -17,7 +17,8 @@ export const DEEP_MIN = 0.35;     // ... down to about a third of the normal zon
 // campaign cast + roster that play on 목꺾기 / 목뽑기 days (patient/roster.js, patient/cast.js)
 export const NIGHT_POOL = ["박대리", "최교수", "이라이더", "정작가", "김사장", "오인턴", "최조교", "말빨", "박팀장", "송기사", "김평범", "강직한",
   "편집장", "곽셰프", "서병장", "강해녀", "이마라톤", "사모님", "김상무", "장원장", "최프로", "유어시", "이스쿠터", "뚝튜브", "손경호", "야알바",
-  "나공무", "보건소장", "도깨비영감", "메가회장", "뚝할배"];
+  "나공무", "보건소장", "도깨비영감", "메가회장", "뚝할배",
+  "조멸치", "한미모", "마동철", "복순할매", "정꼬마"];   // body types (2026-10-23), appended at the end
 
 export const nightOpen = prog => !!prog && prog.cleared >= NIGHT_UNLOCK;
 
