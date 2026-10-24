@@ -195,7 +195,7 @@ function faceDecals(model, F, scene){
   const uvs = new THREE.BufferAttribute(uv, 2);
   const geos = parts.map(ix => {
     const q = new THREE.BufferGeometry();
-    q.setAttribute("position", P); q.setAttribute("normal", Nm); q.setAttribute("uv", uvs); q.setIndex(ix);
+    q.setAttribute("position", P); q.setAttribute("normal", Nm); q.setAttribute("uv", geo.attributes.uv); q.setAttribute("uvDecal", uvs); q.setIndex(ix);
     return q;
   });
   const loader = new THREE.TextureLoader();
@@ -206,8 +206,16 @@ function faceDecals(model, F, scene){
     geos.forEach((q, part) => {
       if(name === "closed" && part === 1) return;      // closing the eyes leaves the mouth as it is
       const m = model.skin.clone();
-      Object.assign(m, {map, normalMap: null, transparent: true, opacity: 0, depthWrite: false,
+      Object.assign(m, {map, transparent: true, opacity: 0, depthWrite: false,
         polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4});
+      // the painting goes on by its projection (uvDecal); the skin's normal map stays on the mesh's own uv. Without it the
+      // patch shaded flat and lighter than the skin around it, a pale band over the eyes (user: "눈이 너무 어색해", 2026-10-24)
+      m.onBeforeCompile = sh => {
+        sh.vertexShader = "attribute vec2 uvDecal;\nvarying vec2 vDecalUv;\n" + sh.vertexShader.replace("#include <uv_vertex>", "#include <uv_vertex>\n  vDecalUv = uvDecal;");
+        sh.fragmentShader = "varying vec2 vDecalUv;\n" + sh.fragmentShader.replace("#include <map_fragment>",
+          "vec4 sampledDiffuseColor = texture2D(map, vDecalUv);\n  diffuseColor *= sampledDiffuseColor;");
+      };
+      m.customProgramCacheKey = () => "faceDecal";
       const d = new THREE.Mesh(q, m);
       d.position.copy(o.position); d.quaternion.copy(o.quaternion); d.scale.copy(o.scale);
       d.renderOrder = 1 + k; d.frustumCulled = false; d.visible = false;
