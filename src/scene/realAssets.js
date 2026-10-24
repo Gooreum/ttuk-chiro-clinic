@@ -180,7 +180,7 @@ function placeHead(gltf, env, g, model){
    is a painting over its front view (scripts/assets/image3d_expr.py), laid on the skin's own front-facing triangles inside
    the painted square, projected straight on. The brows / eyes patch and the mouth patch fade apart (core/faceRig.js
    decalWeights); the paintings stack in DECALS order. Only the changed parts are opaque in each. */
-const DECALS = ["closed", "smile", "squeeze", "open"];
+const DECALS = ["closed", "smile", "squeeze", "open"], FRONT_DEPTH = 0.025;
 const _dv = new THREE.Vector3();
 function faceDecals(model, F, scene){
   const o = model.skinMesh, geo = o.geometry, P = geo.attributes.position, Nm = geo.attributes.normal, I = geo.index;
@@ -188,12 +188,19 @@ function faceDecals(model, F, scene){
   scene.updateMatrixWorld(true);
   const M = new THREE.Matrix4().copy(scene.matrixWorld).invert().multiply(o.matrixWorld), N = new THREE.Matrix3().getNormalMatrix(M);
   const x0 = F.x - F.size/2, y0 = F.y - F.size/2, uv = new Float32Array(P.count*2), front = new Uint8Array(P.count);
+  // the front surface by depth, not by normal: eyelid folds and socket walls face up or down (복순할매's face bows forward),
+  // and leaving them out let the open eyes of the texture show through the shut ones (user: "눈이 여전히 징그럽잖아",
+  // 2026-10-24). A vertex counts within FRONT_DEPTH of the frontmost point of its cell, so the back of the head stays out.
+  const G = 48, top = new Float32Array(G*G).fill(-Infinity), z = new Float32Array(P.count), cell = new Int32Array(P.count);
   for(let i = 0; i < P.count; i++){
     _dv.fromBufferAttribute(P, i).applyMatrix4(M);
     const u = (_dv.x - x0)/F.size, v = (_dv.y - y0)/F.size;
-    uv[2*i] = u; uv[2*i + 1] = v;
-    front[i] = u > 0 && u < 1 && v > 0 && v < 1 && _dv.fromBufferAttribute(Nm, i).applyMatrix3(N).normalize().z > 0.15 ? 1 : 0;
+    uv[2*i] = u; uv[2*i + 1] = v; z[i] = _dv.z;
+    cell[i] = u > 0 && u < 1 && v > 0 && v < 1 ? Math.floor(v*G)*G + Math.floor(u*G) : -1;
+    if(cell[i] >= 0) top[cell[i]] = Math.max(top[cell[i]], _dv.z);
   }
+  for(let i = 0; i < P.count; i++)
+    front[i] = cell[i] >= 0 && z[i] > top[cell[i]] - FRONT_DEPTH && _dv.fromBufferAttribute(Nm, i).applyMatrix3(N).normalize().z > -0.3 ? 1 : 0;
   const parts = [[], []];      // brows / eyes, mouth
   for(let f = 0; f < I.count; f += 3){
     const a = I.getX(f), b = I.getX(f + 1), c = I.getX(f + 2);

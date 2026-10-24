@@ -159,6 +159,7 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb pat
 치수와 표정:
 - crown 1.4910, chin 1.1600(patient01 비율, 턱끝 1.21), back -0.20(굽은 윗등이 테이블에 닿는다. 뒤통수는 -0.16)
 - 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.31 0.22`, split 0.28(코와 입 사이)
+- 표정 그림은 1024 px(`image3d_expr.py` `SIZE`, 2026-10-24 512에서 올림). 게임은 노멀 방향이 아니라 앞 표면 깊이로 면을 고른다(`realAssets.js` `FRONT_DEPTH`): 눈두덩 면이 빠지면 뜬 눈이 비쳤다.
 - 뽀글이 머리·꽃무늬 때문에 텍스처가 무겁다. 노멀·ORM 1024(몸 512), webp 72로 머리 약 900 KB, 몸 약 700 KB
 
 ## 환자 몸

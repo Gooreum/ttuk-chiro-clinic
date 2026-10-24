@@ -6,7 +6,7 @@ of its front view, shown over the eyes / mouth (src/scene/realAssets.js faceDeca
   3. python3 scripts/assets/image3d_expr.py <dir with the five PNGs> public/models/patient11
 
 Each output keeps only what the painting changed (a feathered mask, so the original face shows through everywhere
-else): 512 px RGBA webp, mapped onto the face by the same projection (MODELS.patient11.face).
+else): 1024 px RGBA webp, mapped onto the face by the same projection (MODELS.patient11.face).
 """
 import sys
 import numpy as np
@@ -14,7 +14,7 @@ from PIL import Image
 from scipy import ndimage
 
 src, out = sys.argv[1], sys.argv[2]
-SIZE = 512
+SIZE = 1024   # 512 blurred the eyelids next to the 2048 skin texture
 front = np.asarray(Image.open(f"{src}/front.png").convert("RGBA")).astype(np.float32)
 for name in ("closed", "squeeze", "smile", "open"):
     img = np.asarray(Image.open(f"{src}/expr_{name}.png").convert("RGBA")).astype(np.float32)
