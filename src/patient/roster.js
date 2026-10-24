@@ -65,7 +65,7 @@ export const ROSTER = [
           dud:"…이륙 지연인가요?", finger:"선생님 손가락, 구명조끼 필요하세요?", stop:"잠깐만요! 안전벨트 표시등 켜졌어요!", doubt:"이번엔 부드럽게 착륙해 주세요", quit:"승객 불만 접수하겠습니다. 미소로요",
           fail:["이건 회항 사유예요", "기내 방송으로 사과해 주세요", "미소는 유지 중이에요. 목은 아니고요"]}},
   {name:"마동철", xr:"muscle", age:38, cc:"씨름선수. 목이 원래 없대요. 샅바 잡다 어깨에 묻힌 목이 걸렸어요.", seg:6, side:1, tolR:7, tolB:5, breath:4.6, burn:3.2, trait:"stiff",
-   look:{hair:"short", hairCol:0x161210, skin:0xc98f6a, gown:0x3c3c44, glasses:false, model:"patient08"},
+   look:{hair:"short", hairCol:0x161210, skin:0xc98f6a, gown:0x3c3c44, glasses:false, model:"patient08", clinicModel:"patient12"},
    react:{jolt:["wince", "startle"], ahh:["sigh"], first:["dazed", "grin", "wow"], then:["laugh", "relief"], big:["laugh", "beam"]},
    lines:{start:"제 목 찾으실 수 있겠어요? 저도 못 찾았어요", near:"오, 거기 목 맞아요. 처음 알았네", ouch:"으어어! 들배지기 당했다!", jolt:"흐읍!", sigh:"후우우…", what:"방금… 제 목 나온 거예요?", ahh:"와… 모래판에서 일어난 기분이에요",
           after:"반대쪽에도 목이 있었네요", done:"천하장사 되면 쌀 한 가마 보낼게요", idle:"밥때 지났는데…",

@@ -9,8 +9,8 @@ const base = { name: "시험", side: 1, tolR: 7, tolB: 5, breath: 4, burn: 0 };
 const kinds = [{}, { trait: "flexible" }, { trait: "elder" }, { trait: "nervous" }];
 
 describe("체형 (core/body.js)", () => {
-  it("follows the body: patient06..11 have a type, patient01..05 none", () => {
-    expect(Object.keys(BODY_OF)).toEqual(["patient06", "patient07", "patient08", "patient09", "patient10", "patient11"]);
+  it("follows the body: patient06..12 have a type, patient01..05 none", () => {
+    expect(Object.keys(BODY_OF)).toEqual(["patient06", "patient07", "patient08", "patient09", "patient10", "patient11", "patient12"]);
     Object.values(BODY_OF).forEach(k => expect(BODY[k]).toBeTruthy());
     expect(bodyOf({ look: { model: "patient01" } })).toBeNull();
     expect(bodyOf({ look: { model: "patient08" } })).toBe(BODY.bulk);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ROSTER, PER_DAY, makePatients, rosterFor } from "../src/patient/roster.js";
 import { bodyOf } from "../src/core/body.js";
+import { CAST } from "../src/patient/cast.js";
 
 describe("makePatients", () => {
   it("gives every patient two sides: complaint side first, then the opposite", () => {
@@ -49,5 +50,12 @@ describe("makePatients", () => {
     expect(clinicOnly).toEqual(["최필라"]);
     expect(rosterFor("clinic").map(p => p.name)).toContain("최필라");
     for(let k = 0; k < 200; k++) makePatients(Math.random, PER_DAY, null, rosterFor("towel")).forEach(p => expect(clinicOnly).not.toContain(p.name));
+  });
+  it("마동철 lies on his image-to-3D body in 목꺾기 only, the cast who borrow him keep the MPFB one", () => {
+    const ma = ROSTER.find(p => p.name === "마동철");
+    expect(ma.look).toMatchObject({model: "patient08", clinicModel: "patient12"});
+    const borrowers = CAST.filter(c => c.base === "마동철");
+    expect(borrowers.map(c => c.name).sort()).toEqual(["근육왕", "메가회장"]);
+    borrowers.forEach(c => { expect(c.look.model).toBe("patient08"); expect(c.look).not.toHaveProperty("clinicModel"); });
   });
 });
