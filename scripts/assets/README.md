@@ -142,6 +142,25 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient12.glb body.glb pat
 - 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.54 0.24`, split 0.31(코와 입 사이)
 - 머리 360 KB, 몸 720 KB, 표정 webp 4장 약 65 KB
 
+## 이미지 기반 환자 3: 복순할매 (patient13, 2026-10-24)
+
+사용자: "이제 할머니도 해보자." 마동철과 같은 절차다. 기준 시안은 체형 다양화 때 만든 복순할매 정면이고, 입은 다물고 눈은 자연스럽게 뜨게 다시 그렸다(표정은 그림으로 덧입힌다). 목꺾기에서 복순할매 본인만 이 몸을 쓴다(`look.clinicModel`). 목뽑기와 이 체형을 빌린 손님 강해녀·사모님은 MPFB patient09 그대로다.
+
+등이 굽어 얼굴이 목보다 한참 앞에 있고 턱이 가슴에 거의 닿는다. 그래서 이렇게 한다.
+
+```
+blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb patient13 1.49 1.21 0.10 0.12 -0.03
+```
+
+- 1.21(턱 밑)에서 평면으로 자른다. 키가 작아 목 뼈 시작은 CUT − 0.10이다(전에는 1.30 고정).
+- 타원 벽(가로 0.10, 앞뒤 0.12)을 얼굴 쪽으로 3 cm 옮긴다(9번째 인자 `cy`, Blender y). 가운데에 두면 턱과 입이 몸 쪽으로 잘려 나갔다.
+- 게임 쪽 `MODELS.patient13.seam`(`{y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}`)의 `cz`가 같은 이동이다(GLB z, 얼굴 쪽 +).
+
+치수와 표정:
+- crown 1.4910, chin 1.1600(patient01 비율, 턱끝 1.21), back -0.20(굽은 윗등이 테이블에 닿는다. 뒤통수는 -0.16)
+- 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.31 0.22`, split 0.28(코와 입 사이)
+- 뽀글이 머리·꽃무늬 때문에 텍스처가 무겁다. 노멀·ORM 1024(몸 512), webp 72로 머리 약 900 KB, 몸 약 700 KB
+
 ## 환자 몸
 
 `blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 두 손을 배 위에 올린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후
