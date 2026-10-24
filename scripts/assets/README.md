@@ -162,6 +162,19 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb pat
 - 표정 그림은 1024 px(`image3d_expr.py` `SIZE`, 2026-10-24 512에서 올림). 게임은 노멀 방향이 아니라 앞 표면 깊이로 면을 고른다(`realAssets.js` `FRONT_DEPTH`): 눈두덩 면이 빠지면 뜬 눈이 비쳤다.
 - 뽀글이 머리·꽃무늬 때문에 텍스처가 무겁다. 노멀·ORM 1024(몸 512), webp 72로 머리 약 900 KB, 몸 약 700 KB
 
+## 이미지 기반 환자 4: 조멸치 (patient14, 2026-10-24)
+
+사용자: "멸치남자도 3D 모델 만들고 목꺾기만 일단 진행해. 눈 디테일 신경쓰고." 최필라와 같은 절차다. 기준 시안은 체형 다양화 때 만든 조멸치 정면이다. 목꺾기에서 조멸치 본인만 이 몸을 쓴다(`look.clinicModel`). 목뽑기와 손님 이마라톤·이스쿠터는 MPFB patient06 그대로다.
+
+- Tripo는 크레딧이 모자라 형태 standard, 텍스처 detailed로 돌렸다(형태는 어차피 4.5%로 줄인다).
+- 가는 목이 턱 밑에 드러나 평면으로 자른다: `image3d_patient.py -- s2.glb patient14.glb body.glb patient14 1.68 1.42`
+- crown 1.6801(뻗친 머리 꼭대기), chin 1.3931(patient01 비율, 턱끝 1.4365), back -0.15(어깨. 머리카락 뒤는 -0.16)
+- ear `[0.096, -0.021, 0.004]`: 피부색 꼭짓점에서 찾은 실제 귀(최필라와 같다, borrowedPoses)
+- 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.515 0.22`, split 0.34(코와 입 사이)
+- 앞머리 판 지우기: 이마 앞으로 늘어진 앞머리가 피부색이 구워진 얇은 판이라, 표정 그림이 그 위에 덮이면 유리 파편처럼 보였다. `image3d_flaps.py -- patient14.glb out.glb 1.48 1.62 0.09 0.03`이 얼굴 앞 상자 안에서 머리 안쪽으로 쏜 광선이 3 cm 안에 피부를 맞히는 면(피부 앞에 뜬 판)을 지운다(1531면). 그 뒤에 resize·webp·meshopt.
+- 고친 정면(`expr_fix.png`): 앞머리를 지운 이마의 검은 얼룩·부스러기, 한쪽 눈의 흰 번짐과 가는 조각, 눈썹 얼룩, 콧구멍 반짝임을 Codex가 고쳤다. `image3d_expr.py`는 `expr_fix.png`가 있으면 같이 뽑고, 게임은 `MODELS.<id>.face.fix`이면 그것을 표정 그림 밑에 늘 덮는다. 표정 4장은 고친 얼굴 위에 그렸다.
+- 머리 약 430 KB, 몸 약 380 KB(노멀·ORM 1024 / 512, webp 72)
+
 ## 환자 몸
 
 `blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 두 손을 배 위에 올린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후

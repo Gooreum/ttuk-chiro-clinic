@@ -85,7 +85,9 @@ const MODELS = {
   patient12: {crown: 1.6466, chin: 1.4150, back: -0.13,       // 마동철 image-to-3D, see below
     seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31}},
   patient13: {crown: 1.4910, chin: 1.1600, back: -0.20,       // 복순할매 image-to-3D, see below
-    ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}, face: {x: 0, y: 1.31, size: 0.22, split: 0.28}}
+    ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}, face: {x: 0, y: 1.31, size: 0.22, split: 0.28}},
+  patient14: {crown: 1.6801, chin: 1.3931, back: -0.15,       // 조멸치 image-to-3D, see below
+    ear: [0.096, -0.021, 0.004], face: {x: 0, y: 1.515, size: 0.22, split: 0.34, fix: true}, twoSided: true}
 };
 /* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
    crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
@@ -106,7 +108,14 @@ const MODELS = {
    face (seam.cz, GLB z) so the jaw goes with the head and the hump behind stays on the body. back: her upper back
    (-0.22), not the back of her skull (-0.16), lies on the table. ear: under the perm, as for patient11 (borrowedPoses). Only she uses it, only in 목꺾기: 목뽑기 and 강해녀, 사모님 keep
    patient09. */
-const NO_STAGE = new Set(["patient11", "patient12", "patient13"]);
+/* patient14 (조멸치, user: "멸치남자도 3D 모델 만들고 목꺾기만 일단 진행해. 눈 디테일 신경쓰고", 2026-10-24): the same as
+   patient11. His thin neck shows under the jaw, so a flat cut (z 1.42) does; the spiky hair is the crown, the chin is
+   patient01's ratio from the chin tip (1.4365), back is his shoulders (-0.15), not the hair. ear: under the hair, as for
+   patient11 (borrowedPoses). face.fix: the bangs were thin flaps with skin baked on (cut off, image3d_flaps.py) and the
+   scan left smudges on the brow and forehead, a smear on one eye and a glint in the nose, so a corrected front painting
+   (expr_fix) lies on the face all the time, under the expressions. twoSided: the cut flaps leave the hairline open. Only he uses it, only
+   in 목꺾기: 목뽑기 and 이마라톤, 이스쿠터 keep patient06. */
+const NO_STAGE = new Set(["patient11", "patient12", "patient13", "patient14"]);
 /* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
    y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
    (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
@@ -139,6 +148,7 @@ function placeHead(gltf, env, g, model){
         envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalScale.copy(src.normalScale); m.roughness = 0.6; m.sheen = 0.24; }
       m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; model.skin = m; model.skinMesh = o;
+      if(g.twoSided) m.side = THREE.DoubleSide;     // a hairline opened by image3d_flaps.py shows the hair behind, not the table
     }
     else if(name.endsWith(".cornea")){
       // clear glossy shell over the eye: only reflections (catchlights), nothing diffuse
@@ -214,7 +224,7 @@ function faceDecals(model, F, scene){
   });
   const loader = new THREE.TextureLoader();
   model.decals = [];
-  DECALS.forEach((name, k) => {
+  (F.fix ? ["fix", ...DECALS] : DECALS).forEach((name, k) => {
     const map = loader.load(BASE + `${model.id}/expr_${name}.webp`);
     map.encoding = THREE.sRGBEncoding; map.anisotropy = 4;
     geos.forEach((q, part) => {
@@ -1308,7 +1318,7 @@ export function updateRealFace(face, blinking, k, glow, t = 0, breathIn = 0){
     const dw = decalWeights(w), sk = cur.skin, fade = sk.transparent ? sk.opacity : 1;
     cur.decals.forEach(({mesh, name, part}) => {
       const m = mesh.material;
-      m.userData.w = (m.userData.w || 0) + (dw[name][part] - (m.userData.w || 0))*k;
+      m.userData.w = (m.userData.w || 0) + ((name === "fix" ? 1 : dw[name][part]) - (m.userData.w || 0))*k;
       m.opacity = m.userData.w*fade;
       mesh.visible = m.opacity > 0.004;
       m.color.copy(sk.color); m.emissiveIntensity = glow;
