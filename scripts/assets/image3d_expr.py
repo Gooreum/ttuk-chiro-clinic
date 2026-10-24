@@ -8,7 +8,7 @@ of its front view, shown over the eyes / mouth (src/scene/realAssets.js faceDeca
 Each output keeps only what the painting changed (a feathered mask, so the original face shows through everywhere
 else): 1024 px RGBA webp, mapped onto the face by the same projection (MODELS.patient11.face).
 """
-import sys
+import os, sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage
@@ -16,7 +16,8 @@ from scipy import ndimage
 src, out = sys.argv[1], sys.argv[2]
 SIZE = 1024   # 512 blurred the eyelids next to the 2048 skin texture
 front = np.asarray(Image.open(f"{src}/front.png").convert("RGBA")).astype(np.float32)
-for name in ("closed", "squeeze", "smile", "open"):
+# expr_fix.png (optional, patient14): the front view with the scan's flaws painted out, shown all the time under the rest
+for name in [n for n in ("fix", "closed", "squeeze", "smile", "open") if os.path.exists(f"{src}/expr_{n}.png")]:
     img = np.asarray(Image.open(f"{src}/expr_{name}.png").convert("RGBA")).astype(np.float32)
     diff = np.abs(img[..., :3] - front[..., :3]).max(axis=2) > 18
     diff = ndimage.binary_opening(diff, iterations=2)                   # drop speckle from the re-encode

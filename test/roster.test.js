@@ -65,4 +65,11 @@ describe("makePatients", () => {
     expect(borrowers.map(c => c.name).sort()).toEqual(["강해녀", "사모님"]);
     borrowers.forEach(c => { expect(c.look.model).toBe("patient09"); expect(c.look).not.toHaveProperty("clinicModel"); });
   });
+  it("조멸치 lies on his image-to-3D body in 목꺾기 only, the cast who borrow him keep the MPFB one", () => {
+    const jo = ROSTER.find(p => p.name === "조멸치");
+    expect(jo.look).toMatchObject({model: "patient06", clinicModel: "patient14"});
+    const borrowers = CAST.filter(c => c.base === "조멸치");
+    expect(borrowers.map(c => c.name).sort()).toEqual(["이마라톤", "이스쿠터"]);
+    borrowers.forEach(c => { expect(c.look.model).toBe("patient06"); expect(c.look).not.toHaveProperty("clinicModel"); });
+  });
 });
