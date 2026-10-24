@@ -4,7 +4,7 @@
    tol: green zone scale, mag: target turn scale, lim: danger line scale, heavy: added input weight (+ heavier),
    breath: breath period scale. towel (목뽑기): mid shifts the tension band, half scales its width, limit shifts the
    snap point, aim scales the left / right centre width. */
-export const BODY_OF = { patient06: "slim", patient07: "beauty", patient08: "bulk", patient09: "granny", patient10: "child", patient11: "beauty" };
+export const BODY_OF = { patient06: "slim", patient07: "beauty", patient08: "bulk", patient09: "granny", patient10: "child", patient11: "beauty", patient12: "bulk" };
 export const BODY = {
   slim:   { label: "마른 체형", desc: "목이 가늘어 잘 돌아가지만 위험선이 가까워요", tol: 1.0, mag: 1.15, lim: 0.85, heavy: -0.1, breath: 1.0, towel: { mid: -0.08, half: 1.0, limit: -0.08, aim: 0.85 } },
   beauty: { label: "관리형", desc: "숨이 짧아서 내쉬는 틈이 빨리 지나가요", tol: 0.9, mag: 1.0, lim: 1.0, heavy: 0, breath: 0.7, towel: { mid: 0, half: 0.85, limit: 0, aim: 0.9 } },

@@ -81,7 +81,9 @@ const MODELS = {
   patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
   patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471},
   patient11: {crown: 1.6484, chin: 1.3876, back: -0.045,     // image-to-3D, see below
-    ear: [0.072, 0.015, 0.027], face: {x: 0, y: 1.51, size: 0.22, split: 0.375}}
+    ear: [0.072, 0.015, 0.027], face: {x: 0, y: 1.51, size: 0.22, split: 0.375}},
+  patient12: {crown: 1.6466, chin: 1.4150, back: -0.13,       // 마동철 image-to-3D, see below
+    seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31}}
 };
 /* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
    crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
@@ -90,7 +92,14 @@ const MODELS = {
    copy, so the towel queue skips it (NO_STAGE) instead of asking for files that are not there.
    ear: its real ear (head-local, s = +1), found on the skin-coloured vertices: the hair is the same mesh, so the hand
    poses cannot measure it (borrowedPoses). face: the square its expression paintings cover (faceDecals). */
-const NO_STAGE = new Set(["patient11"]);
+/* patient12 (마동철, user: "마동철도 만들어보자", 2026-10-24): the same pipeline, but his neck is buried in the traps. A flat cut
+   took the traps beside the jaw along with the head (they swung with it), and its wide seam twisted the chest down to the
+   shirt. The head is cut at the jaw line (z 1.45) inside an upright elliptic wall up to the traps' top (seam: rx across, rz
+   front-back, the same as image3d_patient.py's); neckColumn weighs the body from that seam, the twist within seam.len.
+   face: the square of its expression paintings, split between the nose and the mouth (faceDecals, as for patient11).
+   Only 마동철 himself uses it, and only in 목꺾기 (look.clinicModel): 목뽑기 and the cast who borrow his build (근육왕,
+   메가회장, whose CAST_LOOK paints the MPFB hair and shirt) keep patient08. */
+const NO_STAGE = new Set(["patient11", "patient12"]);
 /* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
    y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
    (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
@@ -297,19 +306,34 @@ const NECK_NORMAL = a => `  objectNormal.y *= 1.0 - clamp(uPinch*4.0, 0.0, 1.0)*
 function neckColumn(o, mat, model){
   const bones = o.skeleton.bones, ni = bones.findIndex(b => b.name === "neck"), bi = bones.findIndex(b => b.name === "body");
   if(ni < 0 || bi < 0) return;
-  const P = o.geometry.attributes.position, n = P.count;
-  let top = -Infinity;
-  for(let i = 0; i < n; i++) top = Math.max(top, P.getY(i));
-  let cx = 0, cz = 0, k = 0, R0 = 0;
-  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004){ cx += P.getX(i); cz += P.getZ(i); k++; }
-  cx /= k; cz /= k;
-  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004) R0 += Math.hypot(P.getX(i) - cx, P.getZ(i) - cz)/k;
+  const P = o.geometry.attributes.position, n = P.count, seam = model && MODELS[model.id] && MODELS[model.id].seam;
+  let top = -Infinity, cx = 0, cz = 0, k = 0, R0 = 0, len;
+  let X = i => P.getX(i), Y = i => P.getY(i), Z = i => P.getZ(i);
+  let rOf = i => Math.hypot(X(i) - cx, Z(i) - cz);
+  if(seam){
+    // a neck buried in the traps (patient12): the cut, not the highest point (the traps beside the jaw rise past it); r is
+    // scaled across the seam's ellipse so its wall gets the full weight (r < NECK_IN R0), and the twist stays within
+    // seam.len under the jaw instead of NECK_LEN seam radii down the chest. In the export's metres: the quantized
+    // positions come back through the "body" bone's inverse bind (its head at y 0.95, image3d_patient.py).
+    const M = new THREE.Matrix4().makeTranslation(0, 0.95, 0).multiply(o.skeleton.boneInverses[bi]), q = new Float32Array(3*n), v = new THREE.Vector3();
+    for(let i = 0; i < n; i++) v.fromBufferAttribute(P, i).applyMatrix4(M).toArray(q, 3*i);
+    X = i => q[3*i]; Y = i => q[3*i + 1]; Z = i => q[3*i + 2];
+    const Rm = (seam.rx + seam.rz)/2;
+    top = seam.y; R0 = Rm/1.15; len = seam.len;
+    rOf = i => Math.hypot(X(i)/seam.rx, Z(i)/seam.rz)*Rm;
+  } else {
+    for(let i = 0; i < n; i++) top = Math.max(top, Y(i));
+    for(let i = 0; i < n; i++) if(Y(i) > top - 0.004){ cx += X(i); cz += Z(i); k++; }
+    cx /= k; cz /= k;
+    for(let i = 0; i < n; i++) if(Y(i) > top - 0.004) R0 += rOf(i)/k;
+    len = NECK_LEN*R0;
+  }
   const si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight, full = sw.normalized ? 255 : 1;
   const ws = new Float32Array(n), fixed = new Uint8Array(n);
   for(let i = 0; i < n; i++){
-    const r = Math.hypot(P.getX(i) - cx, P.getZ(i) - cz);
-    ws[i] = neckWeight((top - P.getY(i))/(NECK_LEN*R0), r, R0);
-    if(P.getY(i) > top - 0.004 || r > 2*R0) fixed[i] = 1;           // the seam ring stays on the head, the shoulders on the trunk
+    const r = rOf(i);
+    ws[i] = neckWeight((top - Y(i))/len, r, R0);
+    if(Y(i) > top - 0.004 || r > 2*R0) fixed[i] = 1;           // the seam ring stays on the head, the shoulders on the trunk
   }
   smoothWeights(o.geometry, ws, fixed, 4);
   const pinch = new Float32Array(n);

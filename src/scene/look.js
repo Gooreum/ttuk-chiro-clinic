@@ -2,6 +2,7 @@ import { mats } from "./materials.js";
 import { hairShort, hairBald, hairLong, hairSpikes, glasses, torso } from "./patientModel.js";
 import { applyProps } from "./castProps.js";
 import { setRealHands, setRealPatient, restorePrimitiveHead } from "./realAssets.js";
+import { S } from "../game/state.js";
 
 /* Per-patient hair, skin, gown, glasses and build. */
 export function applyLook(p){
@@ -18,5 +19,6 @@ export function applyLook(p){
   applyProps(L.props);
   torso.scale.set(L.hair === "bald" ? 1.62 : 1.5, 1, 0.7);
   setRealHands(!!L.model);
-  setRealPatient(L.model || null, L);
+  // clinicModel: an image-to-3D body for 목꺾기 only (no towel-stage copy); 목뽑기 keeps the MPFB one
+  setRealPatient((S.game === "clinic" && L.clinicModel) || L.model || null, L);
 }
