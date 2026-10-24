@@ -83,9 +83,9 @@ const MODELS = {
   patient11: {crown: 1.6484, chin: 1.3876, back: -0.045,     // image-to-3D, see below
     ear: [0.072, 0.015, 0.027], face: {x: 0, y: 1.51, size: 0.22, split: 0.375}},
   patient12: {crown: 1.6466, chin: 1.4150, back: -0.13,       // 마동철 image-to-3D, see below
-    seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31}},
+    seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31, fix: true}},
   patient13: {crown: 1.4910, chin: 1.1600, back: -0.20,       // 복순할매 image-to-3D, see below
-    ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}, face: {x: 0, y: 1.31, size: 0.22, split: 0.28}},
+    ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}, face: {x: 0, y: 1.31, size: 0.22, split: 0.28, fix: true}},
   patient14: {crown: 1.6801, chin: 1.3931, back: -0.15,       // 조멸치 image-to-3D, see below
     ear: [0.096, -0.021, 0.004], face: {x: 0, y: 1.515, size: 0.22, split: 0.34, fix: true}, twoSided: true}
 };
@@ -108,6 +108,10 @@ const MODELS = {
    face (seam.cz, GLB z) so the jaw goes with the head and the hump behind stays on the body. back: her upper back
    (-0.22), not the back of her skull (-0.16), lies on the table. ear: under the perm, as for patient11 (borrowedPoses). Only she uses it, only in 목꺾기: 목뽑기 and 강해녀, 사모님 keep
    patient09. */
+/* face.fix on patient12, 13 (user: "눈깔이가 너무 괴기하지 않냐. 우리 한미녀가 진짜 롤 모델이다. 자연스럽게 눈 떠 있고 감고
+   깜빡이게", 2026-10-25): Tripo baked 마동철's eyes half shut and 복순할매's as a smiling slit, so from above they read as
+   always closed. Their expr_fix paints natural open eyes (patient11's as the model), and the four expressions are drawn
+   over it, so a blink closes those eyes. patient14's fix got the same open eyes (it stared up, red under the iris). */
 /* patient14 (조멸치, user: "멸치남자도 3D 모델 만들고 목꺾기만 일단 진행해. 눈 디테일 신경쓰고", 2026-10-24): the same as
    patient11. His thin neck shows under the jaw, so a flat cut (z 1.42) does; the spiky hair is the crown, the chin is
    patient01's ratio from the chin tip (1.4365), back is his shoulders (-0.15), not the hair. ear: under the hair, as for
@@ -1298,6 +1302,8 @@ export function setRealPatient(id, look){
   syncArms();
 }
 export const realHeadActive = () => !!current();
+/* The head shows painted faces (image-to-3D, faceDecals): it rests with its eyes open (faceRig "idle"). */
+export const paintedFace = () => !!current()?.decals;
 
 /* Per frame from the loop: ease blendshapes toward the face state, and mirror the in-zone glow on the skin.
    t: seconds (the face's own motion), breathIn: 0..1 breath fill (nostrils). */

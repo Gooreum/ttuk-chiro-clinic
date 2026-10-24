@@ -27,6 +27,9 @@ export const EXPRESSION_UNITS = [
 // prim: what the primitive (fallback) face shows.
 const FACES = {
   rest:    {w: {...closure(1)}, prim: "rest"},
+  // rest on a painted face (realAssets faceDecals): eyes open and blinking instead of shut (user: "자연스럽게 눈 떠
+  // 있고 감고 깜빡이게", 2026-10-25); the loop swaps it in for "rest" (game/loop.js)
+  idle:    {w: {}, prim: "rest"},
   worried: {w: {...browUp(0.8)}, prim: "worried"},
   tense:   {w: {...browUp(0.5), ...browDown(0.45), ...slit(0.35), "mouth-compression": 0.7, ...flare(0.3)}, prim: "tense"},
   // wrong crack: screwed-up eyes, a snarl; then a pout with a frown

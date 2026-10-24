@@ -175,6 +175,14 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb pat
 - 고친 정면(`expr_fix.png`): 앞머리를 지운 이마의 검은 얼룩·부스러기, 한쪽 눈의 흰 번짐과 가는 조각, 눈썹 얼룩, 콧구멍 반짝임을 Codex가 고쳤다. `image3d_expr.py`는 `expr_fix.png`가 있으면 같이 뽑고, 게임은 `MODELS.<id>.face.fix`이면 그것을 표정 그림 밑에 늘 덮는다. 표정 4장은 고친 얼굴 위에 그렸다.
 - 머리 약 430 KB, 몸 약 380 KB(노멀·ORM 1024 / 512, webp 72)
 
+## 이미지 기반 환자 눈 다시 그리기 (patient12~14, 2026-10-25)
+
+사용자: "눈깔이가 너무 괴기하지 않냐. 우리 한미녀가 진짜 롤 모델이다. 자연스럽게 눈 떠 있고 감고 깜빡이게 바꿔." Tripo가 구운 바탕 눈이 마동철은 반쯤 감김, 복순할매는 웃는 실눈이라 위에서 보면 늘 감은 것 같았고, 조멸치는 치뜬 눈에 아래 흰자와 붉은 다크서클이 커서 괴기했다.
+
+- 세 명 모두 `expr_fix.png`(자연스럽게 뜬 평상시 눈)를 Codex가 최필라 정면을 기준(롤모델)으로 다시 그렸고, `MODELS.patient12/13.face.fix`도 켰다(patient14는 원래 켜져 있었다).
+- 감은 눈·질끈·웃음·놀람 4장은 새 `expr_fix` 위에 눈·눈썹만 다시 그렸다. 감은 눈꺼풀은 뜬 눈 영역을 다 덮는다(깜빡임도 이 그림).
+- 입은 예전 표정 그림을 그대로 쓴다: 스크래치 `merge.py`가 split 선(위 새 그림 / 아래 예전 그림, 48 px 띠로 섞음)으로 합친 뒤 `image3d_expr.py`로 뽑았다.
+
 ## 환자 몸
 
 `blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 두 손을 배 위에 올린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후

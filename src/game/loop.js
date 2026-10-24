@@ -17,7 +17,7 @@ import { tone, vib, crunch } from "../audio/audio.js";
 import { say, hideSpeech, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
+import { realHeadActive, paintedFace, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
 import { updateTowel } from "../scene/towel.js";
 import { updateTherapist, therapistShoulder } from "../scene/therapist.js";
 import { towelTension } from "../core/towel.js";
@@ -162,7 +162,7 @@ export function frame(now){
   mats.headSkin.emissiveIntensity = zone ? 0.14 : c*0.05;
 
   // face
-  const f = face(), pf = primitiveFace(f);
+  const f = face() === "rest" && paintedFace() ? "idle" : face(), pf = primitiveFace(f);
   const eyesOpenNow = faceEyesOpen(f);
   if(now > blinkAt){ blinkAt = now + 2500 + Math.random()*2500; }
   const blinking = eyesOpenNow && blinkAt - now > 2350 && blinkAt - now < 2500;
