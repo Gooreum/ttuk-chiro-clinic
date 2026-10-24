@@ -65,6 +65,11 @@ describe("decalWeights (painted faces for a head without blendshapes)", () => {
     Object.values(top("worried")).forEach(([u, l]) => { expect(u).toBe(0); expect(l).toBe(0); });
     expect(top("worried", true).closed[0]).toBe(1);
   });
+  it("idle (rest on a painted face) keeps the eyes open and blinks", () => {
+    Object.values(top("idle")).forEach(([u, l]) => { expect(u).toBe(0); expect(l).toBe(0); });
+    expect(eyesOpen("idle")).toBe(true);
+    expect(top("idle", true).closed[0]).toBe(1);
+  });
   it("ouch squeezes the eyes and grimaces, relief smiles with closed eyes, startle goes wide and open-mouthed", () => {
     const o = top("ouch");
     expect(o.squeeze[0]).toBe(1); expect(o.closed[0]).toBe(0); expect(o.squeeze[1]).toBeGreaterThan(o.open[1]);
