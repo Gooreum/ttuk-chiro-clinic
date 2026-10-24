@@ -83,7 +83,9 @@ const MODELS = {
   patient11: {crown: 1.6484, chin: 1.3876, back: -0.045,     // image-to-3D, see below
     ear: [0.072, 0.015, 0.027], face: {x: 0, y: 1.51, size: 0.22, split: 0.375}},
   patient12: {crown: 1.6466, chin: 1.4150, back: -0.13,       // 마동철 image-to-3D, see below
-    seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31}}
+    seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, face: {x: 0, y: 1.54, size: 0.24, split: 0.31}},
+  patient13: {crown: 1.4910, chin: 1.1600, back: -0.20,       // 복순할매 image-to-3D, see below
+    ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}, face: {x: 0, y: 1.31, size: 0.22, split: 0.28}}
 };
 /* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
    crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
@@ -99,7 +101,12 @@ const MODELS = {
    face: the square of its expression paintings, split between the nose and the mouth (faceDecals, as for patient11).
    Only 마동철 himself uses it, and only in 목꺾기 (look.clinicModel): 목뽑기 and the cast who borrow his build (근육왕,
    메가회장, whose CAST_LOOK paints the MPFB hair and shirt) keep patient08. */
-const NO_STAGE = new Set(["patient11", "patient12"]);
+/* patient13 (복순할매, user: "이제 할머니도 해보자", 2026-10-24): the same as patient12, but hunched, her face far ahead of
+   the neck and her chin almost on her chest. The cut sits under the chin (z 1.21) and the ellipse moves forward with the
+   face (seam.cz, GLB z) so the jaw goes with the head and the hump behind stays on the body. back: her upper back
+   (-0.22), not the back of her skull (-0.16), lies on the table. ear: under the perm, as for patient11 (borrowedPoses). Only she uses it, only in 목꺾기: 목뽑기 and 강해녀, 사모님 keep
+   patient09. */
+const NO_STAGE = new Set(["patient11", "patient12", "patient13"]);
 /* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
    y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
    (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
@@ -327,8 +334,8 @@ function neckColumn(o, mat, model){
     for(let i = 0; i < n; i++) v.fromBufferAttribute(P, i).applyMatrix4(M).toArray(q, 3*i);
     X = i => q[3*i]; Y = i => q[3*i + 1]; Z = i => q[3*i + 2];
     const Rm = (seam.rx + seam.rz)/2;
-    top = seam.y; R0 = Rm/1.15; len = seam.len;
-    rOf = i => Math.hypot(X(i)/seam.rx, Z(i)/seam.rz)*Rm;
+    top = seam.y; R0 = Rm/1.15; len = seam.len; cz = seam.cz || 0;       // cz: the ellipse sits ahead of a hunched neck (patient13)
+    rOf = i => Math.hypot(X(i)/seam.rx, (Z(i) - cz)/seam.rz)*Rm;
   } else {
     for(let i = 0; i < n; i++) top = Math.max(top, Y(i));
     for(let i = 0; i < n; i++) if(Y(i) > top - 0.004){ cx += X(i); cz += Z(i); k++; }

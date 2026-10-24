@@ -1,15 +1,17 @@
 # image-to-3D patient (patient11, 2026-10-24): a static standing mesh (Tripo multi-view, simplified with gltf-transform) -> head GLB
 # (static, cut at mid-neck) + body GLB (2-bone skin "body"/"neck" and a "breath" key) in the MPFB exports' GLB space.
-# usage: blender -b -t 4 --python image3d_patient.py -- <src.glb> <head.glb> <body.glb> <pid> [tall m] [cut z] [rx ry]   (scripts/assets/README.md)
+# usage: blender -b -t 4 --python image3d_patient.py -- <src.glb> <head.glb> <body.glb> <pid> [tall m] [cut z] [rx ry [cy]]   (scripts/assets/README.md)
 # tall/cut default to patient11 (1.65, 1.40 mid-neck, a flat cut). rx ry (patient12 마동철, neck buried in the traps, cut at the jaw
 # line): above the cut the head is only what lies inside an upright elliptic wall (rx across, ry front-back; 32 vertical planes) up
 # to CUT2, so the traps beside the jaw stay on the body. The game's MODELS.<pid>.seam names the same cut and ellipse.
+# cy (patient13 복순할매, hunched, her face far ahead of the neck): the ellipse centre moves cy along blender y (- = face side,
+# seam.cz = -cy in GLB z), so the jaw goes with the head and the hump behind stays on the body.
 import bpy, bmesh, sys, math
 from mathutils import Vector
 A=sys.argv[sys.argv.index("--")+1:]; SRC,HEAD,BODY,PID=A[:4]
 TALL=float(A[4]) if len(A)>4 else 1.65; CUT=float(A[5]) if len(A)>5 else 1.40
-RX,RY=(float(A[6]),float(A[7])) if len(A)>7 else (0,0); CUT2=CUT+0.05
-WALL=[(Vector((RX*math.cos(t),RY*math.sin(t),0)),Vector((math.cos(t)/RX,math.sin(t)/RY,0)).normalized()) for t in [k*math.pi/16 for k in range(32)]] if RX else []
+RX,RY=(float(A[6]),float(A[7])) if len(A)>7 else (0,0); CY=float(A[8]) if len(A)>8 else 0; CUT2=CUT+0.05
+WALL=[(Vector((RX*math.cos(t),CY+RY*math.sin(t),0)),Vector((math.cos(t)/RX,math.sin(t)/RY,0)).normalized()) for t in [k*math.pi/16 for k in range(32)]] if RX else []
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SRC)
 src=[o for o in bpy.data.objects if o.type=="MESH"][0]
@@ -68,12 +70,13 @@ bm_mat=head.data.materials[0].copy(); bm_mat.name=PID+".skin"; body.data.materia
 body.name=PID+"_body"
 arm=bpy.data.armatures.new(PID+"_rig"); ao=bpy.data.objects.new(PID+"_rig",arm); bpy.context.scene.collection.objects.link(ao)
 bpy.context.view_layer.objects.active=ao; bpy.ops.object.mode_set(mode="EDIT")
-b=arm.edit_bones.new("body"); b.head=(0,0,0.95); b.tail=(0,0,1.30)
-n=arm.edit_bones.new("neck"); n.head=(0,0,1.30); n.tail=(0,0,CUT); n.parent=b
+NB=CUT-0.10   # neck bone root: 10 cm under the cut (1.30 for patient11's 1.40; a short patient's neck sits lower)
+b=arm.edit_bones.new("body"); b.head=(0,0,0.95); b.tail=(0,0,NB)
+n=arm.edit_bones.new("neck"); n.head=(0,0,NB); n.tail=(0,0,CUT); n.parent=b
 bpy.ops.object.mode_set(mode="OBJECT")
 gb=body.vertex_groups.new(name="body"); gn=body.vertex_groups.new(name="neck")
 for v in body.data.vertices:
-    w=min(1,max(0,(v.co.z-1.30)/(CUT-1.30))) if abs(v.co.x)<0.09 else 0
+    w=min(1,max(0,(v.co.z-NB)/(CUT-NB))) if abs(v.co.x)<0.09 else 0
     gb.add([v.index],1-w,"REPLACE"); gn.add([v.index],w,"REPLACE")
 body.parent=ao; m=body.modifiers.new("arm","ARMATURE"); m.object=ao
 # breath: chest rises forward (-y) up to 2.2 cm, belly 1.2 cm, shoulders shrug toward the head 2 cm

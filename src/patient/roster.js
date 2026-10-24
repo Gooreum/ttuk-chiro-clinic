@@ -72,7 +72,7 @@ export const ROSTER = [
           dud:"…간지러운데요?", finger:"선생님 손가락이 제 승모근에 졌어요", stop:"잠깐! 샅바 다시 잡을게요!", doubt:"이번엔 뒤집기 한 판 가요", quit:"모래판으로 돌아갑니다. 쿵쿵",
           fail:["목 대신 승모근만 돌았어요", "감독님이 보면 기권패예요", "목이 또 어깨 속으로 숨었어요"]}},
   {name:"복순할매", xr:"disc", age:79, cc:"시장 나물 장수 50년. 쪼그려 앉아 고사리 다듬다 목이 굳었어.", seg:6, side:-1, tolR:5.5, tolB:4, breath:4.8, burn:3.0, trait:"elder",
-   look:{hair:"messy", hairCol:0xcfcac2, skin:0xd9a988, gown:0xa86f8c, glasses:false, model:"patient09"},
+   look:{hair:"messy", hairCol:0xcfcac2, skin:0xd9a988, gown:0xa86f8c, glasses:false, model:"patient09", clinicModel:"patient13"},
    react:{jolt:["startle", "wince"], ahh:["sigh"], first:["dazed", "bliss", "awake"], then:["laugh", "relief"], big:["laugh", "teary"]},
    lines:{start:"아이고 선생, 살살 혀. 나물 다 시들어", near:"어이구, 거기여 거기. 고사리 다듬던 데", ouch:"아이고 데이고!", jolt:"아이고머니!", sigh:"아이고오…", what:"방금 뭐여? 장판 터지는 소리여?", ahh:"아이고… 뜨신 물에 들어간 것 같네",
           after:"반대쪽도 시금치처럼 숨이 죽었네", done:"이따 시장 와. 콩나물 한 줌 더 줄게", idle:"장 파할 시간인디…",

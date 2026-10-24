@@ -10,7 +10,7 @@ const kinds = [{}, { trait: "flexible" }, { trait: "elder" }, { trait: "nervous"
 
 describe("체형 (core/body.js)", () => {
   it("follows the body: patient06..12 have a type, patient01..05 none", () => {
-    expect(Object.keys(BODY_OF)).toEqual(["patient06", "patient07", "patient08", "patient09", "patient10", "patient11", "patient12"]);
+    expect(Object.keys(BODY_OF)).toEqual(["patient06", "patient07", "patient08", "patient09", "patient10", "patient11", "patient12", "patient13"]);
     Object.values(BODY_OF).forEach(k => expect(BODY[k]).toBeTruthy());
     expect(bodyOf({ look: { model: "patient01" } })).toBeNull();
     expect(bodyOf({ look: { model: "patient08" } })).toBe(BODY.bulk);

@@ -58,4 +58,11 @@ describe("makePatients", () => {
     expect(borrowers.map(c => c.name).sort()).toEqual(["근육왕", "메가회장"]);
     borrowers.forEach(c => { expect(c.look.model).toBe("patient08"); expect(c.look).not.toHaveProperty("clinicModel"); });
   });
+  it("복순할매 lies on her image-to-3D body in 목꺾기 only, the cast who borrow her keep the MPFB one", () => {
+    const bs = ROSTER.find(p => p.name === "복순할매");
+    expect(bs.look).toMatchObject({model: "patient09", clinicModel: "patient13"});
+    const borrowers = CAST.filter(c => c.base === "복순할매");
+    expect(borrowers.map(c => c.name).sort()).toEqual(["강해녀", "사모님"]);
+    borrowers.forEach(c => { expect(c.look.model).toBe("patient09"); expect(c.look).not.toHaveProperty("clinicModel"); });
+  });
 });
