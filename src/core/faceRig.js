@@ -89,6 +89,23 @@ export function expressionWeights(face, blinking = false, t = 0, breathIn = 0){
   if(blinking) Object.assign(w, closure(1));
   return w;
 }
+/* A head without blendshapes shows painted faces instead (scene/realAssets.js faceDecals): from the same weights, how
+   much of each painting covers the brows / eyes [0] and the mouth [1]. Shut eyes are relaxed, squeezed (slit + frown)
+   or smiling (the mouth corners up); open eyes go wide; the mouth grimaces, smiles or opens. Nothing: the face as built. */
+const pair = (w, unit) => (w[unit.replace("*", "left")] + w[unit.replace("*", "right")])/2;
+const unit01 = v => Math.min(1, Math.max(0, v));
+export function decalWeights(w){
+  const shut = unit01(pair(w, "eye-*-closure")), squint = unit01((pair(w, "eye-*-slit") + pair(w, "eyebrows-*-down"))/1.5);
+  const smile = unit01(w["mouth-corner-puller"]/0.5), wide = unit01(pair(w, "eye-*-opened-up")/0.6);
+  const grimace = unit01(w["mouth-retraction"]/0.6)*(1 - smile);
+  const open = unit01((w["mouth-open"] + 0.5*w["mouth-pursing"])/0.6)*(1 - smile)*(1 - grimace);
+  return {
+    closed:  [shut*(1 - squint)*(1 - smile), 0],
+    smile:   [shut*smile, smile],
+    squeeze: [shut*squint*(1 - smile), grimace],
+    open:    [wide*(1 - shut), open]
+  };
+}
 /* The faces a crack plays: jolt (at the crack), ahh (the sigh right after it), first (as the x-ray clears), then
    (held until the next side). react: the patient's pools {jolt, ahh, first, then, big}; big replaces then on a
    PERFECT; without an ahh pool the flow uses "sigh". prev: the other side's pick, rerolled a few times so the two
