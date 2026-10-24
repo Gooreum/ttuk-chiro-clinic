@@ -5,6 +5,25 @@
 
 stages:
   verify:
-    run: ["npm test", "npm run build", "npm run e2e", "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"]
+    # 검사는 전부 고르는 항목이다 (verify 는 시작할 때 고른다). 단계 run 에 넣으면 매번 강제로 돈다.
+    items:
+      unit:
+        label: "테스트·빌드"
+        run: ["npm test", "npm run build"]
+      e2e:
+        label: "e2e (영향받는 spec만)"
+        prompt: |
+          playwright spec: 이번 수정이 영향을 주는 것만 골라 직접 돌린다. 전체를 돌리지 않는다.
+            { npm run build:shot && npx playwright test <영향받는 spec...>; } > .ai-bouncer/e2e-result 2>&1; echo "exit: $?" >> .ai-bouncer/e2e-result
+          영향받는 것이 없으면 그 이유를 .ai-bouncer/e2e-result 에 적고 마지막 줄을 exit: 0 으로 남긴다.
+          hook 은 다시 돌리지 않는다. 이 파일이 마지막 수정보다 새것이고 마지막 줄이 exit: 0 인지만 본다.
+        run: "bouncer fresh .ai-bouncer/e2e-result && tail -1 .ai-bouncer/e2e-result | grep -qx 'exit: 0'"
+      shot:
+        label: "화면 스크린샷 비교"
+        prompt: |
+          화면 스크린샷 비교: 시간이 걸리니 hook 이 아니라 직접 돌린다.
+            { { [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new; } > .ai-bouncer/shot-result 2>&1; echo "exit: $?" >> .ai-bouncer/shot-result
+          hook 은 다시 돌리지 않는다. 이 파일이 마지막 수정보다 새것이고 마지막 줄이 exit: 0 인지만 본다.
+        run: "bouncer fresh .ai-bouncer/shot-result && tail -1 .ai-bouncer/shot-result | grep -qx 'exit: 0'"
   finalize:
     run: ["test \"$(git branch --show-current)\" != main", "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""]
