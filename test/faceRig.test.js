@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { expressionWeights, EXPRESSION_UNITS, FACE_NAMES, eyesOpen, isBaseFace, primitiveFace, pickReaction } from "../src/core/faceRig.js";
+import { expressionWeights, decalWeights, EXPRESSION_UNITS, FACE_NAMES, eyesOpen, isBaseFace, primitiveFace, pickReaction } from "../src/core/faceRig.js";
 import { ROSTER } from "../src/patient/roster.js";
 
 describe("expressionWeights", () => {
@@ -53,6 +53,30 @@ describe("expressionWeights", () => {
   });
   it("every face maps to a primitive face", () => {
     FACE_NAMES.forEach(f => expect(["rest", "worried", "tense", "ouch", "startle", "relief"]).toContain(primitiveFace(f)));
+  });
+});
+
+describe("decalWeights (painted faces for a head without blendshapes)", () => {
+  const top = (f, blink = false, t = 0) => decalWeights(expressionWeights(f, blink, t));
+  it("rest shows the closed eyes and leaves the mouth alone", () => {
+    expect(top("rest")).toEqual({closed: [1, 0], smile: [0, 0], squeeze: [0, 0], open: [0, 0]});
+  });
+  it("worried shows the face as built (open eyes), a blink closes them", () => {
+    Object.values(top("worried")).forEach(([u, l]) => { expect(u).toBe(0); expect(l).toBe(0); });
+    expect(top("worried", true).closed[0]).toBe(1);
+  });
+  it("ouch squeezes the eyes and grimaces, relief smiles with closed eyes, startle goes wide and open-mouthed", () => {
+    const o = top("ouch");
+    expect(o.squeeze[0]).toBe(1); expect(o.closed[0]).toBe(0); expect(o.squeeze[1]).toBeGreaterThan(o.open[1]);
+    expect(top("relief").smile).toEqual([1, 1]);
+    expect(top("startle").open[0]).toBe(1); expect(top("startle").open[1]).toBe(1);
+  });
+  it("every face keeps each weight in 0..1 and the eye paintings from adding past 1", () => {
+    FACE_NAMES.forEach(f => [0, 0.1, 1.7].forEach(t => {
+      const d = top(f, false, t);
+      Object.values(d).flat().forEach(v => { expect(v).toBeGreaterThanOrEqual(0); expect(v).toBeLessThanOrEqual(1); });
+      expect(d.closed[0] + d.smile[0] + d.squeeze[0] + d.open[0]).toBeLessThanOrEqual(1 + 1e-9);
+    }));
   });
 });
 

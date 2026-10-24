@@ -4,7 +4,7 @@ import { slipPose } from "./towelMotion.js";
 import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
-import { expressionWeights } from "../core/faceRig.js";
+import { expressionWeights, decalWeights } from "../core/faceRig.js";
 import { flinchProfile } from "../core/fail.js";
 import { neckWeight, neckPinch, NECK_LEN, HEAD_NECK_LEN, UPPER_SHARE } from "../core/towel.js";
 import { clamp } from "../lib/math.js";
@@ -80,13 +80,16 @@ const MODELS = {
   patient08: {crown: 1.6227, chin: 1.3551, back: -0.1139},   // chin: see below (thick neck)
   patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
   patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471},
-  patient11: {crown: 1.6484, chin: 1.3876, back: -0.045}     // image-to-3D, see below
+  patient11: {crown: 1.6484, chin: 1.3876, back: -0.045,     // image-to-3D, see below
+    ear: [0.072, 0.015, 0.027], face: {x: 0, y: 1.51, size: 0.22, split: 0.375}}
 };
 /* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
    crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
    (-0.083) but where the body lies on the table: the hair bulk held the head 4 cm up and the whole body floated over the
    table, so the head sinks into the pillow a little instead. Clinic only: no towel-stage
-   copy, so the towel queue skips it (NO_STAGE) instead of asking for files that are not there. */
+   copy, so the towel queue skips it (NO_STAGE) instead of asking for files that are not there.
+   ear: its real ear (head-local, s = +1), found on the skin-coloured vertices: the hair is the same mesh, so the hand
+   poses cannot measure it (borrowedPoses). face: the square its expression paintings cover (faceDecals). */
 const NO_STAGE = new Set(["patient11"]);
 /* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
    y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
@@ -151,10 +154,58 @@ function placeHead(gltf, env, g, model){
     // into solid strips, so those two stay out of it (they are thin enough to read through anyway)
     if(!m.transparent) xrayMats.push(m);
   });
+  if(g.face && model.skinMesh && !model.towelStage) faceDecals(model, g.face, gltf.scene);
   root.add(gltf.scene);
   root.visible = false;
   head.add(root);
   return root;
+}
+/* A head without blendshapes (patient11: image-to-3D, its eyes painted open, user: "표정이 시체 같음", 2026-10-24): each face
+   is a painting over its front view (scripts/assets/image3d_expr.py), laid on the skin's own front-facing triangles inside
+   the painted square, projected straight on. The brows / eyes patch and the mouth patch fade apart (core/faceRig.js
+   decalWeights); the paintings stack in DECALS order. Only the changed parts are opaque in each. */
+const DECALS = ["closed", "smile", "squeeze", "open"];
+const _dv = new THREE.Vector3();
+function faceDecals(model, F, scene){
+  const o = model.skinMesh, geo = o.geometry, P = geo.attributes.position, Nm = geo.attributes.normal, I = geo.index;
+  if(!I || !Nm) return;
+  scene.updateMatrixWorld(true);
+  const M = new THREE.Matrix4().copy(scene.matrixWorld).invert().multiply(o.matrixWorld), N = new THREE.Matrix3().getNormalMatrix(M);
+  const x0 = F.x - F.size/2, y0 = F.y - F.size/2, uv = new Float32Array(P.count*2), front = new Uint8Array(P.count);
+  for(let i = 0; i < P.count; i++){
+    _dv.fromBufferAttribute(P, i).applyMatrix4(M);
+    const u = (_dv.x - x0)/F.size, v = (_dv.y - y0)/F.size;
+    uv[2*i] = u; uv[2*i + 1] = v;
+    front[i] = u > 0 && u < 1 && v > 0 && v < 1 && _dv.fromBufferAttribute(Nm, i).applyMatrix3(N).normalize().z > 0.15 ? 1 : 0;
+  }
+  const parts = [[], []];      // brows / eyes, mouth
+  for(let f = 0; f < I.count; f += 3){
+    const a = I.getX(f), b = I.getX(f + 1), c = I.getX(f + 2);
+    if(front[a] && front[b] && front[c]) parts[(uv[2*a + 1] + uv[2*b + 1] + uv[2*c + 1])/3 < F.split ? 1 : 0].push(a, b, c);
+  }
+  const uvs = new THREE.BufferAttribute(uv, 2);
+  const geos = parts.map(ix => {
+    const q = new THREE.BufferGeometry();
+    q.setAttribute("position", P); q.setAttribute("normal", Nm); q.setAttribute("uv", uvs); q.setIndex(ix);
+    return q;
+  });
+  const loader = new THREE.TextureLoader();
+  model.decals = [];
+  DECALS.forEach((name, k) => {
+    const map = loader.load(BASE + `${model.id}/expr_${name}.webp`);
+    map.encoding = THREE.sRGBEncoding; map.anisotropy = 4;
+    geos.forEach((q, part) => {
+      if(name === "closed" && part === 1) return;      // closing the eyes leaves the mouth as it is
+      const m = model.skin.clone();
+      Object.assign(m, {map, normalMap: null, transparent: true, opacity: 0, depthWrite: false,
+        polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4});
+      const d = new THREE.Mesh(q, m);
+      d.position.copy(o.position); d.quaternion.copy(o.quaternion); d.scale.copy(o.scale);
+      d.renderOrder = 1 + k; d.frustumCulled = false; d.visible = false;
+      o.parent.add(d);
+      model.decals.push({mesh: d, name, part});
+    });
+  });
 }
 
 /* ---- patient body ----
@@ -370,7 +421,7 @@ export function updateRealBody(fill, s = 0, body = s){
 
 /* One patient's head + body. Resolves once both are placed (hidden); shows them if that patient is on the table. */
 function loadPatientModel(id, towelStage = false){
-  const model = {head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
+  const model = {id, head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
   const base = BASE + (towelStage ? "towel-stage/" : "");
   return Promise.all([load(base + `${id}/${id}.glb`), load(base + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
     const place = () => {
@@ -639,6 +690,11 @@ function measureHead(model){
   model[key] = null;
   const src = model.skinMesh;
   if(!src) return null;
+  const ear = MODELS[model.id] && MODELS[model.id].ear;
+  if(clinic && ear){
+    model.clinicSurface = clinicSurface(src, head);
+    return model[key] = borrowedPoses(ear);
+  }
   head.updateMatrixWorld(true); src.updateWorldMatrix(true, false);
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", src.geometry.attributes.position);
@@ -688,6 +744,30 @@ function measureHead(model){
   g.dispose(); probe.material.dispose();
   if(clinic) model.clinicSurface = clinicSurface(src, head);
   return model[key] = poses;
+}
+/* A head whose hair is one mesh with its skin (patient11): the outermost point of its ear band is hair 12 cm out
+   (patient07: 7.6 cm), so measured poses sat 35% too wide on the lumpy hair and took its normals, which wrung the wrists
+   (user: "손목이 돌아가 있는 느낌", 2026-10-24). It takes patient07's clinic poses (the same build), measured as above and
+   carried over relative to the real ear; the contact fit then slides the hands out onto the hair.
+   Per pose, s = +1 (x mirrors for -1): [palm point - ear, palm normal into the head]. */
+const CLINIC_POSES_07 = {
+  rest:    [[0.0074, -0.0182, 0.0089], [-0.951, 0.248, -0.182]],
+  cup:     [[0.0056, -0.0327, -0.0070], [-0.966, 0.257, 0.006]],
+  contact: [[0.0114, -0.0177, 0.0430], [-0.871, 0.244, -0.427]],
+  support: [[0.0141, -0.0402, -0.0155], [-0.972, 0.234, 0.001]]
+};
+function borrowedPoses(ear){
+  const poses = {};
+  for(const s of [1, -1]){
+    const E = new THREE.Vector3(s*ear[0], ear[1], ear[2]);
+    poses[s] = {ear: E, k: 1};
+    for(const name of POSE_NAMES){
+      const [d, n] = CLINIC_POSES_07[name], P = CLINIC_HAND_POSES[name];
+      poses[s][name] = {p: new THREE.Vector3(s*d[0], d[1], d[2]).add(E), f: new THREE.Vector3(P.fingers[0]*s, P.fingers[1], P.fingers[2]).normalize(),
+        n: new THREE.Vector3(s*n[0], n[1], n[2]).normalize(), grip: P.grip, roll: P.roll};
+    }
+  }
+  return poses;
 }
 
 /* ---- the patient's chest, for the pat after both sides ----
@@ -1177,4 +1257,15 @@ export function updateRealFace(face, blinking, k, glow, t = 0, breathIn = 0){
     }
   });
   if(cur.skin) cur.skin.emissiveIntensity = glow;
+  if(cur.decals){
+    // the x-ray fades the skin: the paintings fade with it
+    const dw = decalWeights(w), sk = cur.skin, fade = sk.transparent ? sk.opacity : 1;
+    cur.decals.forEach(({mesh, name, part}) => {
+      const m = mesh.material;
+      m.userData.w = (m.userData.w || 0) + (dw[name][part] - (m.userData.w || 0))*k;
+      m.opacity = m.userData.w*fade;
+      mesh.visible = m.opacity > 0.004;
+      m.color.copy(sk.color); m.emissiveIntensity = glow;
+    });
+  }
 }
