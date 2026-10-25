@@ -183,6 +183,16 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb pat
 - 감은 눈·질끈·웃음·놀람 4장은 새 `expr_fix` 위에 눈·눈썹만 다시 그렸다. 감은 눈꺼풀은 뜬 눈 영역을 다 덮는다(깜빡임도 이 그림).
 - 입은 예전 표정 그림을 그대로 쓴다: 스크래치 `merge.py`가 split 선(위 새 그림 / 아래 예전 그림, 48 px 띠로 섞음)으로 합친 뒤 `image3d_expr.py`로 뽑았다.
 
+## 이미지 기반 환자를 다른 모드로 (patient11~14, 2026-10-25)
+
+사용자: "새로 추가한 4 캐릭터들 다른 게임에도 다 적용해봐. 목뽑기, 허리누르기, 허리비틀기". 원본(Tripo `raw.glb`, 줄인 `s2.glb`, 시안)과 rig.blend는 레포 밖 `~/Code/Chirophractic/asset-src/patientNN/`에 둔다(세션 스크래치는 지워진다).
+
+1. 전신 정규화: `blender -b -t 4 --python image3d_norm.py -- s2.glb full.glb <tall> <cut>`(image3d_patient.py와 같은 배율·회전·기울기·목 중심, 자르지 않음). patient14는 `image3d_flaps.py -- full.glb full_f.glb 1.48 1.62 0.09 0.03`을 한 번 더.
+2. 뼈: `blender -b -t 4 --python image3d_rig.py -- full.glb rig.blend patientNN [sheet.png]`. 가장 비슷한 MPFB 프리셋(07/08/09/06)의 game_engine 뼈를 키에 맞춘 뒤, 척추는 가운데 띠 단면(앞→뒤 62%), 무릎·발목은 다리 단면 중심, 팔은 몸통과 떨어진 단면을 이은 중심선(어깨는 양쪽 평균 폭, 피부 5 cm 안)에 MPFB 비율로 나눠 놓는다. 가중치는 복셀(12 mm) 프록시의 bone heat를 가장 가까운 면으로 복사한 뒤, 반대쪽 팔다리 뼈는 가운데 ±3 cm에서 페이드, 그 정점에서 가장 가까운 뼈보다 12 cm 넘게 먼 뼈는 지우고, 스무딩, 4본 제한. 시트는 쉼 자세와 팔 내림·무릎 굽힘·허리 비틀기.
+3. 허리누르기: `blender -b <rig.blend> --python back_image_patient.py -- patientNN out.glb back_surface_patientNN.json` → `resize 1024` → `webp 80` → `meshopt` → `public/models/back/`. 팔 벌림 `ARM_OUT`(마동철 0.30), 배가 가슴보다 3 cm 넘게 나오면 패드 면을 가슴·배 중간에 둔다.
+4. 허리비틀기: `blender -b --python side_patient.py -- <작업>/patient_raw.glb <작업>/marks.json <작업> rig.blend`(환자마다 다른 작업 폴더) → `resize 1024` → `webp 82` → `meshopt` → `public/models/side/patientNN.glb`, marks는 `patient_marks_patientNN.json`. 위쪽 손이 패드 밑으로 들어가면 손목을 위쪽으로 올리고(양쪽, `PATIENT_HAND_FIT`), 바닥 지지는 손을 뺀 몸으로 잰다. 무릎 위치 검사는 이 몸들에 맞지 않아 끄고 각도만 본다. 마동철은 골반이 패드 위 0.5 m라 넣지 않았다.
+5. 목뽑기 수건: `towel_sim.py` `MODELS`에 11~14 → 14명 다시 굽기 → `towel/towel_sim.glb`(webp 85, meshopt) → 위 "수건 모드" 재생성의 towel 줄 → `DETAIL_FILES=towel_sim towel_therapist_detail.mjs`. 마동철 `CHIN_EDGE` 0.075(목이 묻혀 X가 어깨를 감았다). 결과 1.55 MB / towel-stage 2.12 MB.
+
 ## 환자 몸
 
 `blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16` (patient01과 같은 체형, 옷 `male_casualsuit06`, 두 손을 배 위에 올린 자세, 머리 GLB가 가져간 목 중간 위를 뺀 나머지, 피부×AO 굽기, 2본 스킨 `body`/`neck`, 모양 키 `breath`) 후
