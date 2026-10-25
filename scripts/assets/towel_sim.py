@@ -65,9 +65,29 @@ MODELS = {
 }
 PRIM = (-0.134, 0.142, -0.110)          # crown z, chin z, back y (head-local)
 GRIP = (0.118, 0.03, 0.035)             # TOWEL_GRIP, s = +1 (x mirrored for the right fist)
+# realAssets.js MODELS[id].towelGrip: the image-to-3D heads sit higher / wider / under more hair, so TOWEL_GRIP fell
+# inside 마동철's cheek and 복순할매's perm and the fists were pushed off the skin, 3-7 cm away from the hands (user:
+# "진짜 수건 위치랑 잡는거 디테일하게 안할래", 2026-10-26). Each fist beside that patient's own jaw angle instead.
+GRIPS = {"patient11": (0.118, 0.03, 0.035),
+         "patient12": (0.165, 0.14, 0.075),
+         "patient13": (0.125, 0.115, 0.05),
+         "patient14": (0.108, 0.04, 0.035)}
 PULL = 0.06                             # TOWEL_PULL toward -z
 
 LENGTH = 1.30       # towel band length (m): a bath towel folded lengthwise keeps its ~1.25 m
+# The image-to-3D heads are one shell with the hair and the clothes: 최필라's long hair and 복순할매's perm / hump fall
+# onto the neck, 마동철's traps rise beside it. Rays round the neck met those and the wrap went round the hair / the
+# shoulders (0.70 m and 1.27 m to a fist against 0.33 m for 조멸치), longer than the towel, so the ends stopped short of
+# the fists (2026-10-26). For them the neck is given: axis y (yc), neck radius r (below the chin edge zc) and rj above it
+# (the jaw); in the band's zone (head-local z z0..z1, behind yf) the shell outside those radii is left out of the
+# colliders and the rays, so the towel goes under the hair / into the fold of the traps, where the pillow hides it.
+NECK = {"patient11": {"yc": -0.02, "r": 0.062, "rj": 0.075, "zc": 0.098, "yf": 0.01, "z0": 0.0, "z1": 0.25},
+        "patient12": {"yc": 0.09, "r": 0.09, "rj": 0.13, "zc": 0.13, "yf": 0.12, "z0": 0.0, "z1": 0.28},
+        "patient13": {"yc": 0.06, "r": 0.065, "rj": 0.08, "zc": 0.112, "yf": 0.09, "z0": 0.0, "z1": 0.25}}
+CULL = None         # NECK entry of the patient being built (world_mesh)
+# a longer towel where the wrap is longer (마동철's thick neck and wide jaw, 복순할매's hump), so a loose end still
+# hangs out of each fist
+LENGTHS = {"patient12": 1.75, "patient13": 1.45}
 BAND_W = float(os.environ.get("TOWEL_W", "0.07"))   # folded band width
 CLOTH_T = 0.007     # folded band thickness (three ~2.3 mm terry layers)
 STEP = 0.006        # simulation grid spacing
@@ -212,7 +232,18 @@ def world_mesh(pred):
         me = ev.to_mesh()
         W = [o.matrix_world @ v.co for v in me.vertices]
         keep = {}
+        def culled(p):
+            if CULL is None:
+                return False
+            for i in p.vertices:
+                x, y, z = HL(W[i])
+                r = math.hypot(x, y - CULL["yc"])
+                if not (CULL["z0"] < z < CULL["z1"] and y < CULL["yf"] and r > (CULL["r"] if z >= CULL["zc"] else CULL["rj"]) + 0.006):
+                    return False
+            return True
         for p in me.polygons:
+            if culled(p):
+                continue
             # only what the towel can reach: the head end of the body (the rest only slows the collisions)
             if all(-0.30 < -W[i].y < 0.34 and abs(W[i].x) < 0.30 for i in p.vertices):
                 polys.append([keep.setdefault(i, len(verts) + len(keep)) for i in p.vertices])
@@ -282,8 +313,9 @@ def catmull(P, n=24):
 # the steepest-drop search lands on the mouth (z 0.030) and the X would cross his lips
 CHIN_EDGE = {"patient10": 0.074,
              # 마동철 (image-to-3D): his neck is buried in the traps, so the profile falls away at the chest and the ring
-             # wrapped the shoulders; the jaw line instead
-             "patient12": 0.075}
+             # wrapped the shoulders. 0.075 was his mouth and the X ran across it (2026-10-26); the underside of his
+             # chin (the front profile turns down at z 0.13-0.145) instead
+             "patient12": 0.13}
 
 
 def landmarks(bvh, pid=None):
@@ -301,7 +333,7 @@ def landmarks(bvh, pid=None):
     zn = zc + 0.022
     f = ray((0, 0.3, zn), (0, -1, 0))
     b = ray((0, -0.3, zn), (0, 1, 0))
-    yc = 0.5*(f[1]+b[1])
+    yc = 0.5*(f[1]+b[1]) if b is not None else f[1] - 0.06    # b: none through a NECK patient's left-out hair
     print(f"LANDMARKS chin edge z {zc:.3f}  neck ring z {zn:.3f}  front y {f[1]:.3f} back y {b[1]:.3f}")
     return zc, zn, yc, ray
 
@@ -312,6 +344,9 @@ def build_start(pid, bvh_skin, bvh_all):
     shapes: the sim hangs the band on them with soft goal springs (stiff in the fists, none in the loose ends), so
     gravity, the body and the cloth's own stiffness make the sag, folds and the hang of the ends."""
     zc, zn, yc, ray = landmarks(bvh_skin, pid)
+    nk = NECK.get(pid)
+    if nk:
+        yc = nk["yc"]
 
     def surf(theta, z, gap):
         """the skin round the neck axis at (angle, z): from the axis outward on the neck (the first skin it meets), from
@@ -321,6 +356,8 @@ def build_start(pid, bvh_skin, bvh_all):
         hit = ray(ax, d) if abs(theta) < 50 or abs(theta) > 85 or z > zc else None
         if hit is None or np.linalg.norm(hit - ax) > 0.11:
             hit = ray(ax + 0.35*d, -d)
+        if nk and (hit is None or np.linalg.norm((hit - ax)[:2]) > (nk["r"] if z >= zc else nk["rj"]) + 0.01):
+            hit = ax + (nk["r"] if z >= zc else nk["rj"])*d
         if hit is None:
             hit = ax + 0.06*d
         return hit + d*gap
@@ -339,7 +376,8 @@ def build_start(pid, bvh_skin, bvh_all):
                (-95, zn+0.006+dz, 0.0045+g*1.5, 0.5), (-62, zn+0.014+dz, 0.0045+g, 1.0),
                (-30, zc+0.036+dz*0.3, 0.0045+g, 1.0), (0, zc+0.024+dz*0.15, 0.0045+g*0.5, 1.0),
                (30, zc+0.012+dz*0.1, 0.0045, 1.0), (58, zc-0.016+dz*0.3, 0.0045, 1.0), (80, zc-0.040, 0.0045, 1.0)]
-        F = lambda s: np.array((s*GRIP[0], GRIP[1], GRIP[2] - (PULL if taut else 0.0)))
+        gp = GRIPS.get(pid, GRIP)
+        F = lambda s: np.array((s*gp[0], gp[1], gp[2] - (PULL if taut else 0.0)))
         def half(s, over):
             pts = [surf(th if s > 0 else -th, z, gap + (CLOTH_T + 0.0015)*k*over) for th, z, gap, k in WAY]
             df = norm(np.array((s*0.45, 0.05, -0.9)))
@@ -398,7 +436,12 @@ def build_start(pid, bvh_skin, bvh_all):
         # everything at least the gap off the body: radially from the neck axis where the body faces outward (neighbours
         # move together), then along the surface normal (the chin's underside, the shoulders) a few small steps
         want = 0.0045 + np.where(u > 0, (CLOTH_T + 0.0015)*smooth(0.04, 0.12, u), 0.0)
+        # the fists stay exactly where the hands hold them: pushing them off the skin left the towel ends beside empty
+        # fists (realAssets.js towelGrip)
+        held = np.abs(dF) <= FIST/2 + 1e-6
         for i in range(NU):
+            if held[i]:
+                continue
             for j in range(NV):
                 p = P[i, j]
                 d = np.array((p[0], p[1]-yc, 0.0))
@@ -428,9 +471,11 @@ def build_start(pid, bvh_skin, bvh_all):
             D = P - P0
             m = np.linalg.norm(D, axis=2, keepdims=True)
             D = D*np.minimum(1.0, 0.012/np.maximum(m, 1e-9))
+            D[held] = 0
             for _ in range(2):
                 D[1:-1] = 0.5*D[1:-1] + 0.25*(D[:-2] + D[2:])
                 D[:, 1:-1] = 0.5*D[:, 1:-1] + 0.25*(D[:, :-2] + D[:, 2:])
+                D[held] = 0
             P = P0 + D
         # goal (pin) weights: hard in the fists, soft on the wrap (looser at the back and sides), none in the ends
         wgoal = np.where(np.abs(u) < 0.10, 0.25, 0.35)
@@ -668,7 +713,7 @@ def band_topology(NU, NV, u, v):
     # uv (real scale) and vertex colour (dobby bands, hems)
     uu = np.concatenate([np.repeat(u, NV), np.repeat(u, NV), u, u])
     vv = np.concatenate([np.tile(v, NU), np.tile(v, NU), np.full(NU, v[0]-CLOTH_T*0.6), np.full(NU, v[-1]+CLOTH_T*0.6)])
-    from_end = LENGTH/2 - np.abs(uu)
+    from_end = u[-1] - np.abs(uu)      # u runs -LENGTH/2..LENGTH/2 of that patient (LENGTHS)
     dobby = smooth(0.055, 0.058, from_end)*(1-smooth(0.087, 0.090, from_end))
     hem = 1-smooth(0.010, 0.012, from_end)
     shade = 1.0 - 0.07*dobby - 0.04*hem
@@ -808,12 +853,15 @@ def preview(pid, ob):
 
 # ------------------------------------------------------------------ main
 def main():
+    global CULL, LENGTH
     pids = [p for p in MODELS if not ONLY or p in ONLY]
     os.makedirs(OUTDIR, exist_ok=True)
     tex = None
     results = {}
     for pid in pids:
         print("=====", pid)
+        CULL = NECK.get(pid)
+        LENGTH = LENGTHS.get(pid, 1.30)
         load_patient(pid)
         if tex is None:
             tex = make_textures()

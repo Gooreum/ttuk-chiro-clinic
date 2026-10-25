@@ -192,6 +192,7 @@ blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb pat
 3. 허리누르기: `blender -b <rig.blend> --python back_image_patient.py -- patientNN out.glb back_surface_patientNN.json` → `resize 1024` → `webp 80` → `meshopt` → `public/models/back/`. 팔 벌림 `ARM_OUT`(마동철 0.30), 배가 가슴보다 3 cm 넘게 나오면 패드 면을 가슴·배 중간에 둔다.
 4. 허리비틀기: `blender -b --python side_patient.py -- <작업>/patient_raw.glb <작업>/marks.json <작업> rig.blend`(환자마다 다른 작업 폴더) → `resize 1024` → `webp 82` → `meshopt` → `public/models/side/patientNN.glb`, marks는 `patient_marks_patientNN.json`. 위쪽 손이 패드 밑으로 들어가면 손목을 위쪽으로 올리고(양쪽, `PATIENT_HAND_FIT`), 바닥 지지는 손을 뺀 몸으로 잰다. 무릎 위치 검사는 이 몸들에 맞지 않아 끄고 각도만 본다. 마동철은 골반이 패드 위 0.5 m라 넣지 않았다.
 5. 목뽑기 수건: `towel_sim.py` `MODELS`에 11~14 → 14명 다시 굽기 → `towel/towel_sim.glb`(webp 85, meshopt) → 위 "수건 모드" 재생성의 towel 줄 → `DETAIL_FILES=towel_sim towel_therapist_detail.mjs`. 마동철 `CHIN_EDGE` 0.075(목이 묻혀 X가 어깨를 감았다). 결과 1.55 MB / towel-stage 2.12 MB.
+   - 수건 위치·손잡기 고침(2026-10-26): 환자별 주먹 점 `GRIPS`(= `realAssets.js` `MODELS[id].towelGrip`, 턱각 옆 바깥 피부·머리카락에서 약 5 cm), 주먹 고정 행은 피부 밀어내기에서 제외(밀려서 손과 3~7 cm 어긋났다). 머리카락·승모근이 목에 붙은 필라·마동철·할매는 `NECK`(목 축 yc, 목 반지름 r, 턱 쪽 rj)으로 목을 정하고 그 구역 밖 껍데기를 충돌체·광선에서 뺀다. 수건 길이 `LENGTHS` 마동철 1.75 m, 할매 1.45 m. 마동철 `CHIN_EDGE` 0.075는 입이라 0.13(턱 밑). `PATH` 끝자락이 네 명 모두 양수인지 본다. `DETAIL_FILES` 단계는 `GLTF_MODULES`(gltf-transform이 든 node_modules)가 있어야 돈다.
 
 ## 환자 몸
 
@@ -268,7 +269,7 @@ $G meshopt a.glb ../../public/models/towel/towel_sim.glb
 
 만드는 법:
 - 환자 머리·몸 GLB를 불러 `realAssets.js` `glbRoot(MODELS[id])`와 같은 변환으로 three.js `head` 그룹의 로컬 좌표(+y 얼굴, -z 정수리·치료사, +z 발, +x 치료사 왼손)에 놓는다. 그래서 GLB를 변환 없이 `head`의 자식으로 붙이면 맞는다(meshopt 양자화가 메시 노드마다 넣는 이동·배율은 그대로 둔다).
-- 머리·목 피부에 광선을 쏴 턱 밑 경계와 목 둘레를 재고, 수건 길을 두 번 깐다. 가운데는 뒤통수 아래 목 뒤, 왼손으로 가는 끝은 목 오른쪽을 돌아 턱 밑에서 다른 끝 위로 X자로 겹친 뒤 왼쪽 턱선을 따라 왼손 주먹(`TOWEL_GRIP` (0.118, 0.03, 0.035))으로, 오른손 끝은 거울. 주먹 안 3.5 cm는 좁게 모여 고정되고 나머지 끝자락은 주먹 밖으로 늘어진다. 당긴 상태(taut)는 주먹이 `TOWEL_PULL` 0.06 m만큼 -z로 가고 고리가 뒤통수·턱 쪽으로 조여진다.
+- 머리·목 피부에 광선을 쏴 턱 밑 경계와 목 둘레를 재고, 수건 길을 두 번 깐다. 가운데는 뒤통수 아래 목 뒤, 왼손으로 가는 끝은 목 오른쪽을 돌아 턱 밑에서 다른 끝 위로 X자로 겹친 뒤 왼쪽 턱선을 따라 왼손 주먹(`TOWEL_GRIP` (0.118, 0.03, 0.035), 이미지 기반 환자는 `GRIPS`)으로, 오른손 끝은 거울. 주먹 안 3.5 cm는 좁게 모여 고정되고 나머지 끝자락은 주먹 밖으로 늘어진다. 당긴 상태(taut)는 주먹이 `TOWEL_PULL` 0.06 m만큼 -z로 가고 고리가 뒤통수·턱 쪽으로 조여진다.
 - Blender 천 시뮬레이션: 그 두 모양을 목표로 부드러운 목표 스프링(주먹은 단단히, 감긴 부분은 약하게, 끝자락은 없음)으로 걸고 중력·머리/목/셔츠 충돌·머리 받침·게임의 베개와 테이블 윗면 위에서 가라앉힌 뒤, 목표를 느슨함 → 당김으로 바꿔 다시 가라앉힌다. 처짐·접힘·끝자락이 늘어지는 모양은 시뮬레이션에서 나온다. Blender 천은 센티미터 크기에서 불안정해서 10배로 키워 돌리고, 자기 충돌은 이 크기에서 떨리기만 해서 끄고, 시뮬레이션 뒤 위 끝을 아래 끝 위로 들어 올려 겹을 정리하고 피부에서 띄운다.
 - 두 상태 모두 같은 위상으로 두께 7 mm(테리 세 겹) 닫힌 띠로 만든다(위·아래 면, 둥근 접힌 가장자리, 막힌 끝). 메시 `towel_patient01`~`10`, 쉼 = 느슨함, 모프 타깃 `taut` 하나. 각 약 7k 삼각형, 루트 노드 `towel_sim`.
 - 재질 `towel.cloth`: 사진 테리 텍스처의 밝기로 만든 미색(#f2efe8) 알베도 + 노멀 맵(1024, 실제 크기로 반복: 한 장 = 0.367 m), 거칠기 0.95, sheen. 끝에서 5.5~9 cm에 조금 회색인 도비 띠와 끝단 헴을 정점 색(COLOR_0)으로 넣었다.

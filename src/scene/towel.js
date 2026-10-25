@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { scene } from "./renderer.js";
 import { head, crackFadeMats } from "./patientModel.js";
-import { loadModel, getEnv } from "./realAssets.js";
+import { loadModel, getEnv, TOWEL_GRIP, towelGripFor } from "./realAssets.js";
 import { withVisualIds } from "./visualBuild.js";
 import { slipPose } from "./towelMotion.js";
 
@@ -73,10 +73,10 @@ function loadSim(){
       Object.values(simMeshes).forEach(m => { m.removeFromParent(); m.visible = false; sim.add(m); });
       head.add(sim);
       sim.updateWorldMatrix(true, true);
-      for(const patient of Object.values(simMeshes)){
+      for(const [id, patient] of Object.entries(simMeshes)){
         const meshes=[];patient.traverse(m=>{if(m.isMesh)meshes.push(m);});
         const reference=meshes.find(m=>m.geometry.attributes.uv);
-        meshes.forEach(m=>buildSlipMorphs(m,reference));
+        meshes.forEach(m=>buildSlipMorphs(m,reference,towelGripFor(id)));
       }
     });
   }).catch(err => console.warn("simulated towel not loaded, keeping the bone towel", err));
@@ -120,7 +120,8 @@ const outward = (x, y, out) => out.set(x, y, 0).normalize().transformDirection(h
    t: seconds (the hanging ends sway). */
 // The two morphs use cloth coordinates along its length, shared by the terry surface and sewn rim.
 // First loosen below the occiput, then draw the loop toward the therapist. The final U hangs from closed fists.
-function buildSlipMorphs(m, reference){
+// G: that patient's fist point (realAssets towelGripFor); the hanging U is laid out from TOWEL_GRIP and moved with it.
+function buildSlipMorphs(m, reference, G = TOWEL_GRIP){
   const source = m.geometry, P = source.attributes.position;
   let UV = source.attributes.uv;
   if(!UV && !reference) return;
@@ -162,6 +163,7 @@ function buildSlipMorphs(m, reference){
     const v=Math.min(1,a/0.62), tail=Math.max(0,(a-0.62)/0.38);
     // A catenary-like U between the fists, followed by two free ends. Retain the simulated small folds and thickness.
     q.set(s*(0.133*v+0.022*tail),0.015-0.05*(1-v*v)-0.12*tail,-0.13-0.075*(1-v)+0.04*tail);
+    q.x+=s*(G[0]-TOWEL_GRIP[0])*v;q.y+=G[1]-TOWEL_GRIP[1];q.z+=G[2]-TOWEL_GRIP[2];
     // Unroll the band's width into the hanging sheet's frame. Keeping the old radial neck frame here made the
     // cloth edge-on and hid its middle inside the table. UVs preserve both the thickness shell and sewn borders.
     const gather=1-0.75*Math.exp(-Math.pow((a-0.62)/0.045,2));
