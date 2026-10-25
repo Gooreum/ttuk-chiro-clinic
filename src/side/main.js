@@ -7,7 +7,7 @@ import {clamp} from '../lib/math.js';
 import {therapistStyle} from '../back/therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
-import {ROSTER} from '../patient/roster.js';
+import {ROSTER,lumbarPatient} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
 import {CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
@@ -44,7 +44,8 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   cue:'',cueStyle:'',pausedAt:0,previousPhase:null,gag:null};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 // 영업 일지 허리비틀기 day (side.html?day=N from index.html's story card): that day's patient (name and lines; the body
-// is always Patient01's side-lying model), its pain limit and the day result. Otherwise the free 박대리 run.
+// is Patient01's side-lying model unless the patient has its own, look.sideModel), its pain limit and the day result.
+// Otherwise the free run: ?patient=<name> or one at random of the patients with a side-lying body (roster lumbarPatient).
 // &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat.
 // A locked ?day goes to the day list; &pain=1 counts once, on the fresh hop from the story card (back/core.js dayQuery).
 const Q=dayQuery(location.search,readProgress(store.get(CAMPAIGN_KEY,null)),'side',{fresh:(performance.getEntriesByType?.('navigation')?.[0]?.type??'navigate')==='navigate',dev:import.meta.env.MODE==='shot'||__CASES__});
@@ -53,7 +54,8 @@ if(Q.pain){const u=new URL(location.href);u.searchParams.delete('pain');history.
 const DAY=Q.day,HARD=Q.hard,dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
 // the day's zone width: mods.tight / tighter narrow it like the neck modes
 const TOL=tolFor(dayDef&&dayDef.mods);
-const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
+const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:lumbarPatient('side',new URLSearchParams(location.search).get('patient'),Math.random,import.meta.env.MODE==='shot'||__CASES__);
+const bodyModel=patient.look?.sideModel||null;   // an image-to-3D patient's own side-lying body (roster lumbarPatient)
 const painMax=dayDef?dayDef.painMax+(Q.pain?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&['anim','turn','roll','leave'].includes(t.phase)?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 const side=()=>S.order[S.sideIdx], goal=()=>S.goals[S.sideIdx];
@@ -323,6 +325,12 @@ $('sideTune').addEventListener('click',openTune);
 mountClinicMenu({chip:$('sideClinic'),menu:$('sideClinicMenu'),current:()=>'side',onOpen:halt,onClose:resume});
 ['sideWelcomeClinics','sideResultClinics'].forEach(id=>renderClinicLinks($(id),'side'));
 // the day's patient on the chart, the start card and the pain slots
+// a free-run patient other than 박대리 (roster lumbarPatient): their name and their back complaint (look.waist; the cc
+// is about the neck) over the start card's first line
+if(!dayDef&&patient.waist){
+  const nm=$('sideName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
+  $('sideWelcomeText').firstChild.textContent=t("{name}, {age}세. {waist}",{name:t(patient.name),age:patient.age,waist:t(patient.waist)});
+}
 if(dayDef){
   const nm=$('sideName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
   $('sideDayNo').textContent=t("영업 일지 · {day} {title}",{day:dayLabel(DAY)+(HARD?' '+t('역경'):''),title:t(dayDef.title)});$('sideDayNo').hidden=false;
@@ -459,7 +467,7 @@ function frame(now){
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
 const sceneT0=performance.now();
-try{scene=await createSideScene(canvas);resize();track(EV.assetLoad,{asset:'side_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
+try{scene=await createSideScene(canvas,{model:bodyModel});resize();track(EV.assetLoad,{asset:'side_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
   $('sideStart').textContent=t('진료 시작');document.documentElement.dataset.sideReady='true';raf=requestAnimationFrame(t=>{frame(t);markReady();});
 }catch(error){console.error('허리비틀기 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('sideLoadNote').textContent=t('진료실을 불러오지 못했어요. 다시 열어 주세요.');$('sideStart').textContent=t('다시 불러오기');$('sideStart').disabled=false;$('sideStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});

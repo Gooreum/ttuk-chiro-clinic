@@ -23,10 +23,11 @@ for(const [mode, start] of [["목꺾기", "#start"], ["목뽑기", "#startTowel"
     const hog = await page.evaluate(() => { const S = window.__game.S; return { heavy: S.target.heavy, model: S.target.look.model, towel: S.towel && S.towel.half }; });
     expect(hog).toMatchObject({ heavy: 0.2, model: "patient08" });
     if(mode === "목뽑기") expect(hog.towel).toBeCloseTo(0.13, 5);
-    await page.waitForFunction(() => document.documentElement.dataset.towelPatient === "patient08" || window.__game.S.game !== "towel", null, { timeout: 120_000 });
+    // 목뽑기 lays 마동철 on his image-to-3D clinic body too (look.clinicModel, no towel-stage copy: "fallback")
+    await page.waitForFunction(() => document.documentElement.dataset.towelPatient === "fallback" || window.__game.S.game !== "towel", null, { timeout: 120_000 });
     await playNeckDay(page);
     expect(await page.evaluate(() => window.__game.S.results.map(r => r.name).slice(1))).toEqual(["마동철", "정꼬마"]);
-    expect([...glb]).toEqual(expect.arrayContaining(["patient08", "patient10"]));
+    expect([...glb]).toEqual(expect.arrayContaining(["patient12", "patient10"]));   // 마동철's image-to-3D body in both neck modes
     errs.check();
   });
 }

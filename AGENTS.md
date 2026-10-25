@@ -448,4 +448,11 @@
   - 눈: 이마 앞 앞머리가 피부색이 구워진 얇은 판이라 표정 그림이 그 위에서 유리 파편처럼 보였다. 피부 앞에 뜬 판을 지웠다(`scripts/assets/image3d_flaps.py`). 스캔 텍스처에는 한쪽 눈의 흰 번짐, 눈썹·이마 얼룩, 콧구멍 반짝임이 남았다. 고친 정면 그림(`expr_fix.webp`, `MODELS.patient14.face.fix`)을 표정 그림 밑에 늘 덮고, 표정 4장도 그 고친 얼굴 위에 그렸다.
   - 절차는 `scripts/assets/README.md` "이미지 기반 환자 4"에 있다. 폰 실기기 확인 전이다.
 - 이미지 기반 환자 눈(2026-10-25, 사용자: "야 눈깔이가 너무 괴기하지 않냐. 우리 한미녀가 진짜 롤 모델이다. 자연스럽게 눈 떠 있고 감고 깜빡이게 바꿔. 눈만 바꾸면 완벽하다 이제."): 마동철(반쯤 감긴 눈)·복순할매(웃는 실눈, 늘 감은 듯)·조멸치(치뜬 눈, 붉은 다크서클)의 바탕 눈을 최필라 수준의 자연스럽게 뜬 눈으로 다시 그려 `expr_fix`로 늘 덮는다(`MODELS.patient12/13.face.fix` 추가). 표정 4장의 눈은 그 위에 다시 그렸고 입은 예전 그림 그대로다. 쉴 때(`rest`) 다른 환자는 눈을 감고 눕지만, 그림 얼굴 환자(최필라 포함 넷)는 루프가 `idle`(뜬 눈, 깜빡임)로 바꿔 그린다(`game/loop.js`, `realAssets.js` `paintedFace`, `core/faceRig.js`). 마동철·할매가 늘 감은 듯 보인 진짜 원인이 이것이었다. 절차는 `scripts/assets/README.md` "이미지 기반 환자 눈 다시 그리기". 폰 실기기 확인 전이다.
+- 새 환자 4명을 다른 모드에도(2026-10-25, 사용자: "새로 추가한 4 캐릭터들 다른 게임에도 다 적용해봐. 목뽑기, 허리누르기, 허리비틀기"):
+  - 목뽑기: `look.clinicModel`을 목뽑기에서도 쓴다(`scene/look.js`). towel-stage 사본 없이 목꺾기 GLB를 그대로 쓰고(`NO_STAGE`), 최필라의 `games:["clinic"]`을 뺐다. 수건 천 시뮬(`towel_sim.py`)을 14명으로 다시 구웠고, 마동철은 목이 승모근에 묻혀 턱선 높이를 `CHIN_EDGE`로 정했다. 할매·마동철의 목 이음매(`MODELS.seam`)는 `neckHead`가 그 타원을 쓰고, 목뽑기 고운 목(`towelNeck.js`)은 몸 꼭대기를 자른 자리로 보므로 이 둘은 `neckColumn` 늘이기를 그대로 쓴다. 손 자세 광선이 빗나가는 그림 얼굴 머리(마동철)는 `borrowedPoses`로 대신한다(없으면 진짜 팔이 숨고 캡슐 팔이 나왔다). 할매·마동철은 수건 X가 턱 밑에 가려 잘 안 보인다.
+  - 허리누르기·허리비틀기: 무료 판 환자를 `roster.js` `lumbarPatient`가 고른다(`?patient=이름`, 없으면 박대리와 몸 있는 환자 중 무작위, shot·cases 빌드는 박대리). `look.backModel`/`sideModel`이 그 몸이고, 손님(`cast.js`)은 떼어 낸다. 차트·시작 카드는 `waist`(허리 사연) 줄을 쓴다. 영업 일지 날짜는 그대로다.
+  - 몸: `image3d_norm.py`(전신 정규화) → `image3d_rig.py`(MPFB game_engine 뼈를 단면에 맞춰 심고, 복셀 프록시 bone heat → 가중치 복사) → `back_image_patient.py`(엎드림, `back/patientNN.glb` + `back_surface_patientNN.json`) / `side_patient.py <rig.blend>`(옆누움 클립, `side/patientNN.glb` + `patient_marks_patientNN.json`). 원본 Tripo 메시와 rig.blend는 레포 밖 `~/Code/Chirophractic/asset-src/patient11~14/`.
+  - 허리누르기 얼굴 클로즈업(`back/reaction.js`)은 그 환자 머리와 그림 표정을 쓴다(`scene/faceDecals.js`로 공용화, `PAINTED`).
+  - 허리비틀기는 치료사를 마크 차이만큼 옮기고(`THER_X`), `CROWN`·척추 깊이를 그 몸에서 잰다. 마동철은 옆으로 누우면 골반이 패드 위 50 cm라 L4 조준점이 배에 찍히고 치료사 손이 안 닿아서 허리비틀기에서는 뺐다(`sideModel` 없음).
+  - 절차는 `scripts/assets/README.md` "이미지 기반 환자를 다른 모드로". 폰 실기기 확인 전이다.
 

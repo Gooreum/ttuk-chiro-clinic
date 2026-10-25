@@ -19,6 +19,7 @@ export function applyLook(p){
   applyProps(L.props);
   torso.scale.set(L.hair === "bald" ? 1.62 : 1.5, 1, 0.7);
   setRealHands(!!L.model);
-  // clinicModel: an image-to-3D body for 목꺾기 only (no towel-stage copy); 목뽑기 keeps the MPFB one
-  setRealPatient((S.game === "clinic" && L.clinicModel) || L.model || null, L);
+  // clinicModel: an image-to-3D body for the neck modes (no towel-stage copy: 목뽑기 uses the clinic GLBs, realAssets
+  // NO_STAGE); the MPFB model stays for the cast who borrow the build (cast.js)
+  setRealPatient(((S.game === "clinic" || S.game === "towel") && L.clinicModel) || L.model || null, L);
 }

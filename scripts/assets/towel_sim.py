@@ -58,6 +58,10 @@ MODELS = {
     "patient08": (1.6227, 1.3551, -0.1139),
     "patient09": (1.4897, 1.1960, -0.0375),
     "patient10": (1.3196, 1.0637, -0.0471),
+    "patient11": (1.6484, 1.3876, -0.045),     # image-to-3D (patient11..14: clothes and hair are one ".skin" with the body)
+    "patient12": (1.6466, 1.4150, -0.13),
+    "patient13": (1.4910, 1.1600, -0.20),
+    "patient14": (1.6801, 1.3931, -0.15),
 }
 PRIM = (-0.134, 0.142, -0.110)          # crown z, chin z, back y (head-local)
 GRIP = (0.118, 0.03, 0.035)             # TOWEL_GRIP, s = +1 (x mirrored for the right fist)
@@ -276,7 +280,10 @@ def catmull(P, n=24):
 
 # chin edge override (head-local z): the child's lips make a sharper step in the front profile than his small chin, so
 # the steepest-drop search lands on the mouth (z 0.030) and the X would cross his lips
-CHIN_EDGE = {"patient10": 0.074}
+CHIN_EDGE = {"patient10": 0.074,
+             # 마동철 (image-to-3D): his neck is buried in the traps, so the profile falls away at the chest and the ring
+             # wrapped the shoulders; the jaw line instead
+             "patient12": 0.075}
 
 
 def landmarks(bvh, pid=None):

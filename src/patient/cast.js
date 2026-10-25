@@ -210,6 +210,6 @@ const CAST_LOOK = {
 export const CAST = CAST_DEF.map(({base, gown, ...own}) => {
   const b = ROSTER.find(r => r.name === base);
   if(!b) throw new Error("no base patient " + base);
-  const {clinicModel, ...bLook} = b.look;      // the cast keep the MPFB body: CAST_LOOK paints its hair and shirt
+  const {clinicModel, backModel, sideModel, ...bLook} = b.look;      // the cast keep the MPFB body: CAST_LOOK paints its hair and shirt
   return {...b, trait: undefined, ...own, look: {...bLook, gown, ...CAST_LOOK[own.name]}, base};
 });
