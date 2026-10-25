@@ -1,0 +1,1511 @@
+{
+  "frame": "three.js metres: +y up, head -z",
+  "tableTop": 0.82,
+  "crown": 0.1909,
+  "clips": {
+    "lieL": {
+      "mark_l4_L": [
+        -0.078923,
+        1.014379,
+        0.331066
+      ],
+      "mark_shoulder_L": [
+        0.065688,
+        1.202659,
+        -0.009893
+      ],
+      "mark_hip_L": [
+        -0.018605,
+        1.21032,
+        0.357843
+      ],
+      "top_knee": [
+        0.173964,
+        0.89,
+        0.637025
+      ],
+      "top_knee_surface": [
+        0.221185,
+        0.89,
+        0.637025
+      ],
+      "facing": [
+        1,
+        0,
+        0
+      ],
+      "pelvisRollAxesLocal": {
+        "pelvis": [
+          0.0,
+          0.9910046,
+          -0.133828
+        ],
+        "spine_01": [
+          1e-07,
+          0.9339485,
+          -0.3574075
+        ],
+        "spine_02": [
+          1e-07,
+          0.8835886,
+          -0.468264
+        ],
+        "spine_03": [
+          -0.0,
+          0.9840156,
+          0.1780821
+        ],
+        "thigh_l": [
+          -0.0290268,
+          -0.9995753,
+          -0.002593
+        ],
+        "thigh_r": [
+          0.7424666,
+          -0.6259957,
+          -0.2384799
+        ]
+      }
+    },
+    "lieR": {
+      "mark_l4_R": [
+        0.077662,
+        1.010751,
+        0.331066
+      ],
+      "mark_shoulder_R": [
+        -0.065688,
+        1.206405,
+        -0.009892
+      ],
+      "mark_hip_R": [
+        0.018605,
+        1.21125,
+        0.357843
+      ],
+      "top_knee": [
+        -0.162848,
+        0.88778,
+        0.645511
+      ],
+      "top_knee_surface": [
+        -0.219361,
+        0.88778,
+        0.645511
+      ],
+      "facing": [
+        -1,
+        0,
+        0
+      ],
+      "pelvisRollAxesLocal": {
+        "pelvis": [
+          -1e-07,
+          -0.9910046,
+          0.133828
+        ],
+        "spine_01": [
+          -2e-07,
+          -0.9339485,
+          0.3574075
+        ],
+        "spine_02": [
+          -2e-07,
+          -0.8835887,
+          0.468264
+        ],
+        "spine_03": [
+          -1e-07,
+          -0.9840156,
+          -0.1780821
+        ],
+        "thigh_l": [
+          0.7328167,
+          0.651096,
+          0.1976203
+        ],
+        "thigh_r": [
+          -0.0526455,
+          0.9975815,
+          0.0453814
+        ]
+      }
+    }
+  },
+  "duration": {
+    "lieL": 1,
+    "lieR": 1,
+    "rollLR": 1.6,
+    "rollRL": 1.6
+  },
+  "supportMetrics": [
+    {
+      "clip": "lieL",
+      "frame": 1,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999,
+      "topHipFlexDegrees": 65.0,
+      "topKneeFlexDegrees": 90.0,
+      "bottomKneeFlexDegrees": 2.237,
+      "topKnee": [
+        0.173964,
+        0.89,
+        0.637025
+      ],
+      "topFoot": [
+        -0.002305,
+        1.084888,
+        0.964027
+      ],
+      "bottomKnee": [
+        0.001753,
+        0.932137,
+        0.77004
+      ]
+    },
+    {
+      "clip": "lieL",
+      "frame": 31,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999,
+      "topHipFlexDegrees": 65.0,
+      "topKneeFlexDegrees": 90.0,
+      "bottomKneeFlexDegrees": 2.237,
+      "topKnee": [
+        0.173964,
+        0.89,
+        0.637025
+      ],
+      "topFoot": [
+        -0.002305,
+        1.084888,
+        0.964027
+      ],
+      "bottomKnee": [
+        0.001753,
+        0.932137,
+        0.77004
+      ]
+    },
+    {
+      "clip": "lieR",
+      "frame": 1,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81,
+      "topHipFlexDegrees": 62.847,
+      "topKneeFlexDegrees": 86.121,
+      "bottomKneeFlexDegrees": 7.566,
+      "topKnee": [
+        -0.162848,
+        0.88778,
+        0.645511
+      ],
+      "topFoot": [
+        0.012751,
+        1.068543,
+        0.981117
+      ],
+      "bottomKnee": [
+        -0.019218,
+        0.929514,
+        0.770097
+      ]
+    },
+    {
+      "clip": "lieR",
+      "frame": 31,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81,
+      "topHipFlexDegrees": 62.847,
+      "topKneeFlexDegrees": 86.121,
+      "bottomKneeFlexDegrees": 7.566,
+      "topKnee": [
+        -0.162848,
+        0.88778,
+        0.645511
+      ],
+      "topFoot": [
+        0.012751,
+        1.068543,
+        0.981117
+      ],
+      "bottomKnee": [
+        -0.019218,
+        0.929514,
+        0.770097
+      ]
+    },
+    {
+      "clip": "rollLR",
+      "frame": 1,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 2,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 3,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 4,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 5,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 6,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 7,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 8,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 9,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 10,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 11,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 12,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 13,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 14,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 15,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 16,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 17,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 18,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 19,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 20,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 21,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 22,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 23,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 24,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 25,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 26,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 27,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 28,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 29,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 30,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 31,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 32,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 33,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 34,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 35,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 36,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 37,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 38,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 39,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 40,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 41,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 42,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 43,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 44,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 45,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 46,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 47,
+      "lowestSkinY": 0.8100002,
+      "lowestAllY": 0.8100002
+    },
+    {
+      "clip": "rollLR",
+      "frame": 48,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 49,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 1,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 2,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 3,
+      "lowestSkinY": 0.8100002,
+      "lowestAllY": 0.8100002
+    },
+    {
+      "clip": "rollRL",
+      "frame": 4,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 5,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 6,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 7,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 8,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 9,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 10,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 11,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 12,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 13,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 14,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 15,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 16,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 17,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 18,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 19,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 20,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 21,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 22,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 23,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 24,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 25,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 26,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 27,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 28,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 29,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 30,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 31,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 32,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 33,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 34,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 35,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 36,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 37,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 38,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 39,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 40,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 41,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 42,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 43,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 44,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 45,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 46,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 47,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 48,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 49,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "lieL",
+      "frame": 1,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999,
+      "topHipFlexDegrees": 65.0,
+      "topKneeFlexDegrees": 90.0,
+      "bottomKneeFlexDegrees": 2.237,
+      "topKnee": [
+        0.173964,
+        0.89,
+        0.637025
+      ],
+      "topFoot": [
+        -0.002304,
+        1.084888,
+        0.964027
+      ],
+      "bottomKnee": [
+        0.001753,
+        0.932137,
+        0.77004
+      ]
+    },
+    {
+      "clip": "lieL",
+      "frame": 31,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999,
+      "topHipFlexDegrees": 65.0,
+      "topKneeFlexDegrees": 90.0,
+      "bottomKneeFlexDegrees": 2.237,
+      "topKnee": [
+        0.173964,
+        0.89,
+        0.637025
+      ],
+      "topFoot": [
+        -0.002304,
+        1.084888,
+        0.964027
+      ],
+      "bottomKnee": [
+        0.001753,
+        0.932137,
+        0.77004
+      ]
+    },
+    {
+      "clip": "lieR",
+      "frame": 1,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81,
+      "topHipFlexDegrees": 62.847,
+      "topKneeFlexDegrees": 86.121,
+      "bottomKneeFlexDegrees": 7.566,
+      "topKnee": [
+        -0.162848,
+        0.88778,
+        0.645511
+      ],
+      "topFoot": [
+        0.012751,
+        1.068543,
+        0.981117
+      ],
+      "bottomKnee": [
+        -0.019218,
+        0.929514,
+        0.770098
+      ]
+    },
+    {
+      "clip": "lieR",
+      "frame": 31,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81,
+      "topHipFlexDegrees": 62.847,
+      "topKneeFlexDegrees": 86.121,
+      "bottomKneeFlexDegrees": 7.566,
+      "topKnee": [
+        -0.162848,
+        0.88778,
+        0.645511
+      ],
+      "topFoot": [
+        0.012751,
+        1.068543,
+        0.981117
+      ],
+      "bottomKnee": [
+        -0.019218,
+        0.929514,
+        0.770098
+      ]
+    },
+    {
+      "clip": "rollLR",
+      "frame": 1,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 2,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 3,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 4,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 5,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 6,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 7,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 8,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 9,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 10,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 11,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 12,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 13,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 14,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 15,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 16,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 17,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 18,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 19,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 20,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 21,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 22,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 23,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 24,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 25,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 26,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 27,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 28,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 29,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 30,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 31,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 32,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 33,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 34,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 35,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 36,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 37,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 38,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 39,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 40,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 41,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 42,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 43,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollLR",
+      "frame": 44,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 45,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 46,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollLR",
+      "frame": 47,
+      "lowestSkinY": 0.8100002,
+      "lowestAllY": 0.8100002
+    },
+    {
+      "clip": "rollLR",
+      "frame": 48,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollLR",
+      "frame": 49,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 1,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 2,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 3,
+      "lowestSkinY": 0.8100002,
+      "lowestAllY": 0.8100002
+    },
+    {
+      "clip": "rollRL",
+      "frame": 4,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 5,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 6,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 7,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 8,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 9,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 10,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 11,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 12,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 13,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 14,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 15,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 16,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 17,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 18,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 19,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 20,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 21,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 22,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 23,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 24,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 25,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 26,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 27,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 28,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 29,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 30,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 31,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 32,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 33,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 34,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 35,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 36,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 37,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 38,
+      "lowestSkinY": 0.8100001,
+      "lowestAllY": 0.8100001
+    },
+    {
+      "clip": "rollRL",
+      "frame": 39,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 40,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 41,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 42,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 43,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 44,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 45,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 46,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 47,
+      "lowestSkinY": 0.81,
+      "lowestAllY": 0.81
+    },
+    {
+      "clip": "rollRL",
+      "frame": 48,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    },
+    {
+      "clip": "rollRL",
+      "frame": 49,
+      "lowestSkinY": 0.8099999,
+      "lowestAllY": 0.8099999
+    }
+  ]
+}

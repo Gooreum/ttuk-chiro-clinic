@@ -1,5 +1,6 @@
 """MPFB side-posture patient and shared asset helpers. No existing assets are written.
-blender -b --python side_patient.py -- WORK/patient_raw.glb MARKS.json [WORK]
+blender -b --python side_patient.py -- WORK/patient_raw.glb MARKS.json [WORK] [RIG.blend]
+RIG.blend: an image-to-3D patient rigged by image3d_rig.py (the same game_engine skeleton) instead of MPFB patient01.
 The game_engine rest skeleton is retained. Actions use quaternions, positive scale.
 See the appended side-posture section in README.md for the coordinate contract.
 """
@@ -130,6 +131,16 @@ def character(therapist=False):
           {o.name:o.parent.name for o in objects}, flush=True)
     return arm, objects, body
 
+def image_character(rig):
+    """An image-to-3D patient (image3d_rig.py): its game_engine armature and the one scan mesh (clothes and hair
+    included), named like the MPFB patient's skin so the marks, checks and runtime treat it the same."""
+    bpy.ops.wm.open_mainfile(filepath=str(rig))
+    arm=next(o for o in bpy.data.objects if o.type=='ARMATURE'); body=next(o for o in bpy.data.objects if o.type=='MESH')
+    arm.name='side_patient_rig'; body.name=body.data.name='side_skin'; body.data.materials[0].name='patient.side_skin'
+    body['image']=1
+    for p in body.data.polygons: p.use_smooth=True
+    return arm,[body],body
+
 class Rig:
     def __init__(self, arm): self.arm=arm; self.pb=arm.pose.bones; self.bn=arm.data.bones
     def reset(self):
@@ -210,7 +221,17 @@ def select_action(arm, clip):
     if hasattr(clip, 'slots') and len(clip.slots):
         arm.animation_data.action_slot=clip.slots[0]
 
-def skin_low(body): return min(p.z for p in vertices([body]))
+HAND=('hand_','thumb_','index_','middle_','ring_','pinky_')
+def skin_low(body):
+    """the lowest skin point. An image patient's mesh (body['image']) leaves its hands out: its hands are thick scan blobs
+    and the top one, laid in front of a slim chest (최필라), reached under the shoulder and held the body off the pad"""
+    if not body.get('image'): return min(p.z for p in vertices([body]))
+    ids=body.get('_body_ids')
+    if ids is None:
+        hand={g.index for g in body.vertex_groups if g.name.startswith(HAND)}
+        ids=[v.index for v in body.data.vertices if sum(g.weight for g in v.groups if g.group in hand)<.5]
+        body['_body_ids']=ids
+    return min(p.z for p in evaluated_points(body,list(ids)))
 
 def weighted_ids(obj, names, threshold=.5):
     groups={obj.vertex_groups[n].index for n in names if n in obj.vertex_groups}
@@ -271,7 +292,8 @@ def verify_export(path, names):
     assert len(rigs)==1 and len(rigs[0].data.bones)>=50, 'Lost MPFB rig'
     arm=rigs[0]; sc=bpy.context.scene
     skin=next(o for o in meshes if o.name=='side_skin')
-    shoes=next(o for o in meshes if 'shoes05' in o.name.lower())
+    if not any(o.name=='side_shirt' for o in meshes): skin['image']=1     # an image patient: one mesh, support without the hands
+    shoes=next((o for o in meshes if 'shoes05' in o.name.lower()),None)   # only the therapist's walks need it
     for name in names:
         clip=next(a for a in bpy.data.actions if a.name==name or a.name.endswith('|'+name))
         select_action(arm,clip)
@@ -302,9 +324,15 @@ def export(arm, objects, path, extra=()):
     bpy.ops.export_scene.gltf(**{k:v for k,v in options.items() if k in supported})
     print('WROTE',path,Path(path).stat().st_size,flush=True)
 
-def patient(output, marks_path, work):
-    bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete(use_global=False)
-    arm,objects,body=character(); r=Rig(arm); r.reset()
+def patient(output, marks_path, work, rig=None):
+    if rig: arm,objects,body=image_character(rig)
+    else:
+        bpy.ops.object.select_all(action='SELECT'); bpy.ops.object.delete(use_global=False)
+        arm,objects,body=character()
+    r=Rig(arm); r.reset()
+    # head bone (skull base) to the crown plus pillow room, for the runtime's bed fit (src/side/scene.js CROWN; Patient01's
+    # .22 is a constant there): an image patient's hair is part of its mesh
+    crown=round(max(p.z for p in vertices([body]))-r.head('head').z+.045,4) if rig else None
     # Author L in the upright rig's symmetric local space, then use Blender pose mirror.
     pelvis=r.head('pelvis'); chest=r.head('spine_03')
     native_down=(pelvis-chest).normalized()
@@ -350,7 +378,8 @@ def patient(output, marks_path, work):
     flex=math.cos(math.radians(65))
     for iteration in range(3):
         hip=r.head('thigh_r'); length=(r.head('calf_r')-hip).length
-        dx=(hip.z-.89)/length
+        # 마동철 (image patient) lies so wide that his hip is half a metre up: his top knee rests on his bottom thigh
+        dx=(hip.z-(max(.89,hip.z-.8*length) if rig else .89))/length
         assert .25<dx<.84, ('Upper knee cannot reach pad with this body',dx,T3(hip),length)
         direction=Vector((dx,0,0))+native_down*flex+anterior*math.sqrt(1-dx*dx-flex*flex)
         r.aim('thigh_r',base@direction)
@@ -359,9 +388,32 @@ def patient(output, marks_path, work):
         r.aim('calf_r',base@calf)  # exactly 90 degrees, returning behind the lower knee
         r.aim('foot_r',base@Vector((0,-.9,-.15)))
         placement(0)
+        if os.environ.get('SIDE_DEBUG'):
+            dg=bpy.context.evaluated_depsgraph_get(); ev=body.evaluated_get(dg); me=ev.to_mesh()
+            i=min(range(len(me.vertices)),key=lambda k:(ev.matrix_world@me.vertices[k].co).z)
+            gs=sorted(((body.vertex_groups[g.group].name,round(g.weight,2)) for g in body.data.vertices[i].groups),key=lambda t:-t[1])[:3]
+            print('LOWEST',T3(ev.matrix_world@me.vertices[i].co),gs,flush=True); ev.to_mesh_clear()
         print('PATIENT_KNEE_FIT',iteration,'adductionComponent',dx,
               'topKnee',T3(r.head('calf_r')),'lowestSkinY',skin_low(body),flush=True)
-    poseL=r.snapshot(); r.mirror(); poseR=r.snapshot()
+    def fit_hand(sd, t, wrist):
+        """an image patient's top hand, laid in front of the chest, can reach under the pad (최필라's slim chest): lift
+        its wrist toward the up side (native -s X) until it rests on the pad; run for each side, the mirrored pose
+        included (the scan is not exactly symmetric)"""
+        s=1 if sd=='l' else -1
+        hand={g.index for g in body.vertex_groups if g.name.startswith(HAND) and g.name.endswith('_'+sd)}
+        ids=[v.index for v in body.data.vertices if sum(g.weight for g in v.groups if g.group in hand)>=.05]
+        for it in range(8):
+            placement(t); deficit=SKIN_REST+.006-min(p.z for p in evaluated_points(body,ids))
+            print('PATIENT_HAND_FIT',sd,it,'deficit',round(deficit,4),flush=True)
+            if deficit<.002: break
+            wrist.x+=s*deficit*1.2
+            # the rig is laid down now: the native (upright) target and directions go through its placement
+            M=arm.matrix_world; R3=M.to_3x3().normalized()
+            r.ik('upperarm_'+sd,'lowerarm_'+sd,M@wrist,R3@Vector((s,-.25,-.6))); r.palm(sd,R3@Vector((-s*.85,0,.40)),R3@Vector((0,1,0)),14)
+    if rig: fit_hand('r',0,Vector((.105,-.205,chest.z-.015)))
+    poseL=r.snapshot(); r.mirror()
+    if rig: fit_hand('l',1,Vector((-.105,-.205,chest.z-.015)))
+    poseR=r.snapshot()
     metrics=[]; markers={}; empties=[]
     def measure(clip, frame):
         low=skin_low(body)
@@ -377,11 +429,12 @@ def patient(output, marks_path, work):
                        bottomKneeFlexDegrees=round(math.degrees(r.axis('thigh_'+bottom).angle(r.axis('calf_'+bottom))),3),
                        topKnee=T3(knee),topFoot=T3(foot),bottomKnee=T3(r.head('calf_'+bottom)))
             assert 60<row['topHipFlexDegrees']<76, row
-            assert 85<row['topKneeFlexDegrees']<95, row
+            assert 85<row['topKneeFlexDegrees']<95 or (body.get('image') and 80<row['topKneeFlexDegrees']<105), row
             assert row['bottomKneeFlexDegrees']<15, row
             # Centre just inside/over the front edge; trouser surface rests
             # on the pad. A high knee must not pass only because a hand is low.
-            assert .20<abs(knee.x)<.42 and .84<knee.z<.98, row
+            # (an image patient's hips and legs differ from Patient01's: the knee lands where its own build puts it)
+            assert body.get('image') or (.20<abs(knee.x)<.42 and .84<knee.z<.98), row
         else: assert low>=.80, row
         metrics.append(row); print('PATIENT_SUPPORT',json.dumps(row),flush=True)
     def make_marks(side,pose,t):
@@ -444,7 +497,7 @@ def patient(output, marks_path, work):
         for f in ([1,31] if name.startswith('lie') else range(1,50)):
             sc.frame_set(f); update(); measure(name,f)
     select_action(arm,bpy.data.actions['lieL']); sc.frame_set(1)
-    data={'frame':'three.js metres: +y up, head -z','tableTop':TABLE,'clips':markers,
+    data={'frame':'three.js metres: +y up, head -z','tableTop':TABLE,**({'crown':crown} if crown else {}),'clips':markers,
           'duration':{'lieL':1,'lieR':1,'rollLR':1.6,'rollRL':1.6},'supportMetrics':metrics}
     Path(marks_path).write_text(json.dumps(data,ensure_ascii=False,indent=2))
     export(arm,objects,output,empties)
@@ -455,4 +508,4 @@ def patient(output, marks_path, work):
 
 if __name__=='__main__':
     args=sys.argv[sys.argv.index('--')+1:]
-    patient(args[0],args[1],args[2] if len(args)>2 else str(Path(args[0]).parent))
+    patient(args[0],args[1],args[2] if len(args)>2 else str(Path(args[0]).parent),args[3] if len(args)>3 else None)
