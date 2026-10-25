@@ -151,7 +151,9 @@ function placeHead(gltf, env, g, model){
         envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalScale.copy(src.normalScale); m.roughness = 0.6; m.sheen = 0.24; }
       m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; model.skin = m; model.skinMesh = o;
-      if(g.twoSided) m.side = THREE.DoubleSide;     // a hairline opened by image3d_flaps.py shows the hair behind, not the table
+      // twoSided: a hairline opened by image3d_flaps.py shows the hair behind, not the table. seam: the head piece is open
+      // under the jaw, and as 목뽑기 draws the neck out its inside shows by the jaw; culled, it was a see-through hole
+      if(g.twoSided || g.seam) m.side = THREE.DoubleSide;
     }
     else if(name.endsWith(".cornea")){
       // clear glossy shell over the eye: only reflections (catchlights), nothing diffuse
@@ -208,6 +210,9 @@ function placeBody(gltf, env, g, model){
       // plain standard skin: the body covers a lot of screen, the sheen of the face and hands would cost fill rate
       m = new THREE.MeshStandardMaterial({map: src.map, roughness: 0.58, metalness: 0, envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalMap = src.normalMap; m.normalScale.copy(src.normalScale); m.roughness = 0.65; }
+      // a seam cut at the jaw (patient12/13): the traps' inner slope beside the jaw turns over as the column draws out
+      // past it, and culled it left a see-through hole by the jaw in 목뽑기
+      if(g.seam) m.side = THREE.DoubleSide;
       m.userData.bodySkin = true;       // castTone() tints it with the head
       xrayMats.push(m);                 // the neck fades under the x-ray like the head
     }else{
@@ -313,7 +318,9 @@ function neckColumn(o, mat, model){
     const w = ws[i];
     si.array.set([bi, ni, 0, 0], i*4);
     sw.array.set([Math.round((1 - w)*full), Math.round(w*full), 0, 0], i*4);
-    pinch[i] = w;
+    // a seam cut at the jaw (patient12/13): the head mesh has no upper neck to thin with it (neckHead), so the cut's ring
+    // and wall keep their size and only the column under them thins; pinched, they shrank inside the jaw and tore it open
+    pinch[i] = seam ? w*Math.min(1, Math.max(0, (top - Y(i))/(0.5*len))) : w;
   }
   si.needsUpdate = sw.needsUpdate = true;
   o.geometry.setAttribute("aPinch", new THREE.BufferAttribute(pinch, 1));
@@ -371,6 +378,10 @@ function neckHead(model){
   if(!ring.length) return;
   const c = ring.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1/ring.length);
   const R0 = ring.reduce((a, p) => a + Math.hypot(p.x - c.x, p.z - c.z), 0)/ring.length;
+  // a seam cut at the jaw (patient12/13): above the ring is the jaw and the chin, not an upper neck. Lagged and pinched
+  // like one, the chin split from the jaw and the cut opened into black holes (user: "목 뽑히는것도 그래픽 다 깨지고",
+  // 2026-10-25). The head goes as one piece; the body's column takes the whole stretch (updateRealBody, no neckLag).
+  if(seam){ model.towelNeckFrame = {center: c, radius: R0}; seamContact(model); return; }
   const P = ho.geometry.attributes.position, aw = new Float32Array(P.count), fixed = new Uint8Array(P.count);
   for(let i = 0; i < P.count; i++){
     const r = Math.hypot(P.getX(i) - c.x, P.getZ(i) - c.z);
@@ -393,6 +404,41 @@ function neckHead(model){
   model.neckLag = uLag; model.headUnit = _hs.x;     // world metres per head geometry unit
   // Separate geometry/materials: clinic keeps its original skinning and shader byte for byte.
   model.towelNeckFrame = {center: c, radius: R0};
+}
+/* The head's open edge is not only the cut's ellipse: 복순할매's head piece reaches out over the traps' top (its rim lies
+   at 1.0..1.4 of the ellipse), where neckColumn leaves the body on the trunk, so the jaw pulled away from it and left a
+   see-through gap. Every body vertex near the head's open edge goes with the neck bone, easing off over SEAM_EASE (world
+   m) so the traps' top stretches instead of tearing. In world space at rest (neckHead's frame). */
+const SEAM_EASE = 0.025;
+function seamContact(model){
+  const bo = model.neckSkin, ho = model.skinMesh, HP = ho.geometry.attributes.position, hi = ho.geometry.index;
+  if(!hi) return;
+  const key = new Map(), weld = new Int32Array(HP.count);
+  for(let i = 0; i < HP.count; i++){
+    const k = Math.round(HP.getX(i)*1e4) + "," + Math.round(HP.getY(i)*1e4) + "," + Math.round(HP.getZ(i)*1e4);
+    if(!key.has(k)) key.set(k, i);
+    weld[i] = key.get(k);
+  }
+  const edges = new Map();
+  for(let f = 0; f < hi.count; f += 3) for(let e = 0; e < 3; e++){
+    const a = weld[hi.getX(f + e)], b = weld[hi.getX(f + (e + 1)%3)], k = a < b ? a*HP.count + b : b*HP.count + a;
+    edges.set(k, (edges.get(k) || 0) + 1);
+  }
+  const open = new Set();
+  edges.forEach((n, k) => { if(n === 1){ open.add(Math.floor(k/HP.count)); open.add(k%HP.count); } });
+  const bnd = [...open].map(i => new THREE.Vector3().fromBufferAttribute(HP, i).applyMatrix4(ho.matrixWorld));
+  if(!bnd.length) return;
+  const box = new THREE.Box3().setFromPoints(bnd).expandByScalar(SEAM_EASE);
+  const toWorld = new THREE.Matrix4().copy(ho.matrixWorld).multiply(new THREE.Matrix4().copy(model.neckBodyFrame).invert());
+  const BP = bo.geometry.attributes.position, sw = bo.geometry.attributes.skinWeight, full = sw.normalized ? 255 : 1, v = new THREE.Vector3();
+  for(let i = 0; i < BP.count; i++){
+    if(!box.containsPoint(v.fromBufferAttribute(BP, i).applyMatrix4(toWorld))) continue;
+    let d = Infinity;
+    for(const p of bnd) d = Math.min(d, p.distanceToSquared(v));
+    const w = 1 - THREE.MathUtils.smoothstep(Math.sqrt(d), 0.004, SEAM_EASE), w0 = sw.array[i*4 + 1]/full;
+    if(w > w0){ sw.array[i*4] = Math.round((1 - w)*full); sw.array[i*4 + 1] = Math.round(w*full); }
+  }
+  sw.needsUpdate = true;
 }
 const current = () => wantModel && (real.towelModels[wantModel] || real.models[wantModel]);
 const allModels = () => [...Object.values(real.models), ...Object.values(real.towelModels)];
