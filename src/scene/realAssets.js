@@ -82,10 +82,11 @@ const MODELS = {
   patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
   patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471},
   // image-to-3D, see below; crown, chin and the painted face square: scene/faceDecals.js PAINTED
-  patient11: {...PAINTED.patient11, back: -0.045, ear: [0.072, 0.015, 0.027]},
-  patient12: {...PAINTED.patient12, back: -0.13, seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}},                       // 마동철
-  patient13: {...PAINTED.patient13, back: -0.20, ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}},   // 복순할매
-  patient14: {...PAINTED.patient14, back: -0.15, ear: [0.096, -0.021, 0.004], twoSided: true}                          // 조멸치
+  patient11: {...PAINTED.patient11, back: -0.045, ear: [0.072, 0.015, 0.027], towelGrip: [0.118, 0.03, 0.035]},
+  patient12: {...PAINTED.patient12, back: -0.13, seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, towelGrip: [0.165, 0.14, 0.075]},   // 마동철
+  patient13: {...PAINTED.patient13, back: -0.20, ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05},
+    towelGrip: [0.125, 0.115, 0.05]},                                                                                   // 복순할매
+  patient14: {...PAINTED.patient14, back: -0.15, ear: [0.096, -0.021, 0.004], twoSided: true, towelGrip: [0.108, 0.04, 0.035]}   // 조멸치
 };
 /* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
    crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
@@ -636,6 +637,10 @@ const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -
 /* Towel mode (core/towel.js): a fist on each towel end beside the jaw (head-local, x mirrored), pulled toward the
    therapist (-z) by the tension, up to TOWEL_PULL. scene/towel.js runs the towel from here around the back of the neck. */
 export const TOWEL_GRIP = [0.118, 0.03, 0.035], TOWEL_PULL = 0.06;   // beside the jaw, where the chin sling's ends come up (reference video)
+/* towelGrip: the image-to-3D heads sit higher, wider or under more hair than the MPFB ones, and TOWEL_GRIP fell inside
+   마동철's cheek and 복순할매's perm (user: "진짜 수건 위치랑 잡는거 디테일하게 안할래", 2026-10-26). Each fist beside that
+   patient's own jaw angle; scripts/assets/towel_sim.py GRIPS bakes the towel's fists at the same point. */
+export const towelGripFor = id => (id && MODELS[id] && MODELS[id].towelGrip) || TOWEL_GRIP;
 
 /* Finger pose, rebuilt from the rest skeleton every frame. Every joint turns about an axis fixed in the hand frame,
    converted once into that bone's own rest frame: curl about fingers x normal (tips move toward the palm), spread
@@ -1135,7 +1140,8 @@ export function updateRealHands(st){
     if(!arm.seen) w.towel = st.towel ? 1 : 0;
     if(w.towel > 0.001){
       const sl = slipPose(st.slip).hand;
-      _v2.set(s*TOWEL_GRIP[0], TOWEL_GRIP[1], TOWEL_GRIP[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
+      const G = towelGripFor(wantModel);
+      _v2.set(s*G[0], G[1], G[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
       _v2.y -= 0.015*sl; _v2.z -= 0.16*sl; _v2.x += s*0.015*sl;
       // a fist round the towel end (user: "진짜 사람이 잡고 있는것처럼", 2026-10-15): the band runs through the palm, the
       // fingers point across it toward the table and curl round it, the thumb on top; the palm faces the head; the
