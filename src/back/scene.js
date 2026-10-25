@@ -233,7 +233,10 @@ function stdMat(m){ return m && (m.isMeshStandardMaterial || m.isMeshPhysicalMat
 function hairOver(m){ m.transparent = false; m.depthWrite = true; m.alphaTest = 0.02; m.side = THREE.DoubleSide; }
 
 /* ---------- the scene ---------- */
+/* view.model: an image-to-3D patient's prone body (back/patientNN.glb + back_surface_patientNN.json,
+   scripts/assets/back_image_patient.py, the neck base at the same z as 박대리's); none = 박대리 (patient.glb) */
 export async function createBackScene(canvas, view = {}){
+  const model = view.model || null;
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: "high-performance"});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true;
@@ -272,15 +275,15 @@ export async function createBackScene(canvas, view = {}){
 
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const [pg, tg, surf, room] = await Promise.all([
-    loadGLB(loader, BASE + "patient.glb"),
+    loadGLB(loader, BASE + (model ? model + ".glb" : "patient.glb")),
     loadGLB(loader, BASE + "therapist.glb"),
-    fetch(BASE + "back_surface.json").then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); }),
+    fetch(BASE + (model ? `back_surface_${model}.json` : "back_surface.json")).then(r => { if (!r.ok) throw new Error("back_surface.json " + r.status); return r.json(); }),
     loadGLB(loader, import.meta.env.BASE_URL + "models/towel-stage/room.glb"),
     document.fonts.ready
   ]);
   buildRoom(scene, track, room.scene);
   const hf = heightField(surf);
-  const [xray, reaction] = await Promise.all([createBackXray({scene,camera,env,renderer}),createBackReaction(renderer)]);
+  const [xray, reaction] = await Promise.all([createBackXray({scene,camera,env,renderer}),createBackReaction(renderer,model)]);
   scene.add(xray.group);
   const patientFade=[], therapistFade=[];
   const roomBackground=scene.background.clone(), xrayBackground=new THREE.Color(0x0f231f);

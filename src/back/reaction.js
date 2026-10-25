@@ -3,10 +3,13 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {MeshoptDecoder} from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import {RoomEnvironment} from 'three/examples/jsm/environments/RoomEnvironment.js';
 import {expressionWeights} from '../core/faceRig.js';
+import {PAINTED,faceDecals,updateDecals} from '../scene/faceDecals.js';
 
 // A separate, real-model cinematic: the viewer is under the face cradle,
 // looking up through its aperture. It never mutates the playing scene.
-export async function createBackReaction(renderer){
+// model: an image-to-3D patient (scene/faceDecals.js PAINTED: its own head, painted faces instead of blendshapes);
+// otherwise 박대리's towel-stage head
+export async function createBackReaction(renderer,model=null){
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x071b17);
   const camera = new THREE.PerspectiveCamera(34, 1, .015, 8);
@@ -46,17 +49,23 @@ export async function createBackReaction(renderer){
   const key=new THREE.DirectionalLight(0xffe8d0,.9); key.position.set(-.45,.5,1.1); scene.add(key);
   const fill=new THREE.DirectionalLight(0xb9f3e0,.3); fill.position.set(.5,-.05,.5); scene.add(fill);
   const head=new THREE.Group(); scene.add(head);
-  const model=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(import.meta.env.BASE_URL+'models/towel-stage/patient01/patient01.glb');
-  model.scene.position.y=-(1.625+1.358)/2;
-  head.add(model.scene);
+  const painted=PAINTED[model], M=import.meta.env.BASE_URL+'models/';
+  const gltf=await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(painted?`${M}${model}/${model}.glb`:M+'towel-stage/patient01/patient01.glb');
+  gltf.scene.position.y=painted?-(painted.crown+painted.chin)/2:-(1.625+1.358)/2;
+  head.add(gltf.scene);
   const skins=[];
-  model.scene.traverse(o=>{
+  let decalHead=null;
+  gltf.scene.traverse(o=>{
     if(!o.isMesh)return;
     resources.add(o.geometry);
     const src=o.material, name=src.name||'';
     for(const v of Object.values(src))if(v?.isTexture)textures.add(v);
     let material=new THREE.MeshStandardMaterial({map:src.map,normalMap:src.normalMap||null,roughness:.6,metalness:0,envMapIntensity:.17});
-    if(name.endsWith('.body')){
+    if(painted&&name.endsWith('.body')){
+      // the scan's own texture (no normal map); the paintings clone this material (faceDecals)
+      material=new THREE.MeshStandardMaterial({map:src.map,roughness:.6,metalness:0,envMapIntensity:.12,emissive:0xff6b50,emissiveIntensity:0,side:THREE.DoubleSide}); skins.push(material);
+      decalHead={id:model,skinMesh:o,skin:material};
+    }else if(name.endsWith('.body')){
       material=new THREE.MeshPhysicalMaterial({map:src.map,normalMap:src.normalMap||null,roughness:.57,metalness:0,sheen:.4,sheenColor:new THREE.Color(0xb04030),sheenRoughness:.65,specularIntensity:.42,envMapIntensity:.12,emissive:0xff6b50,emissiveIntensity:0}); skins.push(material);
     }else if(name.endsWith('.cornea')){
       material=new THREE.MeshPhysicalMaterial({color:0x000000,roughness:.05,transparent:true,opacity:.16,depthWrite:false,envMapIntensity:.8});
@@ -74,6 +83,10 @@ export async function createBackReaction(renderer){
     resources.add(src); resources.add(material); o.material=material; o.frustumCulled=false;
     if(o.morphTargetDictionary)morphs.push(o);
   });
+  if(decalHead){
+    faceDecals(decalHead,painted.face,gltf.scene,M);
+    for(const {mesh} of decalHead.decals){resources.add(mesh.geometry);resources.add(mesh.material);textures.add(mesh.material.map);}
+  }
   let lastNow=null, previousTime=-1;
   const clamp=THREE.MathUtils.clamp;
   function update({time=0,kind='ok',forceTier=0,force=1,now=time*1000,faceName='rest'}={}){
@@ -82,7 +95,8 @@ export async function createBackReaction(renderer){
     lastNow=now; previousTime=t;
     const fracture=forceTier>=2, hairline=forceTier===1, success=kind==='ok'&&!forceTier;
     const weak=kind==='weak'&&!forceTier;
-    const face=faceName, blink=!fracture&&(t%3.1>2.63&&t%3.1<2.75);
+    // a painted face rests with its eyes open and blinking (faceRig "idle", as in the neck modes)
+    const face=decalHead&&faceName==='rest'?'idle':faceName, blink=!fracture&&(t%3.1>2.63&&t%3.1<2.75);
     const breath=fracture?.65+.3*Math.sin(t*10):hairline?.25+.15*Math.sin(t*6):Math.max(0,Math.sin(t*2.1))*.22;
     // Keep the original clinic's expression units; layer only the physical strength of the reaction.
     const weights=expressionWeights(face,blink,t,Math.max(0,breath));
@@ -114,6 +128,7 @@ export async function createBackReaction(renderer){
     for(const mesh of morphs)for(const [name,value]of Object.entries(weights)){
       const i=mesh.morphTargetDictionary[name]; if(i!==undefined)mesh.morphTargetInfluences[i]+=(value-mesh.morphTargetInfluences[i])*mix;
     }
+    if(decalHead)updateDecals(decalHead,weights,mix);
     const strength=clamp(Number.isFinite(force)?force:1,.5,4);
     const flinch=Math.exp(-t*7)*Math.sin(t*28)*(weak?.0015:.005+strength*.001);
     const tremor=fracture?(Math.sin(t*29)+.35*Math.sin(t*47))*.0017:hairline?Math.sin(t*19)*.0015*Math.exp(-t*1.4):0;

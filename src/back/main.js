@@ -8,7 +8,7 @@ import {therapistStyle} from './therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
 import {pickReaction} from '../core/faceRig.js';
-import {ROSTER} from '../patient/roster.js';
+import {ROSTER,lumbarPatient} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
 import {CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
@@ -43,7 +43,8 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 const names=['등 위쪽','등 가운데','허리'];
 // 영업 일지 허리펴기 day (back.html?day=N from index.html's story card): that day's patient (name and lines; the body is
-// always 박대리's prone model), its pain limit and the day result. Otherwise the free 박대리 run.
+// 박대리's prone model unless the patient has its own, look.backModel), its pain limit and the day result. Otherwise the
+// free run: ?patient=<name> or one at random of the patients with a prone body (roster lumbarPatient, 2026-10-25).
 // &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat.
 // A locked ?day goes to the day list; &pain=1 counts once, on the fresh hop from the story card (core.js dayQuery).
 const Q=dayQuery(location.search,readProgress(store.get(CAMPAIGN_KEY,null)),'back',{fresh:(performance.getEntriesByType?.('navigation')?.[0]?.type??'navigate')==='navigate',dev:import.meta.env.MODE==='shot'||__CASES__});
@@ -52,7 +53,8 @@ if(Q.pain){const u=new URL(location.href);u.searchParams.delete('pain');history.
 const DAY=Q.day,HARD=Q.hard,dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
 // the day's zone width: mods.tight / tighter narrow it like the neck modes
 const TOL=tolFor(dayDef&&dayDef.mods);
-const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
+const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:lumbarPatient('back',new URLSearchParams(location.search).get('patient'),Math.random,import.meta.env.MODE==='shot'||__CASES__);
+const bodyModel=patient.look?.backModel||null;   // an image-to-3D patient's own prone body (roster lumbarPatient)
 const painMax=dayDef?dayDef.painMax+(Q.pain?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&t.phase==='anim'?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 // The injured bone is the one under the hands; a wrong-height shove names where it actually landed.
@@ -296,6 +298,12 @@ $('backTune').addEventListener('click',openTune);
 mountClinicMenu({chip:$('backClinic'),menu:$('backClinicMenu'),current:()=>'back',onOpen:halt,onClose:resume});
 ['backWelcomeClinics','backResultClinics'].forEach(id=>renderClinicLinks($(id),'back'));
 // the day's patient on the chart, the start card and the pain slots
+// a free-run patient other than 박대리 (roster lumbarPatient): their name and their back complaint (look.waist; the cc
+// is about the neck) over the start card's first line
+if(!dayDef&&patient.waist){
+  const nm=$('backName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
+  $('backWelcomeText').firstChild.textContent=t("{name}, {age}세. {waist}",{name:t(patient.name),age:patient.age,waist:t(patient.waist)});
+}
 if(dayDef){
   const nm=$('backName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
   $('backDayNo').textContent=t("영업 일지 · {day} {title}",{day:dayLabel(DAY)+(HARD?' '+t('역경'):''),title:t(dayDef.title)});$('backDayNo').hidden=false;
@@ -464,7 +472,7 @@ function frame(now){
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
 const sceneT0=performance.now();
-try{scene=await createBackScene(canvas);resize();track(EV.assetLoad,{asset:'back_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
+try{scene=await createBackScene(canvas,{model:bodyModel});resize();track(EV.assetLoad,{asset:'back_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('backStart').disabled=false;$('backTouchStart').disabled=false;
   $('backStart').textContent=t('진료 시작');document.documentElement.dataset.backReady='true';raf=requestAnimationFrame(t=>{frame(t);markReady();});
 }catch(error){console.error('허리 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('backLoadNote').textContent=t('진료실을 불러오지 못했어요. 다시 열어 주세요.');$('backStart').textContent=t('다시 불러오기');$('backStart').disabled=false;$('backStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});
