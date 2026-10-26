@@ -1,153 +1,26 @@
-# ai-bouncer 워크플로우 정의
-#
-# 이 파일을 고치면 다음 세션 시작 때 자동으로 재컴파일된다.
-# 스키마: docs/SCHEMA.md
-
-version: 1
-
-# ─────────────────────────────────────────────────────────────
-# 엔진 설정. 적지 않으면 아래 기본값이 쓰인다.
-# ─────────────────────────────────────────────────────────────
-settings:
-  update_branch: main        # 자동 업데이트 기준 브랜치 (dev 등으로 바꿀 수 있다)
-  # update_check: true       # 업데이트 확인 on/off
-  # max_attempts: 3          # blocking 실패를 몇 번 재시도한 뒤 on_fail로 보낼지
-  # max_continue: 10         # 한 단계에서 연속으로 밀어붙일 상한. 넘으면 사용자에게 묻는다
-  # stale_lock_hours: 12     # 이 시간 넘게 멈춘 잠금을 정리
-
-# ─────────────────────────────────────────────────────────────
-# 워크플로우 — /dev-bounce 실행 시 이 목록이 그대로 모드 선택지가 된다.
-# ─────────────────────────────────────────────────────────────
-workflows:
-
-  plan:
-    label: 계획을 세우고 승인받은 뒤 구현
-    stages: [plan, implement, verify, finalize, done]
-
-  simple:
-    label: 계획 없이 바로 구현
-    stages: [implement, verify, finalize, done]
-
+# ai-bouncer 레포 설정 — 기본값과 같은 형식. 모드·단계를 이름 단위로 교체하거나 추가한다.
+#   stages.<단계>.prompt  할 일 / run  통과 조건(exit 0) / items  세부 항목
+#   stages.<단계>.choosable  항목을 고르는 방식: ask 사용자에게 묻는다 / auto AI 가 고른다 / all 전부(기본)
+# 형식: docs/SCHEMA.md
 
 stages:
-
-  # ── 계획 ──────────────────────────────────────────────────
-  # 유일하게 Claude Code의 실제 승인 UI(plan mode)를 쓰는 스테이지.
-  plan:
-    steps:
-      - label: 계획 수립과 승인
-        blocking: plan_approved
-        inject_file: prompts/plan.md
-        # 승인된 계획의 목록 항목이 그대로 구현 단계 체크리스트가 된다.
-        # (post-tool 이 ExitPlanMode 를 관찰해 옮긴다)
-    forbid:
-      edit_files: true
-      push: true
-      reason: 계획 승인 전에는 코드를 수정할 수 없다.
-
-  # ── 구현 ──────────────────────────────────────────────────
-  implement:
-    steps:
-      - label: 구현
-        inject: |
-          [implement] 구현 단계다.
-          계획을 세운 뒤라면 그 계획의 After 코드를 그대로 옮긴다.
-
-      # 이게 없으면 Stop 한 번에 구현이 "끝난" 것이 된다.
-      # 엔진은 요구사항 충족 여부를 기계적으로 알 수 없지만,
-      # 항목별 대조는 강제할 수 있다.
-      - label: 구현 완료 대조
-        blocking: checklist
-        inject: |
-          할 일 목록이 있으면(plan 모드는 승인된 계획에서 옮겨진다) 엔진이 항목 수를 센다.
-          구현한 항목은 `bouncer todo done <번호>`, 뺄 항목은 `bouncer todo drop <번호>`(사유를 알린다).
-    forbid:
-      push: true
-      reason: 검증 전에는 push할 수 없다.
-
-  # ── 검증 ──────────────────────────────────────────────────
-  # AGENTS.md 5절(검증 방법)을 그대로 게이트로 옮겼다. 수정은 구현 단계에서만 한다.
   verify:
-    on_fail: implement
-    steps:
-      - label: 유닛 테스트
-        run: "npm test"
-        timeout: 600
-        blocking: true
-
-      - label: 프로덕션 빌드
-        run: "npm run build"
-        timeout: 600
-        blocking: true
-
-      # 실제 크로미움으로 세 모드(목꺾기·목뽑기·허리펴기)를 띄워 시작·조작·전환과
-      # 콘솔 에러 0을 본다. 센서가 없어 드래그/키보드 폴백으로 돈다.
-      - label: e2e
-        run: "npm run e2e"
-        timeout: 1200
-        blocking: true
-
-      # 시각 변경일 때만. shot.py는 콘솔/페이지 에러가 있으면 exit 1.
-      # .venv가 없으면 여기서 만든다 — verify는 읽기 전용이라 모델이 따로 만들 수 없다(2026-10-17에 그래서 막혔다).
-      - label: 헤드리스 스크린샷
-        run: "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
-        timeout: 900
-        blocking: true
-        optional: true
-
-      - label: 검증 보고
-        inject: |
-          [verify] 검증 단계다. 추측 금지 — 실제로 실행해서 확인한다.
-            0. 요청받은 범위가 **전부** 구현됐는지 다시 대조한다. 빠진 것이 있으면 통과로 보고하지 않는다.
-            1. 위 run 스텝 결과(유닛·빌드·e2e·스크린샷)를 명령과 출력 요약으로 보고한다.
-            2. 스크린샷을 찍었다면 shots/new/*.png 를 직접 열어 보고 무엇이 보이는지 적는다.
-               테스트 초록 ≠ 시각 정합.
-            3. 센서·손맛·진동 변경은 헤드리스로 확인되지 않는다. 실기기 확인 체크리스트를 남긴다.
-            4. 실패한 것을 통과로 보고하지 않는다.
-    forbid:
-      edit_files: true
-      push: true
-      reason: 검증 단계에서는 코드를 고칠 수 없다. 수정은 구현 단계로 돌아가서 한다.
-
-  # ── 마무리 ────────────────────────────────────────────────
+    items:
+      npm-test:
+        label: "npm test"
+        prompt: "`bouncer record npm-test 'npm test'` 로 돌린다."
+        run: ["bouncer passed npm-test"]
+      npm-run-build:
+        label: "npm run build"
+        prompt: "`bouncer record npm-run-build 'npm run build'` 로 돌린다."
+        run: ["bouncer passed npm-run-build"]
+      npm-run-e2e:
+        label: "npm run e2e"
+        prompt: "`bouncer record npm-run-e2e 'npm run e2e'` 로 돌린다."
+        run: ["bouncer passed npm-run-e2e"]
+      x-venv-bin-python-python3-m-ve:
+        label: "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
+        prompt: "`bouncer record x-venv-bin-python-python3-m-ve '{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new'` 로 돌린다."
+        run: ["bouncer passed x-venv-bin-python-python3-m-ve"]
   finalize:
-    steps:
-      # AGENTS.md 서두: "지켜야 할 결정"은 사용자 발언·날짜와 함께 남긴다.
-      - label: 문서 갱신
-        blocking: done
-        inject: |
-          [finalize] 동작·규칙이 바뀌었으면 AGENTS.md 해당 절에 사용자 발언 원문과 날짜를 함께 적는다.
-          새 에셋은 CREDITS.md, 에셋 재생성 절차는 scripts/assets/README.md.
-          바뀐 게 없으면 그렇다고 적고 bouncer done.
-
-      - label: 커밋과 푸시
-        inject: |
-          [finalize] 마무리 단계다.
-            1. main이면 feature/… 또는 fix/… 브랜치를 먼저 만든다. main push는 곧바로 Pages 배포다.
-            2. 변경 파일을 개별 git add 한다. `git add .` / `-A` 금지. shots/, dist*/ 는 커밋하지 않는다.
-            3. 커밋한다 — type은 영어, 설명은 한글, 50자 이내.
-            4. push하고 `gh pr create`로 PR을 연다. push가 권한(403)으로 막히면 우회하지 말고 사용자에게 보고한다.
-
-      - label: main 직접 커밋 금지
-        run: 'test "$(git branch --show-current)" != main'
-        by: engine
-        blocking: true
-
-      # git 레포가 아니면 `git status` 가 죽어 stdout 이 비고 exit 0 이 된다 —
-      # 게이트가 공허하게 통과한다. 레포인지 먼저 확인한다.
-      - label: 워킹트리 정리 확인
-        run: 'git rev-parse --git-dir >/dev/null 2>&1 && test -z "$(git status --porcelain)"'
-        by: engine
-        blocking: true
-
-      - label: 원격 반영 확인
-        run: 'git rev-parse --abbrev-ref "@{u}" >/dev/null 2>&1 && test -z "$(git log "@{u}..HEAD" --oneline)"'
-        by: engine
-        blocking: true
-
-  # ── 종단 ──────────────────────────────────────────────────
-  done:
-    steps:
-      - label: 완료 보고
-        inject: |
-          [done] 작업이 끝났다. 사용자 지시 없이 새 작업을 시작하지 않는다.
+    run: ["test \"$(git branch --show-current)\" != main", "git rev-parse --git-dir >/dev/null 2>&1 && test -z \"$(git status --porcelain)\"", "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""]
