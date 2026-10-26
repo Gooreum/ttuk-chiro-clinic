@@ -32,8 +32,14 @@ import { clinicSurface, clinicContactSamples, clinicContactShift } from "./clini
 const BASE = import.meta.env.BASE_URL + "models/";
 /* Neck-rig lab (case build only, ?necklab=chain, src/dev/neckLab.js): patient08's clinic body comes with the multi-joint
    skin (lab-assets/, scripts/assets/mpfb_export_body.py chain) instead of the two bones. Nothing here in other builds. */
-const LAB_BODY = __CASES__ && new URLSearchParams(location.search).get("necklab") === "chain"
-  ? {patient08: import.meta.env.BASE_URL + "lab/patient08/body_chain.glb"} : {};
+// &skin=1 / &skin=full: the same rig with the neck skin the shirt hid partly / wholly restored (body_skin, body_full);
+// &collar=<share>: the collar turns with that share of the head's turn (collarBone, lab only)
+const LABQ = __CASES__ ? new URLSearchParams(location.search) : null;
+const LAB_FILE = __CASES__ ? {chain: "body_chain"}[LABQ.get("necklab")] : null;
+const LAB_SKIN = __CASES__ ? {full: "_full", "1": "_skin"}[LABQ.get("skin")] || "" : "";
+const LAB_BODY = __CASES__ && LABQ.has("necklab") && (LAB_FILE || LAB_SKIN)
+  ? {patient08: import.meta.env.BASE_URL + "lab/patient08/" + (LAB_FILE || "body") + LAB_SKIN + ".glb"} : {};
+const LAB_COLLAR = __CASES__ && LABQ.has("necklab") ? +LABQ.get("collar") || 0 : 0;
 // GLTFLoader + meshopt decoder are loaded on demand (own chunk), so the main bundle stays as small as before
 let loaderP = null;
 function getLoader(){
@@ -230,6 +236,7 @@ function placeBody(gltf, env, g, model){
     if(model.towelStage) finishTowelCharacter(m, src);
     o.material = m; o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
     if(!name.endsWith(".skin") && o.isSkinnedMesh) pinToBody(o);
+    if(__CASES__ && LAB_COLLAR && name.endsWith(".shirt") && o.isSkinnedMesh) collarBone(o, model);
     const chain = __CASES__ && name.endsWith(".skin") && o.isSkinnedMesh && o.skeleton.getBoneByName("neck_1")
       ? {si: o.geometry.attributes.skinIndex.array.slice(), sw: o.geometry.attributes.skinWeight.array.slice()} : null;
     if(name.endsWith(".skin") && o.isSkinnedMesh) neckColumn(o, m, model);
@@ -244,6 +251,7 @@ function placeBody(gltf, env, g, model){
   frame.userData = {morphs, neck, parentInv: neck.parent.matrixWorld.clone().invert(), neckRest: neck.matrixWorld.clone(), z0: frame.position.z};
   _P0.makeTranslation(pivot.position.x, pivot.position.y, pivot.position.z).invert();
   if(__CASES__ && model.chain) chainRest(model, frame);
+  if(__CASES__ && model.collar) collarRest(model);
   return frame;
 }
 /* The clothes stay on the trunk: the towel mode's neck stretch (updateRealBody) moves the neck bone, and the shirt
@@ -482,6 +490,7 @@ export function updateRealBody(fill, s = 0, body = s){
   _M.multiplyMatrices(parentInv, _D).multiply(neckRest);
   _M.decompose(neck.position, neck.quaternion, neck.scale);
   if(__CASES__ && cur.chain) updateChain(cur, body);
+  if(__CASES__ && cur.collar) updateCollar(cur, body);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
 }
 
@@ -604,6 +613,74 @@ function updateChain(cur, slide){
     const Dk = D3.clone().multiply(new THREE.Matrix4().makeTranslation(tRel.x*gr[j], tRel.y*gr[j], tRel.z*gr[j])).multiply(turnAbout(new THREE.Matrix4(), q, P));
     setBone(B[nm], Dk, W0[nm]);
   });
+}
+/* The collar follows the neck a little (lab, &collar=<share>): pinToBody keeps the shirt on the trunk, so a turned neck
+   slides out of a collar that stays put and shows the skin's cut edge. Here the shirt alone gets one more bone, a child of
+   the body bone (rest world = the body's, so it binds with the body's inverse); its vertices weigh 1 at the collar's rim
+   (the shirt's topmost open edge loop) easing to 0 four centimetres down. Each frame it takes `share` of the head's turn
+   about the pivot, after the trunk (spine_03 on the chain, the frame's slide on the two bones), and none of the stretch:
+   a stretched shirt read as taffy (2026-10-15). */
+const COLLAR_EASE = 0.04;
+function collarBone(o, model){
+  const sk = o.skeleton, bi = sk.bones.findIndex(b => b.name === "body");
+  if(bi < 0) return;
+  const bone = new THREE.Bone(); bone.name = "lab_collar";
+  sk.bones[bi].add(bone);
+  o.bind(new THREE.Skeleton([...sk.bones, bone], [...sk.boneInverses, sk.boneInverses[bi].clone()]), o.bindMatrix);
+  model.collar = {shirt: o, bone, index: sk.bones.length, W0: null};
+}
+// once the frame is laid out (placeBody): the rim at rest, in world metres, and the weights
+function collarRest(model){
+  const c = model.collar, o = c.shirt, g = o.geometry, P = g.attributes.position, n = P.count, idx = g.index.array;
+  c.W0 = c.bone.matrixWorld.clone();
+  const M = new THREE.Matrix4().multiplyMatrices(o.skeleton.bones[0].matrixWorld, o.skeleton.boneInverses[0]).multiply(o.bindMatrix);
+  const W = new Float32Array(3*n), v = new THREE.Vector3();
+  for(let i = 0; i < n; i++) v.fromBufferAttribute(P, i).applyMatrix4(M).toArray(W, 3*i);
+  // welded open edges (UV seams split vertices), then the topmost loop: the collar (the sleeves and the hem lie lower)
+  const key = new Map(), weld = new Int32Array(n);
+  for(let i = 0; i < n; i++){ const k = Math.round(W[3*i]*1e4) + "," + Math.round(W[3*i + 1]*1e4) + "," + Math.round(W[3*i + 2]*1e4); if(!key.has(k)) key.set(k, i); weld[i] = key.get(k); }
+  const edges = new Map();
+  for(let f = 0; f < idx.length; f += 3) for(let e = 0; e < 3; e++){
+    const a = weld[idx[f + e]], b = weld[idx[f + (e + 1)%3]], k = a < b ? a*n + b : b*n + a;
+    edges.set(k, (edges.get(k) || 0) + 1);
+  }
+  const open = new Set(); edges.forEach((m, k) => { if(m === 1){ open.add(Math.floor(k/n)); open.add(k%n); } });
+  // the head end of the table is world -z here (the neck runs along z): the collar loop is the open loop nearest the head
+  let zmin = Infinity; open.forEach(i => { zmin = Math.min(zmin, W[3*i + 2]); });
+  const rim = [...open].filter(i => W[3*i + 2] < zmin + 0.06);
+  c.rim = rim.length;
+  const si = g.attributes.skinIndex, sw = g.attributes.skinWeight, full = sw.normalized ? (sw.array instanceof Uint16Array ? 65535 : 255) : 1;
+  let moved = 0;
+  for(let i = 0; i < n; i++){
+    let d = Infinity;
+    for(const j of rim) d = Math.min(d, Math.hypot(W[3*i] - W[3*j], W[3*i + 1] - W[3*j + 1], W[3*i + 2] - W[3*j + 2]));
+    const w = 1 - THREE.MathUtils.smoothstep(d, 0, COLLAR_EASE);
+    if(w <= 1e-3) continue;
+    const inf = [];
+    for(let k = 0; k < 4; k++){ const x = sw.array[i*4 + k]/full; if(x > 0) inf.push([si.array[i*4 + k], x*(1 - w)]); }
+    inf.push([c.index, w]); inf.sort((a, b) => b[1] - a[1]); inf.length = Math.min(4, inf.length);
+    const s = inf.reduce((a, x) => a + x[1], 0);
+    for(let k = 0; k < 4; k++){
+      si.array[i*4 + k] = inf[k] ? inf[k][0] : 0;
+      sw.array[i*4 + k] = inf[k] ? (full === 1 ? inf[k][1]/s : Math.round(inf[k][1]/s*full)) : 0;
+    }
+    moved++;
+  }
+  si.needsUpdate = sw.needsUpdate = true;
+  c.weighted = moved;
+}
+function updateCollar(cur, slide){
+  const c = cur.collar, {neck, neckRest} = cur.body.userData;
+  if(!c.W0) return;
+  cur.body.updateMatrixWorld(true);
+  const B = cur.chain && cur.chain.W0
+    ? new THREE.Matrix4().multiplyMatrices(cur.chain.bones.spine_03.matrixWorld, new THREE.Matrix4().copy(cur.chain.W0.spine_03).invert())
+    : new THREE.Matrix4().makeTranslation(0, 0, -slide);
+  const Dn = new THREE.Matrix4().multiplyMatrices(neck.matrixWorld, new THREE.Matrix4().copy(neckRest).invert());
+  const rel = B.clone().invert().multiply(Dn);
+  rel.decompose(CS.v2, CS.q2, CS.s);
+  const q = CS.q.copy(CS.I).slerp(CS.q2, LAB_COLLAR);
+  setBone(c.bone, B.multiply(turnAbout(new THREE.Matrix4(), q, pivot.position)), c.W0);
 }
 const DEG_ = Math.PI/180;
 // lab access to the model on the table (metrics, src/dev/neckLab.js)

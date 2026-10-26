@@ -27,7 +27,10 @@ from patients import human_info, fit_scale, CHIN_TIP, PATIENTS
 ARGS=sys.argv[sys.argv.index("--")+1:]
 OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if len(ARGS)>2 else 16
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
-CHAIN=len(ARGS)>4 and ARGS[4]=="chain"
+FLAGS=ARGS[4:]
+CHAIN="chain" in FLAGS
+FULL="full" in FLAGS          # neck-rig lab: every face the clothes hid comes back (the exposure check)
+SKIN=next((a[5:] for a in FLAGS if a.startswith("skin=")), None)   # neck-rig lab: "rings,H" only the skin that shows
 AO_MIX=0.7
 NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0 (the game redoes the skin's weights about the neck column on load, src/scene/realAssets.js neckColumn)
 BREATH_CHEST=0.026   # rib cage rise at full inhale (metres)
@@ -64,6 +67,22 @@ for m in body.modifiers:
         g=group_verts(body,[m.vertex_group])
         hidden |= g if m.invert_vertex_group else {v.index for v in body.data.vertices}-g
 print("HELPER", len(helper), "HEAD", len(headv), "HIDDEN", len(hidden))
+def restore_set(rings, H):
+    """hidden skin within `rings` mesh rings of the kept skin's edge and no lower than CUT - H (the neck, the collarbones
+       and the collar's underside: what a turned or drawn-out neck shows from under the collar)"""
+    nb={}
+    for e in body.data.edges:
+        a,b=e.vertices; nb.setdefault(a,[]).append(b); nb.setdefault(b,[]).append(a)
+    kept=lambda i: i not in hidden and i not in helper
+    front={i for i in hidden if any(kept(j) for j in nb.get(i,()))}; got=set(front)
+    for _ in range(int(rings)-1):
+        front={j for i in front for j in nb.get(i,()) if j in hidden and j not in got}; got|=front
+    return {i for i in got if (mw@body.data.vertices[i].co).z >= CUT-H*K}
+RESTORE=set(hidden) if FULL else restore_set(*map(float, SKIN.split(","))) if SKIN else set()
+print("RESTORE", len(RESTORE), "of hidden", len(hidden))
+if RESTORE:     # follows the vertices through the pose and the deletes, for the tuck under the shirt below
+    at=body.data.attributes.new("lab_restored", "INT", "POINT")
+    for i in RESTORE: at.data[i].value=1
 # seam tree: head-side vertices, rest positions (the neck is not posed)
 tree=kdtree.KDTree(len(headv))
 for i in headv: tree.insert(mw@body.data.vertices[i].co, i)
@@ -250,7 +269,7 @@ def delete_verts(o, kill):
 # body keeps every face the head drops: delete only the faces whose vertices are all head-side
 bpy.context.view_layer.objects.active=body
 bpy.ops.object.mode_set(mode="EDIT"); bm=bmesh.from_edit_mesh(body.data); bm.verts.ensure_lookup_table(); bm.faces.ensure_lookup_table()
-dead=set(helper)|hidden
+dead=set(helper)|(hidden-RESTORE)
 faces=[f for f in bm.faces if all(v.index in headv for v in f.verts) or any(v.index in dead for v in f.verts)]
 bmesh.ops.delete(bm, geom=faces, context="FACES_ONLY")
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
@@ -317,6 +336,26 @@ if TUCK:
         if -TUCK < d < 0.01 and v.normal.dot(nrm) > 0.5:
             v.co=loc-nrm*TUCK; moved+=1
     print("TUCK", TUCK, "skin verts pulled under the shirt", moved)
+# neck-rig lab: restored skin sits 3 mm under the shirt at least (MPFB fitted the shirt to a body it then hid: some of
+# it lies on or through the cloth and would flicker / poke out). The collar's rim faces are left alone (no inside there).
+if RESTORE:
+    sh=cloth.data; edge_count={}
+    for pl in sh.polygons:
+        for k in pl.edge_keys: edge_count[k]=edge_count.get(k,0)+1
+    rim={i for k,c in edge_count.items() if c==1 for i in k}
+    near_rim={pl.index for pl in sh.polygons if any(i in rim for i in pl.vertices)}
+    tr=BVHTree.FromPolygons([v.co for v in sh.vertices], [list(pl.vertices) for pl in sh.polygons])
+    flag=body.data.attributes["lab_restored"].data; pushed=0; n=0
+    for v in body.data.vertices:
+        if not flag[v.index].value: continue
+        n+=1
+        loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
+        if loc is None or fi in near_rim: continue
+        d=(v.co-loc).dot(nrm)
+        if -0.003 < d < 0.01 and v.normal.dot(nrm) > 0.3:
+            v.co=loc-nrm*0.003; pushed+=1
+    print("RESTORED", n, "skin verts kept,", pushed, "pushed 3 mm under the shirt")
+    body.data.attributes.remove(body.data.attributes["lab_restored"])
 # AO + normal only: the colour comes from the game palette
 for o,name in ((cloth,"patient.shirt"),(pants,"patient.pants")):
     fm=bpy.data.materials.new(name); fm.use_nodes=True

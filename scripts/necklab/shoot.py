@@ -96,7 +96,16 @@ def main():
     ap.add_argument("--out", default="shots/necklab")
     ap.add_argument("--rigs", default="base,chain,chain0,hat,stage,stageTowel")
     ap.add_argument("--assemble", action="store_true", help="only rebuild the comparisons and metrics.md from <out>/<rig>/data.json")
+    ap.add_argument("--exposure", action="store_true", help="skin round: which hidden skin shows (skin=full exports) -> <out>/exposure*")
+    ap.add_argument("--set", choices=["skin"], help="skin round: {base,chain} x {none,skin,collar,both} -> <out>/")
     args = ap.parse_args()
+    if args.exposure or args.set:
+        out = pathlib.Path(args.out if args.out != "shots/necklab" else "shots/necklab2")
+        if args.exposure:
+            return exposure_run(args.url, out)
+        if args.assemble:
+            return skin_assemble(out)
+        return skin_run(args.url, out)
     if args.assemble:
         return assemble(pathlib.Path(args.out))
     out = pathlib.Path(args.out)
@@ -227,6 +236,144 @@ def write_md(out, metrics, motion, rigs):
         L += ["", "## 메시 동일성 (body.glb vs body_chain.glb)", "", "```", json.dumps(metrics["sameMesh"], ensure_ascii=False), "```"]
     if metrics.get("chain", {}).get("rest"):
         L += ["", f"바인드 항등성 오차(chain, W0·boneInverse 최대 차): {metrics['chain']['rest']['bindErr']}"]
+    (out / "metrics.md").write_text("\n".join(L) + "\n")
+
+
+# ---- skin round (2026-10-27): the skin the shirt hid, restored only where it shows, and a collar that follows a little ----
+EXP_POSES = [{}, {"rot": 60}, {"rot": -60}, {"rot": 75}, {"rot": -75}, {"stretch": 0.16}, {"stretch": 0.16, "rot": 75},
+             {"stretch": 0.16, "rot": -75}, {"bend": 32}]
+SKIN_POSES = [("rest", {}), ("rot75", {"rot": 75}), ("rotm75", {"rot": -75}), ("str16", {"stretch": 0.16}),
+              ("str16_rot75", {"stretch": 0.16, "rot": 75}), ("str16_rotm75", {"stretch": 0.16, "rot": -75})]
+CAMS2 = {**CAMS, "collar": {"pos": [0.0, 1.42, 0.44], "look": [0, 1.0, 0.12]}}   # diagnostic: the collar from over the chest
+COLLAR = 0.35
+FIXES = {"none": "", "skin": "&skin=1", "collar": f"&collar={COLLAR}", "both": f"&skin=1&collar={COLLAR}"}
+FIX_KO = {"none": "수정 없음", "skin": "피부 복원", "collar": "깃 추종", "both": "피부+깃"}
+RIG_KO = {"base": "기존 2본", "chain": "다중 관절"}
+
+
+def save_url(data_url, path):
+    import base64
+    path.write_bytes(base64.b64decode(data_url.split(",", 1)[1]))
+
+
+def exposure_run(url, out):
+    """skin=full on both rigs: every restored face any pose / camera shows, and the ring / depth the rule needs"""
+    out.mkdir(parents=True, exist_ok=True)
+    res = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+        for rig in ("base", "chain"):
+            ctx, pg, errs = open_rig(browser, url, f"necklab={rig}&skin=full")
+            pg.add_style_tag(content=HIDE_HUD)
+            for collar in (0, COLLAR):
+                if collar:
+                    ctx.close()
+                    ctx, pg, errs = open_rig(browser, url, f"necklab={rig}&skin=full&collar={collar}")
+                    pg.add_style_tag(content=HIDE_HUD)
+                r = pg.evaluate("([ps, cs]) => window.__neckLab.exposure(ps, cs)", [EXP_POSES, {k: (None if v is None else v) for k, v in CAMS.items()}])
+                key = f"{rig}{'_collar' if collar else ''}"
+                for cam in ("side", "collar"):
+                    save_url(pg.evaluate("([f, c]) => window.__neckLab.exposureMap(f, c)", [r["faces"], CAMS2[cam]]), out / f"exposure_{key}_{cam}.png")
+                r["faces"] = len(r["faces"])
+                res[key] = r
+                print(key, {k: r[k] for k in ("restoredVerts", "restoredFaces", "exposedFaces", "exposedVerts", "maxRing", "maxDepth")}, flush=True)
+                if errs:
+                    print(key, "page errors:", errs[:3])
+            ctx.close()
+        browser.close()
+    (out / "exposure.json").write_text(json.dumps(res, ensure_ascii=False, indent=1))
+
+
+def skin_run(url, out):
+    with sync_playwright() as p:
+        for rig in ("base", "chain"):
+            for fix, q in FIXES.items():
+                cfg = f"{rig}_{fix}"
+                d = out / cfg
+                if (d / "data.json").is_file():       # done in an earlier run (a long run can lose its browser)
+                    continue
+                # a browser per configuration: 24 shots with the CPU passes each, swiftshader's memory grows
+                browser = p.chromium.launch(args=["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"])
+                ctx, pg, errs = open_rig(browser, url, f"necklab={rig}{q}")
+                d.mkdir(parents=True, exist_ok=True)
+                rec = {"metrics": {}}
+                if "skin=1" in q:
+                    rec["subset"] = pg.evaluate("u => window.__neckLab.subsetMesh(u)", f"lab/patient08/{'body_chain' if rig == 'chain' else 'body'}_skin.glb")
+                for name, pose in SKIN_POSES:
+                    rec["metrics"][name] = {}
+                    for cam, c in CAMS2.items():
+                        m = shot(pg, {**pose, "extra": True}, c, d / f"{name}_{cam}.png", cam != "game")
+                        save_url(m["holes"].pop("mask"), d / f"{name}_{cam}_mask.png")
+                        rec["metrics"][name][cam] = m
+                    m = rec["metrics"][name]["game"]
+                    print(cfg, name, "edge px", {k: v["holes"]["edgePx"] for k, v in rec["metrics"][name].items()},
+                          "back px", {k: v["holes"]["backPx"] for k, v in rec["metrics"][name].items()}, "pen", m["pen"], flush=True)
+                (d / "data.json").write_text(json.dumps(rec, ensure_ascii=False))
+                if errs:
+                    print(cfg, "page errors:", errs[:3])
+                ctx.close()
+                browser.close()
+    skin_assemble(out)
+
+
+def overlay(shot_png, mask_png, out):
+    a = Image.open(shot_png).convert("RGBA")
+    m = Image.open(mask_png).convert("RGBA").resize(a.size)
+    Image.alpha_composite(a, m).convert("RGB").save(out)
+
+
+def skin_assemble(out):
+    data = {}
+    for rig in ("base", "chain"):
+        for fix in FIXES:
+            f = out / f"{rig}_{fix}" / "data.json"
+            if f.is_file():
+                data[f"{rig}_{fix}"] = json.loads(f.read_text())
+    for sub in ("cmp4", "cmp2", "ov"):
+        (out / sub).mkdir(parents=True, exist_ok=True)
+    for name, _ in SKIN_POSES:
+        for cam in CAMS2:
+            for rig in ("base", "chain"):
+                ims = []
+                for fix in FIXES:
+                    f = out / f"{rig}_{fix}" / f"{name}_{cam}.png"
+                    if not f.exists():
+                        break
+                    overlay(f, out / f"{rig}_{fix}" / f"{name}_{cam}_mask.png", out / "ov" / f"{rig}_{fix}_{name}_{cam}.png")
+                    ims.append(label(Image.open(f).convert("RGB"), f"{RIG_KO[rig]} · {FIX_KO[fix]} · {name}"))
+                if len(ims) == 4:
+                    w, h = ims[0].size
+                    g = Image.new("RGB", (w * 2, h * 2))
+                    for i, im in enumerate(ims):
+                        g.paste(im, ((i % 2) * w, (i // 2) * h))
+                    g.resize((w, h)).save(out / "cmp4" / f"{rig}_{name}_{cam}.png")
+            for fix in FIXES:
+                a, b = out / f"base_{fix}" / f"{name}_{cam}.png", out / f"chain_{fix}" / f"{name}_{cam}.png"
+                if a.exists() and b.exists():
+                    side_by_side(a, b, out / "cmp2" / f"{fix}_{name}_{cam}.png", f"기존 2본 · {FIX_KO[fix]} · {name}", f"다중 관절 · {FIX_KO[fix]} · {name}")
+    L = ["# 피부 복원 · 깃 추종 비교 (patient08)", "",
+         "구멍: 목 주변 원(접합부 중심 ±22cm) 안에서 보이는 피부 열린 변 px / 피부 안쪽(뒷면) px. 카메라 4개 합.",
+         "관통: 깃 주변 피부 정점 중 셔츠 밖으로 나온 수 / 셔츠 안 0~1.5mm(Z-fighting 위험) 수 / 셔츠 밑에 있는 수. 깃 가라앉음: 깃 테두리 정점이 피부 안으로 들어간 수.", "",
+         "| 포즈 | 리그 | 수정 | 열린 변 px (game/towel/side/collar) | 뒷면 px (game/towel/side/collar) | 관통/Z위험/셔츠밑 | 깃 가라앉음 | 접합 p95/최대 mm | 최소 단면적비 | 뒤집힌 면 | 손-배 mm |",
+         "|" + "---|" * 11]
+    for name, _ in SKIN_POSES:
+        for rig in ("base", "chain"):
+            for fix in FIXES:
+                r = data.get(f"{rig}_{fix}")
+                if not r:
+                    continue
+                ms = r["metrics"][name]
+                m = ms["game"]
+                L.append(f"| {name} | {RIG_KO[rig]} | {FIX_KO[fix]} | " + "/".join(str(ms[c]["holes"]["edgePx"]) for c in CAMS2)
+                         + " | " + "/".join(str(ms[c]["holes"]["backPx"]) for c in CAMS2)
+                         + f" | {m['pen']['poke']}/{m['pen']['zrisk']}/{m['pen']['under']} | {m['pen']['rimSunk']}/{m['pen']['rim']}"
+                         + f" | {m['seam']['p95']:.2f}/{m['seam']['max']:.2f} | {m['minArea']:.3f} | {m['flipped']}/{m['tris']} | {m['handBellyMm']:.1f} |")
+    subs = {k: v["subset"] for k, v in data.items() if v.get("subset")}
+    if subs:
+        L += ["", "## 출시 몸(body.glb) 정점 보존", "", "```", json.dumps(subs, ensure_ascii=False, indent=1), "```"]
+    cb = {k: v["metrics"]["rest"]["game"].get("collarBone") for k, v in data.items() if v["metrics"]["rest"]["game"].get("collarBone")}
+    if cb:
+        L += ["", "## 깃 본", "", "```", json.dumps(cb, ensure_ascii=False), "```"]
     (out / "metrics.md").write_text("\n".join(L) + "\n")
 
 

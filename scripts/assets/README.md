@@ -640,3 +640,19 @@ $G meshopt b.glb ../../lab-assets/patient08/body_chain.glb
 ```
 
 로그 `TOP 1.6227`이 patient08 머리와 같아야 한다. 정점 수(7452/950/2985)와 위치는 `public/models/patient08/body.glb`와 같다(`window.__neckLab.sameMesh()`, 차이 0mm). 결과물은 `public/`이 아니라 `lab-assets/`에 두고 케이스 빌드만 싣는다. 비교 방법·결과는 AGENTS.md "목 리그 실험".
+
+### 셔츠 밑 피부 복원 (2026-10-27)
+
+5번째 이후 인자에 `full` 또는 `skin=<rings>,<H>`를 더하면 셔츠가 가린 피부(MPFB 마스크)를 지우지 않고 남긴다(`chain`과 같이 쓸 수 있다).
+- `full`: 전부 남긴다(노출 진단용).
+- `skin=2,0.22`: 남은 피부 가장자리에서 2링 안, 그리고 목 접합부(CUT)에서 22cm 안만 남긴다.
+- 남긴 정점 중 셔츠 안쪽 3mm보다 바깥에 있는 것은 셔츠 법선을 따라 안쪽 3mm로 민다. 깃 테두리 면은 건드리지 않는다.
+- 규칙은 `scripts/necklab/shoot.py --exposure`가 `full` 몸으로 찾았다. 9포즈 × 3카메라에서 화면에 보인 복원 정점은 1링 안, 20cm 안이었다.
+
+```
+nice blender -b -t 4 --python mpfb_export_body.py -- body_skin_raw.glb 1024 16 patient08 skin=2,0.22               # → lab-assets/patient08/body_skin.glb
+nice blender -b -t 4 --python mpfb_export_body.py -- body_chain_skin_raw.glb 1024 16 patient08 chain skin=2,0.22   # → body_chain_skin.glb
+nice blender -b -t 4 --python mpfb_export_body.py -- body_full_raw.glb 1024 16 patient08 full                       # → body_full.glb (chain full → body_chain_full.glb)
+```
+
+최적화 3줄은 위와 같다. 로그는 `RESTORE 176 of hidden 8200`, `RESTORED 166 skin verts kept, 11 pushed`가 나와야 한다. `HIDDEN 8200`에는 helper 정점이 섞여 있다. 실제로 지워진 피부는 2,418정점이다(`full` 기준). 남은 출시 정점은 그대로다(`window.__neckLab.subsetMesh()`).

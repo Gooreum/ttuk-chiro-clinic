@@ -9,7 +9,7 @@ import { ROSTER } from "../patient/roster.js";
 import { applyLook } from "../scene/look.js";
 import { labCurrent, chainOpts } from "../scene/realAssets.js";
 import { pivot, head } from "../scene/patientModel.js";
-import { scene } from "../scene/renderer.js";
+import { scene, renderer, camera } from "../scene/renderer.js";
 import { NECK_LEN, stretchProfile, stretchLen } from "../core/towel.js";
 import { crackProfile, CRACK_LEN } from "../core/crack.js";
 
@@ -46,6 +46,8 @@ async function ready(){
   scene.updateMatrixWorld(true);
   headZ0 = head.position.z;
   regions();
+  if(Q.has("skin")) await restoredMask();
+
 }
 let headZ0 = 0;
 
@@ -168,7 +170,7 @@ function bandShape(pos, bands, marks, restDirs){
     return {c: cs[k], ax, rad, area: hull2(pts), mark: md};
   });
 }
-function measure(){
+function measure(extra = false){
   const cur = labCurrent(), o = cur.neckSkin, r = R || regions();
   scene.updateMatrixWorld(true);
   const n = o.geometry.attributes.position.count;
@@ -228,8 +230,247 @@ function measure(){
     seam, bands, twistD2: Math.max(0, ...d2), minRadius: Math.min(...bands.map(b => b.radius)), minArea: Math.min(...bands.map(b => b.area)),
     minAreaDrawn: Math.min(...bands.map(b => b.areaDrawn)), edge: {min: emin, max: emax}, flipped: flip, tris: r.tris.length,
     shoulder: {left: shoulder[0], right: shoulder[1]}, handBellyMm: far, handPairs: r.far.length, collarApartCm: cs, poke, pokeWhere, contacts: r.contact.length,
-    bindErr: cur.chain ? cur.chain.bindErr : null
+    bindErr: cur.chain ? cur.chain.bindErr : null,
+    // the skin / collar round: holes on screen (with masks) and shirt vs skin
+    ...(extra ? {holes: holes(B), pen: penetration(B, S2), collarBone: cur.collar ? {rim: cur.collar.rim, weighted: cur.collar.weighted} : null} : {})
   };
+}
+
+/* ---- the skin the shirt hid (&skin=1 / full, 2026-10-27): what of it shows, holes on screen, shirt vs skin ----
+   Restored = a skin vertex the shipped body.glb does not have (matched by rest position, 0.2 mm). */
+let ORIG = null;
+async function loadGlb(url){
+  const [{GLTFLoader}, {MeshoptDecoder}] = await Promise.all([import("three/examples/jsm/loaders/GLTFLoader.js"), import("three/examples/jsm/libs/meshopt_decoder.module.js")]);
+  return new Promise((res, rej) => new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).load(url, res, undefined, rej));
+}
+const sceneSpace = (P, M) => { const out = new Float32Array(P.count*3), v = new THREE.Vector3(); for(let i = 0; i < P.count; i++) v.fromBufferAttribute(P, i).applyMatrix4(M).toArray(out, 3*i); return out; };
+// a skinned mesh's rest position in its glTF scene (the quantization lives in the inverse binds, not the node)
+const restOf = o => new THREE.Matrix4().multiplyMatrices(o.skeleton.bones[0].matrixWorld, o.skeleton.boneInverses[0]).multiply(o.bindMatrix);
+const isSkin = o => o.isMesh && /\.skin$/.test(o.material.name || "") || /body_skin/.test(o.name);
+async function restoredMask(){
+  const o = labCurrent().neckSkin;
+  if(o.userData.labRestored) return o.userData.labRestored;
+  // in the export's own space (glTF scene): each file is quantized to its own box, so raw geometry does not compare
+  if(!ORIG){
+    const g = await loadGlb(import.meta.env.BASE_URL + "models/patient08/body.glb");
+    g.scene.updateMatrixWorld(true);
+    g.scene.traverse(m => { if(!ORIG && m.isMesh && isSkin(m)) ORIG = sceneSpace(m.geometry.attributes.position, restOf(m)); });
+  }
+  // called at rest (ready): the skin's rest pose back in its glTF scene's space
+  const cur = labCurrent(), gs = cur.body.children[0].children[0];
+  scene.updateMatrixWorld(true);
+  const rel = new THREE.Matrix4().copy(gs.matrixWorld).invert().multiply(restOf(o));
+  const Q = sceneSpace(o.geometry.attributes.position, rel), n = Q.length/3, mask = new Uint8Array(n);
+  const cell = 0.0005, key = (x, y, z) => Math.round(x/cell) + "," + Math.round(y/cell) + "," + Math.round(z/cell), H = new Map();
+  for(let i = 0; i < ORIG.length/3; i++) H.set(key(ORIG[3*i], ORIG[3*i + 1], ORIG[3*i + 2]), i);
+  for(let i = 0; i < n; i++){
+    const x = Q[3*i], y = Q[3*i + 1], z = Q[3*i + 2]; let hit = false;
+    for(let a = -1; a <= 1 && !hit; a++) for(let b = -1; b <= 1 && !hit; b++) for(let c = -1; c <= 1 && !hit; c++){
+      const j = H.get(key(x + a*cell, y + b*cell, z + c*cell));
+      if(j !== undefined && Math.hypot(ORIG[3*j] - x, ORIG[3*j + 1] - y, ORIG[3*j + 2] - z) < 0.0002) hit = true;
+    }
+    mask[i] = hit ? 0 : 1;
+  }
+  return o.userData.labRestored = mask;
+}
+// welded neighbours of the skin (UV seams split vertices)
+function welded(g){
+  const P = g.attributes.position, n = P.count, key = new Map(), weld = new Int32Array(n);
+  for(let i = 0; i < n; i++){ const k = Math.round(P.getX(i)*1e4) + "," + Math.round(P.getY(i)*1e4) + "," + Math.round(P.getZ(i)*1e4); if(!key.has(k)) key.set(k, i); weld[i] = key.get(k); }
+  return weld;
+}
+/* A copy of the skin drawn for a pass: same skeleton, bind and neck shaders (pinch), one value per triangle corner aF
+   (non-indexed, so a face has one value); the fragment writes `frag` (vF in scope) with alpha 0, no blending: in a
+   render target the rest of the scene writes alpha 1, so alpha 0 marks this pass's pixels. */
+function passMesh(o, aF, frag, side = THREE.FrontSide){
+  const g = o.geometry.toNonIndexed();
+  g.setAttribute("aF", new THREE.BufferAttribute(aF, 1));
+  const m = new THREE.MeshBasicMaterial({side, toneMapped: false}), src = o.material.onBeforeCompile;
+  m.blending = THREE.NoBlending;
+  m.onBeforeCompile = (sh, r) => {
+    if(src) src(sh, r);
+    sh.vertexShader = "attribute float aF;\nvarying float vF;\n" + sh.vertexShader.replace("#include <begin_vertex>", "#include <begin_vertex>\n  vF = aF;");
+    sh.fragmentShader = "varying float vF;\n" + sh.fragmentShader.replace("#include <dithering_fragment>", "#include <dithering_fragment>\n  " + frag);
+  };
+  m.customProgramCacheKey = () => "lab:" + frag;
+  const s = new THREE.SkinnedMesh(g, m);
+  s.bind(o.skeleton, o.bindMatrix);
+  s.position.copy(o.position); s.quaternion.copy(o.quaternion); s.scale.copy(o.scale);
+  s.morphTargetInfluences = o.morphTargetInfluences; s.morphTargetDictionary = o.morphTargetDictionary;
+  s.frustumCulled = false; s.visible = false;
+  o.parent.add(s);
+  return s;
+}
+let RT = null;
+function readPass(show, hide){
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  if(!RT || RT.width !== size.x || RT.height !== size.y){ RT?.dispose(); RT = new THREE.WebGLRenderTarget(size.x, size.y); }
+  show.forEach(x => x.visible = true); hide.forEach(x => x.visible = false);
+  scene.updateMatrixWorld(true);
+  renderer.setRenderTarget(RT); renderer.setClearColor(0x000000, 1); renderer.clear(); renderer.render(scene, camera);
+  const px = new Uint8Array(size.x*size.y*4);
+  renderer.readRenderTargetPixels(RT, 0, 0, size.x, size.y, px);
+  renderer.setRenderTarget(null);
+  show.forEach(x => x.visible = false); hide.forEach(x => x.visible = true);
+  return {px, w: size.x, h: size.y};
+}
+// the restored faces as ids (face + 1); original faces draw id 0 (they still hide what is behind them)
+let ID = null;
+async function idPass(){
+  const o = labCurrent().neckSkin, mask = await restoredMask();
+  if(!ID){
+    const idx = o.geometry.index.array, aF = new Float32Array(idx.length);
+    for(let f = 0; f < idx.length; f += 3){ const r = mask[idx[f]] || mask[idx[f + 1]] || mask[idx[f + 2]]; aF[f] = aF[f + 1] = aF[f + 2] = r ? f/3 + 1 : 0; }
+    ID = passMesh(o, aF, "float f = floor(vF + 0.5); gl_FragColor = vec4(mod(f, 256.0)/255.0, mod(floor(f/256.0), 256.0)/255.0, floor(f/65536.0)/255.0, 0.0);");
+  }
+  const {px} = readPass([ID], [o]), seen = new Map();
+  for(let i = 0; i < px.length; i += 4){
+    if(px[i + 3] !== 0) continue;
+    const f = px[i] + 256*px[i + 1] + 65536*px[i + 2];
+    if(f) seen.set(f - 1, (seen.get(f - 1) || 0) + 1);
+  }
+  return seen;            // face -> pixels
+}
+/* Every restored face any pose and camera shows; per face its ring from the kept skin's edge and its depth under the
+   seam ring (m), the numbers the export's skin=<rings>,<H> rule is chosen from */
+async function exposure(poses, cams){
+  const o = labCurrent().neckSkin, g = o.geometry, P = g.attributes.position, mask = await restoredMask(), idx = g.index.array;
+  const weld = welded(g), n = P.count, nb = new Map();
+  for(let f = 0; f < idx.length; f += 3) for(let e = 0; e < 3; e++){
+    const a = weld[idx[f + e]], b = weld[idx[f + (e + 1)%3]];
+    (nb.get(a) || nb.set(a, new Set()).get(a)).add(b); (nb.get(b) || nb.set(b, new Set()).get(b)).add(a);
+  }
+  const ring = new Map(); let front = [];
+  for(let i = 0; i < n; i++) if(weld[i] === i && !mask[i]){ ring.set(i, 0); }
+  ring.forEach((_, i) => { for(const j of nb.get(i) || []) if(mask[j] && !ring.has(j)){ ring.set(j, 1); front.push(j); } });
+  for(let r = 2; front.length; r++){ const nx = []; for(const i of front) for(const j of nb.get(i) || []) if(!ring.has(j)){ ring.set(j, r); nx.push(j); } front = nx; }
+  const C = ringCenter(g), all = new Map(), views = [];
+  for(const p of poses) for(const [cn, c] of Object.entries(cams)){
+    await pose({...p, cam: c, hideArms: c !== null, noMeasure: true});
+    const seen = await idPass();
+    seen.forEach((k, f) => all.set(f, (all.get(f) || 0) + k));
+    views.push({pose: p, cam: cn, faces: seen.size, px: [...seen.values()].reduce((a, x) => a + x, 0)});
+  }
+  let restoredFaces = 0;
+  for(let f = 0; f < idx.length; f += 3) if(mask[idx[f]] || mask[idx[f + 1]] || mask[idx[f + 2]]) restoredFaces++;
+  const verts = new Set(); all.forEach((_, f) => { for(let e = 0; e < 3; e++){ const i = idx[3*f + e]; if(mask[i]) verts.add(weld[i]); } });
+  // depth under the seam ring along the body (world +z runs toward the feet), from the rest pose
+  const zs = R.ring.reduce((a, i) => a + R.restB[3*i + 2], 0)/R.ring.length;
+  const rings = [...verts].map(i => ring.get(i) ?? 99), depth = [...verts].map(i => R.restB[3*i + 2] - zs);
+  const restoredVerts = new Set(); for(let i = 0; i < n; i++) if(mask[i]) restoredVerts.add(weld[i]);
+  const hist = (xs, step) => xs.reduce((h, x) => { const k = (Math.floor(x/step)*step).toFixed(3); h[k] = (h[k] || 0) + 1; return h; }, {});
+  return {restoredVerts: restoredVerts.size, restoredFaces, exposedFaces: all.size, exposedVerts: verts.size,
+    maxRing: Math.max(0, ...rings), maxDepth: Math.max(0, ...depth), ringHist: hist(rings, 1), depthHist: hist(depth, 0.02), views,
+    faces: [...all.keys()]};
+}
+// the exposure map: exposed restored faces red, the other restored faces blue, the shipped skin as it is, clothes off
+async function exposureMap(faces, cam){
+  const o = labCurrent().neckSkin, mask = await restoredMask(), idx = o.geometry.index.array, set = new Set(faces), aF = new Float32Array(idx.length);
+  for(let f = 0; f < idx.length; f += 3){ const r = mask[idx[f]] || mask[idx[f + 1]] || mask[idx[f + 2]]; aF[f] = aF[f + 1] = aF[f + 2] = !r ? 0 : set.has(f/3) ? 2 : 1; }
+  const M = passMesh(o, aF, "if(vF < 0.5) discard; gl_FragColor = vF > 1.5 ? vec4(0.95, 0.1, 0.1, 1.0) : vec4(0.2, 0.4, 0.95, 1.0);");
+  M.material.polygonOffset = true; M.material.polygonOffsetFactor = -1; M.material.polygonOffsetUnits = -1;
+  clothes(false);
+  await pose({cam, hideArms: true, noMeasure: true});
+  M.visible = true; await frames(3);
+  const url = renderer.domElement.toDataURL("image/png");
+  M.visible = false; M.removeFromParent(); clothes(true);
+  return url;
+}
+/* Holes on screen, in the neck's crop (the seam centre +- 22 cm, projected): (1) the skin's open edges that can be seen
+   (drawn as lines over the posed skin, the seam ring left out: the head covers it, the seam numbers watch it), (2) the
+   skin's inside (back faces) that can be seen: a see-through hole or a cut edge turned to the camera. Masks returned. */
+let BACK = null;
+function holes(B){
+  const cur = labCurrent(), o = cur.neckSkin, g = o.geometry, P = g.attributes.position, idx = g.index.array, n = P.count;
+  const weld = welded(g), C = R.C, edges = new Map();
+  for(let f = 0; f < idx.length; f += 3) for(let e = 0; e < 3; e++){
+    const a = weld[idx[f + e]], b = weld[idx[f + (e + 1)%3]], k = a < b ? a*n + b : b*n + a;
+    edges.set(k, (edges.get(k) || 0) + 1);
+  }
+  const seg = [];
+  edges.forEach((m, k) => {
+    if(m !== 1) return;
+    const a = Math.floor(k/n), b = k%n;
+    if(P.getY(a) > C.top - 0.004 && P.getY(b) > C.top - 0.004) return;
+    seg.push(B[3*a], B[3*a + 1], B[3*a + 2], B[3*b], B[3*b + 1], B[3*b + 2]);
+  });
+  const lg = new THREE.BufferGeometry(); lg.setAttribute("position", new THREE.Float32BufferAttribute(seg, 3));
+  const lines = new THREE.LineSegments(lg, new THREE.ShaderMaterial({vertexShader: "void main(){ gl_Position = projectionMatrix*viewMatrix*vec4(position, 1.0); }",
+    fragmentShader: "void main(){ gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0); }", blending: THREE.NoBlending}));
+  lines.frustumCulled = false; lines.visible = false; scene.add(lines);
+  if(!BACK) BACK = passMesh(o, new Float32Array(idx.length), "gl_FragColor = vec4(0.0, 1.0, 0.0, 0.0);", THREE.BackSide);
+  const {px, w, h} = readPass([lines, BACK], []);
+  lines.removeFromParent(); lg.dispose(); lines.material.dispose();
+  // the crop
+  const c = new THREE.Vector3(), cnt = R.ring.length;
+  for(const i of R.ring) c.add(at(B, i)); c.multiplyScalar(1/cnt);
+  const e = c.clone().add(new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).multiplyScalar(0.22));
+  const sc = c.clone().project(camera), se = e.clone().project(camera);
+  const cx = (sc.x + 1)/2*w, cy = (sc.y + 1)/2*h, rad = Math.hypot((se.x - sc.x)/2*w, (se.y - sc.y)/2*h);
+  let edgePx = 0, backPx = 0;
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(w, h);
+  for(let y = 0; y < h; y++) for(let x = 0; x < w; x++){
+    const i = 4*(y*w + x);
+    if(px[i + 3] !== 0) continue;
+    const inCrop = sc.z < 1 && Math.hypot(x - cx, y - cy) < rad, red = px[i] > 128, o2 = 4*((h - 1 - y)*w + x);
+    if(inCrop){ if(red) edgePx++; else backPx++; }
+    img.data[o2] = red ? 255 : 0; img.data[o2 + 1] = red ? 0 : 255; img.data[o2 + 2] = red ? 0 : 255; img.data[o2 + 3] = inCrop ? 255 : 90;
+  }
+  ctx.putImageData(img, 0, 0);
+  ctx.strokeStyle = "rgba(255,255,0,0.8)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, h - cy, rad, 0, 2*Math.PI); ctx.stroke();
+  return {edgePx, backPx, mask: cv.toDataURL("image/png")};
+}
+/* Shirt vs skin around the collar (posed, CPU): every skin vertex within 25 cm of the seam centre that lies under a shirt
+   triangle (its nearest point inside the triangle, within 2 cm) by its signed distance along the shirt's normal:
+   outside the cloth = poke-through, 0..1.5 mm under it = z-fighting risk; and the collar's rim vertices sunk into the
+   skin (the same test the other way). */
+function penetration(B, S2){
+  const r = R, o = labCurrent().neckSkin, sh = r.shirt, si = sh.geometry.index.array, ki = o.geometry.index.array;
+  const base = new THREE.Vector3(r.C.cx, r.C.top, r.C.cz), near = i => _w.fromBufferAttribute(o.geometry.attributes.position, i).distanceTo(base) < 0.25;
+  const seam0 = new THREE.Vector3(r.restB[3*r.ring[0]], r.restB[3*r.ring[0] + 1], r.restB[3*r.ring[0] + 2]);
+  const cp = new THREE.Vector3(), nrm = new THREE.Vector3(), bc = new THREE.Vector3();
+  // posed triangles (and centroids, for a quick 5 cm cut) of a mesh's part
+  const tris = (pos, index, keep) => {
+    const out = [], v = k => new THREE.Vector3(pos[3*k], pos[3*k + 1], pos[3*k + 2]);
+    for(let f = 0; f < index.length; f += 3) if(keep(index[f])){
+      const t = new THREE.Triangle(v(index[f]), v(index[f + 1]), v(index[f + 2]));
+      out.push({t, c: t.getMidpoint(new THREE.Vector3())});
+    }
+    return out;
+  };
+  const sTris = tris(S2, si, j => _w.set(r.restS[3*j], r.restS[3*j + 1], r.restS[3*j + 2]).distanceTo(seam0) < 0.35);
+  const signed = (list, p) => {
+    let best = null, bd = 0.02;
+    for(const {t, c} of list){
+      if(c.distanceToSquared(p) > 0.0025) continue;
+      t.closestPointToPoint(p, cp);
+      const d = cp.distanceTo(p);
+      if(d < bd){ t.getNormal(nrm); t.getBarycoord(cp, bc); best = {d: _v.copy(p).sub(cp).dot(nrm), inside: Math.min(bc.x, bc.y, bc.z) > 1e-3}; bd = d; }
+    }
+    return best;
+  };
+  let poke = 0, zrisk = 0, under = 0;
+  const p = new THREE.Vector3(), n = o.geometry.attributes.position.count;
+  for(let i = 0; i < n; i++){
+    if(!near(i)) continue;
+    const s = signed(sTris, p.set(B[3*i], B[3*i + 1], B[3*i + 2]));
+    if(!s || !s.inside) continue;
+    under++;
+    if(s.d > 0.0005) poke++; else if(s.d > -0.0015) zrisk++;
+  }
+  // the collar's rim (shirt open edges in the crop) against the skin
+  const kTris = tris(B, ki, i => near(i)), weld = welded(sh.geometry), SP = sh.geometry.attributes.position, m = SP.count, edges = new Map();
+  for(let f = 0; f < si.length; f += 3) for(let e = 0; e < 3; e++){ const a = weld[si[f + e]], b = weld[si[f + (e + 1)%3]], k = a < b ? a*m + b : b*m + a; edges.set(k, (edges.get(k) || 0) + 1); }
+  const rim = new Set(); edges.forEach((c, k) => { if(c === 1){ rim.add(Math.floor(k/m)); rim.add(k%m); } });
+  let sunk = 0, rimN = 0;
+  rim.forEach(j => {
+    if(_w.set(r.restS[3*j], r.restS[3*j + 1], r.restS[3*j + 2]).distanceTo(seam0) > 0.3) return;
+    rimN++;
+    const s = signed(kTris, p.set(S2[3*j], S2[3*j + 1], S2[3*j + 2]));
+    if(s && s.inside && s.d < -0.0005) sunk++;
+  });
+  return {under, poke, zrisk, rim: rimN, rimSunk: sunk};
 }
 
 /* ---- poses and the game's own motions ---- */
@@ -242,7 +483,7 @@ async function pose(p){
   // diagnostic cameras: the first-person therapist arms hang in the air there, so they step aside
   scene.traverse(x => { if(/^therapist_arm/.test(x.name)){ if(x.userData.labVis === undefined) x.userData.labVis = x.visible; x.visible = p.hideArms ? false : x.userData.labVis; } });
   await frames(6);
-  return measure();
+  return p.noMeasure ? null : measure(!!p.extra);
 }
 /* A: turn to 75 and let go; B: a 0.16 m tug (stretchProfile); C: a crack from 60 (crackProfile). The loop's own easing and
    profiles run (nothing held); every frame records the pose and the key numbers. */
@@ -306,8 +547,28 @@ async function sameMesh(){
   }
   return out;
 }
+/* A restored-skin export against the shipped body: every shipped vertex must be in it, where it was (0.2 mm); the
+   restored ones are extra. Per mesh: counts, shipped vertices not found, largest move of the found ones. */
+async function subsetMesh(url){
+  const B = import.meta.env.BASE_URL, [a, b] = await Promise.all([loadGlb(B + "models/patient08/body.glb"), loadGlb(B + url)]);
+  const meshes = g => { const m = {}; g.scene.updateMatrixWorld(true); g.scene.traverse(o => { if(o.isMesh) m[o.name] = sceneSpace(o.geometry.attributes.position, o.isSkinnedMesh ? restOf(o) : o.matrixWorld); }); return m; };
+  const ma = meshes(a), mb = meshes(b), out = {}, cell = 0.0005, key = (x, y, z) => Math.round(x/cell) + "," + Math.round(y/cell) + "," + Math.round(z/cell);
+  for(const k of Object.keys(ma)){
+    const p = ma[k], q = mb[k]; if(!q){ out[k] = "missing"; continue; }
+    const H = new Map(); for(let j = 0; j < q.length/3; j++){ const kk = key(q[3*j], q[3*j + 1], q[3*j + 2]); (H.get(kk) || H.set(kk, []).get(kk)).push(j); }
+    let miss = 0, d = 0;
+    for(let i = 0; i < p.length/3; i++){
+      const x = p[3*i], y = p[3*i + 1], z = p[3*i + 2]; let best = Infinity;
+      for(let u = -1; u <= 1; u++) for(let v = -1; v <= 1; v++) for(let w = -1; w <= 1; w++)
+        for(const j of H.get(key(x + u*cell, y + v*cell, z + w*cell)) || []) best = Math.min(best, Math.hypot(q[3*j] - x, q[3*j + 1] - y, q[3*j + 2] - z));
+      if(best > 0.0002) miss++; else d = Math.max(d, best);
+    }
+    out[k] = {count: [p.length/3, q.length/3], missing: miss, maxDiffMm: 1000*d};
+  }
+  return out;
+}
 
 // clothes off, to see the skin alone (where the export cut the skin the shirt hid)
 const clothes = on => labCurrent().bodyMeshes.forEach(m => { if(m !== labCurrent().neckSkin) m.visible = on; });
-window.__neckLab = {ready: false, rig: RIG, pose, animate, curve, measure, sameMesh, clothes, opts: chainOpts};
+window.__neckLab = {ready: false, rig: RIG, pose, animate, curve, measure, sameMesh, subsetMesh, clothes, exposure, exposureMap, opts: chainOpts};
 ready().then(() => { window.__neckLab.ready = true; }, e => { window.__neckLab.error = String(e); });
