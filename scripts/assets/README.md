@@ -627,3 +627,16 @@ T11–L5·Sacrum은 경추와 같은 Blender +Z 위/-Y 앞/+X 환자 왼쪽 좌�
 수정하지 않은 `spine_bake.py`(64 samples)의 AO COLOR_0·안정된 부모 노드 규약으로 내보낸다.
 Cord/Root는 AO 음영 대신 중립 흰 COLOR_0를 보존한다. 최종 검사에서 모든 메시 COLOR_0와 노드를 검사한다.
 Blender 실행과 최종 용량/형태 검토는 샌드박스 밖 호스트에서 수행한다.
+
+## 목 리그 실험 몸 (patient08 chain, 2026-10-26)
+
+`mpfb_export_body.py`의 5번째 인자 `chain`은 같은 몸을 다중 관절 스킨으로 내보낸다(인자가 없으면 기존 2본 그대로). game_engine 가중치를 body / spine_02 / spine_03 / clavicle_l·r / neck(neck_01+head)로 합치고(위팔은 어깨 6~12cm 안에서만 쇄골로), neck_1·neck_2·neck을 body 밑 형제로 둔다.
+
+```
+nice blender -b -t 4 --python mpfb_export_body.py -- body_chain_raw.glb 1024 16 patient08 chain
+$G resize body_chain_raw.glb a.glb --width 1024 --height 1024
+$G webp a.glb b.glb --quality 85
+$G meshopt b.glb ../../lab-assets/patient08/body_chain.glb
+```
+
+로그 `TOP 1.6227`이 patient08 머리와 같아야 한다. 정점 수(7452/950/2985)와 위치는 `public/models/patient08/body.glb`와 같다(`window.__neckLab.sameMesh()`, 차이 0mm). 결과물은 `public/`이 아니라 `lab-assets/`에 두고 케이스 빌드만 싣는다. 비교 방법·결과는 AGENTS.md "목 리그 실험".
