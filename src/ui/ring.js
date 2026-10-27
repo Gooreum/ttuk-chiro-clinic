@@ -101,7 +101,7 @@ export function drawRing(now, c, zone, br){
     ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
   breathArc(ctx, now, br, fade, cx, cy, R);
-  if(!missUp && !stampUp()) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot
+  if(!missUp && !stampUp() && !S.busy) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot; 53차: not over the reaction
 
   // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
   // ripple and a dashed line between them, ~2.5 s
@@ -213,7 +213,7 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const guide = S.idx < S.zoneUntil;
   drawVGauge(ctx,{x,top,h,value:t,band:guide ? [tg.mid-tg.half,tg.mid+tg.half] : [tg.limit,tg.limit],limit:tg.limit,title:tr("수건 장력"),hot:over||(guide && (zone||taut)),colors});
   breathArc(ctx, now, br, fade, cx, cy, R);
-  if(!stampUp()) breathLabel(ctx, br, cx, cy, R, "당기면");
+  if(!stampUp() && !S.busy) breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
   // 바가 너무 목쪽에 있어서 시야가 답답해 보이고 환자 얼굴이 잘 안 보임", 2026-10-16; it sat right under the head): the left / right focus (core/towel.js aimOff), the centre band in mint, the aim dot coral when off
   const off = aimOff(S.cur.rot, tg), offC = Math.abs(off) > 1;
@@ -225,7 +225,8 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:tr("좌우 중심"),colors});
   // over the card: what to do
   const near = guide ? t > tg.mid - tg.half - 0.2 : t > 0.15;
-  const msg = tr(over || (guide && taut) ? "너무 팽팽해요!" : guide && zone ? "지금! 툭 당겨요" : offC && near ? "좌우 중심을 맞춰요" : guide && near ? "조금 더" : "");
+  // 53차: after a pull (S.busy) the hint went stale ("조금 더" under a PERFECT); no hint until the next aim
+  const msg = S.busy ? "" : tr(over || (guide && taut) ? "너무 팽팽해요!" : guide && zone ? "지금! 툭 당겨요" : offC && near ? "좌우 중심을 맞춰요" : guide && near ? "조금 더" : "");
   drawHint(ctx,{x:mx,y:by-40,text:msg,hot:over||offC||(guide && zone),colors});
   ctx.globalAlpha = 1;
 }
