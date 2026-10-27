@@ -127,7 +127,8 @@ describe("쉬운 날 반복 파밍 (43차)", () => {
     expect(isReplay(2, 3)).toBe(false);
     expect(isReplay(2, 2)).toBe(true);
     expect(isReplay(3, 1)).toBe(true);
-    expect(isReplay(1, 0)).toBe(true);
+    expect(isReplay(1, 0)).toBe(false);   // 61차: 실패한 판은 replay 라벨·감액 없음
+    expect(isReplay(3, 0)).toBe(false);
   });
   it("가장 쉬운 날 반복(목뽑기 3명 약 101초)이 평균 진료 수입(시간당 약 2,000)보다 높지 않다", () => {
     const perHour = (coins, sec) => coins / sec * 3600;
