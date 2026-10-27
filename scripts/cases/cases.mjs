@@ -417,8 +417,8 @@ export const CASES = [
     "PERFECT가 아니라 성공(GOOD)로 처리되고 점수가 조금 낮다.",
     ["성공", "GOOD"],
     { steps: [{ h: "target", s: { off: 0.08 }, pressure: 0.6, force: 1 }], tail: 2 }),
-  // 새 환자 몸(이미지 기반)으로 허리펴기: ?patient=이름
-  ...[["pila", "최필라"], ["jo", "조멸치"], ["boksun", "복순할매"], ["ma", "마동철"]].map(([k, name]) => T(`back-ok-patient-${k}`, "back", "success", `허리펴기 PERFECT: ${name} 몸`,
+  // 새 환자 몸(이미지 기반)으로 허리펴기: ?patient=이름(마동철은 몸이 침대보다 커서 없음)
+  ...[["pila", "최필라"], ["jo", "조멸치"], ["boksun", "복순할매"]].map(([k, name]) => T(`back-ok-patient-${k}`, "back", "success", `허리펴기 PERFECT: ${name} 몸`,
     `허리펴기에 ${name}을(를) 지정해(?patient=) 높이를 맞춰 고정하고 좌우 중심을 맞춘 뒤 적정 힘으로 누른다.`,
     `엎드린 ${name} 몸 위에서 치료사 손이 내려와 우두둑, PERFECT. 허리 X-ray와 ${name} 얼굴 반응이 나온다.`,
     ["성공", "PERFECT", "새 환자", name],

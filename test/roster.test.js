@@ -77,16 +77,18 @@ describe("lumbarPatient (허리누르기 / 허리비틀기 free run, 2026-10-25)
   it("the four image-to-3D patients have their own prone and side-lying bodies and a back complaint", () => {
     IMAGE.forEach(n => {
       const p = ROSTER.find(r => r.name === n), id = p.look.clinicModel || p.look.model;
-      expect(p.look.backModel).toBe(id);
-      // 마동철 lies too wide on his side (his hip half a metre up, the L4 mark lands on his belly): no side-lying body yet
-      if(n !== "마동철") expect(p.look.sideModel).toBe(id); else expect(p.look).not.toHaveProperty("sideModel");
+      // 마동철 is too big for the table: on his side his hip is half a metre up (the L4 mark lands on his belly), prone his
+      // shoulders, arms and thighs hang off the pad (59th playtest, 2026-10-27): no lumbar bodies for him
+      if(n !== "마동철"){ expect(p.look.backModel).toBe(id); expect(p.look.sideModel).toBe(id); }
+      else { expect(p.look).not.toHaveProperty("backModel"); expect(p.look).not.toHaveProperty("sideModel"); }
       expect(typeof p.waist).toBe("string");
     });
-    expect(ROSTER.filter(p => p.look.backModel).map(p => p.name).sort()).toEqual([...IMAGE].sort());
+    expect(ROSTER.filter(p => p.look.backModel).map(p => p.name).sort()).toEqual(IMAGE.filter(n => n !== "마동철").sort());
     CAST.forEach(c => { expect(c.look).not.toHaveProperty("backModel"); expect(c.look).not.toHaveProperty("sideModel"); });
   });
   it("?patient= picks that body, an unknown name or a patient without one falls back to the draw", () => {
-    expect(lumbarPatient("back", "마동철").name).toBe("마동철");
+    expect(lumbarPatient("back", "조멸치").name).toBe("조멸치");
+    expect(lumbarPatient("back", "마동철", () => 0).name).toBe("박대리");
     expect(lumbarPatient("side", "최필라").name).toBe("최필라");
     expect(lumbarPatient("side", "마동철", () => 0).name).toBe("박대리");
     expect(lumbarPatient("back", "김사장", () => 0).name).toBe("박대리");
