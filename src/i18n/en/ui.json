@@ -502,7 +502,7 @@
  "터치로 연습": "Practice with touch",
  "통증": "Pain",
  "통증 0회 / 3회": "Pain 0 / 3",
- "통증 {n}번이면 끝": "out at pain {n}",
+ "통증 {n}번이면 끝": "Ends at pain {n}",
  "통증 {n}번이면 영업 끝": "Closed at pain {n}",
  "통증 {n}회 / {max}회": "Pain {n} / {max}",
  "통증 칸 +1 받기": "Get +1 Pain slot",

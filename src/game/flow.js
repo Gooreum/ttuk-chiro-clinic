@@ -295,6 +295,7 @@ function callAmbulance(later, at, target, pts){
   S.ambulance = true; dexFailSeen("all", "ambulance");
   later(at, () => {
     siren(3.4); vib([200, 100, 200, 100, 200]); flashSiren(AMBULANCE_END - SIREN_AT + 300);
+    hideSpeech();   // the siren stamp sits over the speech row; the line has been up since the pull
     stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
     S.input.rot = 0; S.input.bend = 0;
   });
