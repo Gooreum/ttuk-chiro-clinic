@@ -197,9 +197,9 @@ function createOrgans(source,scene,art){
     markerPos.copy(spine.position);
     markerTag.sprite.visible=markerTag.line.visible=false;
     markerTag=markerTags[spine.seg-1];
-    marker.visible=markerTag.sprite.visible=markerTag.line.visible=spine.on&&zoom>0&&spine.amount>.001;
-    // Once an organ pops the top stamp names the fracture too; a second caption hopping around the spine is noise.
-    if(burstIds.length)markerTag.sprite.visible=markerTag.line.visible=false;
+    marker.visible=spine.on&&zoom>0&&spine.amount>.001;
+    // The top pill already names the fracture; in the organ view the caption sat on the swelling organ (playtest 57).
+    markerTag.sprite.visible=markerTag.line.visible=false;
     marker.material.opacity=amount*(.75+.25*Math.sin(fractureTime*9));marker.position.copy(markerPos);
     markerTag.sprite.material.opacity=amount;markerTag.line.material.opacity=amount;
     // Side close-up first (small crack), then it grows a little in the organ view.
