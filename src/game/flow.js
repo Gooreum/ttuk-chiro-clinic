@@ -524,7 +524,7 @@ export function finish(){
   if(isBest) store.set(key, score);
   // towel: one tug per patient. 심야 진료 and 보스 러시 count the treated patients only (the unplayed rest of an endless / 26-patient run would drag the average, and its coins, to nothing), 주간 챌린지 its whole line-up
   const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly || S.daily ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
-  $("#rtitle").textContent = tl(S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝");
+  $("#rtitle").textContent = tl(S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : S.weekly ? "주간 챌린지 끝" : S.daily ? "오늘의 도전 끝" : S.quest >= 0 ? "의뢰 끝" : S.season >= 0 ? "계절 손님 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝");
   $("#rdate").textContent = campaign ? tl("영업 일지 · {day}{hard} {title}", {day: tl(dayLabel(S.day)), hard: S.hard ? tl(" 역경") : "", title: tl(DAYS[S.day].title)}) : tl("오늘의 진료 일지");
   const rankKo = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rank").textContent = tl(rankKo);
