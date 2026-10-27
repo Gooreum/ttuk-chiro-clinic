@@ -322,7 +322,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   /* 18차: 아래에 고정된 주 버튼 뒤로 진료비 줄·합계가 반쯤 비쳐 잘린 점선 상자처럼 보였다. 버튼 둘레를 종이색으로 덮는다 */
   :where(.clinic-app) .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again,[id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){box-shadow:0 4px 0 var(--coral-deep),0 14px 0 6px var(--paper,#f4efe4)}
   /* 18차: 상점·의뢰 게시판·계절 목록은 줄이 길어 맨 아래 돌아가기 버튼이 늘 잘려 있었다. 아래에 고정한다 */
-  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose,#dexClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
+  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose,#dexClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep),0 -16px 14px -6px var(--room-deep)}
 }
 /* 35차: 사연 카드에 보상 버튼(광고 보고 통증 칸 +1, 통증 칸 +1권)과 역경 버튼이 함께 뜨면 오른쪽 칸이 26px 넘쳐 일지로가 잘렸다. 그 경우에만 오른쪽 칸을 둘로 쪼개 통증 둘, 역경·일지로를 짝지어 한 줄에 둔다 */
 @media (orientation:landscape) and (max-height:430px){
