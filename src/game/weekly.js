@@ -38,7 +38,7 @@ export function weeklyPrep(){
   setModeText(); setMode(S.game === "towel" ? "towel" : "crack");
   if(p.weekly.i === 0){
     const set = S.weekly.set;
-    setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("이번 주 규칙 · {r}",{r:t(set.rule.name)}), t(set.rule.line), "dud", 3200); if(!set.boss.length) coach(t(ruleCue(set.rule)), 3000); }   // boss rules get their own coach cue in flow.js
+    setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("이번 주 규칙 · {r}",{r:t(set.rule.name)}), set.boss.length ? "" : t(set.rule.line), "dud weekly", 3200); if(!set.boss.length) coach(t(ruleCue(set.rule)), 3000); }   // boss rules get their own coach cue in flow.js
  }, 450);
   }
 }

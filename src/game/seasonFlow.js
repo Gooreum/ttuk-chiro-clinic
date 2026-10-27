@@ -38,6 +38,7 @@ export function renderSeasonBtn(p){
 export function mountSeason({ start, back, resetQuest }){
   const sf = {
     sel: -1,
+    fromDays: false,
     reset(){ sf.sel = -1; },
     sync(season){ if(season >= 0) $("#toDays").textContent = t("계절 목록"); },
     list(){
@@ -76,8 +77,9 @@ export function mountSeason({ start, back, resetQuest }){
       track(EV.seasonEnd, { season: e.season, ep: e.no, ep_id: e.id, rule: e.rule, game: e.game, cleared, stars, score: S.score, bonus: bonus > 0, done: seasonCleared(r, e.season), run_ms: Math.round(performance.now() - S.runAt) });
     }
   };
-  for(const b of ["#seasonBtn", "#daysSeason"]) $(b).addEventListener("click", () => { if(seasonOpen(prog())) sf.list(); });
-  $("#seasonClose").addEventListener("click", () => { $("#seasons").hidden = true; back(); });
+  for(const b of ["#seasonBtn", "#daysSeason"]) $(b).addEventListener("click", () => { if(seasonOpen(prog())){ sf.fromDays = b === "#daysSeason"; sf.list(); } });
+  /* opened from the title: close back to it; from the diary: back to the diary */
+  $("#seasonClose").addEventListener("click", () => { $("#seasons").hidden = true; if(sf.fromDays) back(); else if(S.phase === "result") $("#result").hidden = false; });
   renderSeasonBtn(prog());
   return sf;
 }

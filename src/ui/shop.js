@@ -40,7 +40,7 @@ export function mountShop(){
   const help = el("div");
   help.append(el("p", "shop-help-title", t("진료비")));
   const ul = el("ul", "shop-help");
-  ["한 판이 끝나면 점수만큼 받아요.", "소품은 목꺾기·목뽑기 진료실 벽에 놓여요."].forEach(s => ul.appendChild(el("li", null, t(s))));
+  ["한 판이 끝나면 점수만큼 받아요.", "소품은 목꺾기·목뽑기 진료실에 놓여요."].forEach(s => ul.appendChild(el("li", null, t(s))));
   help.appendChild(ul);
   const list = el("ol"); list.id = "shopList";
   const back = el("button", "btn ghost", t("돌아가기")); back.id = "shopClose"; back.type = "button";
