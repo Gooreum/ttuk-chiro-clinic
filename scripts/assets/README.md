@@ -679,3 +679,18 @@ npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --hos
 2026-10-27 결과: 목 중앙이 뚫리는 큰 결손과 옆으로 들리는 피부 판은 화면에서 줄었다. 원본 버퍼 변경·보호한 얼굴 정점 보정은 0이다. 연결점 268표본의 최대 오차는 0.00014mm 미만이었다. 턱 아래 접힘, 단순한 목 피부 재질, 깃 근처 작은 돌출은 남는다. 전체 외형 품질 완성이나 상체 리그 개선으로 해석하지 않는다. 머리·몸 분리 구조를 유지한 국소 목 수정이며 단일 스킨 메시 전환은 필수가 아니다.
 
 기존 2본/체인용 단면적 추정기는 새 목 메시의 부피 지표가 아니다. 열린 경계/뒷면 픽셀 도구는 기존 몸만 진단하므로 새 연결 메시 전체의 무결성 지표로 사용하지 않는다. 새 연결 메시 품질 판단에는 실제 비교 화면과 연결점 검사, 얼굴 보호 검사를 함께 사용한다.
+
+### patient08 목 수리 개선판 `repair=2` (2026-10-27)
+
+`?necklab=base&repair=2`는 `repair=1`(Codex)과 같은 `body_repair.glb`를 쓴다. `neckPatch.js` / `neckRepair.js`는 `version>1` 분기에서만 달라진다.
+- 머리 경계 목표: 얼굴 쪽은 원래 경계를 호 길이 σ 3.5cm로 평활한 위치(높이 최소 1.33m), 뒤쪽은 기존 y=1.35 타원. 둘레 절반에 걸쳐 섞는다. 감쇠 반경 9cm, 반복 400회.
+- 패치: 바닥 행만 몸 단면 그대로, 그 위는 둘레 평활 단면에서 출발. 회전·신장 몫은 열별 높이 비율 t=0.15→1 smoothstep이며 위치의 함수다(`aRepairW`=시작 t). 기둥에 갑상연골 4mm, 흉쇄유돌근 2.5mm(폭 σ 0.34rad) 윤곽. 정점색은 머리 경계 텍셀→둘레 평활 머리색→몸 텍셀, `skinGrain` ±2% 결.
+- 경계 접힘 수치는 `__neckLab.repairValidate()`의 `rimFlips`(뒤집힌 면), `rimSquash`(면적 30% 미만)에 있다.
+
+```
+npm run build:cases
+npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --host 127.0.0.1
+.venv/bin/python -I scripts/necklab/repair_compare.py --sets 'before:necklab=base,codex:necklab=base&repair=1,v2:necklab=base&repair=2' --out shots/necklab4
+```
+
+세트가 셋 이상이면 근접 카메라(턱 밑 `chinC`, 옆 `sideC`, 깃 `colB`)와 법선 색 시트(`normals.png`)도 찍는다. 인자 없이 실행하면 예전 2열(`shots/necklab3`) 결과와 같다. 결과: 압착 면 62→12, 뒤집힘 4→4, 얼굴 보호 변경 0, 접합 max 0.0001mm. 턱 밑 검은 틈과 회전 시 깃 밖 판이 화면에서 사라졌다. 턱 밑 옅은 호 모양 선(머리 텍스처 경계 띠)은 남는다.

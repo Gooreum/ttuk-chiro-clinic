@@ -7,7 +7,7 @@ import {makeNeckPatch} from './neckPatch.js';
 
 const GLSL = `
 attribute float aRepairRigid;
-attribute float aRepairHeight;
+attribute float aRepairHeight, aRepairW;
 attribute vec3 aRepairOffset, aRepairNormalCorrection;
 uniform mat4 uRepairRest, uRepairToAnatomy, uRepairFromAnatomy, uRepairInverseModel;
 uniform mat3 uRepairNormalRest;
@@ -22,7 +22,9 @@ vec3 repairWorld(vec3 world,float rigid){
     return p*cos(angle)+cross(axis,p)*sin(angle)+axis*dot(axis,p)*(1.0-cos(angle))+uRepairPivot+uRepairMove;
   }
   vec3 a=repairSculpt((uRepairToAnatomy*vec4(world,1.0)).xyz);
-  float w=smoothstep(1.28,aRepairHeight,a.y);
+  // patch v2: aRepairW is the row where the share starts (row t = height fraction of the column), so the collar
+  // flange stays put. It stays a function of position: repairNormal differentiates it for the stretched normals.
+  float w=aRepairW<0.0?smoothstep(1.28,aRepairHeight,a.y):smoothstep(aRepairW,1.0,(a.y-1.28)/(aRepairHeight-1.28));
   vec3 point=(uRepairFromAnatomy*vec4(a,1.0)).xyz;
   vec3 center=(uRepairFromAnatomy*vec4(0.0,a.y,0.005,1.0)).xyz;
   vec3 axis=uRepairTurn.xyz;float angle=uRepairTurn.w*w;
@@ -46,7 +48,7 @@ const smooth=(a,b,x)=>THREE.MathUtils.smoothstep(x,a,b);
 const sculpt=a=>a;
 const weight=a=>smooth(1.28,1.415,a.y)*(1-smooth(.14,.19,Math.abs(a.x)));
 
-export function repairNeck(model){
+export function repairNeck(model, version=1){
   const body=model.neckSkin, head=model.skinMesh;
   model.body.updateWorldMatrix(true,true);head.updateWorldMatrix(true,false);
   const toAnatomy=model.head.matrixWorld.clone().invert(), fromAnatomy=toAnatomy.clone().invert();
@@ -54,7 +56,7 @@ export function repairNeck(model){
   const restHead=head.matrixWorld.clone(), restHeadInverse=restHead.clone().invert();
   const restBody=body.skeleton.bones[bi].matrixWorld.clone().multiply(body.skeleton.boneInverses[bi]).multiply(body.bindMatrix);
   const originalHeadGeometry=head.geometry;
-  const patchInfo=makeNeckPatch(model,restBody,restHead,toAnatomy);
+  const patchInfo=makeNeckPatch(model,restBody,restHead,toAnatomy,version);
   const records=[], q=new THREE.Quaternion(), scale=new THREE.Vector3(), trans=new THREE.Vector3();
   const P=pivot.position.clone(), turn=new THREE.Vector4(0,0,1,0), move=new THREE.Vector3();
   const initialZ=model.body.position.z, v=new THREE.Vector3(), a=new THREE.Vector3(), axis=new THREE.Vector3();
@@ -68,12 +70,15 @@ export function repairNeck(model){
       anatomy.push(a.toArray());weights[i]=weight(a);a.applyMatrix4(fromAnatomy).toArray(world,3*i);
     }
     if(!geometry.attributes.aRepairHeight)geometry.setAttribute("aRepairHeight",new THREE.BufferAttribute(new Float32Array(p.count).fill(1.415),1));
+    if(!geometry.attributes.aRepairW)geometry.setAttribute("aRepairW",new THREE.BufferAttribute(new Float32Array(p.count).fill(-1),1));
     for(const name of ["aRepairOffset","aRepairNormalCorrection"])if(!geometry.attributes[name])geometry.setAttribute(name,new THREE.Float32BufferAttribute(new Float32Array(p.count*3),3));
     geometry.setAttribute("aRepairRigid",new THREE.BufferAttribute(rigid,1));
     const uniforms={uRepairRest:{value:rest},uRepairToAnatomy:{value:toAnatomy},uRepairFromAnatomy:{value:fromAnatomy},
       uRepairInverseModel:{value:mesh.matrixWorld.clone().invert()},uRepairNormalRest:{value:new THREE.Matrix3().getNormalMatrix(rest)},
       uRepairPivot:{value:P},uRepairMove:{value:move},uRepairTurn:{value:turn},uRepairSlide:{value:0}};
+    const grain=mesh===patchInfo.patch&&patchInfo.grain;
     const compile=shader=>{
+      if(grain)grain(shader);
       Object.assign(shader.uniforms,uniforms);
       shader.vertexShader=GLSL+shader.vertexShader
         .replace('#include <morphnormal_vertex>', '#include <morphnormal_vertex>\nvec3 repairMorphNormal=objectNormal+aRepairNormalCorrection;')
@@ -89,22 +94,22 @@ export function repairNeck(model){
           vec3 repairMorphSource=transformed+aRepairOffset;`);
     };
     mesh.material.onBeforeCompile=compile;
-    mesh.material.customProgramCacheKey=()=> 'patient08-neck-repair-v4';mesh.material.needsUpdate=true;
+    mesh.material.customProgramCacheKey=()=> 'patient08-neck-repair-v'+(3+version);mesh.material.needsUpdate=true;
     // Shadow passes must use the same skin, otherwise the old trapezius skirt
     // casts a phantom jagged shadow onto the corrected neck.
     mesh.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
     mesh.customDistanceMaterial=new THREE.MeshDistanceMaterial();
-    for(const mat of [mesh.customDepthMaterial,mesh.customDistanceMaterial]){mat.onBeforeCompile=compile;mat.customProgramCacheKey=()=> 'patient08-neck-repair-v4';}
+    for(const mat of [mesh.customDepthMaterial,mesh.customDistanceMaterial]){mat.onBeforeCompile=compile;mat.customProgramCacheKey=()=> 'patient08-neck-repair-v'+(3+version);}
     records.push({mesh,rest,world,weights,rigid,anatomy,original,morphOriginal,uniforms});
   }
   const si=body.geometry.attributes.skinIndex,sw=body.geometry.attributes.skinWeight;
   for(let i=0;i<si.count;i++){si.setXYZW(i,bi,0,0,0);sw.setXYZW(i,1,0,0,0);}
   si.needsUpdate=sw.needsUpdate=true;body.userData.neckW=records[0].weights;
   const center=new THREE.Vector3(),movedCenter=new THREE.Vector3();
-  const field=(point,rigid,height)=>{
+  const field=(point,rigid,height,wStart=-1)=>{
     if(rigid<-.5){point.z+=slide;return point;}
     if(rigid>.5){point.sub(P).applyAxisAngle(axis,turn.w).add(P).add(move);return point;}
-    a.copy(point).applyMatrix4(toAnatomy);sculpt(a);const w=smooth(1.28,height,a.y);
+    a.copy(point).applyMatrix4(toAnatomy);sculpt(a);const w=wStart<0?smooth(1.28,height,a.y):smooth(wStart,1,(a.y-1.28)/(height-1.28));
     center.set(0,a.y,.005).applyMatrix4(fromAnatomy);
     movedCenter.copy(center).sub(P).applyAxisAngle(axis,turn.w).add(P).add(move).sub(center);
     point.copy(a).applyMatrix4(fromAnatomy).sub(center).applyAxisAngle(axis,turn.w*w).add(center).addScaledVector(movedCenter,w);
@@ -119,7 +124,7 @@ export function repairNeck(model){
         const f=mesh.morphTargetInfluences[k]||0;if(!f)continue;
         const m=targets[k];v.x+=f*m.getX(i);v.y+=f*m.getY(i);v.z+=f*m.getZ(i);
       }
-      v.applyMatrix4(r.rest);field(v,r.rigid[i],g.attributes.aRepairHeight?.getX(i)||1.415).toArray(out,3*i);
+      v.applyMatrix4(r.rest);field(v,r.rigid[i],g.attributes.aRepairHeight?.getX(i)||1.415,g.attributes.aRepairW?.getX(i)??-1).toArray(out,3*i);
     }
     return out;
   };
@@ -137,7 +142,8 @@ export function repairNeck(model){
       const protect=test.fromBufferAttribute(hp,i).applyMatrix4(hlocal).y>=1.415||hm.some(m=>test.fromBufferAttribute(m,i).applyMatrix3(hlinear).lengthSq()>1e-14);
       if(protect&&['aRepairOffset','aRepairNormalCorrection'].some(name=>test.fromBufferAttribute(hg.attributes[name],i).lengthSq()>0))protectedVertexChanges++;
     }
-    return {positionBufferChanges,morphBufferChanges,nonFinite,protectedVertexChanges,headGeometryReplaced:Number(head.geometry!==originalHeadGeometry)};
+    const rim=hg.userData.repairProtection||{};
+    return {positionBufferChanges,morphBufferChanges,nonFinite,protectedVertexChanges,headGeometryReplaced:Number(head.geometry!==originalHeadGeometry),rimFlips:rim.flips,rimSquash:rim.squash};
   };
   const seam=()=>{
     const B=evaluate(body,new Float32Array(body.geometry.attributes.position.count*3));

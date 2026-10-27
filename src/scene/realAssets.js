@@ -37,7 +37,8 @@ const BASE = import.meta.env.BASE_URL + "models/";
 // &collar=<share>: the collar turns with that share of the head's turn (collarBone, lab only)
 const LABQ = __CASES__ ? new URLSearchParams(location.search) : null;
 const LAB_FILE = __CASES__ ? {chain: "body_chain"}[LABQ.get("necklab")] : null;
-const LAB_REPAIR = __CASES__ && LABQ.get("repair") === "1" && LABQ.get("mode") !== "towel";
+// &repair=1: Codex local neck patch (kept for comparison); &repair=2: + anatomy rim, static flange, sculpt, skin colour
+const LAB_REPAIR = __CASES__ && ["1", "2"].includes(LABQ.get("repair")) && LABQ.get("mode") !== "towel" ? +LABQ.get("repair") : 0;
 const LAB_SKIN = __CASES__ && LAB_REPAIR ? "_repair" : __CASES__ ? {full: "_full", "1": "_skin"}[LABQ.get("skin")] || "" : "";
 const LAB_BODY = __CASES__ && LABQ.has("necklab") && (LAB_FILE || LAB_SKIN)
   ? {patient08: import.meta.env.BASE_URL + "lab/patient08/" + (LAB_REPAIR ? "body" : LAB_FILE || "body") + LAB_SKIN + ".glb"} : {};
@@ -701,7 +702,7 @@ function loadPatientModel(id, towelStage = false){
       if(__CASES__ && LAB_REPAIR && id === "patient08" && !towelStage){
         const rotation = pivot.rotation.clone();
         pivot.rotation.set(0,0,0); pivot.updateMatrixWorld(true);
-        repairNeck(model);
+        repairNeck(model, LAB_REPAIR);
         pivot.rotation.copy(rotation); pivot.updateMatrixWorld(true);
       }
     };
