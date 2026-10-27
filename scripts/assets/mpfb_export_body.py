@@ -29,6 +29,8 @@ OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
 FLAGS=ARGS[4:]
 CHAIN="chain" in FLAGS
+REPAIR="repair" in FLAGS
+if REPAIR and PID != "patient08": raise ValueError("repair experiment is patient08 only")
 FULL="full" in FLAGS          # neck-rig lab: every face the clothes hid comes back (the exposure check)
 SKIN=next((a[5:] for a in FLAGS if a.startswith("skin=")), None)   # neck-rig lab: "rings,H" only the skin that shows
 AO_MIX=0.7
@@ -48,6 +50,7 @@ for o in (body, cloth): print("MODS", o.name, [(m.type, m.name, getattr(m,"verte
 TS.bake_targets(body)
 bpy.context.view_layer.update()
 mw=body.matrix_world
+NEUTRAL=[mw@v.co for v in body.data.vertices] if REPAIR else None
 
 # ---- what the head GLB keeps (same rule as mpfb_export_head.py, on the unposed body) ----
 def group_verts(o, names):
@@ -79,6 +82,10 @@ def restore_set(rings, H):
         front={j for i in front for j in nb.get(i,()) if j in hidden and j not in got}; got|=front
     return {i for i in got if (mw@body.data.vertices[i].co).z >= CUT-H*K}
 RESTORE=set(hidden) if FULL else restore_set(*map(float, SKIN.split(","))) if SKIN else set()
+if REPAIR:
+    # Preserve the entire anatomical neck band, including masked vertices not
+    # adjacent to the old shirt edge. One ring leaves disconnected neck flaps.
+    RESTORE={i for i in hidden if (mw@body.data.vertices[i].co).z>CUT-0.22 and math.hypot((mw@body.data.vertices[i].co).x,(mw@body.data.vertices[i].co).y)<0.20}
 print("RESTORE", len(RESTORE), "of hidden", len(hidden))
 if RESTORE:     # follows the vertices through the pose and the deletes, for the tuck under the shirt below
     at=body.data.attributes.new("lab_restored", "INT", "POINT")
@@ -260,6 +267,14 @@ bpy.data.objects.remove(arm, do_unlink=True)
 for o in (body, cloth): print("MATRIX", o.name, [round(x,3) for x in o.matrix_world.to_euler()], [round(x,3) for x in o.matrix_world.to_scale()])
 bpy.ops.object.select_all(action="DESELECT"); body.select_set(True); cloth.select_set(True)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)     # local = world from here on
+if REPAIR:
+    # Arm posing also pulls the trapezius. The separately exported head stayed
+    # neutral, so restore a common anatomical rest frame around the neck cut.
+    for v, p in zip(body.data.vertices, NEUTRAL):
+        h=max(0,min(1,(p.z-(CUT-0.12))/0.06)); h=h*h*(3-2*h)
+        r=max(0,min(1,(0.145-math.hypot(p.x,p.y))/0.045)); r=r*r*(3-2*r)
+        v.co=v.co.lerp(p,1.0 if v.index in headv else h*r)
+
 
 def delete_verts(o, kill):
     bpy.context.view_layer.objects.active=o
@@ -329,6 +344,7 @@ if TUCK:
     tr=BVHTree.FromPolygons([v.co for v in sh.vertices], [list(pl.vertices) for pl in sh.polygons])
     moved=0
     for v in body.data.vertices:
+        if REPAIR and tree.find(v.co)[2] < 0.001: continue
         loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
         if loc is None or fi in near_rim: continue
         d=(v.co-loc).dot(nrm)
@@ -348,6 +364,7 @@ if RESTORE:
     flag=body.data.attributes["lab_restored"].data; pushed=0; n=0
     for v in body.data.vertices:
         if not flag[v.index].value: continue
+        if REPAIR and tree.find(v.co)[2] < 0.001: continue
         n+=1
         loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
         if loc is None or fi in near_rim: continue

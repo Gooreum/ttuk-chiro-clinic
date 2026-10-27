@@ -62,6 +62,7 @@ function ringCenter(geo){
   return {top, cx, cz, R0};
 }
 function skinBody(o, pinchOn, out){
+  const repaired=labCurrent()?.neckRepair?.evaluate(o,out);if(repaired)return repaired;
   const g = o.geometry, P = g.attributes.position, SI = g.attributes.skinIndex.array, SW = g.attributes.skinWeight;
   const full = SW.normalized ? (SW.array instanceof Uint16Array ? 65535 : 255) : 1, aP = g.attributes.aPinch;
   const C = o.userData.labRing || (o.userData.labRing = ringCenter(g)), pinch = pinchOn ? (labCurrent().neckPinch?.value || 0) : 0;
@@ -79,6 +80,7 @@ function skinBody(o, pinchOn, out){
   return out;
 }
 function skinHead(cur, pinchOn, out){
+  if(cur.neckRepair)return cur.neckRepair.evaluate(cur.skinMesh,out);
   const o = cur.skinMesh, g = o.geometry, P = g.attributes.position, aN = g.attributes.aNeck, c = cur.towelNeckFrame?.center;
   const pinch = pinchOn ? (cur.neckPinch?.value || 0) : 0, lag = pinchOn ? (cur.neckLag?.value || 0) : 0;
   o.updateWorldMatrix(true, false);
@@ -177,7 +179,7 @@ function measure(extra = false){
   const B = skinBody(o, true, new Float32Array(n*3)), Bn = skinBody(o, false, new Float32Array(n*3));
   const H = skinHead(cur, true, new Float32Array(r.restH.length));
   // seam gaps (mm), with the shaders' pinch and lag as drawn
-  const seam = stats(r.pair.map(([i, j, d0]) => Math.max(0, 1000*(dist(B, i, H, j) - d0))));
+  let seam = stats(r.pair.map(([i, j, d0]) => Math.max(0, 1000*(dist(B, i, H, j) - d0))));
   // column shape, rig only (no pinch) and as drawn
   const rest = bandShape(r.restB, r.bands, r.marks), def = bandShape(Bn, r.bands, r.marks), drawn = bandShape(B, r.bands, r.marks);
   const bands = rest.map((s, k) => {
@@ -221,6 +223,7 @@ function measure(extra = false){
     if(r1.dot(r0)/l < -0.002){ poke++; pokeAt.push(i); }
   }
   const cs = stats(collar.map(c => c.apart));
+  if(cur.neckRepair) seam=cur.neckRepair.seam();
   // where the poke-through happens: column weight u, radius from the column axis (x R0), depth under the seam (cm)
   const P0 = o.geometry.attributes.position, ws = o.userData.neckW, C = r.C;
   const pokeWhere = [...new Set(pokeAt)].map(i => ({u: +(ws[i] ?? 0).toFixed(2), r: +(Math.hypot(P0.getX(i) - C.cx, P0.getZ(i) - C.cz)/C.R0).toFixed(2), depth: +(100*(C.top - P0.getY(i))).toFixed(1)}));
@@ -570,5 +573,22 @@ async function subsetMesh(url){
 
 // clothes off, to see the skin alone (where the export cut the skin the shirt hid)
 const clothes = on => labCurrent().bodyMeshes.forEach(m => { if(m !== labCurrent().neckSkin) m.visible = on; });
-window.__neckLab = {ready: false, rig: RIG, pose, animate, curve, measure, sameMesh, subsetMesh, clothes, exposure, exposureMap, opts: chainOpts};
+function repairBoundary(){
+  const cur=labCurrent(), rr=cur.neckRepair?.records;if(!rr)return [];
+  if(cur.neckRepair.seam)return [cur.neckRepair.seam()];
+  const h=rr[1],b=rr[0],ix=h.mesh.geometry.index.array,edges=new Map(),ids=new Map();
+  const weld=h.anatomy.map((a,i)=>{const k=a.map(x=>Math.round(x*10000)).join(',');if(!ids.has(k))ids.set(k,i);return ids.get(k);});
+  for(let f=0;f<ix.length;f+=3)for(let j=0;j<3;j++){
+    const a=weld[ix[f+j]],b=weld[ix[f+(j+1)%3]],k=a<b?a+','+b:b+','+a;edges.set(k,(edges.get(k)||0)+1);
+  }
+  const ring=new Set();edges.forEach((n,k)=>{if(n===1)for(const i of k.split(',').map(Number))if(h.anatomy[i][1]<1.415)ring.add(i);});
+  const H=cur.neckRepair.evaluate(h.mesh,new Float32Array(h.weights.length*3)),B=cur.neckRepair.evaluate(b.mesh,new Float32Array(b.weights.length*3));
+  return [...ring].map(i=>{
+    let d=Infinity,jj=0;
+    for(let j=0;j<b.anatomy.length;j++){const x=Math.hypot(...h.anatomy[i].map((v,k)=>v-b.anatomy[j][k]));if(x<d){d=x;jj=j;}}
+    return {restMm:d*1000,posedMm:dist(H,i,B,jj)*1000};
+  });
+}
+window.__neckLab = {repairValidate: () => labCurrent().neckRepair?.validate(), repairBoundary,
+  ready: false, rig: RIG, pose, animate, curve, measure, sameMesh, subsetMesh, clothes, exposure, exposureMap, opts: chainOpts};
 ready().then(() => { window.__neckLab.ready = true; }, e => { window.__neckLab.error = String(e); });

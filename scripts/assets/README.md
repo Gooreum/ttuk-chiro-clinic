@@ -656,3 +656,26 @@ nice blender -b -t 4 --python mpfb_export_body.py -- body_full_raw.glb 1024 16 p
 ```
 
 최적화 3줄은 위와 같다. 로그는 `RESTORE 176 of hidden 8200`, `RESTORED 166 skin verts kept, 11 pushed`가 나와야 한다. `HIDDEN 8200`에는 helper 정점이 섞여 있다. 실제로 지워진 피부는 2,418정점이다(`full` 기준). 남은 출시 정점은 그대로다(`window.__neckLab.subsetMesh()`).
+
+### patient08 목 기준 자세·연속 변형 수정 (2026-10-27)
+
+`repair`는 patient08 전용 실험 옵션이다. 팔 자세를 적용하기 전에 목 원래 좌표를 저장하고, 머리와 공유하는 정점은 그 좌표로 되돌린다. 인접 목 피부만 10~14.5cm 반경에서 부드럽게 연결한다. 팔·옷 자세는 다시 만들지 않는다.
+
+```
+blender -b -t 4 --python scripts/assets/mpfb_export_body.py -- /tmp/body_repair_raw.glb 1024 4 patient08 repair
+npx --yes @gltf-transform/cli@4.5.1 webp /tmp/body_repair_raw.glb /tmp/body_repair_webp.glb --quality 85
+npx --yes @gltf-transform/cli@4.5.1 meshopt /tmp/body_repair_webp.glb lab-assets/patient08/body_repair.glb
+npm run build:cases
+npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --host 127.0.0.1
+.venv/bin/python scripts/necklab/repair_compare.py
+```
+
+`?necklab=base&repair=1`에서 수정본을 볼 수 있다. `src/dev/neckPatch.js`는 원래 머리의 목 경계를 추적한다. 얼굴 모프가 조금이라도 움직이는 정점과 높이 1.415m 이상 정점을 보호하고, 모프가 없는 목 가장자리만 별도 보정 속성으로 정리한다. 원본 머리의 position/normal/index/morph 버퍼는 보존한다. 몸의 깃 아래 단면과 새 목 경계를 연결하며, 목 색상은 기존 피부 텍스처의 목 영역 중앙값을 1px 텍스처로 사용한다. 이 때문에 원본과 같은 피부 디테일을 확보한 결과는 아니다.
+
+`src/dev/neckRepair.js`는 표정 혼합 뒤 목 단면별 회전과 이동을 적용한다. 얼굴은 원래 머리 변환을 그대로 따르고, 몸과 셔츠·팔은 기존 몸의 이동을 따른다. 그림자 depth/distance 패스도 같은 변형을 쓴다. 일반 배포 모델을 덮어쓰지 않으며 다른 환자와 수건 모드에는 설치되지 않는다.
+
+비교 결과는 `shots/necklab3/report.png`, 포즈별 전체 게임 화면은 `compare_*_game.png`, 원본과 측정값은 `before/`, `after/`, `metrics.json`, `metrics.md`에 남는다. 실제 게임 카메라 및 동일한 보조 카메라에서 9포즈를 비교했다. 회전 60/75/-75°, 기울기 32°, 신장 0.16m, 압축 0.03m, 신장+회전, 신장+기울기를 포함한다. 턴/견인/교정의 게임 시간 곡선도 재생했다. 차트 이름은 원래 게임의 무작위 환자로 남지만 렌더 모델과 look은 모두 patient08로 강제한다.
+
+2026-10-27 결과: 목 중앙이 뚫리는 큰 결손과 옆으로 들리는 피부 판은 화면에서 줄었다. 원본 버퍼 변경·보호한 얼굴 정점 보정은 0이다. 연결점 268표본의 최대 오차는 0.00014mm 미만이었다. 턱 아래 접힘, 단순한 목 피부 재질, 깃 근처 작은 돌출은 남는다. 전체 외형 품질 완성이나 상체 리그 개선으로 해석하지 않는다. 머리·몸 분리 구조를 유지한 국소 목 수정이며 단일 스킨 메시 전환은 필수가 아니다.
+
+기존 2본/체인용 단면적 추정기는 새 목 메시의 부피 지표가 아니다. 열린 경계/뒷면 픽셀 도구는 기존 몸만 진단하므로 새 연결 메시 전체의 무결성 지표로 사용하지 않는다. 새 연결 메시 품질 판단에는 실제 비교 화면과 연결점 검사, 얼굴 보호 검사를 함께 사용한다.

@@ -1,3 +1,4 @@
+import {repairNeck} from "../dev/neckRepair.js";
 import * as THREE from "three";
 import { assetLoad } from "../platform/analytics.js";
 import { slipPose } from "./towelMotion.js";
@@ -36,9 +37,10 @@ const BASE = import.meta.env.BASE_URL + "models/";
 // &collar=<share>: the collar turns with that share of the head's turn (collarBone, lab only)
 const LABQ = __CASES__ ? new URLSearchParams(location.search) : null;
 const LAB_FILE = __CASES__ ? {chain: "body_chain"}[LABQ.get("necklab")] : null;
-const LAB_SKIN = __CASES__ ? {full: "_full", "1": "_skin"}[LABQ.get("skin")] || "" : "";
+const LAB_REPAIR = __CASES__ && LABQ.get("repair") === "1" && LABQ.get("mode") !== "towel";
+const LAB_SKIN = __CASES__ && LAB_REPAIR ? "_repair" : __CASES__ ? {full: "_full", "1": "_skin"}[LABQ.get("skin")] || "" : "";
 const LAB_BODY = __CASES__ && LABQ.has("necklab") && (LAB_FILE || LAB_SKIN)
-  ? {patient08: import.meta.env.BASE_URL + "lab/patient08/" + (LAB_FILE || "body") + LAB_SKIN + ".glb"} : {};
+  ? {patient08: import.meta.env.BASE_URL + "lab/patient08/" + (LAB_REPAIR ? "body" : LAB_FILE || "body") + LAB_SKIN + ".glb"} : {};
 const LAB_COLLAR = __CASES__ && LABQ.has("necklab") ? +LABQ.get("collar") || 0 : 0;
 // GLTFLoader + meshopt decoder are loaded on demand (own chunk), so the main bundle stays as small as before
 let loaderP = null;
@@ -492,6 +494,7 @@ export function updateRealBody(fill, s = 0, body = s){
   if(__CASES__ && cur.chain) updateChain(cur, body);
   if(__CASES__ && cur.collar) updateCollar(cur, body);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
+  if(__CASES__ && cur.neckRepair) cur.neckRepair.update();
 }
 
 /* ---- neck-rig lab (case build only, ?necklab=chain; src/dev/neckLab.js measures and shoots it) ----
@@ -695,6 +698,12 @@ function loadPatientModel(id, towelStage = false){
       model.head = placeHead(gh, env, MODELS[id], model);
       model.body = placeBody(gb, env, MODELS[id], model);
       neckHead(model);
+      if(__CASES__ && LAB_REPAIR && id === "patient08" && !towelStage){
+        const rotation = pivot.rotation.clone();
+        pivot.rotation.set(0,0,0); pivot.updateMatrixWorld(true);
+        repairNeck(model);
+        pivot.rotation.copy(rotation); pivot.updateMatrixWorld(true);
+      }
     };
     if(towelStage) withVisualIds(() => {
       // Loading may finish during a tug. Build the seam in the saved rest frame, then restore the live pose atomically.
@@ -705,7 +714,11 @@ function loadPatientModel(id, towelStage = false){
       } finally {
         head.position.copy(position); pivot.rotation.copy(rotation); pivot.updateMatrixWorld(true);
       }
-    }); else place();
+    }); else if(__CASES__ && LAB_REPAIR && id === "patient08"){
+      const position=head.position.clone(),rotation=pivot.rotation.clone();
+      try {head.position.copy(TOWEL_REST_HEAD);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);place();}
+      finally {head.position.copy(position);pivot.rotation.copy(rotation);pivot.updateMatrixWorld(true);}
+    } else place();
     (towelStage ? real.towelModels : real.models)[id] = model;
     if(wantModel === id) setRealPatient(id, lastLook);
   });

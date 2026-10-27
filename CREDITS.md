@@ -55,3 +55,5 @@ The following derivatives are shared by the clinic, towel and back modes. The or
 환자 머리는 `scripts/assets/`의 Blender 스크립트로 다시 만들 수 있다. 원본 내보내기(약 9MB, 2048² PNG)는 저장소에 넣지 않고, 텍스처를 줄이고(피부 1024², 머리카락·눈썹 512², 눈 256², WebP) meshopt로 압축한 사본만 넣었다.
 
 앱인토스 콘솔 아이콘 `toss/icon-600.png`(600×600)은 직접 만든 것이다. 글자는 Black Han Sans(SIL OFL 1.1)로, 헤드리스 크로미움에서 HTML을 렌더해 캡처했다.
+
+`lab-assets/patient08/body_repair.glb`(2026-10-27, 케이스 빌드 전용)는 기존 MakeHuman/MPFB CC0 patient08 메시를 사용한 파생본이다. 팔 포즈와 분리된 목 기준 자세, 셔츠 밑 목 피부 일부를 보존했다. 새 외부 소스는 없다. 런타임 목 정리는 기존 정점에만 적용한다.
