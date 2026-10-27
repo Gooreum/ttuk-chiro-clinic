@@ -5,7 +5,8 @@ import { T } from "../tuning.js";
 import { S } from "./state.js";
 import { distNorm, breath, bonusExhale } from "./feel.js";
 import { tightFactor } from "../core/feel.js";
-import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, makePatients } from "../patient/roster.js";
+import { TRAITS, ROSTER, SHOW_ZONE_UNTIL, PER_DAY, makePatients, rosterFor } from "../patient/roster.js";
+import { bodyOf } from "../core/body.js";
 import { DAYS, CAMPAIGN_KEY, dayRoster, dayStars, readProgress, afterDay, afterHard, nextDay, dayLabel, dayClears, dayOpen, dayDef, hardOpen, cracksOf, ENDING } from "../core/campaign.js";
 import { CAST } from "../patient/cast.js";
 import { renderDays, showStory, campaignLabel, showEnding, showInterlude } from "../ui/campaign.js";
@@ -111,8 +112,8 @@ function loadPatient(){
     const tf = tightFactor(S.mods);
     if(S.towel && tf < 1) S.towel = {...S.towel, half: S.towel.half*tf, aimTol: S.towel.aimTol*tf};
     S.stretchAt = 0; S.slipAt = 0; S.overAt = 0; S.stretchHold = 0; S.skewAt = 0; S.saidTense = S.saidTight = false;
-    const tr = target.trait ? TRAITS[target.trait] : null;
-    $("#ptrait").hidden = !tr; if(tr) $("#ptrait").textContent = tl(tr.label);
+    const tr = target.trait ? TRAITS[target.trait] : null, bd = bodyOf(target);   // core/body.js: the body type sits beside the trait
+    $("#ptrait").hidden = !tr && !bd; $("#ptrait").textContent = [tr && tl(tr.label), bd && tl(bd.label)].filter(Boolean).join(" · ");
     renderSpine(target.seg); renderDots();
     S.input.rot = S.input.bend = S.cur.rot = S.cur.bend = 0;
     S.inZone = false; S.saidNear = false; S.saidIdle = false; S.painHere = 0;
@@ -150,7 +151,7 @@ function loadPatient(){
 function bossCue(){
   if(S.phase !== "play" || !S.boss.length) return;
   // one pill per rule, one after the other (8장 has two; both in one pill was too long)
-  bossCues(S.boss).forEach((cue, i) => setTimeout(() => { if(S.phase === "play" && S.bossReady) coach(cue, 2200); }, i * 2400));
+  bossCues(S.boss, S.hard).forEach((cue, i) => setTimeout(() => { if(S.phase === "play" && S.bossReady) coach(cue, 2200); }, i * 2400));
 }
 /* swap: the patient changes his mind, the target is the opposite side's from now on (same head, same x-ray segment) */
 function swapAim(){
@@ -445,7 +446,7 @@ function towelHurt(kind){
   const later = (ms, fn) => setTimeout(() => { if(tok === hurtTok && S.phase === "play" && S.idx === idx) fn(); }, ms);
   const now = performance.now(), r = headScreen.r;
   const cw = () => canvas.clientWidth || innerWidth, ch = () => canvas.clientHeight || innerHeight;
-  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "조금 너무 팽팽했어요!" : "수건이 너무 느슨했어요",
+  stamp(TOWEL_STAMP[kind], kind === "over" ? "너무 세게 당겼어요!" : kind === "skew" ? "중심이 틀어졌어요!" : kind === "taut" ? "너무 팽팽했어요! 금 갔어요" : "수건이 너무 느슨했어요",
     kind === "over" ? "over" : tier ? (tier > 1 ? "break" : "crack") : "dud", kind === "slip" ? 1700 : 950);   // over / skew / taut: gone before the x-ray
   // every tug cracks right as it lands, good or bad (user: "정확하게 당기든 잘못 당기든 당길때 바로 우두둑", 2026-10-15)
   crackSound(kind === "slip" ? 2 : 3);
@@ -538,7 +539,7 @@ export function finish(){
     const rev = document.createElement("span"); rev.className = "rev";
     rev.textContent = "“" + tl((r.game ? r.game === "towel" : towel) ? towelReview(r, Math.random, usedReviews) : reviewLine(r, Math.random, usedReviews)) + "”";
     li.append(who, pts, st);
-    const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails) : failTags(r.fails, r.tiers);
+    const tags = (r.game ? r.game === "towel" : towel) ? towelTags(r.fails, r.tiers) : failTags(r.fails, r.tiers);
     if(tags.length){
       const tg = document.createElement("span"); tg.className = "tags";
       tags.forEach(t => { const i = document.createElement("i"), [k, n] = t.split(" ×"); i.textContent = tl(k) + " ×" + n; tg.appendChild(i); });
@@ -666,7 +667,10 @@ async function start(game, day = -1, hard = false, extraPain = 0, quest = -1, se
   track(EV.runStart, { game: game === "night" || game === "rush" || game === "weekly" || game === "daily" ? game : mode(), day: dayNo(), how: S.phase === "result" ? "again" : "start", control: S.mode });
   screenView("play");
   const nb = nightBegin(game), rb = rushBegin(game), wb = weeklyBegin(game), db = dailyBegin(game);   // each also clears its own state when it is not the run being started
-  S.patients = nb || rb || wb || db || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients());
+  S.patients = nb || rb || wb || db || (d ? makePatients(Math.random, 0, (S.quest >= 0 ? questRoster(S.quest, [...ROSTER, ...CAST]) : S.season >= 0 ? seasonRoster(S.season, [...ROSTER, ...CAST]) : dayRoster(S.day, [...ROSTER, ...CAST]))) : makePatients(Math.random, PER_DAY, null, rosterFor(game)));
+  // ?patient=마동철: a free run starts with that roster patient (user: "캐릭터당 주소 갖고와", 2026-10-24)
+  const pick = !nb && !rb && !wb && !db && !d && rosterFor(game).find(r => r.name === new URLSearchParams(location.search).get("patient"));
+  if(pick) S.patients = [...makePatients(Math.random, 1, [pick]), ...S.patients.filter(p => p.name !== pick.name)].slice(0, PER_DAY);
   S.idx = 0; S.score = 0; S.pain = 0; S.streak = 0; S.results = []; S.ambulance = false; S.continued = false; closeChart();
   stopSiren(); $("#app").classList.remove("siren");
   $("#score").textContent = "0"; renderPain(); renderCombo();
@@ -694,7 +698,21 @@ function openStory(day, hard = false){
   openStoryCard(day, hard);
 }
 const openStoryCard = (day, hard = false) => { qf.reset(); sf.reset(); storyDay = day; storyHard = hard && hardOpen(progress(), day); showStory(day, storyHard, hardOpen(progress(), day)); painAd.show(day, DAYS[day], storyHard); coupon.show(day, storyHard); };
-function openDays(){ sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress()); renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), tl("일지로"), openDays); }); }
+function openDays(){
+  // 56일 cleared but the ending card never opened (left the result card without 엔딩 보기): it comes first, once
+  if(endingDue(progress())){ openEnding(); return; }
+  sf.reset(); renderSeasonBtn(progress()); renderNightBtn(progress()); renderRushBtn(progress()); renderWeeklyBtn(progress());
+  renderDays(progress(), day => { $("#days").hidden = true; openStory(day); }, 0, ch => { $("#days").hidden = true; showInterlude(interludeOf(ch), tl("일지로"), openDays); }, () => { $("#days").hidden = true; openEnding(); });
+}
+/* 엔딩 (core/campaign.js ENDING): seen once -> chiroCampaign.endingSeen (readProgress keeps it; old saves have none), then
+   the 영업 일지's 엔딩 다시 보기 chip opens it again (2026-10-23 audit: endingPending lived in memory only, so leaving the
+   result card lost the ending for good) */
+const endingDue = prog => prog.cleared >= DAYS.length && !prog.endingSeen;
+function openEnding(){
+  const prog = progress();
+  if(!prog.endingSeen) store.set(CAMPAIGN_KEY, {...prog, endingSeen: true});
+  endingPending = false; $("#result").hidden = true; showEnding();
+}
 const qf = mountQuests({ start, back: openDays });
 const sf = mountSeason({ start, back: openDays, resetQuest: qf.reset });
 function dayEnd(complete, avg){
@@ -711,7 +729,7 @@ function dayEnd(complete, avg){
   if(S.hard && !cleared) out.textContent += tl(" 역경엔 이어하기가 없어요.");
   out.hidden = false;
   // the last day cleared for the first time: the next-day button becomes 엔딩 보기 (the ending card, core/campaign.js ENDING)
-  endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && before.cleared <= S.day;
+  endingPending = cleared && !S.hard && S.day === DAYS.length - 1 && endingDue(after);
   $("#nextDay").textContent = tl(endingPending ? "엔딩 보기" : "다음 날");
   $("#nextDay").hidden = next < 0 && !endingPending;
   $("#toDays").hidden = false;
@@ -737,7 +755,7 @@ $("#storyHard").addEventListener("click", () => openStory(storyDay, !storyHard))
 $("#storyBack").addEventListener("click", () => { $("#story").hidden = true; if(qf.sel >= 0) qf.list(); else if(sf.sel >= 0) sf.list(); else openDays(); });
 $("#nextDay").addEventListener("click", () => {
   $("#result").hidden = true;
-  if(endingPending){ endingPending = false; showEnding(); track(EV.click, { target: "ending" }); return; }
+  if(endingPending){ openEnding(); track(EV.click, { target: "ending" }); return; }
   if(S.day + 1 >= DAYS.length) return;   // no day after the last (the button is hidden then; the ending card is the way out)
   openStory(S.day + 1);
 });

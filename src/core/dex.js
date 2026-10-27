@@ -1,4 +1,4 @@
-/* 환자 도감 (endgame collection, 2026-10-22 goal "플레이타임 20시간"): every patient met (ROSTER + CAST = 32) and every
+/* 환자 도감 (endgame collection, 2026-10-22 goal "플레이타임 20시간"): every patient met (ROSTER + CAST = 39) and every
    kind of wrong crack seen. Pure: no DOM, no three. The glue is game/dex.js, the card is ui/dex.js.
    Save: localStorage "chiroDex" {met: {name: {first: "2026-10-22", n: times met, ok: times finished}}, fails: {id: {first, n}}}.
    Kinds follow the code: 목꺾기 core/fail.js (over / dud / finger, a hard one is 금 / 골절), 목뽑기 core/towel.js

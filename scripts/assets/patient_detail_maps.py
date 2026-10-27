@@ -90,7 +90,7 @@ else:
  color*=1+coarse[...,None]*.025
  rough=.84+coarse*.10+pores*.08
  if kind=='face':
-  age={1:32,2:54,3:27,4:31,5:63}.get(idx,35);amount=np.clip((age-26)/38,.05,1)
+  age={1:32,2:54,3:27,4:31,5:63,6:28,7:26,8:38,9:79,10:11}.get(idx,35);amount=np.clip((age-26)/38,.05,1)
   lm=d.get('landmarks',{});eyeY=lm.get('eyeY',top-.13);noseY=lm.get('noseY',eyeY-.040);mouthY=lm.get('mouthY',eyeY-.085);eyeRel=top-eyeY;noseRel=top-noseY;mouthRel=top-mouthY
   front=np.clip((nz-.10)/.55,0,1);cheeks=G(np.abs(x)-.047,.030)*G(y-(noseY-.005),.033)*front;nose=G(x,.014)*G(y-noseY,.022)*front;ears=G(np.abs(x)-.074,.014)*G(y-(eyeY-.015),.048)
   warm=(cheeks*.022+nose*.065+ears*.060);red=np.array([.66,.29,.22]);color=color*(1-warm[...,None])+red*warm[...,None]
@@ -126,8 +126,8 @@ else:
   if age>=50:
    for cx,cy in [(-.054,.076),(.049,.081),(-.063,.158),(.056,.161),(.019,.052)]:
     spot=G(x-cx,.0017)*G(rel-cy,.0021)*front;color*=1-spot[...,None]*.055*amount
-  # Stubble on the adult men's jaw, never painted across lips or cheeks.
-  if idx in (1,2,3,5):
+  # Stubble on the adult men's jaw, never painted across lips or cheeks (not the women or the kid).
+  if idx in (1,2,3,5,6,8):
    beard=G(y-(mouthY-.018),.027)*G(x,.065)*front;stip=np.clip((pores+.18)*1.8,0,.6)*beard*(.035 if idx!=3 else .045);color*=1-stip[...,None];height+=pores*beard*.000055
   rough-=nose*.09+cheeks*.025
  else:
@@ -154,7 +154,7 @@ slopeX=np.clip(dhv/uLength,-.90,.90);slopeY=np.clip((dhu-vAlong*slopeX)/vLength,
 normalmap[~filled]=[0,0,1];ao=np.clip(ao,.48,1);rough=np.clip(rough,.62,.98);orm=np.stack([ao,rough,np.zeros_like(ao)],-1)
 # UV-gutter normal/ORM dilation prevents filtering seams at clothing edges.
 for suffix,a in [('-color',color),('-normal',normalmap*.5+.5),('-orm',orm)]:
- out=np.clip(a*255,0,255).astype('uint8');image=Image.fromarray(out,'RGB');size=512 if suffix=='-orm' or kind=='pants' or (suffix=='-color' and kind!='face') or (suffix=='-normal' and kind=='face' and idx in (1,3,4)) else 1024
+ out=np.clip(a*255,0,255).astype('uint8');image=Image.fromarray(out,'RGB');size=512 if suffix=='-orm' or kind=='pants' or (suffix=='-color' and kind!='face') or (suffix=='-normal' and kind=='face' and idx in (1,3,4,6,7,10)) else 1024
  if size!=S:image=image.resize((size,size),Image.Resampling.LANCZOS)
  image.save(str(stem)+suffix+'.webp','WEBP',quality=93 if suffix=='-color' else 90,method=6)
 print(pid,kind,'detail maps bytes',sum(Path(str(stem)+s+'.webp').stat().st_size for s in ['-color','-normal','-orm']))

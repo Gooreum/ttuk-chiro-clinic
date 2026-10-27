@@ -5,11 +5,11 @@ test("환자 도감: 처음엔 비어 있고, 환자를 만나면 카드가 채�
   const errs = watchErrors(page);
   await page.goto("./");
   await waitNeckAssets(page);
-  await expect(page.locator("#dexSub")).toContainText("환자 0/34");
+  await expect(page.locator("#dexSub")).toContainText("환자 0/40");
   await page.click("#dexBtn");
   await expect(page.locator("#dex")).toBeVisible();
-  await expect(page.locator("#dexList li")).toHaveCount(34);
-  await expect(page.locator("#dexList li.miss")).toHaveCount(34);
+  await expect(page.locator("#dexList li")).toHaveCount(40);
+  await expect(page.locator("#dexList li.miss")).toHaveCount(40);
   expect(await page.evaluate(() => window.__events.filter(e => e.name === "dex_open").length)).toBe(1);
   await page.click("#dexClose");
   await expect(page.locator("#dex")).toBeHidden();
@@ -27,7 +27,7 @@ test("환자 도감: 저장된 기록이 카드와 칭호에 나오고 실패 �
   await page.goto("./");
   await waitNeckAssets(page);
   await page.click("#campaignBtn");
-  await expect(page.locator("#daysDexSub")).toContainText("환자 5/34");
+  await expect(page.locator("#daysDexSub")).toContainText("환자 5/40");
   await page.click("#daysDex");
   await expect(page.locator("#dexList li:not(.miss)")).toHaveCount(5);
   await expect(page.locator("#dexList li.miss").first()).toContainText("???");

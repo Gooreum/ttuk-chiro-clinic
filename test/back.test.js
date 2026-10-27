@@ -37,3 +37,41 @@ describe('back press pressure and judging', () => {
 
   });
 });
+
+import {dayQuery, resultTitle} from '../src/back/core.js';
+import {readProgress} from '../src/core/campaign.js';
+describe('back / side page URL guard (dayQuery)', () => {
+  const prog = (cleared, stars = 2) => readProgress({cleared, stars: Array(cleared).fill(stars)});
+  it('opens an unlocked day of its own game, free play otherwise', () => {
+    expect(dayQuery('?day=14', prog(14), 'back')).toEqual({day: 14, hard: false, pain: false, locked: false});
+    expect(dayQuery('', prog(14), 'back')).toMatchObject({day: -1, locked: false});
+    expect(dayQuery('?day=0', prog(14), 'back')).toMatchObject({day: -1, locked: false});   // a neck day is not a back day
+    expect(dayQuery('?day=29', prog(40), 'back')).toMatchObject({day: -1, locked: false});  // a side day on back.html
+    expect(dayQuery('?day=29', prog(40), 'side')).toMatchObject({day: 29, locked: false});
+    expect(dayQuery('?day=abc', prog(40), 'back')).toMatchObject({day: -1, locked: false});
+  });
+  it('refuses a locked day (the page goes to the day list) unless a dev build', () => {
+    expect(dayQuery('?day=16', prog(14), 'back')).toEqual({day: -1, hard: false, pain: false, locked: true});
+    expect(dayQuery('?day=16', prog(14), 'back', {dev: true})).toMatchObject({day: 16, locked: false});
+  });
+  it('역경 only on a 3-star day', () => {
+    expect(dayQuery('?day=14&hard=1', prog(15, 2), 'back').hard).toBe(false);
+    expect(dayQuery('?day=14&hard=1', prog(15, 3), 'back').hard).toBe(true);
+  });
+  it('통증 칸 +1 only on a plain open day reached by a fresh navigation', () => {
+    expect(dayQuery('?day=16&pain=1', prog(16), 'back').pain).toBe(true);
+    expect(dayQuery('?day=16&pain=1', prog(16), 'back', {fresh: false}).pain).toBe(false);   // reload / back-forward
+    expect(dayQuery('?day=16&pain=1', prog(14), 'back').pain).toBe(false);                   // locked
+    expect(dayQuery('?day=14&hard=1&pain=1', prog(15, 3), 'back').pain).toBe(false);         // never on 역경
+    expect(dayQuery('?pain=1', prog(16), 'back').pain).toBe(false);                          // free play
+  });
+});
+describe('result card title (the neck rule)', () => {
+  it('ambulance, then the pain limit, then the mode line', () => {
+    expect(resultTitle({ambulance: true, painOut: true, campaign: true, painMax: 2}, 'X')).toBe('구급차가 왔어요');
+    expect(resultTitle({ambulance: false, painOut: true, campaign: false, painMax: 3}, 'X')).toBe('환자가 도망갔어요');
+    expect(resultTitle({ambulance: false, painOut: true, campaign: true, painMax: 3}, 'X')).toBe('환자가 도망갔어요');
+    expect(resultTitle({ambulance: false, painOut: true, campaign: true, painMax: 2}, 'X')).toBe('영업 정지');
+    expect(resultTitle({ambulance: false, painOut: false, campaign: true, painMax: 1}, '허리까지 시원하게.')).toBe('허리까지 시원하게.');
+  });
+});

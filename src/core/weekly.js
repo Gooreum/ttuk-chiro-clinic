@@ -4,7 +4,7 @@
    are written for two-sided cracks). Pure: no DOM, no three. The glue is game/weekly.js. A run is a free run (S.day = -1,
    S.weekly set), so stars, the free-play best and 심야 진료 never move. Record: localStorage "chiroWeekly" {week, best, tries}. */
 import { NIGHT_POOL, mulberry32 } from "./night.js";
-import { BOSS_RULES } from "./boss.js";
+import { bossCues } from "./boss.js";
 
 export const WEEKLY_KEY = "chiroWeekly";
 export const WEEKLY_UNLOCK = 7;      // campaign days cleared (the end of 1장) before the challenge opens
@@ -41,7 +41,7 @@ export const WEEKLY_RULES = [
   { id: "timer",  name: "시간 제한",   short: "12초 제한",  boss: ["timer"],  clinicOnly: true, line: "한 쪽당 12초예요. 넘기면 -20점이에요." },
   { id: "noisy",  name: "숨 안내 없음", short: "숨 안내 없음", mods: { noisy: true }, line: "치료사가 입을 닫았어요. 숨은 직접 봐요." },
   { id: "taunt",  name: "도발 환자",   short: "도발 환자",  boss: ["taunt"],  clinicOnly: true, line: "첫 쪽이 PERFECT가 아니면 반대쪽이 좁아져요." },
-  { id: "pain1",  name: "통증 1칸",    short: "통증 1칸",   painMax: 1, line: "통증 칸이 하나뿐이에요. 한 번 틀리면 퇴근이에요." },
+  { id: "pain1",  name: "통증 1번",    short: "통증 1번",   painMax: 1, line: "통증 칸이 하나뿐이에요. 한 번 틀리면 퇴근이에요." },
   { id: "shrink", name: "점점 좁아짐", short: "점점 좁아짐", boss: ["shrink"], clinicOnly: true, line: "오래 재면 구역이 좁아져요. 빨리 정하세요." },
   { id: "fake",   name: "들숨 보너스", short: "들숨 보너스", boss: ["fake"],   clinicOnly: true, line: "날숨 말고 들숨에 +15예요. 숨 안내는 안 믿어도 돼요." },
   { id: "swap",   name: "마음 바뀜",   short: "마음 바뀜",  boss: ["swap"],   clinicOnly: true, line: "한 번은 목표가 반대쪽으로 바뀌어요. 끝까지 보고 맞추세요." }
@@ -65,7 +65,7 @@ export function weeklySet(week){
   };
 }
 /* the rule's own text for the stamp / coach at the first patient */
-export const ruleCue = rule => rule.boss && rule.boss.length ? BOSS_RULES[rule.boss[0]].cue : rule.line;
+export const ruleCue = rule => rule.boss && rule.boss.length ? bossCues(rule.boss)[0] : rule.line;
 
 /* ---- record {week, best, tries}: only this week's counts, a new week starts over ---- */
 const clean = (prev, week) => prev && prev.week === week && Number.isFinite(prev.best) && Number.isFinite(prev.tries)

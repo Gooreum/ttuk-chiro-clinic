@@ -1,6 +1,6 @@
 # 환자 머리 에셋 다시 만들기
 
-환자 5명의 체형·피부·머리카락·눈썹·옷은 `patients.py`(`patient01`~`patient05`, `roster.js` 순서)에 있다. 한 명을 처음부터 끝까지 만들려면:
+환자 10명의 체형·피부·머리카락·눈썹·옷은 `patients.py`(`patient01`~`patient10`, `roster.js` 순서)에 있다. 한 명을 처음부터 끝까지 만들려면:
 
 ```
 blender -b --python mpfb_build_character.py -- char.blend patient02
@@ -35,6 +35,164 @@ blender -b --python mpfb_export_body.py -- body_raw.glb 1024 16 patient02
 측정값(정수리 y 1.625, 턱 y 1.358, 뒤통수 z -0.062)은 `src/scene/realAssets.js`의 머리 맞춤에 쓰인다. 다시 만들면 4단계 로그의 `MEASURE` 줄로 확인한다.
 
 GLB 재질 이름(끝부분): `.body`(피부), `.high-poly`(눈알), `.cornea`(각막), `.short02`(머리카락), `.eyebrow001`, `.eyelashes01`, `.teeth_base`, `.tongue01`. `realAssets.js`가 이 이름으로 재질을 고른다.
+
+## 새 환자 다섯 명 (patient06–10, 2026-10-24)
+
+| id | 이름 | 나이(MPFB age) | 체형 | 피부 / 머리 / 옷 |
+|---|---|---|---|---|
+| patient06 | 조멸치 | 28 (0.523) | muscle 0.3, weight 0.0 (아주 마름) | `young_asian_male` / `short01` / `male_casualsuit06` |
+| patient07 | 한미모 | 26 (0.508) | muscle 0.45, weight 0.4, proportions 1.0, cupsize 0.7 | `young_asian_female` / `long01` / `female_casualsuit01` |
+| patient08 | 마동철 | 38 (0.6) | muscle 1.0, weight 1.0 (레슬러) | `middleage_asian_male` / `short04` / `male_casualsuit06` |
+| patient09 | 복순할매 | 79 (0.915) | muscle 0.3, weight 0.6 | `middleage_asian_female` / `short02`(회색 파마) / `female_casualsuit02` |
+| patient10 | 정꼬마 | 11 (0.1875) | 기본 | `young_asian_male` / `short01` / `male_casualsuit04` |
+
+명령은 위와 같다(`mpfb_build_character.py` → `mpfb_export_head.py ... 2048 32` → `mpfb_export_body.py ... 1024 16 patientNN`). 16GB 맥에서 머리 내보내기를 다섯 개 동시에 돌리면 메모리 부족으로 조용히 죽는다. 두 개씩 돌린다(한 쌍에 약 10분). 최적화는 위 5단계와 같고 패턴만 바꾼다: 머리카락 `short01*`/`long01*`/`short04*`/`short02*`, 회색 머리는 `patientNN_hair*`, 회색 눈썹 `patientNN_brow*`.
+
+- `patients.py` `human_info()`의 `proportions`·`height`·`cupsize`는 프리셋에 있으면 그 값을, 없으면 0.5를 쓴다(patient07만 proportions 1.0·cupsize 0.7).
+- 머리카락 고르기(2026-10-24 검토): 바로 누운 게임 카메라에서 한미모의 `ponytail01`은 베개 속으로 들어가 정수리만 보여 남자처럼 읽혔다. `long01`·`braid01`·`bob01`을 정면과 게임 카메라로 비교해(`opts` 미리보기) 얼굴 양옆으로 머리가 흘러내리는 `long01`을 골랐다(`braid01`·`bob01`은 옆 앞머리가 한쪽 눈을 덮는다). 마동철의 `short03`은 한쪽 눈을 덮는 분홍빛 바가지 머리라 짧고 짙은 `short04`로, 할머니의 `bob02`(한쪽 눈을 덮음, `bob01`도 같음)는 회색으로 칠한 `short02`(짧은 파마처럼 보임)로 바꿨다. 한미모의 수건 얼굴은 볼 홍조를 0.06으로 올리고 입술(정수리 아래 0.1607 m)에 장밋빛을 30% 섞는다(`towel_stage_textures.py`).
+- `fit`: 내보내기 스크립트의 절대 길이(목 절단 `top-0.30`, 승모근 절단 `top-0.225`·`|x|>0.072`, 입안 어둡게, `MEASURE`의 턱 조건, 손목 위치 `X_HAND`·`GAP`, 셔츠 앞면 탐색 거리, 목 뼈 페이드 `NECK_FADE`, 호흡 모양 키 범위)에 곱하는 배율. 기본 1.0이라 patient01–05 출력은 그대로다(1.0을 곱해도 부동소수점 값이 같다). `fit="auto"`면 정수리 − 턱끝(MakeHuman 기본 메시 정점 783) 높이를 patient01의 0.2266m로 나눈다. 아이(patient10)만 auto이고 0.8534다. `T_HAND`는 골반→쇄골 비율이고 `Z_PELVIS` 등은 뼈에서 재므로 원래 체형을 따른다.
+- `tuck`(m): 근육·살이 많은 체형은 피부가 티셔츠 어깨·승모근을 뚫고 나온다. 몸 스크립트가 셔츠 안쪽 면(밑단·목둘레·소매 끝 면 제외)에서 3cm 안, 같은 방향을 보는 피부 정점을 셔츠 안 3mm로 당겨 넣는다. patient07(49정점)·08(37)·09(106)만 켰다.
+- 옷 타협: `female_elegantsuit01`(블라우스+치마)과 `male_casualsuit01`·`02`(긴소매)는 소매가 손목을 덮어 배 위 손 풀이가 수렴하지 않는다(`HANDS NOT SOLVED`, 손이 몸 앞 40cm까지 밀려남). 그래서 patient07은 `female_casualsuit01`, patient10은 `male_casualsuit04` 티셔츠를 입었다. 할머니는 `female_casualsuit02`(티셔츠+반바지) 그대로다.
+- 할머니 피부: `old_asian_female`은 주름이 더 있지만 김사장 때와 같이 주황빛이 돌아 `middleage_asian_female`을 쓴다.
+
+로그(모두 머리 `TOP` = 몸 `TOP`):
+
+| id | TOP | CUT | FIT | MEASURE crown / chin / back | HANDS |
+|---|---:|---:|---:|---|---|
+| patient06 | 1.6273 | 1.3273 | 1.0 | 1.6273 / 1.3909 / -0.0612 | solved it 2 |
+| patient07 | 1.5043 | 1.2043 | 1.0 | 1.5043 / 1.2129 / -0.0539 | solved it 2 (cupsize 0.7) |
+| patient08 | 1.6227 | 1.3227 | 1.0 | 1.6227 / 1.3231 / -0.1139 | solved it 4 |
+| patient09 | 1.4897 | 1.1897 | 1.0 | 1.4897 / 1.1960 / -0.0375 | solved it 3 |
+| patient10 | 1.3196 | 1.0636 | 0.8534 | 1.3196 / 1.0637 / -0.0471 | solved it 4 |
+
+`realAssets.js` `MODELS`(와 `towel_sim.py` 사본)에는 MEASURE 값을 그대로 적되, patient06·08의 chin만 1.3669·1.3551로 바꿨다. 게임은 crown−chin으로 머리(와 몸)를 기본 도형 머리 크기에 맞추는데, 이 측정의 "턱"은 가운데 선에서 y −0.07 앞의 가장 낮은 점이라 아주 가는 목(06)은 턱 밑면, 아주 굵은 목(08)은 목 앞 살에 걸려 06은 17% 커지고 08은 8% 작아진다. 두 사람은 patient01 비율(crown−chin 0.267 = 턱끝 높이 0.2266 × 1.178)로 정했다. 아이는 측정값 그대로라 1.08배(키 약 1.42m)로 그려진다. 마동철의 `back`(−0.114)은 굵은 목덜미가 뒤통수보다 뒤로 나와서다.
+
+파일 크기(바이트):
+
+| id | 머리 | 몸 | 수건 머리 | 수건 몸 |
+|---|---:|---:|---:|---:|
+| patient06 | 658,488 | 281,700 | 695,908 | 463,244 |
+| patient07 | 615,856 | 238,024 | 650,012 | 406,008 |
+| patient08 | 632,056 | 286,952 | 732,932 | 464,072 |
+| patient09 | 624,524 | 254,912 | 756,748 | 448,196 |
+| patient10 | 662,112 | 233,204 | 705,664 | 404,064 |
+
+수건(`towel_sim.py`)은 열 명을 한 번에 다시 굽는다. 시뮬레이션은 결정적이라 patient01–05 메시는 이전 GLB와 정점 위치 차이 0이다(meshopt 해제 후 비교). 미리보기 대상은 `TOWEL_PREVIEW_IDS=patient06,...`로 고른다. 아이는 입술 단차가 턱보다 가팔라 턱 밑 경계 탐색이 입(z 0.030)에 걸려 X가 입을 가로질렀다. `CHIN_EDGE = {"patient10": 0.074}`로 고정했다. 마동철은 목이 굵어 X로 감고 나면 주먹 밖 끝자락이 없다(`PATH` loose ends −0.06/−0.01 m, 주먹 속에서 끝남). 결과: `towel/towel_sim.glb` 893,380 → 1,261,816 B, `towel-stage/towel/towel_sim.glb` 1,099,104 → 1,665,080 B(87,000 삼각형). 수건 사본은 위 재생성 절의 `towel_stage_props.py towel` → weld → meshopt 뒤 `DETAIL_FILES=towel_sim node scripts/assets/towel_therapist_detail.mjs <새 작업 폴더>`로 거칠기 맵만 다시 얹는다(`DETAIL_FILES` 없이 돌리면 이미 디테일이 들어간 팔·치료사·공간까지 한 번 더 조형하니 주의).
+
+수건 모드 사본(`towel-stage/patientNN/`)은 아래 "수건 모드 전용 아트 세트"부터의 체인을 새 환자만 골라 돌린다. 기존 patient01–05 파일은 다시 만들지 않았다. 각 단계의 작업 폴더 `source/`에 첫 입력이 남으므로 다시 돌릴 때는 그 환자의 `source/.../patientNN`을 지운다.
+
+```bash
+export GLTF_MODULES=/path/to/gltf-transform-4.5.1/node_modules
+W=/private/tmp/ttuk-new-patients; IDS=06,07,08,09,10
+ASSET_IDS=patient06,patient07,patient08,patient09,patient10 node scripts/assets/towel_stage_characters.mjs $W/chars
+git show 024a09850ef23f13651876f7da03fc7f6541edde:public/models/hands/arms.glb > $W/hand-template.glb   # 조형 전 CC0 팔
+ASSET_IDS=$IDS HAND_TEMPLATE=$W/hand-template.glb node scripts/assets/hand_anatomy.mjs $W/anat           # 팔 GLB 둘은 건드리지 않음
+ASSET_IDS=$IDS HAND_SOURCE=$W/hand-template.glb node scripts/assets/patient_rest_hands.mjs $W/rest
+python3 scripts/assets/patient_hand_collision.py $W/rest
+ASSET_IDS=$IDS node scripts/assets/patient_detail.mjs $W/detail
+ASSET_IDS=$IDS VERIFY_ONLY=1 node scripts/assets/patient_detail.mjs $W/detail
+python3 scripts/assets/patient_hand_collision.py $W/detail
+```
+
+결과: 다섯 명 × 호흡 0/0.5/1 × 세 표면 쌍 삼각형 교차 0, 최종 수직 여유 최솟값 손/손 1.63 mm(09), 아래 손/셔츠 1.40 mm(08), VERIFY_ONLY 원본 버퍼 변경 0. 두 자리 번호를 위해 바꾼 곳: `towel_stage_textures.py`(`int(pid[-2:])`, 셔츠 색 10개, 06 브르타뉴 줄무늬·07 블러시 저지와 핀턱·08 싱글렛 옆판·09 물방울 블라우스·10 럭비 줄무늬를 부드러운 경계로, 회색 머리 은빛 처리 02·09, 주름 02·05·09), `towel_stage_characters.mjs`(`pid.slice(-2)`, 머리카락 이름에 ponytail/long/braid/afro), `hand_anatomy.mjs`(`ASSET_IDS`·`HAND_TEMPLATE`), `patient_hand_collision.py`(`patient[0-9][0-9]*`), `patient_detail_maps.py`(나이 06:28·07:26·08:38·09:79·10:11, 수염은 남자 어른 06·08만, 젊은 얼굴 노멀 512), `patient_detail.mjs`(봉제 가장자리 색).
+
+## 이미지 기반 환자 (patient11 최필라, 2026-10-24)
+
+MPFB가 아니라 이미지에서 만든 몸이다(사용자: "체형별로 특이성이 존나 있어야돼" → 시안을 3D로 "백프로 동일하게"). 목꺾기 전용이고 towel-stage 사본은 없다(`realAssets.js` `NO_STAGE`).
+
+1. Codex(이미지 생성)로 같은 캐릭터 4방향 턴어라운드(정면·왼쪽·뒤·오른쪽, A포즈, 1024x1536)를 그린다. 시안 한 장만 3D로 바꾸면 뒤통수·옆모습을 추측한다.
+2. Higgsfield `tripo_h3_1_multiview_to_3d`(texture/geometry detailed, 12크레딧) → 62 MB, 삼각형 195만 개.
+3. 줄이기: `gltf-transform simplify --ratio 0.045 --error 0.002` → `resize 2048`. Blender Decimate는 UV 이음매를 뭉개 흰 선이 생기고(텍스처 패딩으로도 안 없어짐), Meshy remesh는 62 MB 입력에서 실패했다.
+4. `blender -b -t 4 --python image3d_patient.py -- s2.glb patient11.glb body.glb patient11`: 1.65 m로 맞추고, 얼굴을 -y로 돌리고(이 메시는 +x를 봤다), 뒤로 3.8° 기운 몸을 세운 뒤, z 1.40(목 중간)에서 bisect로 머리와 몸을 나눈다. 몸에는 2본 스킨(`body`/`neck`, 가중치는 게임의 `neckColumn`이 다시 계산)과 `breath` 모양 키(가슴 2.2 cm·배 1.2 cm 앞으로, 어깨 2 cm)를 단다. 출력의 MEASURE는 crown·chin tip·back.
+5. 머리 `resize 2048` → `webp` → `meshopt`(550 KB), 몸 `resize 1024` → `webp` → `meshopt`(640 KB).
+
+`MODELS.patient11`: crown은 머리카락 꼭대기(1.6484), chin은 06/08처럼 patient01 비율(crown − 1.178 × (crown − 턱끝 1.427) = 1.3876), back은 머리카락 뒤(-0.083)가 아니라 -0.045다. 머리카락 부피만큼 머리가 베개 위로 떠서 몸 전체가 테이블 위 4 cm에 떠 있었다.
+
+표정(사용자: "표정이 시체 같음", 2026-10-24): 머리 메시에 블렌드셰이프가 없고 눈은 뜬 채로 텍스처에 그려져 있다. 그래서 얼굴 정면을 그린 그림을 겹친다.
+1. `blender -b -t 4 -P image3d_face.py -- out/patient11.glb front.png`: 조명 없는 정사영 정면(GLB x 0, y 1.51 중심, 0.22 m 정사각형, `MODELS.patient11.face`)을 찍는다.
+2. Codex가 같은 캔버스에 눈썹·눈·입만 바꾼 `expr_closed`(편히 감음), `expr_squeeze`(아파서 질끈), `expr_smile`(감고 미소), `expr_open`(놀라서 크게 뜸, "오" 입)을 그린다.
+3. `python3 image3d_expr.py <폴더> public/models/patient11`: 원본과 달라진 부분만 남긴 마스크(가장자리 페더)로 512 px RGBA webp를 만든다.
+
+게임(`realAssets.js` `faceDecals`)은 피부 메시에서 그 정사각형 안의 앞을 보는 삼각형을 복사하고, 같은 투영으로 UV를 준다. 이를 눈 쪽과 입 쪽으로 나눠 표정 가중치(`faceRig.js` `decalWeights`)만큼 페이드한다. 깜빡임도 같은 경로로 처리된다.
+
+손: 머리카락이 피부와 한 메시라서, 손 자세 측정이 귀 대신 12 cm 바깥의 머리카락을 잡아 손이 벌어지고 손목이 꺾였다. `MODELS.patient11.ear`는 피부색 정점에서 찾은 진짜 귀다. 목꺾기 손 자세는 patient07(같은 관리형 체형)의 값을 귀 기준으로 옮겨 쓰고(`borrowedPoses`), 손가락 접촉 보정이 머리카락 표면까지 손을 밀어낸다.
+
+한계: 표정이 그림 4장 사이의 페이드라서 중간 표정은 겹쳐 보일 수 있다. 목 아래로 늘어진 머리카락은 몸 쪽에 남아 목을 돌리면 끊겨 보인다. 팔은 A포즈 그대로다(Meshy 자동 리깅은 팔 뼈가 엉덩이에 붙어 팔을 돌리면 골반이 찌그러졌다).
+
+## 이미지 기반 환자 2: 마동철 (patient12, 2026-10-24)
+
+사용자: "마동철도 만들어보자. 코덱스한테 시안 가져오라해. 앞뒤좌우 3d 모델에 필요한 시안들 말이야." 최필라와 같은 절차를 따른다. 기준 시안은 체형 다양화 때 만든 마동철 정면이고, 4방향을 Tripo에 넣었다. 목꺾기에서 마동철 본인만 이 몸을 쓴다(`look.clinicModel`). 목뽑기와, 이 체형을 빌린 손님 근육왕·메가회장은 MPFB patient08을 그대로 쓴다. 손님은 `CAST_LOOK`이 MPFB의 머리카락·셔츠 재질을 칠하기 때문이다.
+
+목이 승모근에 묻혀 있어서 평면으로 자르면 안 된다. 1.40에서 자르면 머리 쪽에 승모근이 딸려 와서, 목을 돌리면 같이 휘두르고 가슴까지 늘어진다. 그래서 이렇게 한다.
+
+```
+blender -b -t 4 --python image3d_patient.py -- s2.glb patient12.glb body.glb patient12 1.65 1.45 0.12 0.14
+```
+
+- 1.45(턱선)에서 평면으로 자른다.
+- 그 위로는 세운 타원 벽(가로 0.12, 앞뒤 0.14, 수직 평면 32장, CUT+0.05까지) 안쪽만 머리가 된다. 턱 옆 승모근은 몸에 남는다.
+- 면을 통째로 나누기 때문에 두 조각의 테두리가 정확히 맞는다. 면 중심만 보고 나누면 큰 삼각형 때문에 테두리가 타원 밖 2배까지 들쭉날쭉해지고, 목을 돌릴 때 구멍이 생겨 베개가 보였다.
+
+게임 쪽 `MODELS.patient12.seam`(`{y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}`)은 같은 자름을 가리킨다.
+- `neckColumn`은 몸의 꼭대기(승모근)가 아니라 이 자름을 기준으로 가중치를 준다. 타원 벽은 가중치 1이고, 비틀림은 턱 아래 6 cm 안에서 끝난다.
+- meshopt 양자화된 위치는 `body` 뼈 역바인드로 미터로 되돌린다(뼈 머리 y 0.95).
+
+치수와 표정:
+- crown 1.6466, chin 1.4150(patient01 비율, 턱끝 1.45), back -0.13(뒤통수)
+- 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.54 0.24`, split 0.31(코와 입 사이)
+- 머리 360 KB, 몸 720 KB, 표정 webp 4장 약 65 KB
+
+## 이미지 기반 환자 3: 복순할매 (patient13, 2026-10-24)
+
+사용자: "이제 할머니도 해보자." 마동철과 같은 절차다. 기준 시안은 체형 다양화 때 만든 복순할매 정면이고, 입은 다물고 눈은 자연스럽게 뜨게 다시 그렸다(표정은 그림으로 덧입힌다). 목꺾기에서 복순할매 본인만 이 몸을 쓴다(`look.clinicModel`). 목뽑기와 이 체형을 빌린 손님 강해녀·사모님은 MPFB patient09 그대로다.
+
+등이 굽어 얼굴이 목보다 한참 앞에 있고 턱이 가슴에 거의 닿는다. 그래서 이렇게 한다.
+
+```
+blender -b -t 4 --python image3d_patient.py -- s2.glb patient13.glb body.glb patient13 1.49 1.21 0.10 0.12 -0.03
+```
+
+- 1.21(턱 밑)에서 평면으로 자른다. 키가 작아 목 뼈 시작은 CUT − 0.10이다(전에는 1.30 고정).
+- 타원 벽(가로 0.10, 앞뒤 0.12)을 얼굴 쪽으로 3 cm 옮긴다(9번째 인자 `cy`, Blender y). 가운데에 두면 턱과 입이 몸 쪽으로 잘려 나갔다.
+- 게임 쪽 `MODELS.patient13.seam`(`{y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05}`)의 `cz`가 같은 이동이다(GLB z, 얼굴 쪽 +).
+
+치수와 표정:
+- crown 1.4910, chin 1.1600(patient01 비율, 턱끝 1.21), back -0.20(굽은 윗등이 테이블에 닿는다. 뒤통수는 -0.16)
+- 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.31 0.22`, split 0.28(코와 입 사이)
+- 표정 그림은 1024 px(`image3d_expr.py` `SIZE`, 2026-10-24 512에서 올림). 게임은 노멀 방향이 아니라 앞 표면 깊이로 면을 고른다(`realAssets.js` `FRONT_DEPTH`): 눈두덩 면이 빠지면 뜬 눈이 비쳤다.
+- 뽀글이 머리·꽃무늬 때문에 텍스처가 무겁다. 노멀·ORM 1024(몸 512), webp 72로 머리 약 900 KB, 몸 약 700 KB
+
+## 이미지 기반 환자 4: 조멸치 (patient14, 2026-10-24)
+
+사용자: "멸치남자도 3D 모델 만들고 목꺾기만 일단 진행해. 눈 디테일 신경쓰고." 최필라와 같은 절차다. 기준 시안은 체형 다양화 때 만든 조멸치 정면이다. 목꺾기에서 조멸치 본인만 이 몸을 쓴다(`look.clinicModel`). 목뽑기와 손님 이마라톤·이스쿠터는 MPFB patient06 그대로다.
+
+- Tripo는 크레딧이 모자라 형태 standard, 텍스처 detailed로 돌렸다(형태는 어차피 4.5%로 줄인다).
+- 가는 목이 턱 밑에 드러나 평면으로 자른다: `image3d_patient.py -- s2.glb patient14.glb body.glb patient14 1.68 1.42`
+- crown 1.6801(뻗친 머리 꼭대기), chin 1.3931(patient01 비율, 턱끝 1.4365), back -0.15(어깨. 머리카락 뒤는 -0.16)
+- ear `[0.096, -0.021, 0.004]`: 피부색 꼭짓점에서 찾은 실제 귀(최필라와 같다, borrowedPoses)
+- 표정 사각형 `image3d_face.py -- head.glb front.png 0 1.515 0.22`, split 0.34(코와 입 사이)
+- 앞머리 판 지우기: 이마 앞으로 늘어진 앞머리가 피부색이 구워진 얇은 판이라, 표정 그림이 그 위에 덮이면 유리 파편처럼 보였다. `image3d_flaps.py -- patient14.glb out.glb 1.48 1.62 0.09 0.03`이 얼굴 앞 상자 안에서 머리 안쪽으로 쏜 광선이 3 cm 안에 피부를 맞히는 면(피부 앞에 뜬 판)을 지운다(1531면). 그 뒤에 resize·webp·meshopt.
+- 고친 정면(`expr_fix.png`): 앞머리를 지운 이마의 검은 얼룩·부스러기, 한쪽 눈의 흰 번짐과 가는 조각, 눈썹 얼룩, 콧구멍 반짝임을 Codex가 고쳤다. `image3d_expr.py`는 `expr_fix.png`가 있으면 같이 뽑고, 게임은 `MODELS.<id>.face.fix`이면 그것을 표정 그림 밑에 늘 덮는다. 표정 4장은 고친 얼굴 위에 그렸다.
+- 머리 약 430 KB, 몸 약 380 KB(노멀·ORM 1024 / 512, webp 72)
+
+## 이미지 기반 환자 눈 다시 그리기 (patient12~14, 2026-10-25)
+
+사용자: "눈깔이가 너무 괴기하지 않냐. 우리 한미녀가 진짜 롤 모델이다. 자연스럽게 눈 떠 있고 감고 깜빡이게 바꿔." Tripo가 구운 바탕 눈이 마동철은 반쯤 감김, 복순할매는 웃는 실눈이라 위에서 보면 늘 감은 것 같았고, 조멸치는 치뜬 눈에 아래 흰자와 붉은 다크서클이 커서 괴기했다.
+
+- 세 명 모두 `expr_fix.png`(자연스럽게 뜬 평상시 눈)를 Codex가 최필라 정면을 기준(롤모델)으로 다시 그렸고, `MODELS.patient12/13.face.fix`도 켰다(patient14는 원래 켜져 있었다).
+- 감은 눈·질끈·웃음·놀람 4장은 새 `expr_fix` 위에 눈·눈썹만 다시 그렸다. 감은 눈꺼풀은 뜬 눈 영역을 다 덮는다(깜빡임도 이 그림).
+- 입은 예전 표정 그림을 그대로 쓴다: 스크래치 `merge.py`가 split 선(위 새 그림 / 아래 예전 그림, 48 px 띠로 섞음)으로 합친 뒤 `image3d_expr.py`로 뽑았다.
+
+## 이미지 기반 환자를 다른 모드로 (patient11~14, 2026-10-25)
+
+사용자: "새로 추가한 4 캐릭터들 다른 게임에도 다 적용해봐. 목뽑기, 허리누르기, 허리비틀기". 원본(Tripo `raw.glb`, 줄인 `s2.glb`, 시안)과 rig.blend는 레포 밖 `~/Code/Chirophractic/asset-src/patientNN/`에 둔다(세션 스크래치는 지워진다).
+
+1. 전신 정규화: `blender -b -t 4 --python image3d_norm.py -- s2.glb full.glb <tall> <cut>`(image3d_patient.py와 같은 배율·회전·기울기·목 중심, 자르지 않음). patient14는 `image3d_flaps.py -- full.glb full_f.glb 1.48 1.62 0.09 0.03`을 한 번 더.
+2. 뼈: `blender -b -t 4 --python image3d_rig.py -- full.glb rig.blend patientNN [sheet.png]`. 가장 비슷한 MPFB 프리셋(07/08/09/06)의 game_engine 뼈를 키에 맞춘 뒤, 척추는 가운데 띠 단면(앞→뒤 62%), 무릎·발목은 다리 단면 중심, 팔은 몸통과 떨어진 단면을 이은 중심선(어깨는 양쪽 평균 폭, 피부 5 cm 안)에 MPFB 비율로 나눠 놓는다. 가중치는 복셀(12 mm) 프록시의 bone heat를 가장 가까운 면으로 복사한 뒤, 반대쪽 팔다리 뼈는 가운데 ±3 cm에서 페이드, 그 정점에서 가장 가까운 뼈보다 12 cm 넘게 먼 뼈는 지우고, 스무딩, 4본 제한. 시트는 쉼 자세와 팔 내림·무릎 굽힘·허리 비틀기.
+3. 허리누르기: `blender -b <rig.blend> --python back_image_patient.py -- patientNN out.glb back_surface_patientNN.json` → `resize 1024` → `webp 80` → `meshopt` → `public/models/back/`. 팔 벌림 `ARM_OUT`(마동철 0.30), 배가 가슴보다 3 cm 넘게 나오면 패드 면을 가슴·배 중간에 둔다.
+4. 허리비틀기: `blender -b --python side_patient.py -- <작업>/patient_raw.glb <작업>/marks.json <작업> rig.blend`(환자마다 다른 작업 폴더) → `resize 1024` → `webp 82` → `meshopt` → `public/models/side/patientNN.glb`, marks는 `patient_marks_patientNN.json`. 위쪽 손이 패드 밑으로 들어가면 손목을 위쪽으로 올리고(양쪽, `PATIENT_HAND_FIT`), 바닥 지지는 손을 뺀 몸으로 잰다. 무릎 위치 검사는 이 몸들에 맞지 않아 끄고 각도만 본다. 마동철은 골반이 패드 위 0.5 m라 넣지 않았다.
+5. 목뽑기 수건: `towel_sim.py` `MODELS`에 11~14 → 14명 다시 굽기 → `towel/towel_sim.glb`(webp 85, meshopt) → 위 "수건 모드" 재생성의 towel 줄 → `DETAIL_FILES=towel_sim towel_therapist_detail.mjs`. 마동철 `CHIN_EDGE` 0.075(목이 묻혀 X가 어깨를 감았다). 결과 1.55 MB / towel-stage 2.12 MB.
+   - 수건 위치·손잡기 고침(2026-10-26): 환자별 주먹 점 `GRIPS`(= `realAssets.js` `MODELS[id].towelGrip`, 턱각 옆 바깥 피부·머리카락에서 약 5 cm), 주먹 고정 행은 피부 밀어내기에서 제외(밀려서 손과 3~7 cm 어긋났다). 머리카락·승모근이 목에 붙은 필라·마동철·할매는 `NECK`(목 축 yc, 목 반지름 r, 턱 쪽 rj)으로 목을 정하고 그 구역 밖 껍데기를 충돌체·광선에서 뺀다. 수건 길이 `LENGTHS` 마동철 1.75 m, 할매 1.45 m. 마동철 `CHIN_EDGE` 0.075는 입이라 0.13(턱 밑). `PATH` 끝자락이 네 명 모두 양수인지 본다. `DETAIL_FILES` 단계는 `GLTF_MODULES`(gltf-transform이 든 node_modules)가 있어야 돈다.
 
 ## 환자 몸
 
@@ -97,7 +255,7 @@ $G meshopt a.glb ../../public/models/towel/towel.glb
 
 ## 수건 (천 시뮬레이션)
 
-`public/models/towel/towel_sim.glb`: 환자 5명 각각의 목에 X자로 감긴 흰 테리 목욕 수건. 절차적으로 조각한 띠(`towel.glb`)가 "깁스 같다"는 지적(2026-10-15)을 받아, 실제 3D 수건 모델처럼 천 시뮬레이션 + 사진 기반 테리 텍스처로 다시 만들었다.
+`public/models/towel/towel_sim.glb`: 환자 10명 각각의 목에 X자로 감긴 흰 테리 목욕 수건. 절차적으로 조각한 띠(`towel.glb`)가 "깁스 같다"는 지적(2026-10-15)을 받아, 실제 3D 수건 모델처럼 천 시뮬레이션 + 사진 기반 테리 텍스처로 다시 만들었다.
 
 텍스처: Poly Haven "Terry Cloth"(CC0, https://polyhaven.com/a/terry_cloth, 사진 colormass, 처리 Rico Cilliers) 2k PNG 세 장을 한 폴더에 받는다.
 ```
@@ -111,9 +269,9 @@ $G meshopt a.glb ../../public/models/towel/towel_sim.glb
 
 만드는 법:
 - 환자 머리·몸 GLB를 불러 `realAssets.js` `glbRoot(MODELS[id])`와 같은 변환으로 three.js `head` 그룹의 로컬 좌표(+y 얼굴, -z 정수리·치료사, +z 발, +x 치료사 왼손)에 놓는다. 그래서 GLB를 변환 없이 `head`의 자식으로 붙이면 맞는다(meshopt 양자화가 메시 노드마다 넣는 이동·배율은 그대로 둔다).
-- 머리·목 피부에 광선을 쏴 턱 밑 경계와 목 둘레를 재고, 수건 길을 두 번 깐다. 가운데는 뒤통수 아래 목 뒤, 왼손으로 가는 끝은 목 오른쪽을 돌아 턱 밑에서 다른 끝 위로 X자로 겹친 뒤 왼쪽 턱선을 따라 왼손 주먹(`TOWEL_GRIP` (0.118, 0.03, 0.035))으로, 오른손 끝은 거울. 주먹 안 3.5 cm는 좁게 모여 고정되고 나머지 끝자락은 주먹 밖으로 늘어진다. 당긴 상태(taut)는 주먹이 `TOWEL_PULL` 0.06 m만큼 -z로 가고 고리가 뒤통수·턱 쪽으로 조여진다.
+- 머리·목 피부에 광선을 쏴 턱 밑 경계와 목 둘레를 재고, 수건 길을 두 번 깐다. 가운데는 뒤통수 아래 목 뒤, 왼손으로 가는 끝은 목 오른쪽을 돌아 턱 밑에서 다른 끝 위로 X자로 겹친 뒤 왼쪽 턱선을 따라 왼손 주먹(`TOWEL_GRIP` (0.118, 0.03, 0.035), 이미지 기반 환자는 `GRIPS`)으로, 오른손 끝은 거울. 주먹 안 3.5 cm는 좁게 모여 고정되고 나머지 끝자락은 주먹 밖으로 늘어진다. 당긴 상태(taut)는 주먹이 `TOWEL_PULL` 0.06 m만큼 -z로 가고 고리가 뒤통수·턱 쪽으로 조여진다.
 - Blender 천 시뮬레이션: 그 두 모양을 목표로 부드러운 목표 스프링(주먹은 단단히, 감긴 부분은 약하게, 끝자락은 없음)으로 걸고 중력·머리/목/셔츠 충돌·머리 받침·게임의 베개와 테이블 윗면 위에서 가라앉힌 뒤, 목표를 느슨함 → 당김으로 바꿔 다시 가라앉힌다. 처짐·접힘·끝자락이 늘어지는 모양은 시뮬레이션에서 나온다. Blender 천은 센티미터 크기에서 불안정해서 10배로 키워 돌리고, 자기 충돌은 이 크기에서 떨리기만 해서 끄고, 시뮬레이션 뒤 위 끝을 아래 끝 위로 들어 올려 겹을 정리하고 피부에서 띄운다.
-- 두 상태 모두 같은 위상으로 두께 7 mm(테리 세 겹) 닫힌 띠로 만든다(위·아래 면, 둥근 접힌 가장자리, 막힌 끝). 메시 `towel_patient01`~`05`, 쉼 = 느슨함, 모프 타깃 `taut` 하나. 각 약 7k 삼각형, 루트 노드 `towel_sim`.
+- 두 상태 모두 같은 위상으로 두께 7 mm(테리 세 겹) 닫힌 띠로 만든다(위·아래 면, 둥근 접힌 가장자리, 막힌 끝). 메시 `towel_patient01`~`10`, 쉼 = 느슨함, 모프 타깃 `taut` 하나. 각 약 7k 삼각형, 루트 노드 `towel_sim`.
 - 재질 `towel.cloth`: 사진 테리 텍스처의 밝기로 만든 미색(#f2efe8) 알베도 + 노멀 맵(1024, 실제 크기로 반복: 한 장 = 0.367 m), 거칠기 0.95, sheen. 끝에서 5.5~9 cm에 조금 회색인 도비 띠와 끝단 헴을 정점 색(COLOR_0)으로 넣었다.
 - 로그: `LANDMARKS`(턱 밑 경계·목 둘레), `PATH`(목 뒤 → 주먹 길이와 남는 끝자락), `CLEAR`(피부까지 거리, 음수는 파묻힘), `END`(끝자락 끝 위치). 당긴 상태에서 주먹 옆 끝자락 몇 정점이 귀 근처에 파묻힌다(`INSIDE`, 주먹·손에 가려지는 자리).
 - 수건 길이 1.30 m, 띠 폭 7 cm(목 앞·턱선에서는 모여 3.5 cm). 이 환자 모델들은 턱 밑에서 어깨까지 목이 4~6 cm라 더 넓은 띠는 목을 다 덮어 X가 안 보인다. 짧은 수건은 X로 감고 나면 주먹 밖으로 남는 끝이 없다.

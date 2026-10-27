@@ -17,8 +17,9 @@ import { tone, vib, crunch } from "../audio/audio.js";
 import { say, hideSpeech, headScreen, projectHead, floater } from "../ui/hud.js";
 import { drawRing } from "../ui/ring.js";
 import { live, aimHist } from "../input/motion.js";
-import { realHeadActive, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
+import { realHeadActive, paintedFace, updateRealFace, updateRealHands, updateRealBody, disableRealArms, towelGrips } from "../scene/realAssets.js";
 import { updateTowel } from "../scene/towel.js";
+import { neckModel } from "../scene/look.js";
 import { updateTherapist, therapistShoulder } from "../scene/therapist.js";
 import { towelTension } from "../core/towel.js";
 import { updateBreathFx } from "../scene/breathFx.js";
@@ -162,7 +163,7 @@ export function frame(now){
   mats.headSkin.emissiveIntensity = zone ? 0.14 : c*0.05;
 
   // face
-  const f = face(), pf = primitiveFace(f);
+  const f = face() === "rest" && paintedFace() ? "idle" : face(), pf = primitiveFace(f);
   const eyesOpenNow = faceEyesOpen(f);
   if(now > blinkAt){ blinkAt = now + 2500 + Math.random()*2500; }
   const blinking = eyesOpenNow && blinkAt - now > 2350 && blinkAt - now < 2500;
@@ -279,7 +280,7 @@ export function frame(now){
   }catch(err){ disableRealArms(err); }
   const tnow = towelTension(cur.bend), lim = S.towel ? S.towel.limit : 1;
   updateTowel(towel && S.phase === "play", towelGrips(), S.slipAt ? (now - S.slipAt)/1000 : -1, fall > 0.01 ? 0 : tnow, clamp((tnow - lim + 0.15)/0.15, 0, 1), now/1000,
-    target && target.look ? target.look.model : "");
+    target && target.look ? neckModel(target.look) || "" : "");
 
   // therapist forearms (primitive fallback) follow the hands; hidden while the realistic arms show
   if(forearms[0].m.visible) forearms.forEach((f,i)=>{

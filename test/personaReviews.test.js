@@ -8,7 +8,7 @@ import { CAST } from "../src/patient/cast.js";
 describe("persona reviews", () => {
   const names = [...ROSTER.map(p => p.name), ...CAST.map(p => p.name)];
   it("every roster and cast patient has own good and rough reviews", () => {
-    expect(names.length).toBe(34);
+    expect(names.length).toBe(40);
     names.forEach(n => {
       expect(PERSONA_REVIEWS[n], n).toBeTruthy();
       expect(PERSONA_REVIEWS[n].good.length, n).toBeGreaterThanOrEqual(5);

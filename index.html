@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#17312c">
 <title>뚝 카이로 클리닉</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
@@ -30,7 +31,7 @@
     <div class="side">
       <div class="stat">
         <div class="score"><small>점수</small><span id="score">0</span></div>
-        <div class="pain">통증 <i></i><i></i><i></i><i hidden></i></div>
+        <div class="pain" aria-label="통증 0회 / 3회">통증 <i></i><i></i><i></i><i hidden></i></div>
         <div class="combo" id="combo"></div>
       </div>
       <div class="tools">
@@ -172,6 +173,10 @@
           <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 20c4 0 4-6 8-6s4 6 8 6 4-6 10-6"/><path d="M4 27h26"/></svg>
           <div>환자가 <b>숨을 내쉴 때</b> 하면 보너스. 환자마다 성격이 달라요.</div>
         </li>
+        <li class="how-fail">
+          <svg viewBox="0 0 34 34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 5l13 23H4z"/><path d="M17 14v6M17 24v.5"/></svg>
+          <div>빗나가면 통증 +1 · 금·골절은 바로 구급차</div>
+        </li>
       </ul>
     </div>
   </div>
@@ -195,7 +200,7 @@
 
   <div class="overlay" id="days" hidden>
     <div class="card days">
-      <div><div class="sub">영업 일지</div><div class="ch-tabs" id="chTabs"></div><div class="lead-row"><p class="days-lead" id="chLead">월세 내는 날까지 버텨요</p><button class="ch-interlude" id="chInterlude" type="button" hidden>막간</button></div></div>
+      <div><div class="sub">영업 일지</div><div class="ch-tabs" id="chTabs"></div><div class="lead-row"><p class="days-lead" id="chLead">월세 내는 날까지 버텨요</p><button class="ch-interlude" id="chInterlude" type="button" hidden>막간</button><button class="ch-interlude" id="chEnding" type="button" hidden>엔딩 다시 보기</button></div></div>
       <ol id="dayList"></ol>
       <div class="camp-row gated">
         <button class="btn ghost campaign-btn" id="daysNight" type="button" disabled hidden>심야 진료<small id="daysNightSub">56일 다 깨면 열려요</small></button>

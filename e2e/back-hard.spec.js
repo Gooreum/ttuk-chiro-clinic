@@ -45,7 +45,7 @@ test("허리펴기 역경: 사연 카드에서 역경 시작이 &hard=1로 넘�
     });
     await page.waitForTimeout(500);
   }
-  await expect(page.locator("#backResultTitle")).toContainText("역경");
+  await expect(page.locator("#backRdate")).toContainText("역경");   // the day line over the verdict title (영업 일지 · 3장 1일차 역경 …)
   const hard = await page.evaluate(() => JSON.parse(localStorage.getItem("chiroCampaign")).hard);
   expect(hard && hard[14]).toBeGreaterThan(0);   // 역경 stars go to chiroCampaign.hard
   await Promise.all([page.waitForURL(/index\.html\?story=14&hard=1/), page.click("#backAgain")]);

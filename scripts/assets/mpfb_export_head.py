@@ -30,7 +30,7 @@ UNITS=["eye-left-closure","eye-right-closure","eye-left-slit","eye-right-slit",
        "nose-left-elevation","nose-right-elevation","mouth-protusion","mouth-eversion",
        "nose-left-dilatation","nose-right-dilatation"]      # nostrils flare on the in-breath
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from patients import PATIENTS
+from patients import PATIENTS, fit_scale, CHIN_TIP
 body=[o for o in bpy.data.objects if o.name.endswith(".body")][0]
 PID=body.get("patient_id", "patient01"); PRE=PATIENTS[PID]
 BROW, LASH, HAIR = PRE["eyebrows"], PRE["eyelashes"], PRE["hair"]
@@ -119,13 +119,14 @@ for gname in ["HelperGeometry","JointCubes"]:
             if any(e.group==gi and e.weight>0 for e in v.groups): helper.add(v.index)
 bodyverts=[v for v in body.data.vertices if v.index not in helper]
 top=max((mw@v.co).z for v in bodyverts)
-CUT=top-0.30
-print("TOP",round(top,4),"CUT",round(CUT,4))
+K=fit_scale(PID, top, (mw@body.data.vertices[CHIN_TIP].co).z)     # 1.0 for adult-sized heads (patients.py)
+CUT=top-0.30*K
+print("TOP",round(top,4),"CUT",round(CUT,4),"FIT",round(K,4))
 bpy.context.view_layer.objects.active=body
 bpy.ops.object.mode_set(mode="EDIT"); bm=bmesh.from_edit_mesh(body.data); bm.verts.ensure_lookup_table()
 def gone(v):
     w=mw@v.co
-    return w.z < CUT or (w.z < top-0.225 and abs(w.x) > 0.072)   # keep the neck, drop shoulders/trapezius
+    return w.z < CUT or (w.z < top-0.225*K and abs(w.x) > 0.072*K)   # keep the neck, drop shoulders/trapezius
 kill=[bm.verts[i] for i in range(len(bm.verts)) if i in helper or gone(bm.verts[i])]
 bmesh.ops.delete(bm, geom=kill, context="VERTS"); bmesh.update_edit_mesh(body.data); bpy.ops.object.mode_set(mode="OBJECT")
 print("HEAD VERTS", len(body.data.vertices), "TRIS", sum(len(p.vertices)-2 for p in body.data.polygons))
@@ -214,7 +215,7 @@ skin=me.materials[0]; src_img=tex_node(skin).image
 mw=body.matrix_world
 def inside(p):
     c=mw@p.center; n=(mw.to_3x3()@p.normal).normalized()
-    return abs(c.x)<0.032 and LIP_Z-0.025 < c.z < LIP_Z+0.016 and c.y > LIP_Y+0.004 and n.y > -0.3
+    return abs(c.x)<0.032*K and LIP_Z-0.025*K < c.z < LIP_Z+0.016*K and c.y > LIP_Y+0.004*K and n.y > -0.3
 # UV islands of the original map (faces joined across edges whose two uv corners match); an island that is
 # mostly inside the mouth is mouth cavity and gets the dark treatment as a whole
 uvo=me.uv_layers["UVOrig"].data
@@ -243,7 +244,7 @@ body["_bake_idx"]=idx
 print("MOUTH interior faces", sum(idx))
 img=bpy.data.images.new(PID+"_skin", BAKE, BAKE, alpha=False)
 mA=emit_mat("bk_skin", src_img, "UVOrig", img, AO_MIX, 1.0)
-mB=emit_mat("bk_mouth", src_img, "UVOrig", img, AO_MIX, 1.0, depth=(LIP_Y+0.004, LIP_Y+0.03, 0.75, 0.10))
+mB=emit_mat("bk_mouth", src_img, "UVOrig", img, AO_MIX, 1.0, depth=(LIP_Y+0.004*K, LIP_Y+0.03*K, 0.75, 0.10))
 bake(body, [mA,mB], BAKE, PID+"_skin", hide=cards)
 nt=skin.node_tree; b=bsdf(skin)
 for n in list(nt.nodes):
@@ -331,7 +332,7 @@ used={i for p in body.data.polygons for i in p.vertices}      # loose verts are 
 ws=[mw@body.data.vertices[i].co for i in used]
 # "chin" as realAssets.js uses it (GLB.chin 1.358): lowest centre-line point in front of y -0.07, which lands on the
 # jaw/neck line; the bony chin tip itself sits higher (front of y -0.1 gives ~1.401)
-chin=min(p.z for p in ws if p.y < -0.07 and abs(p.x) < 0.02)
+chin=min(p.z for p in ws if p.y < -0.07*K and abs(p.x) < 0.02*K)
 print("MEASURE (GLB space) crown y %.4f  chin y %.4f  back of skull z %.4f" % (max(p.z for p in ws), chin, -max(p.y for p in ws)))
 bpy.ops.export_scene.gltf(filepath=OUT, export_format="GLB", use_selection=True, export_morph=True, export_morph_normal=True,
     export_apply=False, export_yup=True, export_texcoords=True, export_normals=True, export_materials="EXPORT", export_image_format="AUTO")

@@ -40,7 +40,7 @@ def run_patient(f):
 
 if __name__=='__main__':
  from concurrent.futures import ProcessPoolExecutor,as_completed
- files=sorted(P.glob('patient0*-collision.json'))
+ files=sorted(P.glob('patient[0-9][0-9]*-collision.json'))
  if len(sys.argv)>2:files=[f for f in files if f.name.startswith(sys.argv[2])]
  if not files:raise SystemExit('No collision exports found; run patient_rest_hands.mjs first.')
  report=[]

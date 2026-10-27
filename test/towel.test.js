@@ -236,7 +236,10 @@ describe("an over-pull ends on an ambulance", () => {
   });
   it("skew has a stamp, a chip, lines and reviews", () => {
     expect(TOWEL_STAMP.skew).toBeTruthy();
-    expect(towelTags(["skew", "skew"])).toEqual(["삐끗 ×2"]);
+    expect(towelTags(["skew", "skew"])).toEqual(["삐끗 ×2"]);   // no tiers: the old label
+    // with tiers the chip says crack or break (the dex id stays t-skew)
+    expect(towelTags(["skew", "slip", "skew", "skew"], [1, 0, 2, 1])).toEqual(["헛당김 ×1", "중심 금 ×2", "중심 골절 ×1"]);
+    expect(towelTags(["over", "taut"], [0, 1])).toEqual(["엿가락 ×1", "금 ×1"]);
     for(const p of ROSTER) expect(towelLine(p.name, "skew")).toBeTruthy();
     expect(towelReview({stars: 2, fails: ["skew"]}, () => 0)).toBe(TOWEL_REVIEWS.skew[0]);
   });

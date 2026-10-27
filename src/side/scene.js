@@ -29,7 +29,7 @@ import {therapistStyle} from "../back/therapistMotion.js";
      goal       {height, roll} the target ring */
 
 const BASE = import.meta.env.BASE_URL + "models/side/";
-const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x7fd1b9};
+const COL = {room: 0x17312c, paper: 0xf4efe4, coral: 0xff7a59, mint: 0x8adfbf};   // ui/clinic-hud.css tokens (mint = --mint, as in back/scene.js)
 const CAM_ELEV = 40, CAM_AZ = 128, CAM_FOV = 38;
 export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
@@ -53,7 +53,10 @@ function liftShade(map, keep){
   return t;
 }
 
-export async function createSideScene(canvas){
+/* view.model: an image-to-3D patient's side-lying body (side/patientNN.glb + patient_marks_patientNN.json,
+   side_patient.py with its image3d_rig.py rig: the same skeleton and clips); none = Patient01 (patient.glb) */
+export async function createSideScene(canvas, view = {}){
+  const model = view.model || null;
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, powerPreference: "high-performance"});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -76,13 +79,22 @@ export async function createSideScene(canvas){
   const rim = new THREE.DirectionalLight(COL.mint, .16); rim.position.set(0, 1.4, 2); scene.add(rim);
 
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-  const [pg, tg, room, marks] = await Promise.all([
-    loadGLB(loader, BASE + "patient.glb"),
+  const json = name => fetch(BASE + name).then(r => { if(!r.ok) throw new Error(name + " " + r.status); return r.json(); });
+  const [pg, tg, room, marks, baseMarks] = await Promise.all([
+    loadGLB(loader, BASE + (model ? model + ".glb" : "patient.glb")),
     loadGLB(loader, BASE + "therapist.glb"),
     loadGLB(loader, import.meta.env.BASE_URL + "models/towel-stage/room.glb"),
-    fetch(BASE + "patient_marks.json").then(r => { if(!r.ok) throw new Error("patient_marks.json " + r.status); return r.json(); }),
+    json(model ? `patient_marks_${model}.json` : "patient_marks.json"),
+    model ? json("patient_marks.json") : null,
     document.fonts.ready
   ]);
+  // the therapist was baked against Patient01 (side_therapist.py): stand him off by how far this body's shoulder and hip
+  // sit from Patient01's (마동철's torso is a third deeper), per side
+  const THER_X = {L: 0, R: 0};
+  if(baseMarks) for(const [sd, clipName] of [["L", "lieL"], ["R", "lieR"]]){
+    const m = marks.clips[clipName], b = baseMarks.clips[clipName], x = c => (c[`mark_shoulder_${sd}`][0] + c[`mark_hip_${sd}`][0])/2;
+    THER_X[sd] = x(m) - x(b);
+  }
   const suite = room.scene; suite.position.y = -.022; scene.add(suite);
   suite.traverse(o => { if(o.isMesh){ o.castShadow = o.receiveShadow = true; if(o.material) o.material.envMapIntensity = .16; } });
   const xray = await createSideXray({scene, camera, env, renderer});
@@ -125,6 +137,11 @@ export async function createSideScene(canvas){
   }
   const patient = pg.scene, ther = tg.scene;
   const pBones = prepare(patient, /short02|hair/i), tBones = prepare(ther, /short04|hair/i);
+  // an image patient's body (view.model) must bring the whole game_engine rig the twist, the flail and the palms use
+  const NEED = ["pelvis", "spine_01", "spine_02", "spine_03", "head", "thigh_l", "thigh_r", "calf_l", "calf_r", "foot_l", "foot_r",
+    ...["l", "r"].flatMap(sd => ["upperarm", "lowerarm", "hand", "index_01", "middle_01", "pinky_01"].map(b => b + "_" + sd))];
+  const missing = NEED.filter(n => !pBones[n]);
+  if(missing.length) throw new Error(`side patient ${model || "patient.glb"} lacks bones: ${missing.join(", ")}`);
   const patientRoot = new THREE.Group(); patientRoot.add(patient); scene.add(patientRoot);
   const therRoot = new THREE.Group(); therRoot.add(ther); scene.add(therRoot);
   const pMix = new THREE.AnimationMixer(patient), tMix = new THREE.AnimationMixer(ther);
@@ -152,7 +169,7 @@ export async function createSideScene(canvas){
       for(const f of ["foot_l", "foot_r", "ball_l", "ball_r"]) if(pBones[f]) footMax = Math.max(footMax, pBones[f].getWorldPosition(_hp).z);
     }
   }
-  const CROWN = .22;          // head bone (skull base) to the crown, plus a little pillow room
+  const CROWN = marks.crown ?? .22;          // head bone (skull base) to the crown, plus a little pillow room (an image patient's own)
   const BED_SHIFT = Math.max(0, pad.min.z + .04 - (headMin - CROWN));
   patient.position.z = ther.position.z = BED_SHIFT;
   const bed = {pad: [pad.min.z, pad.max.z], head: headMin - CROWN + BED_SHIFT, foot: footMax + BED_SHIFT, shift: BED_SHIFT};
@@ -203,6 +220,13 @@ export async function createSideScene(canvas){
   // ---- the lumbar aim line on the patient's back, from the rig's L4/5 skin marker ----
   const L4 = {L: new THREE.Vector3(...marks.clips.lieL.mark_l4_L), R: new THREE.Vector3(...marks.clips.lieR.mark_l4_R)};
   L4.L.z += BED_SHIFT; L4.R.z += BED_SHIFT;
+  // skin of the back to the vertebral bodies: Patient01's constant, or an image patient's own (its L4/5 skin mark to the
+  // spine_01 bone, lying on its left; 마동철-sized backs are deeper)
+  let spineDepth = SPINE_DEPTH;
+  if(model){
+    curP = pose(pMix, P, "lieL", curP, 0); patient.updateMatrixWorld(true);
+    spineDepth = Math.abs(L4.L.x - pBones.spine_01.getWorldPosition(_hp).x);
+  }
   const SPINE_Z0 = -.13, SPINE_LEN = .18;      // L1 .. L5 runs this far along z around the L4/5 marker
   const spinePoint = (side, h) => { const p = L4[side].clone(); p.z += SPINE_Z0 + clamp01(h)*SPINE_LEN; p.x -= facing(side)*.035; return p; };
 
@@ -244,7 +268,8 @@ export async function createSideScene(canvas){
     const f = facing(side), other = side === "L" ? "R" : "L";
     // a paused action does not rewrite its bones every update, so undo last frame's nudges before re-posing
     for(const [b, q] of nudged) b.quaternion.copy(q);
-    patientRoot.position.set(0, 0, 0); patientRoot.rotation.set(0, 0, 0); therRoot.position.set(0, 0, 0);
+    const therX = roll != null ? THER_X[side] + (THER_X[other] - THER_X[side])*clamp01(roll/1.6) : THER_X[side];
+    patientRoot.position.set(0, 0, 0); patientRoot.rotation.set(0, 0, 0); therRoot.position.set(therX, 0, 0);
     // body poses from the baked clips; the roll-over plays its clip at an exact time
     if(roll != null){
       curP = pose(pMix, P, "roll" + side + other, curP, roll);
@@ -278,7 +303,7 @@ export async function createSideScene(canvas){
       worldRotate(tBones.neck_01, -f*D(10)); worldRotate(tBones.head, -f*D(20));
       worldRotate(tBones.spine_01, f*lean*.6); worldRotate(tBones.spine_02, f*lean*.4);
       const floor = Math.min(0, pad.max.y + .035 - tBones.pelvis.getWorldPosition(centre).y);
-      therRoot.position.set(-f*drop*(forceTier ? .045 : .022), Math.max(floor, wind*.02*(kind === "weak" ? .4 : 1) - drop*.05), (clamp01(height) - .5)*.08);
+      therRoot.position.set(therX - f*drop*(forceTier ? .045 : .022), Math.max(floor, wind*.02*(kind === "weak" ? .4 : 1) - drop*.05), (clamp01(height) - .5)*.08);
     }
     patientRoot.position.y = -Math.max(0, impulse)*.006;
     // exit gags: both sides perfect -> he spins up off the table like a swivel chair; lopsided -> he stays wrung out
@@ -376,7 +401,7 @@ export async function createSideScene(canvas){
     for(const m of fades){ m.opacity = 1 - film*.82; m.depthWrite = film < .05; }
     renderer.toneMappingExposure = 1 - film*.35;
     scene.background.copy(roomBackground).lerp(xrayBackground, film*.85);
-    const anchor = spinePoint(side, xrayState?.height ?? height); anchor.x += f*SPINE_DEPTH;
+    const anchor = spinePoint(side, xrayState?.height ?? height); anchor.x += f*spineDepth;
     const released = xray.update({film, side, anchor, ...(xrayState || {})});
 
     // camera: side L from -x, side R from +x; the roll-over swings over the foot end and pulls back/up

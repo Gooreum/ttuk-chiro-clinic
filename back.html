@@ -50,17 +50,24 @@
         <li><b>02</b><div><b>좌우로 기울여</b> 손 위치를 맞추고, 폰 <b>앞쪽을 낮춰</b> 무게를 실어요.</div></li>
         <li><b>03</b><div>그 자리에서 <b>앞이나 뒤로 짧게 툭!</b> 밀어요.</div></li>
         <li><b>+15</b><div>환자가 <b>숨을 내쉴 때</b> 하면 보너스.</div></li>
+        <li><b>!</b><div>빗나가면 통증 +1 · 금·골절은 바로 구급차</div></li>
       </ol>
     </section>
   </div>
   <div class="overlay" id="backResult" hidden>
     <section class="card log">
-      <div><div class="sub">오늘의 진료 일지</div><h2 id="backResultTitle">허리까지 시원하게.</h2></div>
-      <div class="log-l"><p id="backReview"></p><div class="total"><span>합계</span><b id="backTotal">0</b></div>
-      <ul id="backResultSteps"></ul><div class="rank" id="backRank"></div></div>
-      <div class="log-r"><div class="newbest" id="backBest"></div>
-      <p id="backDayOutro" class="day-outro" hidden></p><a id="backNextDay" class="btn" href="index.html?days=1" hidden>다음 날</a><a id="backToDays" class="btn ghost" href="index.html?days=1" hidden>영업 일지</a>
-      <button id="backContinueAd" class="btn" type="button" hidden>광고 보고 이어하기</button><button id="backAgain" class="btn" type="button">한 번 더 두루룩</button><button id="backBuyAdFree" class="btn ghost buy" type="button" hidden>광고 제거</button><nav id="backResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav></div>
+      <div><div class="sub" id="backRdate">오늘의 진료 일지</div><h2 id="backResultTitle">허리까지 시원하게.</h2></div>
+      <ul id="backResultSteps"></ul>
+      <div class="total"><span>합계</span><b id="backTotal">0</b></div>
+      <div class="rank" id="backRank"></div>
+      <div class="newbest" id="backBest" hidden>최고 기록 경신!</div>
+      <p id="backDayOutro" class="day-outro" hidden></p>
+      <a id="backNextDay" class="btn" href="index.html?days=1" hidden>다음 날</a>
+      <button id="backContinueAd" class="btn" type="button" hidden>광고 보고 이어하기</button>
+      <button id="backAgain" class="btn" type="button">한 판 더</button>
+      <a id="backToDays" class="btn ghost" href="index.html?days=1" hidden>영업 일지</a>
+      <button id="backBuyAdFree" class="btn ghost buy" type="button" hidden>광고 제거</button>
+      <nav id="backResultClinics" class="clinic-switch" aria-label="다른 클리닉"></nav>
     </section>
   </div>
   <div class="sheet" id="backPaused" hidden role="dialog" aria-label="손맛 튜닝">

@@ -5,6 +5,7 @@ import { renderer, scene, camera, camBase, camLook } from "./renderer.js";
 import { mats } from "./materials.js";
 import { head, pivot, bodyParts, hands, handParts, forearms, xrayMats, crackFadeMats } from "./patientModel.js";
 import { expressionWeights } from "../core/faceRig.js";
+import { PAINTED, faceDecals, updateDecals } from "./faceDecals.js";
 import { flinchProfile } from "../core/fail.js";
 import { neckWeight, neckPinch, NECK_LEN, HEAD_NECK_LEN, UPPER_SHARE } from "../core/towel.js";
 import { clamp } from "../lib/math.js";
@@ -74,8 +75,55 @@ const MODELS = {
   patient02: {crown: 1.6154, chin: 1.3592, back: -0.0647},
   patient03: {crown: 1.6278, chin: 1.3606, back: -0.0611},
   patient04: {crown: 1.495, chin: 1.2016, back: -0.0559},
-  patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749}
+  patient05: {crown: 1.6113, chin: 1.3546, back: -0.0749},
+  patient06: {crown: 1.6273, chin: 1.3669, back: -0.0612},   // chin: see below (thin neck)
+  patient07: {crown: 1.5043, chin: 1.2129, back: -0.0539},
+  patient08: {crown: 1.6227, chin: 1.3551, back: -0.1139},   // chin: see below (thick neck)
+  patient09: {crown: 1.4897, chin: 1.1960, back: -0.0375},
+  patient10: {crown: 1.3196, chin: 1.0637, back: -0.0471},
+  // image-to-3D, see below; crown, chin and the painted face square: scene/faceDecals.js PAINTED
+  patient11: {...PAINTED.patient11, back: -0.045, ear: [0.072, 0.015, 0.027], towelGrip: [0.118, 0.03, 0.035]},
+  patient12: {...PAINTED.patient12, back: -0.13, seam: {y: 1.45, rx: 0.12, rz: 0.14, len: 0.06}, towelGrip: [0.165, 0.14, 0.075]},   // 마동철
+  patient13: {...PAINTED.patient13, back: -0.20, ear: [0.095, 0.045, 0.03], seam: {y: 1.21, rx: 0.10, rz: 0.12, cz: 0.03, len: 0.05},
+    towelGrip: [0.125, 0.115, 0.05]},                                                                                   // 복순할매
+  patient14: {...PAINTED.patient14, back: -0.15, ear: [0.096, -0.021, 0.004], twoSided: true, towelGrip: [0.108, 0.04, 0.035]}   // 조멸치
 };
+/* patient11 (최필라) is not an MPFB export: a Tripo multi-view mesh cut at mid-neck by hand (scripts/assets/README.md). Its
+   crown is the hair top, its chin is patient01's ratio from the chin tip (1.427), like 06/08. Its back is not the hair
+   (-0.083) but where the body lies on the table: the hair bulk held the head 4 cm up and the whole body floated over the
+   table, so the head sinks into the pillow a little instead. No towel-stage copy (that pipeline needs MPFB meshes and
+   drops the painted faces): 목뽑기 uses these clinic GLBs too, and the towel queue never asks for a stage copy (NO_STAGE).
+   ear: its real ear (head-local, s = +1), found on the skin-coloured vertices: the hair is the same mesh, so the hand
+   poses cannot measure it (borrowedPoses). face: the square its expression paintings cover (faceDecals). */
+/* patient12 (마동철, user: "마동철도 만들어보자", 2026-10-24): the same pipeline, but his neck is buried in the traps. A flat cut
+   took the traps beside the jaw along with the head (they swung with it), and its wide seam twisted the chest down to the
+   shirt. The head is cut at the jaw line (z 1.45) inside an upright elliptic wall up to the traps' top (seam: rx across, rz
+   front-back, the same as image3d_patient.py's); neckColumn weighs the body from that seam, the twist within seam.len.
+   face: the square of its expression paintings, split between the nose and the mouth (faceDecals, as for patient11).
+   Only 마동철 himself uses it, in both neck modes (look.clinicModel, 2026-10-25): the cast who borrow his build (근육왕,
+   메가회장, whose CAST_LOOK paints the MPFB hair and shirt) keep patient08. In 목뽑기 the seam stays on neckColumn's
+   stretch (updateRealBody): the towel's finer neck takes the body's top as the cut, and his traps rise above it. */
+/* patient13 (복순할매, user: "이제 할머니도 해보자", 2026-10-24): the same as patient12, but hunched, her face far ahead of
+   the neck and her chin almost on her chest. The cut sits under the chin (z 1.21) and the ellipse moves forward with the
+   face (seam.cz, GLB z) so the jaw goes with the head and the hump behind stays on the body. back: her upper back
+   (-0.22), not the back of her skull (-0.16), lies on the table. ear: under the perm, as for patient11 (borrowedPoses). Only she uses it (both neck modes): 강해녀, 사모님 keep
+   patient09. */
+/* face.fix on patient12, 13 (user: "눈깔이가 너무 괴기하지 않냐. 우리 한미녀가 진짜 롤 모델이다. 자연스럽게 눈 떠 있고 감고
+   깜빡이게", 2026-10-25): Tripo baked 마동철's eyes half shut and 복순할매's as a smiling slit, so from above they read as
+   always closed. Their expr_fix paints natural open eyes (patient11's as the model), and the four expressions are drawn
+   over it, so a blink closes those eyes. patient14's fix got the same open eyes (it stared up, red under the iris). */
+/* patient14 (조멸치, user: "멸치남자도 3D 모델 만들고 목꺾기만 일단 진행해. 눈 디테일 신경쓰고", 2026-10-24): the same as
+   patient11. His thin neck shows under the jaw, so a flat cut (z 1.42) does; the spiky hair is the crown, the chin is
+   patient01's ratio from the chin tip (1.4365), back is his shoulders (-0.15), not the hair. ear: under the hair, as for
+   patient11 (borrowedPoses). face.fix: the bangs were thin flaps with skin baked on (cut off, image3d_flaps.py) and the
+   scan left smudges on the brow and forehead, a smear on one eye and a glint in the nose, so a corrected front painting
+   (expr_fix) lies on the face all the time, under the expressions. twoSided: the cut flaps leave the hairline open. Only he uses it (both
+   neck modes): 이마라톤, 이스쿠터 keep patient06. */
+const NO_STAGE = new Set(["patient11", "patient12", "patient13", "patient14"]);
+/* patient06 (very thin neck) and patient08 (very thick neck): the MEASURE chin (lowest centre-line point in front of
+   y -0.07) lands on the underside of the jaw for one and low on the fat neck for the other, which would scale their heads
+   (and bodies) 17% up / 8% down. Their chin is instead crown - 0.267 x (crown - chin tip) / 0.2266, patient01's ratio,
+   so their heads come out patient01-sized (scripts/assets/README.md). */
 const PRIM = {crown: -0.134, chin: 0.142, back: -0.110};
 const TOWEL_REST_HEAD = head.position.clone();
 function glbRoot(g){
@@ -104,6 +152,9 @@ function placeHead(gltf, env, g, model){
         envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalScale.copy(src.normalScale); m.roughness = 0.6; m.sheen = 0.24; }
       m.emissive = new THREE.Color(0xff7a59); m.emissiveIntensity = 0; model.skin = m; model.skinMesh = o;
+      // twoSided: a hairline opened by image3d_flaps.py shows the hair behind, not the table. seam: the head piece is open
+      // under the jaw, and as 목뽑기 draws the neck out its inside shows by the jaw; culled, it was a see-through hole
+      if(g.twoSided || g.seam) m.side = THREE.DoubleSide;
     }
     else if(name.endsWith(".cornea")){
       // clear glossy shell over the eye: only reflections (catchlights), nothing diffuse
@@ -135,12 +186,12 @@ function placeHead(gltf, env, g, model){
     // into solid strips, so those two stay out of it (they are thin enough to read through anyway)
     if(!m.transparent) xrayMats.push(m);
   });
+  if(g.face && model.skinMesh && !model.towelStage) faceDecals(model, g.face, gltf.scene, BASE);   // scene/faceDecals.js
   root.add(gltf.scene);
   root.visible = false;
   head.add(root);
   return root;
 }
-
 /* ---- patient body ----
    Head space at rest = the pivot's rest position plus the head offset (the pivot has no rotation at rest), so a frame
    there plus the head's GLB root puts the body exactly under the head. Every frame the neck bone gets the pivot's
@@ -160,6 +211,9 @@ function placeBody(gltf, env, g, model){
       // plain standard skin: the body covers a lot of screen, the sheen of the face and hands would cost fill rate
       m = new THREE.MeshStandardMaterial({map: src.map, roughness: 0.58, metalness: 0, envMap: env, envMapIntensity: 0.22});
       if(model.towelStage){ m.normalMap = src.normalMap; m.normalScale.copy(src.normalScale); m.roughness = 0.65; }
+      // a seam cut at the jaw (patient12/13): the traps' inner slope beside the jaw turns over as the column draws out
+      // past it, and culled it left a see-through hole by the jaw in 목뽑기
+      if(g.seam) m.side = THREE.DoubleSide;
       m.userData.bodySkin = true;       // castTone() tints it with the head
       xrayMats.push(m);                 // the neck fades under the x-ray like the head
     }else{
@@ -230,19 +284,34 @@ const NECK_NORMAL = a => `  objectNormal.y *= 1.0 - clamp(uPinch*4.0, 0.0, 1.0)*
 function neckColumn(o, mat, model){
   const bones = o.skeleton.bones, ni = bones.findIndex(b => b.name === "neck"), bi = bones.findIndex(b => b.name === "body");
   if(ni < 0 || bi < 0) return;
-  const P = o.geometry.attributes.position, n = P.count;
-  let top = -Infinity;
-  for(let i = 0; i < n; i++) top = Math.max(top, P.getY(i));
-  let cx = 0, cz = 0, k = 0, R0 = 0;
-  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004){ cx += P.getX(i); cz += P.getZ(i); k++; }
-  cx /= k; cz /= k;
-  for(let i = 0; i < n; i++) if(P.getY(i) > top - 0.004) R0 += Math.hypot(P.getX(i) - cx, P.getZ(i) - cz)/k;
+  const P = o.geometry.attributes.position, n = P.count, seam = model && MODELS[model.id] && MODELS[model.id].seam;
+  let top = -Infinity, cx = 0, cz = 0, k = 0, R0 = 0, len;
+  let X = i => P.getX(i), Y = i => P.getY(i), Z = i => P.getZ(i);
+  let rOf = i => Math.hypot(X(i) - cx, Z(i) - cz);
+  if(seam){
+    // a neck buried in the traps (patient12): the cut, not the highest point (the traps beside the jaw rise past it); r is
+    // scaled across the seam's ellipse so its wall gets the full weight (r < NECK_IN R0), and the twist stays within
+    // seam.len under the jaw instead of NECK_LEN seam radii down the chest. In the export's metres: the quantized
+    // positions come back through the "body" bone's inverse bind (its head at y 0.95, image3d_patient.py).
+    const M = new THREE.Matrix4().makeTranslation(0, 0.95, 0).multiply(o.skeleton.boneInverses[bi]), q = new Float32Array(3*n), v = new THREE.Vector3();
+    for(let i = 0; i < n; i++) v.fromBufferAttribute(P, i).applyMatrix4(M).toArray(q, 3*i);
+    X = i => q[3*i]; Y = i => q[3*i + 1]; Z = i => q[3*i + 2];
+    const Rm = (seam.rx + seam.rz)/2;
+    top = seam.y; R0 = Rm/1.15; len = seam.len; cz = seam.cz || 0;       // cz: the ellipse sits ahead of a hunched neck (patient13)
+    rOf = i => Math.hypot(X(i)/seam.rx, (Z(i) - cz)/seam.rz)*Rm;
+  } else {
+    for(let i = 0; i < n; i++) top = Math.max(top, Y(i));
+    for(let i = 0; i < n; i++) if(Y(i) > top - 0.004){ cx += X(i); cz += Z(i); k++; }
+    cx /= k; cz /= k;
+    for(let i = 0; i < n; i++) if(Y(i) > top - 0.004) R0 += rOf(i)/k;
+    len = NECK_LEN*R0;
+  }
   const si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight, full = sw.normalized ? 255 : 1;
   const ws = new Float32Array(n), fixed = new Uint8Array(n);
   for(let i = 0; i < n; i++){
-    const r = Math.hypot(P.getX(i) - cx, P.getZ(i) - cz);
-    ws[i] = neckWeight((top - P.getY(i))/(NECK_LEN*R0), r, R0);
-    if(P.getY(i) > top - 0.004 || r > 2*R0) fixed[i] = 1;           // the seam ring stays on the head, the shoulders on the trunk
+    const r = rOf(i);
+    ws[i] = neckWeight((top - Y(i))/len, r, R0);
+    if(Y(i) > top - 0.004 || r > 2*R0) fixed[i] = 1;           // the seam ring stays on the head, the shoulders on the trunk
   }
   smoothWeights(o.geometry, ws, fixed, 4);
   const pinch = new Float32Array(n);
@@ -250,7 +319,9 @@ function neckColumn(o, mat, model){
     const w = ws[i];
     si.array.set([bi, ni, 0, 0], i*4);
     sw.array.set([Math.round((1 - w)*full), Math.round(w*full), 0, 0], i*4);
-    pinch[i] = w;
+    // a seam cut at the jaw (patient12/13): the head mesh has no upper neck to thin with it (neckHead), so the cut's ring
+    // and wall keep their size and only the column under them thins; pinched, they shrank inside the jaw and tore it open
+    pinch[i] = seam ? w*Math.min(1, Math.max(0, (top - Y(i))/(0.5*len))) : w;
   }
   si.needsUpdate = sw.needsUpdate = true;
   o.geometry.setAttribute("aPinch", new THREE.BufferAttribute(pinch, 1));
@@ -282,11 +353,21 @@ function neckHead(model){
   const bi = bo.skeleton.bones.findIndex(b => b.name === "body");
   model.neckBodyFrame = new THREE.Matrix4().multiplyMatrices(bo.skeleton.bones[bi].matrixWorld, bo.skeleton.boneInverses[bi])
     .multiply(bo.bindMatrix).invert().multiply(ho.matrixWorld);
-  let top = -Infinity;
-  for(let i = 0; i < BP.count; i++) top = Math.max(top, BP.getY(i));
+  // the seam ring: the body's top, or for a neck buried in the traps (MODELS.seam, patient12/13) the cut's ellipse, in the
+  // export's metres as in neckColumn (the traps beside the jaw rise past the cut)
+  const seam = MODELS[model.id] && MODELS[model.id].seam;
+  let onRing;
+  if(seam){
+    const M = new THREE.Matrix4().makeTranslation(0, 0.95, 0).multiply(bo.skeleton.boneInverses[bi]), v = new THREE.Vector3();
+    onRing = i => { v.fromBufferAttribute(BP, i).applyMatrix4(M); return Math.abs(v.y - seam.y) < 0.006 && Math.hypot(v.x/seam.rx, (v.z - (seam.cz || 0))/seam.rz) < 1.02; };
+  } else {
+    let top = -Infinity;
+    for(let i = 0; i < BP.count; i++) top = Math.max(top, BP.getY(i));
+    onRing = i => BP.getY(i) > top - 0.004;
+  }
   const ring = [];
   for(let i = 0; i < BP.count; i++){
-    if(BP.getY(i) <= top - 0.004) continue;
+    if(!onRing(i)) continue;
     const p0 = new THREE.Vector3().fromBufferAttribute(BP, i).applyMatrix4(bo.bindMatrix), acc = new THREE.Vector3();
     for(let k = 0; k < 4; k++){
       const w = SW.array[i*4 + k]/full, b = SI[i*4 + k];
@@ -298,6 +379,10 @@ function neckHead(model){
   if(!ring.length) return;
   const c = ring.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1/ring.length);
   const R0 = ring.reduce((a, p) => a + Math.hypot(p.x - c.x, p.z - c.z), 0)/ring.length;
+  // a seam cut at the jaw (patient12/13): above the ring is the jaw and the chin, not an upper neck. Lagged and pinched
+  // like one, the chin split from the jaw and the cut opened into black holes (user: "목 뽑히는것도 그래픽 다 깨지고",
+  // 2026-10-25). The head goes as one piece; the body's column takes the whole stretch (updateRealBody, no neckLag).
+  if(seam){ model.towelNeckFrame = {center: c, radius: R0}; seamContact(model); return; }
   const P = ho.geometry.attributes.position, aw = new Float32Array(P.count), fixed = new Uint8Array(P.count);
   for(let i = 0; i < P.count; i++){
     const r = Math.hypot(P.getX(i) - c.x, P.getZ(i) - c.z);
@@ -321,6 +406,41 @@ function neckHead(model){
   // Separate geometry/materials: clinic keeps its original skinning and shader byte for byte.
   model.towelNeckFrame = {center: c, radius: R0};
 }
+/* The head's open edge is not only the cut's ellipse: 복순할매's head piece reaches out over the traps' top (its rim lies
+   at 1.0..1.4 of the ellipse), where neckColumn leaves the body on the trunk, so the jaw pulled away from it and left a
+   see-through gap. Every body vertex near the head's open edge goes with the neck bone, easing off over SEAM_EASE (world
+   m) so the traps' top stretches instead of tearing. In world space at rest (neckHead's frame). */
+const SEAM_EASE = 0.025;
+function seamContact(model){
+  const bo = model.neckSkin, ho = model.skinMesh, HP = ho.geometry.attributes.position, hi = ho.geometry.index;
+  if(!hi) return;
+  const key = new Map(), weld = new Int32Array(HP.count);
+  for(let i = 0; i < HP.count; i++){
+    const k = Math.round(HP.getX(i)*1e4) + "," + Math.round(HP.getY(i)*1e4) + "," + Math.round(HP.getZ(i)*1e4);
+    if(!key.has(k)) key.set(k, i);
+    weld[i] = key.get(k);
+  }
+  const edges = new Map();
+  for(let f = 0; f < hi.count; f += 3) for(let e = 0; e < 3; e++){
+    const a = weld[hi.getX(f + e)], b = weld[hi.getX(f + (e + 1)%3)], k = a < b ? a*HP.count + b : b*HP.count + a;
+    edges.set(k, (edges.get(k) || 0) + 1);
+  }
+  const open = new Set();
+  edges.forEach((n, k) => { if(n === 1){ open.add(Math.floor(k/HP.count)); open.add(k%HP.count); } });
+  const bnd = [...open].map(i => new THREE.Vector3().fromBufferAttribute(HP, i).applyMatrix4(ho.matrixWorld));
+  if(!bnd.length) return;
+  const box = new THREE.Box3().setFromPoints(bnd).expandByScalar(SEAM_EASE);
+  const toWorld = new THREE.Matrix4().copy(ho.matrixWorld).multiply(new THREE.Matrix4().copy(model.neckBodyFrame).invert());
+  const BP = bo.geometry.attributes.position, sw = bo.geometry.attributes.skinWeight, full = sw.normalized ? 255 : 1, v = new THREE.Vector3();
+  for(let i = 0; i < BP.count; i++){
+    if(!box.containsPoint(v.fromBufferAttribute(BP, i).applyMatrix4(toWorld))) continue;
+    let d = Infinity;
+    for(const p of bnd) d = Math.min(d, p.distanceToSquared(v));
+    const w = 1 - THREE.MathUtils.smoothstep(Math.sqrt(d), 0.004, SEAM_EASE), w0 = sw.array[i*4 + 1]/full;
+    if(w > w0){ sw.array[i*4] = Math.round((1 - w)*full); sw.array[i*4 + 1] = Math.round(w*full); }
+  }
+  sw.needsUpdate = true;
+}
 const current = () => wantModel && (real.towelModels[wantModel] || real.models[wantModel]);
 const allModels = () => [...Object.values(real.models), ...Object.values(real.towelModels)];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
@@ -334,7 +454,8 @@ const BREATH_GAIN = 1;
 export function updateRealBody(fill, s = 0, body = s){
   const cur = current();
   if(!cur || !cur.body.visible) return;
-  if(S.game === "towel" && !cur.towelNeck && cur.towelNeckFrame){
+  // the towel's finer neck takes the body's top as its cut: a seam model (traps above the cut) keeps neckColumn's stretch
+  if(S.game === "towel" && !cur.towelNeck && cur.towelNeckFrame && !MODELS[cur.id]?.seam){
     const f = cur.towelNeckFrame;
     xrayMats.push(...prepareTowelNeck(cur, f.center, f.radius));
   }
@@ -354,7 +475,7 @@ export function updateRealBody(fill, s = 0, body = s){
 
 /* One patient's head + body. Resolves once both are placed (hidden); shows them if that patient is on the table. */
 function loadPatientModel(id, towelStage = false){
-  const model = {head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
+  const model = {id, head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
   const base = BASE + (towelStage ? "towel-stage/" : "");
   return Promise.all([load(base + `${id}/${id}.glb`), load(base + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
     const place = () => {
@@ -376,12 +497,23 @@ function loadPatientModel(id, towelStage = false){
     if(wantModel === id) setRealPatient(id, lastLook);
   });
 }
+/* Ten bodies are ~10 MB, so they come one at a time and the body on the table goes first: setRealPatient asks for its
+   model at once and the background queue always takes the wanted model before the next one in MODELS order. */
+const loading = {};
+const needModel = (id, towelStage = false) => loading[(towelStage ? "t:" : "") + id] || (loading[(towelStage ? "t:" : "") + id] = loadPatientModel(id, towelStage));
+function loadQueue(towelStage){
+  const next = () => {
+    const id = [wantModel, ...Object.keys(MODELS)].find(i => MODELS[i] && !(towelStage && NO_STAGE.has(i)) && !loading[(towelStage ? "t:" : "") + i]);
+    return id ? needModel(id, towelStage).catch(err => { console.warn("realistic patient not loaded, keeping primitives", id, err); }).then(next) : null;
+  };
+  return Promise.resolve().then(next);
+}
 let towelAssetsP = null;
 // Both suite modes share the detailed art; original models remain the asynchronous/failure fallback.
 function loadTowelCharacters(){
   if(towelAssetsP) return towelAssetsP;
   document.documentElement.dataset.towelCharacters = "loading";
-  const patients = Object.keys(MODELS).reduce((p, id) => p.then(() => loadPatientModel(id, true)), Promise.resolve());
+  const patients = loadQueue(true);
   const arms = Promise.all([load(BASE + "towel-stage/hands/arms.glb"), getEnv()]).then(([g, env]) => {
     withVisualIds(() => {
       const made = {}, matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env, true));
@@ -402,17 +534,15 @@ function loadTowelCharacters(){
   return towelAssetsP;
 }
 export function loadRealAssets(){
-  const [first, ...rest] = Object.keys(MODELS), t0 = performance.now();
-  loadPatientModel(first).then(() => {
+  const first = wantModel && MODELS[wantModel] ? wantModel : Object.keys(MODELS)[0], t0 = performance.now();
+  needModel(first).then(() => {
     document.documentElement.dataset.head = "ready";
     assetLoad("patient_first", true, t0);
   }).catch(err => {
     console.warn("realistic patient not loaded, keeping primitives", first, err);
     document.documentElement.dataset.head = "failed";
     assetLoad("patient_first", false, t0, err && err.message);
-  }).then(() => rest.reduce((p, id) => p.then(() => loadPatientModel(id).catch(err => {
-    console.warn("realistic patient not loaded, keeping primitives", id, err);
-  })), Promise.resolve()));
+  }).then(() => loadQueue(false));
   Promise.all([load(BASE + "hands/arms.glb"), getEnv()]).then(([g, env]) => {
     const made = {};
     const matFor = src => made[src.name] || (made[src.name] = armMaterial(src, env));
@@ -507,6 +637,10 @@ const POLES = {rest: [1, -0.6, -0.3], contact: [1, -0.45, -0.35], support: [1, -
 /* Towel mode (core/towel.js): a fist on each towel end beside the jaw (head-local, x mirrored), pulled toward the
    therapist (-z) by the tension, up to TOWEL_PULL. scene/towel.js runs the towel from here around the back of the neck. */
 export const TOWEL_GRIP = [0.118, 0.03, 0.035], TOWEL_PULL = 0.06;   // beside the jaw, where the chin sling's ends come up (reference video)
+/* towelGrip: the image-to-3D heads sit higher, wider or under more hair than the MPFB ones, and TOWEL_GRIP fell inside
+   마동철's cheek and 복순할매's perm (user: "진짜 수건 위치랑 잡는거 디테일하게 안할래", 2026-10-26). Each fist beside that
+   patient's own jaw angle; scripts/assets/towel_sim.py GRIPS bakes the towel's fists at the same point. */
+export const towelGripFor = id => (id && MODELS[id] && MODELS[id].towelGrip) || TOWEL_GRIP;
 
 /* Finger pose, rebuilt from the rest skeleton every frame. Every joint turns about an axis fixed in the hand frame,
    converted once into that bone's own rest frame: curl about fingers x normal (tips move toward the palm), spread
@@ -607,12 +741,18 @@ function placeArm(root, s, matFor, towelStage = false){
    Rays in head-local space toward the head's long axis (static rest geometry; the expression blendshapes are small).
    The ear on each side is the outermost skin vertex; the head's width scales the offsets. */
 const _rc = new THREE.Raycaster();
+const EAR_Z = [-0.08, 0.03];
 function measureHead(model){
   const clinic = S.game === "clinic", key = clinic ? "clinicHandPoses" : "handPoses";
   if(model[key] !== undefined) return model[key];
   model[key] = null;
   const src = model.skinMesh;
   if(!src) return null;
+  const ear = MODELS[model.id] && MODELS[model.id].ear;
+  if(clinic && ear){
+    model.clinicSurface = clinicSurface(src, head);
+    return model[key] = borrowedPoses(ear);
+  }
   head.updateMatrixWorld(true); src.updateWorldMatrix(true, false);
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", src.geometry.attributes.position);
@@ -626,6 +766,9 @@ function measureHead(model){
     let best = -1;
     for(let i = 0; i < pos.count; i++){
       p.fromBufferAttribute(pos, i).applyMatrix4(probe.matrixWorld);
+      // only the ear band (head-local z, patient01..05 ears at -0.04..-0.01): the heavy neck of 마동철 / 복순할매 below
+      // the jaw is wider than their ears, the poses then missed the head and the hands fell back to the capsules
+      if(p.z < EAR_Z[0] || p.z > EAR_Z[1]) continue;
       if(p.x*s > best){ best = p.x*s; ears[s] = p.clone(); }
     }
   });
@@ -647,7 +790,9 @@ function measureHead(model){
       const axis = new THREE.Vector3(0, E.y, E.z + P.dz*k);
       const out = new THREE.Vector3(s*Math.cos(P.around), -Math.sin(P.around), 0);
       const h = hit(axis.clone().addScaledVector(out, 0.3), out.clone().negate());
-      if(!h) return null;
+      // an image head the rays miss (마동철 in 목뽑기: the traps beside his jaw): patient07's poses off the measured ear,
+      // as for the heads with a known ear (borrowedPoses); without poses the realistic arms hide for the capsules
+      if(!h) return model[key] = PAINTED[model.id] ? borrowedPoses([Math.abs(ears[1].x), ears[1].y, ears[1].z]) : null;
       const nIn = h.n.clone().negate();
       const f = new THREE.Vector3(P.fingers[0]*s, P.fingers[1], P.fingers[2]);
       if(!clinic) f.addScaledVector(nIn, -f.dot(nIn));
@@ -659,6 +804,30 @@ function measureHead(model){
   g.dispose(); probe.material.dispose();
   if(clinic) model.clinicSurface = clinicSurface(src, head);
   return model[key] = poses;
+}
+/* A head whose hair is one mesh with its skin (patient11): the outermost point of its ear band is hair 12 cm out
+   (patient07: 7.6 cm), so measured poses sat 35% too wide on the lumpy hair and took its normals, which wrung the wrists
+   (user: "손목이 돌아가 있는 느낌", 2026-10-24). It takes patient07's clinic poses (the same build), measured as above and
+   carried over relative to the real ear; the contact fit then slides the hands out onto the hair.
+   Per pose, s = +1 (x mirrors for -1): [palm point - ear, palm normal into the head]. */
+const CLINIC_POSES_07 = {
+  rest:    [[0.0074, -0.0182, 0.0089], [-0.951, 0.248, -0.182]],
+  cup:     [[0.0056, -0.0327, -0.0070], [-0.966, 0.257, 0.006]],
+  contact: [[0.0114, -0.0177, 0.0430], [-0.871, 0.244, -0.427]],
+  support: [[0.0141, -0.0402, -0.0155], [-0.972, 0.234, 0.001]]
+};
+function borrowedPoses(ear){
+  const poses = {};
+  for(const s of [1, -1]){
+    const E = new THREE.Vector3(s*ear[0], ear[1], ear[2]);
+    poses[s] = {ear: E, k: 1};
+    for(const name of POSE_NAMES){
+      const [d, n] = CLINIC_POSES_07[name], P = CLINIC_HAND_POSES[name];
+      poses[s][name] = {p: new THREE.Vector3(s*d[0], d[1], d[2]).add(E), f: new THREE.Vector3(P.fingers[0]*s, P.fingers[1], P.fingers[2]).normalize(),
+        n: new THREE.Vector3(s*n[0], n[1], n[2]).normalize(), grip: P.grip, roll: P.roll};
+    }
+  }
+  return poses;
 }
 
 /* ---- the patient's chest, for the pat after both sides ----
@@ -971,7 +1140,8 @@ export function updateRealHands(st){
     if(!arm.seen) w.towel = st.towel ? 1 : 0;
     if(w.towel > 0.001){
       const sl = slipPose(st.slip).hand;
-      _v2.set(s*TOWEL_GRIP[0], TOWEL_GRIP[1], TOWEL_GRIP[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
+      const G = towelGripFor(wantModel);
+      _v2.set(s*G[0], G[1], G[2] - TOWEL_PULL*clamp(st.pull || 0, 0, 1)).applyMatrix4(head.matrixWorld);
       _v2.y -= 0.015*sl; _v2.z -= 0.16*sl; _v2.x += s*0.015*sl;
       // a fist round the towel end (user: "진짜 사람이 잡고 있는것처럼", 2026-10-15): the band runs through the palm, the
       // fingers point across it toward the table and curl round it, the thumb on top; the palm faces the head; the
@@ -1114,7 +1284,11 @@ function castTone(cur, look){
 /* Realistic head + body of patient `id` (null: primitives). */
 export function setRealPatient(id, look){
   wantModel = id; lastLook = look || lastLook;
-  if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")) loadTowelCharacters();
+  if(id && MODELS[id]) needModel(id).catch(() => {});   // the body on the table jumps the queue
+  if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")){
+    loadTowelCharacters();
+    if(id && MODELS[id] && !NO_STAGE.has(id)) needModel(id, true).catch(() => {});
+  }
   const cur = current();
   restorePrimitiveHead();
   allModels().forEach(m => { m.head.visible = m === cur; m.body.visible = m === cur; });
@@ -1129,6 +1303,8 @@ export function setRealPatient(id, look){
   syncArms();
 }
 export const realHeadActive = () => !!current();
+/* The head shows painted faces (image-to-3D, faceDecals): it rests with its eyes open (faceRig "idle"). */
+export const paintedFace = () => !!current()?.decals;
 
 /* Per frame from the loop: ease blendshapes toward the face state, and mirror the in-zone glow on the skin.
    t: seconds (the face's own motion), breathIn: 0..1 breath fill (nostrils). */
@@ -1144,4 +1320,5 @@ export function updateRealFace(face, blinking, k, glow, t = 0, breathIn = 0){
     }
   });
   if(cur.skin) cur.skin.emissiveIntensity = glow;
+  if(cur.decals) updateDecals(cur, w, k, glow);      // the x-ray fades the skin: the paintings fade with it
 }

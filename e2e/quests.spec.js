@@ -18,7 +18,7 @@ test("단골 의뢰: 게시판에서 이라이더 의뢰를 열어 완주하면 
   await expect(page.locator("#story")).toBeVisible();
   await expect(page.locator("#storyNo")).toHaveText("단골 의뢰 · 이라이더 1편");
   await expect(page.locator("#storyTitle")).toHaveText("배달 피크");
-  await expect(page.locator("#storyRules")).toContainText("통증 1번이면 영업 끝");
+  await expect(page.locator("#storyRules")).toContainText("통증 1번이면 끝");
   await expect(page.locator("#storyHard")).toBeHidden();
   await expect(page.locator("#storyGo")).toHaveText("의뢰 시작");
 
@@ -76,6 +76,6 @@ test("단골 의뢰: 3편은 2편을 깨야 열리고 완결 표시가 붙는다
   await page.click('#questList button[data-q="이라이더3"]');
   await expect(page.locator("#storyNo")).toHaveText("단골 의뢰 · 이라이더 3편 · 완결");
   await expect(page.locator("#storyTitle")).toHaveText("마지막 콜");
-  await expect(page.locator("#storyRules")).toContainText("통증 1번이면 영업 끝");
+  await expect(page.locator("#storyRules")).toContainText("통증 1번이면 끝");
   errs.check();
 });

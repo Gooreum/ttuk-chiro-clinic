@@ -5,7 +5,7 @@ import sys,json,io
 from pathlib import Path
 import numpy as np
 from PIL import Image,ImageFilter
-stem=Path(sys.argv[1]); data=json.loads(stem.with_suffix('.json').read_text()); pid=data['pid']; kind=data['kind']; idx=int(pid[-1]) if pid!='hands' else 0
+stem=Path(sys.argv[1]); data=json.loads(stem.with_suffix('.json').read_text()); pid=data['pid']; kind=data['kind']; idx=int(pid[-2:]) if pid!='hands' else 0
 im=Image.open(stem.with_suffix('.image')).convert('RGBA'); size=1024 if kind in ('face','skin') else 512;im=im.resize((size,size),Image.Resampling.LANCZOS)
 a=np.array(im).astype(float)/255
 rng=np.random.default_rng(321+idx)
@@ -27,7 +27,8 @@ x,y,z=np.moveaxis(np.nan_to_num(xyz),-1,0)
 room=np.array([23,49,44])/255;paper=np.array([244,239,228])/255;mint=np.array([138,223,191])/255;coral=np.array([255,122,89])/255
 if kind in ('shirt','sleeve','pants'):
  ao=a[:,:,:3].mean(2);ao=np.clip(.38+.62*ao,.25,1)
- base=np.empty((size,size,3));base[:]=room if kind in ('pants','sleeve') else [paper,room,coral,mint,paper][idx-1]
+ blush=paper*.62+coral*.38
+ base=np.empty((size,size,3));base[:]=room if kind in ('pants','sleeve') else [paper,room,coral,mint,paper,paper,blush,room,mint,coral][idx-1]
  if kind=='shirt':
   top=P[:,1].max(); front=z>np.median(P[:,2]); chest=(y>top-.24)&front
   if idx==1:
@@ -50,6 +51,32 @@ if kind in ('shirt','sleeve','pants'):
    # Golf polo: broad deep-green chest band, narrow mint selvedge and a proper front button placket.
    band=(y>top-.22)&(y<top-.135)&front;base[band]=room
    edge=((np.abs(y-(top-.22))<.003)|(np.abs(y-(top-.135))<.003))&front;base[edge]=mint
+  # Patients 06-10: soft-edged design masks (signed distance in metres, ~1 texel ramp) so panel and stripe edges
+  # don't stair-step on the 512 px wardrobe map.
+  soft=lambda dist,w=.0025:np.clip(.5-dist/w,0,1)[...,None]
+  mixin=lambda m,c:base*(1-m)+np.asarray(c)*m
+  neckband=lambda h:soft((top-h)-y)*soft(np.abs(x)-.085)    # neckline band only, not the shoulder line
+  if idx==6:
+   # Skinny guy: loose paper breton tee, room-green bands that bag over the ribs.
+   bands=soft(np.abs(np.mod(y,.042)-.021)-.0065)*soft(y-(top-.055))
+   base=mixin(bands,room*.9+paper*.1)
+  if idx==7:
+   # Beauty: soft blush jersey, a paper scoop binding and two fine pin-tucks down the front.
+   base=mixin(neckband(.042),paper)
+   base=mixin(soft(np.abs(np.abs(x)-.035)-.0016,.0015)*soft(-(y-(top-.24)))*front[...,None],blush*.8+paper*.2)
+  if idx==8:
+   # Wrestler: deep room-green singlet look, broad coral side panels and a paper chest stripe.
+   base=mixin(soft(.12-np.abs(x)),coral)
+   base=mixin(soft(np.abs(y-(top-.155))-.011)*front[...,None],paper)
+  if idx==9:
+   # Granny: mint housecoat blouse with scattered paper polka dots and a coral collar band.
+   row=np.floor(y/.024);dx=np.mod(x+.012*np.mod(row,2),.024)-.012;dy=np.mod(y,.024)-.012
+   base=mixin(soft(np.sqrt(dx*dx+dy*dy)-.0032,.0018)*mask[...,None],paper)
+   base=mixin(neckband(.044),coral)
+  if idx==10:
+   # Kid: coral rugby stripes (paper bands) and a mint collar.
+   base=mixin(soft(np.abs(np.mod(y,.06)-.011)-.011)*soft(y-(top-.065)),paper)
+   base=mixin(neckband(.046),mint)
   if idx in (1,2,5):
    placket=(abs(x)<.009)&(y>top-.15)&front;base[placket]=paper*.9
    line=(np.abs(abs(x)-.008)<.0008)&(y>top-.15)&front;base[line]=room*.7+paper*.3
@@ -68,7 +95,7 @@ if kind in ('shirt','sleeve','pants'):
 elif kind=='hair':
  # Keep alpha and the photographed hair strands; restore neutral ink/soft silver rather than the old orange cast.
  lum=a[:,:,:3].mean(2)
- if idx==2:a[:,:,:3]=np.clip(lum[...,None]*np.array([.86,.91,.88])+.09,0,1)
+ if idx in (2,9):a[:,:,:3]=np.clip(lum[...,None]*np.array([.86,.91,.88])+.09,0,1)
  elif idx==4:a[:,:,:3]=np.clip(a[:,:,:3]*np.array([.62,.67,.65]),0,1)
  else:a[:,:,:3]=np.clip(a[:,:,:3]*np.array([.5,.58,.55]),0,1)
 else:
@@ -76,10 +103,14 @@ else:
  if kind=='face':
   top=P[:,1].max();rel=top-y;front=np.clip((z-.065)/.055,0,1)
   cheek=np.exp(-((abs(x)-.045)/.026)**2-((rel-.155)/.035)**2)*front*mask
-  blush=.035 if idx<5 else .024;a[:,:,:3]=a[:,:,:3]*(1-cheek[...,None]*blush)+coral*cheek[...,None]*blush
+  blush=.024 if idx in (5,9) else .06 if idx==7 else .035;a[:,:,:3]=a[:,:,:3]*(1-cheek[...,None]*blush)+coral*cheek[...,None]*blush
+  if idx==7:
+   # Beauty: a warmer rose lip (lip line measured on her head export: 0.1607 m below the crown, front at z 0.137).
+   lips=np.exp(-((x/.021)**4)-((rel-.1607)/.0075)**2)*np.clip((z-.115)/.015,0,1)*mask
+   rose=np.array([.80,.36,.36]);a[:,:,:3]=a[:,:,:3]*(1-lips[...,None]*.30)+rose*lips[...,None]*.30
   tired=np.exp(-((abs(x)-.032)/.025)**2-((rel-.125)/.009)**2)*front*mask
   a[:,:,:3]*=1-tired[...,None]*(.04 if idx in (1,2,4) else .018)
-  if idx in (2,5):
+  if idx in (2,5,9):
    # A restrained age texture, mapped in actual centimetres, across the forehead and outer eye corners.
    wrinkles=np.exp(-((rel-.068)/.019)**2)*np.maximum(0,np.cos((rel-.05)*1100))**12*front*mask
    a[:,:,:3]*=1-wrinkles[...,None]*.032

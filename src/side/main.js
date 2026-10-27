@@ -1,20 +1,20 @@
 import "../boot.js";
 import "../ui/clinic-hud.css";
-import {drawVGauge,drawHBar,drawHint,leftGaugeX} from '../ui/gauge.js';
-import {makeHud} from '../ui/hudDom.js';
+import {drawVGauge,drawHBar,drawHint,leftGaugeX,GAUGE_COLORS} from '../ui/gauge.js';
+import {makeHud,logRow} from '../ui/hudDom.js';
 import {mountClinicMenu,renderClinicLinks} from '../ui/clinicSwitch.js';
 import {clamp} from '../lib/math.js';
 import {therapistStyle} from '../back/therapistMotion.js';
 import {createClinicAudio} from 'virtual:clinic-audio';
 import {FAIL_STAMP,FORCE_STAMP,FORCE_LINES,failLine,reviewLine} from '../core/fail.js';
-import {ROSTER} from '../patient/roster.js';
+import {ROSTER,lumbarPatient} from '../patient/roster.js';
 import {CAST} from '../patient/cast.js';
-import {DAYS,CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
+import {CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay,afterHard,nextDay,dayDef as dayDefOf} from '../core/campaign.js';
 import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
 import {mountMonetize} from '../ui/monetize.js';
 import {mountCoinReward} from '../ui/shop.js';
 import {createSideScene,ROLL_S} from './scene.js';
-import {SWEET,POSITION_TOL,tolFor,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint} from '../back/core.js';
+import {SWEET,POSITION_TOL,tolFor,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint,dayQuery,resultTitle} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
 import {SIDE_NAME,sideOrder,makeSideGoals,judgeSide,balance,canLeave,lumbarAt,thrustSounds,overReaction,xrayTarget,slowWarp,punchProfile,canRetry,runComplete,continuePlan} from './core.js';
 import {breathState,closenessOf} from '../core/feel.js';
@@ -29,7 +29,7 @@ import {t,backify} from '../i18n/index.js';
 /* 허리비틀기 (side-posture lumbar roll, user 2026-10-19): the back mode's two-stage aim on a patient lying on his side.
    Front/back tilt picks the height along L1..L5, 고정 locks it, then the left/right tilt rolls the pelvis toward the
    therapist, the forward tilt loads, a short shove thrusts. One side, an x-ray, then he rolls over and the other side:
-   the visit ends only after both sides (core.js canLeave). Failures do not end the visit early. */
+   the visit ends only after both sides (core.js canLeave). */
 const $=id=>document.getElementById(id), app=$('sideApp'),canvas=$('sideCanvas'),center=$('sideCenter'),hud=$('sideHud'),ctx=hud.getContext('2d');
 const domHud=makeHud(app);
 let hudDpr=1,lastSpeech='',lastExhale=null,drag=null,swipePeak=0;
@@ -44,15 +44,19 @@ const S={phase:'loading',control:preferMotion?'motion':'touch',position:.5,press
   cue:'',cueStyle:'',pausedAt:0,previousPhase:null,gag:null};
 let scene,width=innerWidth,height=innerHeight,rotated=false,viewRot=0,lastLandscape=90,raf=0,wasNear=false,nextPulse=0;
 // 영업 일지 허리비틀기 day (side.html?day=N from index.html's story card): that day's patient (name and lines; the body
-// is always Patient01's side-lying model), its pain limit and the day result. Otherwise the free 박대리 run.
-const dayQ=Number(new URLSearchParams(location.search).get('day')),
-  DAY=Number.isInteger(dayQ)&&DAYS[dayQ]&&DAYS[dayQ].game==='side'?dayQ:-1,
-  // &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat
-  HARD=DAY>=0&&new URLSearchParams(location.search).get('hard')==='1',dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
+// is Patient01's side-lying model unless the patient has its own, look.sideModel), its pain limit and the day result.
+// Otherwise the free run: ?patient=<name> or one at random of the patients with a side-lying body (roster lumbarPatient).
+// &hard=1: 역경 (core/campaign.js hardDay): one pain fewer, no guide bands, a narrower zone, an average to beat.
+// A locked ?day goes to the day list; &pain=1 counts once, on the fresh hop from the story card (back/core.js dayQuery).
+const Q=dayQuery(location.search,readProgress(store.get(CAMPAIGN_KEY,null)),'side',{fresh:(performance.getEntriesByType?.('navigation')?.[0]?.type??'navigate')==='navigate',dev:import.meta.env.MODE==='shot'||__CASES__});
+if(Q.locked)location.replace('index.html?days=1');
+if(Q.pain){const u=new URL(location.href);u.searchParams.delete('pain');history.replaceState(history.state,'',u);}
+const DAY=Q.day,HARD=Q.hard,dayDef=DAY>=0?dayDefOf(DAY,HARD):null;
 // the day's zone width: mods.tight / tighter narrow it like the neck modes
 const TOL=tolFor(dayDef&&dayDef.mods);
-const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:ROSTER.find(p=>p.name==='박대리');
-const painMax=dayDef?dayDef.painMax+(!HARD&&new URLSearchParams(location.search).get('pain')==='1'?1:0):3,dayNo=DAY>=0?DAY+1:null;
+const patient=dayDef?dayRoster(DAY,[...ROSTER,...CAST])[0]:lumbarPatient('side',new URLSearchParams(location.search).get('patient'),Math.random,import.meta.env.MODE==='shot'||__CASES__);
+const bodyModel=patient.look?.sideModel||null;   // an image-to-3D patient's own side-lying body (roster lumbarPatient)
+const painMax=dayDef?dayDef.painMax+(Q.pain?1:0):3,dayNo=DAY>=0?DAY+1:null;
 const clinicAudio=createClinicAudio({S:new Proxy(S,{get:(t,k)=>k==='phase'&&['anim','turn','roll','leave'].includes(t.phase)?'play':t[k]}),T:new Proxy(T,{get:(t,k)=>k==='music'?S.music:k==='sound'?S.sound:t[k]})});
 const side=()=>S.order[S.sideIdx], goal=()=>S.goals[S.sideIdx];
 const aimAt=position=>S.locked?{height:S.lockHeight,side:position,locked:true}:{height:position,side:.5,locked:false};
@@ -100,7 +104,7 @@ function cancelInput(){S.pending=null;drag=null;swipePeak=0;sync();}
 function updateImpact(){
   const p=S.pending;if(!p)return;
   S.force=p.force;
-  S.outcome=judgeSide(p.aim,p.pressure,p.force,goal(),{streak:S.streak,exhale:p.exhale,tol:TOL});
+  S.outcome=judgeSide(p.aim,p.pressure,p.force,goal(),{streak:S.streak,pain:S.tries,exhale:p.exhale,tol:TOL});   // pain: this side's misses so far, for the neck star rule
   S.kind=S.outcome.kind;S.tier=S.outcome.tier;
   $('sideImpact').textContent=t(S.tier?FORCE_STAMP[S.tier]:S.kind==='ok'?S.outcome.perfect?'우두둑!':'두둑!':S.outcome.feedback==='over'?'과회전!':FAIL_STAMP[S.outcome.feedback]);
 }
@@ -118,7 +122,7 @@ function settleImpact(){
   const label=`${sideName(side())} ${S.sideIdx+1}/2`,aimMs=S.animAt-S.prepUntil;
   track(EV.attempt,{side_no:S.sideIdx+1,result:S.kind==='ok'?'ok':S.outcome.feedback||S.kind,tier:S.tier,force:S.force,perfect:!!S.outcome.perfect,pts:S.kind==='ok'?S.outcome.points:0,try_no:S.tries+1,aim_ms:aimMs});
   if(S.kind==='ok')firstSuccess({game:'side',side_no:S.sideIdx+1,aim_ms:aimMs});
-  if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');domHud.stamp(S.outcome.perfect?'PERFECT':'성공',label,'dud');}
+  if(S.kind==='ok'){S.score+=S.outcome.points;S.streak=S.outcome.streak;domHud.floater('+'+S.outcome.points,width*.5,height*.45,'big');domHud.stamp(S.outcome.perfect?'PERFECT':'GOOD',label,'dud');}
   else{S.mistakes++;S.tries++;S.streak=0;domHud.stamp(S.tier?FORCE_STAMP[S.tier]:FAIL_STAMP[S.outcome.feedback],label,S.tier===2?'break':S.outcome.feedback);}
   cue(S.kind==='ok'?'뚝. 골반이 풀렸어요.':S.tier?'잠깐… 방금 소리가 이상한데요.':'조금 빗나갔어요.',S.kind==='ok'?'good':'bad');sync();
 }
@@ -138,7 +142,7 @@ function shotTiming(){const d=therapistStyle(S.force,S.tier).xrayDelay;return S.
 function recordSide(){
   const g=goal();
   track(EV.patientDone,{side_no:S.sideIdx+1,label:S.kind==='ok'?'done':S.tier?'ambulance':'miss',pts:S.kind==='ok'?S.outcome.points:0});
-  S.results.push({side:side(),kind:S.kind,tier:S.tier,points:S.kind==='ok'?S.outcome.points:0,perfect:!!S.outcome.perfect,roll:S.shotAim.side,pressure:S.peakPressure,goalRoll:g.roll,level:lumbarAt(S.shotAim.height)});
+  S.results.push({side:side(),kind:S.kind,tier:S.tier,points:S.kind==='ok'?S.outcome.points:0,stars:S.kind==='ok'?S.outcome.stars:0,perfect:!!S.outcome.perfect,roll:S.shotAim.side,pressure:S.peakPressure,goalRoll:g.roll,level:lumbarAt(S.shotAim.height)});
   $('sideCutLabel').hidden=true;$('sideCutLabel').classList.remove('burst');
 }
 // After a shot (2026-10-22 one rule set for all four modes): a crack or a break calls the ambulance and ends the visit,
@@ -193,14 +197,20 @@ function finish(){
   const best=store.get('chiroSideBest',0),record=DAY<0&&done&&!S.results.some(r=>r.tier)&&S.score>best;
   if(record)store.set('chiroSideBest',S.score);
   const tier=Math.max(0,...S.results.map(r=>r.tier));
-  $('sideResultTitle').textContent=t(tier?'허리가 비명을 질렀어요':S.results.every(r=>r.kind==='ok')?'양쪽 다 풀렸어요.':'한쪽은 아직 꼬여 있어요.');
-  $('sideReview').textContent='“'+backify(reviewLine({name:patient.name,stars:S.results.every(r=>r.kind==='ok')?3:0,ambulance:tier>0,fails:S.results.filter(r=>r.kind!=='ok').map(r=>r.tier?'over':r.kind==='weak'?'dud':'finger'),tiers:S.results.map(r=>r.tier),lines:patient.lines}))+'”';
+  const painOut=!tier&&S.mistakes>=painMax;
+  $('sideResultTitle').textContent=t(resultTitle({ambulance:tier>0,painOut,campaign:!!dayDef,painMax},'양쪽 다 풀렸어요.'));
+  $('sideRdate').textContent=dayDef?t("영업 일지 · {day}{hard} {title}",{day:t(dayLabel(DAY)),hard:HARD?t(" 역경"):"",title:t(dayDef.title)}):t('오늘의 진료 일지');
   $('sideTotal').textContent=S.score;
-  const rows=S.results.map(r=>{const e=document.createElement('li');e.textContent=`${sideName(r.side)} ${r.level} ${r.kind==='ok'?t("{n}점",{n:r.points}):t(r.tier?'골절':'실패')}`;return e;});
-  if(b.label){const e=document.createElement('li');e.textContent=`${t(b.label)} ${b.bonus>0?'+':''}${b.bonus||''}`;rows.push(e);}
-  $('sideResultSteps').replaceChildren(...rows);
+  // the neck card's rows (ui/hudDom.js logRow): one per side seen, its stars by the neck rule, a failed side as 이송 / 중단,
+  // the symmetry bonus as its own row, the patient's review under the last row
+  const allOk=S.results.length>0&&S.results.every(r=>r.kind==='ok');
+  const review=backify(reviewLine({name:patient.name,stars:allOk&&done?Math.min(...S.results.map(r=>r.stars||1)):0,ambulance:tier>0,fails:S.results.filter(r=>r.kind!=='ok').map(r=>r.tier?'over':r.kind==='weak'?'dud':'finger'),tiers:S.results.map(r=>r.tier),lines:patient.lines}));
+  const rows=S.results.map(r=>({who:`${sideName(r.side)} ${r.level}`,pts:r.points,stars:r.kind==='ok'?r.stars||1:0,ambulance:!!r.tier}));
+  if(b.label)rows.push({who:t(b.label),pts:b.bonus});
+  $('sideResultSteps').replaceChildren(...rows.map((r,i)=>logRow(document,{...r,rev:i===rows.length-1?review:''})));
   const rankText=rankTitle(S.score/2,tier||S.mistakes>=painMax?3:S.mistakes);$('sideRank').textContent=t(rankText);
-  $('sideBest').textContent=DAY>=0?'':record?t("새 최고 기록! {score}점",{score:S.score}):t("최고 기록 {best}점",{best});
+  $('sideBest').hidden=!record;
+  $('sideAgain').textContent=t('한 판 더');   // the free-play primary button; a 영업 일지 day relabels it (dayEnd)
   $('sideResult').hidden=false;sync();
   const complete=runComplete(S.results,S.mistakes,painMax,!!dayDef);
   const outcome=runOutcome({ambulance:tier>0,pain:S.mistakes,complete});
@@ -217,7 +227,6 @@ function dayEnd(complete,avg){
   const cleared=dayClears(DAY,complete,avg,dayDef),before=readProgress(store.get(CAMPAIGN_KEY,null)),after=(HARD?afterHard:afterDay)(before,DAY,cleared,dayStars(avg,dayDef));
   if(after!==before)store.set(CAMPAIGN_KEY,after);
   const next=cleared?nextDay(after,DAY):-1;
-  $('sideResult').querySelector('.sub').textContent=`${dayLabel(DAY)}${HARD?' '+t('역경'):''} ${t(dayDef.title)}`;
   $('sideDayOutro').textContent=(cleared?(HARD?t("역경 통과! {outro}",{outro:t(dayDef.hardOutro||dayDef.outro)}):t(dayDef.outro)):complete?t("평균 {avg}점. {beat}점을 못 넘었어요. {lose}",{avg:Math.round(avg),beat:dayDef.beat,lose:t(dayDef.lose||'역경은 역경이네요. 손 풀고 다시 와요.')}):HARD?t("{day} 역경을 못 버텼어요. 다시 문 열어 봐요.",{day:dayLabel(DAY)}):t("{day}를 못 버텼어요. 다시 문 열어 봐요.",{day:dayLabel(DAY)}))+(HARD&&!cleared?' '+t('역경엔 이어하기가 없어요.'):'');
   $('sideDayOutro').hidden=false;$('sideToDays').hidden=false;
   $('sideNextDay').hidden=next<0;if(next>=0)$('sideNextDay').href=`index.html?story=${next}`;
@@ -316,6 +325,12 @@ $('sideTune').addEventListener('click',openTune);
 mountClinicMenu({chip:$('sideClinic'),menu:$('sideClinicMenu'),current:()=>'side',onOpen:halt,onClose:resume});
 ['sideWelcomeClinics','sideResultClinics'].forEach(id=>renderClinicLinks($(id),'side'));
 // the day's patient on the chart, the start card and the pain slots
+// a free-run patient other than 박대리 (roster lumbarPatient): their name and their back complaint (look.waist; the cc
+// is about the neck) over the start card's first line
+if(!dayDef&&patient.waist){
+  const nm=$('sideName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
+  $('sideWelcomeText').firstChild.textContent=t("{name}, {age}세. {waist}",{name:t(patient.name),age:patient.age,waist:t(patient.waist)});
+}
 if(dayDef){
   const nm=$('sideName');nm.textContent=t(patient.name);const ag=document.createElement('small');ag.textContent=t("{age}세",{age:patient.age});nm.append(ag);
   $('sideDayNo').textContent=t("영업 일지 · {day} {title}",{day:dayLabel(DAY)+(HARD?' '+t('역경'):''),title:t(dayDef.title)});$('sideDayNo').hidden=false;
@@ -361,7 +376,7 @@ function drawHud(pressure,br){
   const h=clamp(R*1.7,110,height*.62),x=leftGaugeX(app),top=clamp(cy-h*.55,82,height-h-28);   // left edge: the bed and the patient stay clear (10차 P2), past the notch / island (gauge.js)
   if(!S.locked){
     const up=v=>heightDown()>0?1-v:v,tg=goal().height,a=up(tg-TOL),b=up(tg+TOL);
-    drawVGauge(ctx,{x,top,h,title:t('높이'),value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:'#7fd1b9'}});
+    drawVGauge(ctx,{x,top,h,title:t('높이'),value:up(S.position),band:HARD?null:[Math.min(a,b),Math.max(a,b)],fill:false,hot:!HARD&&heightOk(),colors:{coral:GAUGE_COLORS.mint}});
     drawHint(ctx,{x:cx,y:height-104,text:S.cue,hot:S.cueStyle==='bad'});
     return;
   }
@@ -371,7 +386,7 @@ function drawHud(pressure,br){
   const target=goal().roll,off=(S.position-target)/TOL;
   drawHBar(ctx,{bx,by,bw,off,span:{pos:S.position,target,tol:TOL},ok:Math.abs(off)<=1,title:t('골반 비틀기'),showBand:!HARD,okText:t(HARD?'찾아봐요':'맞아요'),offText:t(HARD?'찾아봐요':S.position<target?'더 비틀어요':'너무 감았어요')});
   drawHint(ctx,{x:bx+bw/2,y:by-40,text:S.cue,hot:S.cueStyle==='bad'});
-  if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:t('후우… 지금 툭 +15'),colors:{bone:'#8adfbf'}});
+  if(T.breath&&br.exhale)drawHint(ctx,{x:cx,y:Math.max(110,cy-R+20),text:t('후우… 지금 툭 +15'),colors:{bone:GAUGE_COLORS.mint}});
 }
 function frame(now){
   raf=requestAnimationFrame(frame);if(!scene)return;
@@ -452,7 +467,7 @@ function frame(now){
 }
 addEventListener('resize',resize);screen.orientation?.addEventListener?.('change',resize);resize();
 const sceneT0=performance.now();
-try{scene=await createSideScene(canvas);resize();track(EV.assetLoad,{asset:'side_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
+try{scene=await createSideScene(canvas,{model:bodyModel});resize();track(EV.assetLoad,{asset:'side_scene',ok:true,ms:performance.now()-sceneT0});screenView('title');S.phase='ready';$('sideStart').disabled=false;$('sideTouchStart').disabled=false;
   $('sideStart').textContent=t('진료 시작');document.documentElement.dataset.sideReady='true';raf=requestAnimationFrame(t=>{frame(t);markReady();});
 }catch(error){console.error('허리비틀기 진료실을 불러오지 못했어요',error);bootFail('scene',error&&error.message);$('sideLoadNote').textContent=t('진료실을 불러오지 못했어요. 다시 열어 주세요.');$('sideStart').textContent=t('다시 불러오기');$('sideStart').disabled=false;$('sideStart').addEventListener('click',()=>location.reload(),{once:true});}
 addEventListener('pagehide',()=>{cancelAnimationFrame(raf);stopSound();});

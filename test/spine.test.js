@@ -11,9 +11,10 @@ describe("each patient's own neck", () => {
       s.disc.forEach(h => { expect(h).toBeGreaterThanOrEqual(0.45); expect(h).toBeLessThanOrEqual(1.1); });
     });
   });
-  it("the five necks differ: curves and disc patterns are not all the same", () => {
+  it("every neck differs: curves and disc patterns are not all the same", () => {
+    const n = Object.keys(SPINE).length;
     const curves = new Set(Object.values(SPINE).map(s => s.curve)), discs = new Set(Object.values(SPINE).map(s => s.disc.join()));
-    expect(curves.size).toBe(5); expect(discs.size).toBe(5);
+    expect(n).toBe(ROSTER.length); expect(curves.size).toBe(n); expect(discs.size).toBe(n);
     expect(SPINE["정작가"].curve).toBeLessThan(SPINE["박대리"].curve);   // reversed is past straight
   });
   it("the curve is shared out over the gaps and adds back up", () => {
