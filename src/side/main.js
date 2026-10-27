@@ -158,7 +158,7 @@ const SIREN_HOLD=2.6;
 function sideAmbulance(now){
   recordSide();S.phase='leave';S.exit='ambulance';S.leaveAt=now;cue('');
   if(S.sound)clinicAudio.siren(3.4);clinicAudio.vib([200,100,200,100,200]);
-  domHud.stamp('삐용삐용','구급차 불러요!','siren',SIREN_HOLD*1000);sync();
+  domHud.hideSpeech();domHud.stamp('삐용삐용','구급차 불러요!','siren',SIREN_HOLD*1000);sync();
 }
 function endSide(now){
   recordSide();
