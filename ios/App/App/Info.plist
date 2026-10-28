@@ -66,5 +66,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-4785237655148075~3159697482</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>맞춤 광고를 보여 주기 위해 사용해요. 허용하지 않아도 게임은 똑같이 할 수 있어요.</string>
 </dict>
 </plist>

@@ -1,9 +1,10 @@
 /* iOS/Android store-app ads (Capacitor + @capacitor-community/admob). Only in `npm run build:app` (__APP__); every other
    build gets the no-op branches and the plugin is never bundled (dynamic import behind __APP__). Same shape as the ads
-   half of platform/toss.js; picked in platform/ads.js. No purchase here (ad-free is hidden in the app). Rules: core/monetize.js.
-   Ad unit IDs: Google's official TEST IDs by default; fill REAL_IDS before release (empty = keep the test ID). */
+   half of platform/toss.js; picked in platform/ads.js. Purchases: platform/iap.js. Rules: core/monetize.js.
+   Ad unit IDs: REAL_IDS (AdMob, issued 2026-10-28); an empty entry falls back to Google's TEST ID. */
 import { interstitialDue } from "../core/monetize.js";
 import { track } from "./analytics.js";
+import { adFree } from "./iap.js";
 import { EV } from "../core/analytics.js";
 
 export const isApp = __APP__;
@@ -14,8 +15,8 @@ const TEST_IDS = {
   ios: { rewarded: "ca-app-pub-3940256099942544/1712485313", interstitial: "ca-app-pub-3940256099942544/4411468910" }
 };
 export const REAL_IDS = {
-  android: { rewarded: "", interstitial: "" },
-  ios: { rewarded: "", interstitial: "" }
+  android: { rewarded: "ca-app-pub-4785237655148075/2365490561", interstitial: "ca-app-pub-4785237655148075/6106967018" },   // 이어하기 / 한판더
+  ios: { rewarded: "ca-app-pub-4785237655148075/3480803678", interstitial: "ca-app-pub-4785237655148075/6113163889" }
 };
 
 let plugin = null, ready = null;
@@ -84,13 +85,13 @@ async function fullScreen(rewarded){
 }
 
 export const canWatchRewarded = () => isApp;
-export const watchRewarded = () => isApp ? fullScreen(true) : Promise.resolve(false);
+export const watchRewarded = () => isApp ? (adFree() ? Promise.resolve(true) : fullScreen(true)) : Promise.resolve(false);
 
 let lastInterstitial = performance.now();
 export async function maybeInterstitial(notice){
   if(!isApp) return;
   const now = performance.now();
-  if(!interstitialDue(lastInterstitial, now, false)) return;
+  if(!interstitialDue(lastInterstitial, now, adFree())) return;
   lastInterstitial = now;
   if(notice) await notice();
   await fullScreen(false);

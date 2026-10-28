@@ -6,9 +6,9 @@
 - `__APP__`이면 `src/platform/admob.js`, 아니면 기존 `toss.js`다. 일반·toss·shot·cases 빌드엔 AdMob 플러그인이 번들되지 않는다(동적 import가 `__APP__` 뒤에 있다).
 - `admob.js`는 `@capacitor-community/admob`의 보상형(`prepareRewardVideoAd` → `showRewardVideoAd`, `RewardAdPluginEvents.Rewarded`로 보상 확인, `Dismissed`만으로는 지급 안 함)과 전면(`prepareInterstitial` → `showInterstitial`)을 쓴다.
 - iOS는 첫 광고 전에 `requestTrackingAuthorization()`(ATT), 이어서 `requestConsentInfo()` / `showConsentForm()`(UMP), 그다음 `initialize()`를 부른다.
-- 규칙(`core/monetize.js`: 전면 간격, 이어하기 조건 등)은 토스와 같다. 광고 제거 결제는 앱에서 숨긴다(`canBuyAdFree` = false).
-- 광고 단위 ID는 `admob.js`의 Google 공식 테스트 ID가 기본이다. 실제 ID는 `REAL_IDS`에 채운다(비어 있으면 테스트 ID 유지). 출시 전에 반드시 채운다.
-- 앱 ID(AdMob App ID)는 코드가 아니라 네이티브 설정에 넣는다: Android `AndroidManifest.xml`의 `com.google.android.gms.ads.APPLICATION_ID` meta-data, iOS `Info.plist`의 `GADApplicationIdentifier`, 그리고 `NSUserTrackingUsageDescription`.
+- 규칙(`core/monetize.js`: 전면 간격, 이어하기 조건 등)은 토스와 같다. 광고 제거 결제도 앱에서 켜져 있다(`docs/economy.md` 7절).
+- 광고 단위 ID는 `admob.js`의 `REAL_IDS`에 실제 ID가 들어 있다(2026-10-28 발급: Android 이어하기 `.../2365490561`, 한판더 `.../6106967018`, iOS 이어하기 `.../3480803678`, 한판더 `.../6113163889`). 비어 있는 칸은 Google 테스트 ID로 떨어진다.
+- 앱 ID(AdMob App ID)는 코드가 아니라 네이티브 설정에 넣었다(Android `ca-app-pub-4785237655148075~1261834448`, iOS `~3159697482`): Android `AndroidManifest.xml`의 `com.google.android.gms.ads.APPLICATION_ID` meta-data, iOS `Info.plist`의 `GADApplicationIdentifier`, 그리고 `NSUserTrackingUsageDescription`.
 
 ## 공식 확인 결과 (2026-10-22)
 - Capacitor 문서(capacitorjs.com/docs/guides/ads)는 `@capacitor-community/admob` 설치 후 `npx cap update`를 안내한다.
@@ -21,12 +21,13 @@
 - `android/`, `ios/`는 Capacitor가 만든 `.gitignore`로 빌드 산출물·웹 복사본(`public/`)이 빠진다. 커밋 대상으로 둔다(앱 ID·권한 설정을 손으로 고치기 때문).
 
 ## 남은 사람 단계
-- AdMob 계정 재활성화 검토 중. 풀리면 앱 2개(iOS, Android)를 등록하고 보상형·전면 단위를 만든다.
-- Play Console 본인 확인 3건.
-- Apple Developer 가입($99/년).
+- AdMob 앱·광고 단위는 만들어졌다. 앱이 스토어에 올라가면 AdMob 앱을 스토어 등록 정보와 연결한다.
+- 개발 중 기기는 AdMob 콘솔에 테스트 기기로 등록한다(실제 ID로 본인 광고를 누르면 정책 위반). 지금 디버그 빌드도 실제 ID를 쓴다.
+- Play Console: 본인 확인 3건, 앱 만들기, 인앱 상품 3개(`com.gooreum.ttukchiro.adfree` 관리형 일회성, `coins_s`, `coins_m` 관리형·소모성), 내부 테스트 트랙과 라이선스 테스터.
+- App Store Connect: Apple Developer 가입($99/년), 앱 만들기, 인앱 상품 3개(같은 ID, adfree 비소모성, coins_* 소모성, 가격 3,300·1,100·4,400원), Xcode에서 서명 팀 지정과 In-App Purchase capability 추가, 샌드박스 테스터.
 - 앱별 `app-ads.txt`: 개발자 웹사이트 루트에 올리고 스토어 등록 정보의 개발자 웹사이트와 맞춘다.
-- iOS ATT 문구, UMP 동의 메시지(AdMob 콘솔 개인정보 및 메시지에서 만든다), 개인정보처리방침 URL.
-- 테스트 기기 등록 후 실제 ID로 바꿔 한 번 확인한다. 본인 광고를 직접 누르지 않는다.
+- iOS UMP 동의 메시지(AdMob 콘솔 개인정보 및 메시지에서 만든다), 개인정보처리방침 URL. ATT 문구는 Info.plist에 넣었다.
+- 서명 키(Android 업로드 키스토어)와 `versionCode` 관리.
 
 ## 정책 확인 필요
 - 같은 게임을 앱인토스와 스토어에 동시에 내도 되는지: 앱인토스 입점 약관·Google Play·App Store 정책에서 공식 확인 안 됨. 출시 전에 약관을 직접 읽어 확인한다.
