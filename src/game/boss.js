@@ -7,6 +7,19 @@ import { timerLeft, hasRule, bossTolMul, timerWarn, SHRINK_MIN } from "../core/b
 import { tone, vib } from "../audio/audio.js";
 
 let lastTick = null;   // the whole second last ticked (last 5 s of the timer)
+// 62차: 화면 가운데 고정이면 짧은 가로 화면에서 차트 오른쪽 끝(시각·칩)을 덮었다. 차트와 점수 패널 사이 빈칸 가운데에 두고,
+// 빈칸이 좁으면 점수 패널 아래로 내린다. 레이아웃 좌표(offset*)라 스스로 돌린 가로 화면에서도 맞는다.
+function place(pill){
+  const chart = $("#chartMini"), side = document.querySelector(".clinic-app .top .side");
+  const top = chart && chart.offsetParent;
+  if(!top || !side){ pill.style.left = pill.style.top = pill.style.maxWidth = ""; return; }
+  const l = top.offsetLeft + chart.offsetLeft + chart.offsetWidth + 8;
+  const r = top.offsetLeft + side.offsetLeft - 8;
+  if(r - l >= 120){ pill.style.left = (l + r) / 2 + "px"; pill.style.top = ""; pill.style.maxWidth = r - l + "px"; return; }
+  pill.style.left = top.offsetLeft + side.offsetLeft + side.offsetWidth / 2 + "px";
+  pill.style.top = top.offsetTop + side.offsetTop + side.offsetHeight + 6 + "px";
+  pill.style.maxWidth = side.offsetWidth + 40 + "px";
+}
 export function mountBoss({ swap }){
   const pill = $("#bossRule");
   if(!pill) return;
@@ -17,6 +30,7 @@ export function mountBoss({ swap }){
     // 11차: 주간 챌린지는 그 주 규칙 이름을 같은 알약에 상시 띄운다(시간 제한·구역 비율을 보여 주는 규칙은 그 문구가 우선)
     const weeklyTag = S.weekly && S.weekly.set ? t("이번 주 · {r}",{r:t(S.weekly.set.rule.name)}) : S.daily && S.daily.set ? t("오늘 · {r}",{r:t(S.daily.set.rule.name)}) : "";
     if(!live || (!hasBoss && !weeklyTag)){ pill.hidden = true; pill.classList.remove("late", "tick"); return; }
+    place(pill);
     if(!hasBoss){ pill.hidden = false; pill.textContent = weeklyTag; pill.classList.remove("late", "tick"); return; }
     if(hasRule(S.boss, "swap")) swap();
     const left = timerLeft(S.boss, now - S.patientStart, S.hard);
