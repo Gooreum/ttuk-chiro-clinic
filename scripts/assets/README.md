@@ -694,3 +694,11 @@ npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --hos
 ```
 
 세트가 셋 이상이면 근접 카메라(턱 밑 `chinC`, 옆 `sideC`, 깃 `colB`)와 법선 색 시트(`normals.png`)도 찍는다. 인자 없이 실행하면 예전 2열(`shots/necklab3`) 결과와 같다. 결과: 압착 면 62→12, 뒤집힘 4→4, 얼굴 보호 변경 0, 접합 max 0.0001mm. 턱 밑 검은 틈과 회전 시 깃 밖 판이 화면에서 사라졌다. 턱 밑 옅은 호 모양 선(머리 텍스처 경계 띠)은 남는다.
+
+
+### patient08 목 경계색·신장 음영과 실제 목꺾기 (2026-10-28)
+- `repair=2`는 경계의 밝은 텍셀 대신 경계에서 지오데식 거리 3~4.5cm의 피부색을 사용한다. 같은 보정색을 머리 경계와 패치 끝점에 보간하므로 색이 이어진다. 표정 모프 정점과 해부 높이 1.415m 이상은 보정하지 않는다. `repairValidate().faceTintVertices`는 0이어야 한다.
+- 법선은 각 행 둘레 σ 0.06rad로 평활한다. 260배 고주파 결은 제거하고, 55배 저주파 결(±1.5%)만 접합 행에서 0으로 감쇠한다. `repair=1` 비교 경로는 유지한다.
+- 실험용 `lab-assets/patient08/body_repair.glb`와 바이트가 같은 사본을 `public/models/patient08/body_repair.glb`에 추가했다(584,808 bytes). 원본 머리·몸 GLB는 보존한다. 실제 목꺾기는 `real.clinicModels` 사본에 상세판 머리와 옷을 두고, 이 사본의 피부/바인드 뼈대만 넣는다. 목꺾기 전용 캐시와 수건 캐시는 별개다. patient12로 렌더하는 원본 마동철 선택은 유지된다.
+- 케이스 빌드에서 `?necklab=live`로 실제 로더를 검증한다. `.venv/bin/python -I scripts/necklab/live_check.py`는 얼굴 보호, 9포즈 접합 오차(<1mm), 압착/뒤집힘 비증가와 수건 모드 격리를 검사한다. `e2e/neck-repair.spec.js`는 necklab 파라미터 없이 patient08 손님을 진료하고 한 판을 끝낸다.
+- 비교 자료: `shots/necklab5-before/`(수정 전), `shots/necklab5/`(수정 후), `shots/neck-polish-comparison.png`. 폰 실기기 확인은 별도다.

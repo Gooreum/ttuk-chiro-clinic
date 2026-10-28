@@ -188,7 +188,8 @@ function headBoundary(mesh,M,version=1){
   loop.sort((a,b)=>a.angle-b.angle);
   const center=loop.reduce((v,x)=>v.add(x.p),new THREE.Vector3()).multiplyScalar(1/loop.length);
   face.multiplyScalar(1/Math.max(1,faceCount));
-  return {mesh,loop,center,M,front:Math.atan2(face.z+.012,face.x),groups:groups.map(g=>g.map(i=>corrected[i].toArray()))};
+  const ringColor=version>1?rimColour(mesh,corrected,keys,distance,protectedKeys):null;
+  return {mesh,loop,center,M,ringColor,front:Math.atan2(face.z+.012,face.x),groups:groups.map(g=>g.map(i=>corrected[i].toArray()))};
 }
 // v2 relief in metres along the ring normal: thyroid prominence and the two sternocleidomastoid ridges
 // (front low -> behind the ear high), 0 at the collar flange and at the head seam
@@ -209,6 +210,35 @@ function ringSmooth(angles,values,sigma){
     return out.multiplyScalar(1/total);
   });
 }
+// Sample beyond the bright baked cut edge. One welded angular field colours both
+// sides of the join; expression vertices always retain their authored texture.
+function rimColour(mesh,coords,keys,distance,protectedKeys){
+  const g=mesh.geometry,cache=new Map(),samples=[];
+  const at=(uv,s)=>new THREE.Vector3(uv.getX(s.a),uv.getY(s.a),0);
+  for(let i=0;i<coords.length;i++){
+    const d=distance.get(keys[i]);
+    if(d<.03||d>.045||d===undefined||protectedKeys.has(keys[i]))continue;
+    const c=texel(mesh.material,g.attributes.uv,{a:i},at,cache);
+    if(c)samples.push({angle:Math.atan2(coords[i].z+.012,coords[i].x),c:new THREE.Vector3(...c.toArray())});
+  }
+  if(!samples.length)throw new Error('patient08 band-free neck skin samples missing');
+  const ringColor=angle=>{
+    const sum=new THREE.Vector3();let total=0;
+    for(const s of samples){
+      const d=Math.atan2(Math.sin(s.angle-angle),Math.cos(s.angle-angle)),w=Math.exp(-.5*(d/.44)**2);
+      sum.addScaledVector(s.c,w);total+=w;
+    }
+    return sum.multiplyScalar(1/total);
+  };
+  const tint=new Float32Array(coords.length*4);
+  for(let i=0;i<coords.length;i++){
+    const d=distance.get(keys[i]);if(d===undefined||d>=.035||protectedKeys.has(keys[i]))continue;
+    ringColor(Math.atan2(coords[i].z+.012,coords[i].x)).toArray(tint,4*i);
+    tint[4*i+3]=1-THREE.MathUtils.smoothstep(d,.015,.035);
+  }
+  g.setAttribute('aRepairTint',new THREE.Float32BufferAttribute(tint,4));
+  return ringColor;
+}
 // texel colour (linear) of a sampled ring point, or null off the skin
 function texel(material,uvAttribute,s,interp,cache){
   const image=material?.map?.image;if(!image||typeof document==='undefined')return null;
@@ -223,6 +253,7 @@ function texel(material,uvAttribute,s,interp,cache){
 // v2 skin grain: +-2 % value noise in rest anatomy space, so the neck is not one flat paint
 const GRAIN=`
 varying vec3 vRepairGrain;
+varying float vRepairGrainWeight;
 float repairHash(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
 float repairNoise(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
   return mix(mix(mix(repairHash(i),repairHash(i+vec3(1,0,0)),f.x),mix(repairHash(i+vec3(0,1,0)),repairHash(i+vec3(1,1,0)),f.x),f.y),
@@ -230,9 +261,9 @@ float repairNoise(vec3 x){ vec3 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
 `;
 function skinGrain(shader){
   if(!shader.fragmentShader.includes('#include <color_fragment>'))return;   // depth / distance passes
-  shader.vertexShader='varying vec3 vRepairGrain;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvRepairGrain=position;');
+  shader.vertexShader='varying vec3 vRepairGrain; varying float vRepairGrainWeight;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvRepairGrain=position; vRepairGrainWeight=1.0-abs(aRepairRigid);');
   shader.fragmentShader=GRAIN+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
-    diffuseColor.rgb*=1.0+0.04*(repairNoise(vRepairGrain*260.0)-0.5)+0.03*(repairNoise(vRepairGrain*55.0)-0.5);`);
+    diffuseColor.rgb*=1.0+vRepairGrainWeight*0.03*(repairNoise(vRepairGrain*55.0)-0.5);`);
 }
 function sample(section,angle){
   const loop=section.loop,n=loop.length;
@@ -291,6 +322,10 @@ export function makeNeckPatch(model,bodyRest,headRest,toAnatomy,version=1){
   const patchNormal=geometry.attributes.normal,normalHead=new THREE.Matrix3().getNormalMatrix(top.M),normalBody=new THREE.Matrix3().getNormalMatrix(bottom.M);
   // v2: the corrected head rim is lumpy; its normals, carried down a third of the tube, drew the stripes under the chin.
   // Use the ring-smoothed rim normal, and only on the last rows.
+  if(version>1)for(let row=0;row<=rows;row++){
+    const smooth=ringSmooth(angles,angles.map((_,j)=>new THREE.Vector3().fromBufferAttribute(patchNormal,row*n+j)),.06);
+    smooth.forEach((v,j)=>{v.normalize();patchNormal.setXYZ(row*n+j,v.x,v.y,v.z);});
+  }
   const headNormals=version>1?ringSmooth(angles,tops.map(s=>{const h=interp(head.geometry.attributes.normal,s);
     if(head.geometry.attributes.aRepairNormalCorrection)h.add(interp(head.geometry.attributes.aRepairNormalCorrection,s));return h.applyMatrix3(normalHead).normalize();}),.26):null;
   for(let row=0;row<=rows;row++)for(let j=0;j<n;j++){
@@ -332,17 +367,17 @@ export function makeNeckPatch(model,bodyRest,headRest,toAnatomy,version=1){
     const fill=list=>{const ok=list.filter(Boolean);const avg=ok.length?ok.reduce((a,c)=>a.add(c),new THREE.Color(0,0,0)).multiplyScalar(1/ok.length):fallback;
       return list.map(c=>new THREE.Vector3(...(c||avg).toArray()));};
     const headExact=fill(tops.map(s=>texel(head.material,head.geometry.attributes.uv,s,interp,cache)));
-    const headSmooth=ringSmooth(angles,headExact,.44);
+    const headSmooth=top.ringColor?tops.map(s=>interp(head.geometry.attributes.aRepairTint,s)):ringSmooth(angles,headExact,.44);
     const bodySmooth=body.geometry.attributes.uv?ringSmooth(angles,fill(bottoms.map(s=>texel(body.material,body.geometry.attributes.uv,s,interp,cache))),.44):headSmooth;
     const colours=[];
     for(let row=0;row<=rows;row++)for(let j=0;j<n;j++){
-      const t=row/rows,c=bodySmooth[j].clone().lerp(headSmooth[j],THREE.MathUtils.smoothstep(t,.05,.5)).lerp(headExact[j],THREE.MathUtils.smoothstep(t,.88,1));
+      const t=row/rows,c=bodySmooth[j].clone().lerp(headSmooth[j],THREE.MathUtils.smoothstep(t,.05,.5));
       colours.push(c.x,c.y,c.z);
     }
     geometry.setAttribute('color',new THREE.Float32BufferAttribute(colours,3));material.vertexColors=true;
     material.map=new THREE.DataTexture(new Uint8Array([255,255,255,255]),1,1,THREE.RGBAFormat);grain=skinGrain;
   }else material.map=new THREE.DataTexture(new Uint8Array([...skinRGB,255]),1,1,THREE.RGBAFormat);
-  material.map.encoding=THREE.sRGBEncoding;material.map.needsUpdate=true;material.color.setHex(0xffffff);material.normalMap=null;material.roughness=.62;
+  material.map.encoding=THREE.sRGBEncoding;material.map.needsUpdate=true;material.color.setHex(0xffffff);material.normalMap=null;material.aoMap=null;material.roughnessMap=null;material.metalnessMap=null;material.roughness=.62;
   const patch=new THREE.Mesh(geometry,material);patch.name='patient08_neck_patch';patch.frustumCulled=false;patch.castShadow=patch.receiveShadow=true;
   const fromAnatomy=toAnatomy.clone().invert(),local=model.body.matrixWorld.clone().invert().multiply(fromAnatomy);
   local.decompose(patch.position,patch.quaternion,patch.scale);model.body.add(patch);model.bodyMeshes.push(patch);model.body.updateMatrixWorld(true);

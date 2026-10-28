@@ -36,7 +36,7 @@ async function ready(){
   applyLook(look08);
   const t1 = performance.now();
   // necklab=stage: the model the game itself shows (towel-stage copy; in 목뽑기 with its finer neck, towelNeck.js)
-  while(!(labCurrent() && labCurrent().id === "patient08" && labCurrent().body.visible && (RIG !== "stage" || labCurrent().towelStage))){
+  while(!(labCurrent() && labCurrent().id === "patient08" && labCurrent().body.visible && (RIG !== "stage" || labCurrent().towelStage) && (RIG !== "live" || labCurrent().clinicRepair))){
     if(performance.now() - t1 > 60000) throw new Error("patient08 did not load");
     await sleep(100);
   }

@@ -75,7 +75,7 @@ const POWER_CURL = [1.02, 1.38, 0.8], POWER_THUMB = [-0.45, 0.25, 0.35];
 const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 function turn(bone, axis, angle){ bone.quaternion.multiply(_q.setFromAxisAngle(axis, angle)); }
 
-const real = {arms: null, models: {}, towelModels: {}, clinicArms: null, towelArms: null};      // models[id] = {head, body, morphs, skin, hair, skinMesh, bodyMeshes}
+const real = {arms: null, models: {}, towelModels: {}, clinicModels: {}, clinicArms: null, towelArms: null};      // models[id] = {head, body, morphs, skin, hair, skinMesh, bodyMeshes}
 let wantHands = false, wantModel = null, lastLook = null;
 
 /* ---- patient head ----
@@ -463,8 +463,10 @@ function seamContact(model){
 }
 // the neck-rig lab compares the clinic GLBs (body.glb vs lab body_chain.glb): it never takes the towel-stage copy
 const LAB_ON = __CASES__ && ["base", "chain"].includes(new URLSearchParams(location.search).get("necklab"));   // "stage": the game's own pick
-const current = () => wantModel && ((LAB_ON ? null : real.towelModels[wantModel]) || real.models[wantModel]);
-const allModels = () => [...Object.values(real.models), ...Object.values(real.towelModels)];
+// A separate clinic cache prevents the repaired skin from leaking into towel mode.
+const clinicRepairWanted = () => S.game === "clinic" && wantModel === "patient08" && !(__CASES__ && LABQ.has("necklab") && LABQ.get("necklab") !== "live");
+const current = () => wantModel && ((clinicRepairWanted() && real.clinicModels[wantModel]) || (LAB_ON ? null : real.towelModels[wantModel]) || real.models[wantModel]);
+const allModels = () => [...Object.values(real.models), ...Object.values(real.towelModels), ...Object.values(real.clinicModels)];
 // the breath shape: 2.6 cm chest rise, a softer 1.6 cm belly swell, 3 cm shrug
 // (2026-10-15: the user asked twice for a bigger body breath; a 2.2x gain on a belly-centred shape then read as a
 // grotesque belly balloon, so the shape itself is now chest-led and gentle, with a bigger shrug, at 1x)
@@ -495,7 +497,7 @@ export function updateRealBody(fill, s = 0, body = s){
   if(__CASES__ && cur.chain) updateChain(cur, body);
   if(__CASES__ && cur.collar) updateCollar(cur, body);
   morphs.forEach(o => { o.morphTargetInfluences[o.morphTargetDictionary.breath] = fill*BREATH_GAIN; });
-  if(__CASES__ && cur.neckRepair) cur.neckRepair.update();
+  if(cur.neckRepair) cur.neckRepair.update();
 }
 
 /* ---- neck-rig lab (case build only, ?necklab=chain; src/dev/neckLab.js measures and shoots it) ----
@@ -691,18 +693,30 @@ const DEG_ = Math.PI/180;
 export const labCurrent = __CASES__ ? () => current() : null;
 
 /* One patient's head + body. Resolves once both are placed (hidden); shows them if that patient is on the table. */
-function loadPatientModel(id, towelStage = false){
-  const model = {id, head: null, body: null, morphs: [], skin: null, hair: null, towelStage};
+function loadPatientModel(id, towelStage = false, clinicRepair = false){
+  const model = {id, head: null, body: null, morphs: [], skin: null, hair: null, towelStage, clinicRepair};
   const base = BASE + (towelStage ? "towel-stage/" : "");
-  return Promise.all([load(base + `${id}/${id}.glb`), load((__CASES__ && !towelStage && LAB_BODY[id]) || base + `${id}/body.glb`), getEnv()]).then(([gh, gb, env]) => {
+  return Promise.all([load(base + `${id}/${id}.glb`), load((__CASES__ && !towelStage && LAB_BODY[id]) || base + `${id}/body.glb`), getEnv(),
+    clinicRepair ? load(BASE + `${id}/body_repair.glb`) : null]).then(([gh, gb, env, repaired]) => {
+    if(repaired){
+      // Keep the detailed head, clothing, hems and skin maps. Only replace the
+      // skin surface; retain its own bind skeleton rather than mixing GLB frames.
+      let oldSkin, newSkin;
+      gb.scene.traverse(o => {if(o.isMesh && o.material.name.endsWith(".skin")) oldSkin=o;});
+      const garments=[];
+      repaired.scene.traverse(o => {if(o.isMesh){if(o.material.name.endsWith(".skin"))newSkin=o;else garments.push(o);}});
+      if(!oldSkin || !newSkin)throw new Error("patient08 clinic neck skin missing");
+      newSkin.material=oldSkin.material;
+      oldSkin.removeFromParent();garments.forEach(o=>o.removeFromParent());gb.scene.add(repaired.scene);
+    }
     const place = () => {
       model.head = placeHead(gh, env, MODELS[id], model);
       model.body = placeBody(gb, env, MODELS[id], model);
       neckHead(model);
-      if(__CASES__ && LAB_REPAIR && id === "patient08" && !towelStage){
+      if(clinicRepair || (__CASES__ && LAB_REPAIR && id === "patient08" && !towelStage)){
         const rotation = pivot.rotation.clone();
         pivot.rotation.set(0,0,0); pivot.updateMatrixWorld(true);
-        repairNeck(model, LAB_REPAIR);
+        repairNeck(model, clinicRepair ? 2 : LAB_REPAIR);
         pivot.rotation.copy(rotation); pivot.updateMatrixWorld(true);
       }
     };
@@ -720,7 +734,7 @@ function loadPatientModel(id, towelStage = false){
       try {head.position.copy(TOWEL_REST_HEAD);pivot.rotation.set(0,0,0);pivot.updateMatrixWorld(true);place();}
       finally {head.position.copy(position);pivot.rotation.copy(rotation);pivot.updateMatrixWorld(true);}
     } else place();
-    (towelStage ? real.towelModels : real.models)[id] = model;
+    (clinicRepair ? real.clinicModels : towelStage ? real.towelModels : real.models)[id] = model;
     if(wantModel === id) setRealPatient(id, lastLook);
   });
 }
@@ -1515,6 +1529,11 @@ export function setRealPatient(id, look){
   if(S.phase !== "intro" && (S.game === "towel" || S.game === "clinic")){
     loadTowelCharacters();
     if(id && MODELS[id] && !NO_STAGE.has(id)) needModel(id, true).catch(() => {});
+  }
+  if(clinicRepairWanted() && !loading["clinic:"+id]){
+    loading["clinic:"+id]=loadPatientModel(id,true,true).catch(err=>{
+      console.warn("patient08 clinic neck unavailable, keeping original",err);
+    });
   }
   const cur = current();
   restorePrimitiveHead();

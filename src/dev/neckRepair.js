@@ -72,6 +72,7 @@ export function repairNeck(model, version=1){
     if(!geometry.attributes.aRepairHeight)geometry.setAttribute("aRepairHeight",new THREE.BufferAttribute(new Float32Array(p.count).fill(1.415),1));
     if(!geometry.attributes.aRepairW)geometry.setAttribute("aRepairW",new THREE.BufferAttribute(new Float32Array(p.count).fill(-1),1));
     for(const name of ["aRepairOffset","aRepairNormalCorrection"])if(!geometry.attributes[name])geometry.setAttribute(name,new THREE.Float32BufferAttribute(new Float32Array(p.count*3),3));
+    if(version>1&&!geometry.attributes.aRepairTint)geometry.setAttribute("aRepairTint",new THREE.Float32BufferAttribute(new Float32Array(p.count*4),4));
     geometry.setAttribute("aRepairRigid",new THREE.BufferAttribute(rigid,1));
     const uniforms={uRepairRest:{value:rest},uRepairToAnatomy:{value:toAnatomy},uRepairFromAnatomy:{value:fromAnatomy},
       uRepairInverseModel:{value:mesh.matrixWorld.clone().invert()},uRepairNormalRest:{value:new THREE.Matrix3().getNormalMatrix(rest)},
@@ -79,6 +80,12 @@ export function repairNeck(model, version=1){
     const grain=mesh===patchInfo.patch&&patchInfo.grain;
     const compile=shader=>{
       if(grain)grain(shader);
+      if(version>1&&shader.fragmentShader.includes('#include <color_fragment>')){
+        shader.vertexShader='attribute vec4 aRepairTint; varying vec4 vRepairTint;\n'+shader.vertexShader
+          .replace('#include <begin_vertex>','#include <begin_vertex>\nvRepairTint=aRepairTint;');
+        shader.fragmentShader='varying vec4 vRepairTint;\n'+shader.fragmentShader
+          .replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb=mix(diffuseColor.rgb,vRepairTint.rgb*diffuse,vRepairTint.a);');
+      }
       Object.assign(shader.uniforms,uniforms);
       shader.vertexShader=GLSL+shader.vertexShader
         .replace('#include <morphnormal_vertex>', '#include <morphnormal_vertex>\nvec3 repairMorphNormal=objectNormal+aRepairNormalCorrection;')
@@ -135,15 +142,16 @@ export function repairNeck(model, version=1){
       for(let i=0;i<r.original.length;i++){if(g.attributes.position.array[i]!==r.original[i])positionBufferChanges++;if(!Number.isFinite(g.attributes.position.array[i]))nonFinite++;}
       for(let k=0;k<r.morphOriginal.length;k++)for(let i=0;i<r.morphOriginal[k].length;i++)if(g.morphAttributes.position[k].array[i]!==r.morphOriginal[k][i])morphBufferChanges++;
     }
-    let protectedVertexChanges=0;
+    let protectedVertexChanges=0,faceTintVertices=0;
     const hg=head.geometry,hp=hg.attributes.position,hm=hg.morphAttributes.position||[];
     const hlocal=toAnatomy.clone().multiply(restHead),hlinear=new THREE.Matrix3().setFromMatrix4(hlocal),test=new THREE.Vector3();
     for(let i=0;i<hp.count;i++){
       const protect=test.fromBufferAttribute(hp,i).applyMatrix4(hlocal).y>=1.415||hm.some(m=>test.fromBufferAttribute(m,i).applyMatrix3(hlinear).lengthSq()>1e-14);
+      if(protect&&(hg.attributes.aRepairTint?.getW(i)||0)>0)faceTintVertices++;
       if(protect&&['aRepairOffset','aRepairNormalCorrection'].some(name=>test.fromBufferAttribute(hg.attributes[name],i).lengthSq()>0))protectedVertexChanges++;
     }
     const rim=hg.userData.repairProtection||{};
-    return {positionBufferChanges,morphBufferChanges,nonFinite,protectedVertexChanges,headGeometryReplaced:Number(head.geometry!==originalHeadGeometry),rimFlips:rim.flips,rimSquash:rim.squash};
+    return {positionBufferChanges,morphBufferChanges,nonFinite,protectedVertexChanges,faceTintVertices,headGeometryReplaced:Number(head.geometry!==originalHeadGeometry),rimFlips:rim.flips,rimSquash:rim.squash};
   };
   const seam=()=>{
     const B=evaluate(body,new Float32Array(body.geometry.attributes.position.count*3));
