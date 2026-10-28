@@ -33,14 +33,14 @@ test("허리펴기: 세 구역을 정확히 누르고 결과 카드까지 간다
 });
 
 // 새 환자 4명의 엎드린 몸 (2026-10-25): ?patient= lays that patient's own prone body and puts them on the chart
-test("허리펴기: ?patient=마동철이면 그 몸과 차트로 세 구역을 끝낸다", async ({ page }) => {
+test("허리펴기: ?patient=조멸치면 그 몸과 차트로 세 구역을 끝낸다", async ({ page }) => {
   const errs = watchErrors(page);
   const glb = [];
   page.on("response", r => { if(/models\/back\/(patient\d*\.glb|back_surface[^/]*\.json)$/.test(r.url()) && r.ok()) glb.push(r.url().split("/").pop()); });
-  await page.goto("./back.html?patient=" + encodeURIComponent("마동철"));
+  await page.goto("./back.html?patient=" + encodeURIComponent("조멸치"));
   await page.waitForFunction(() => document.documentElement.dataset.backReady === "true", null, { timeout: 180_000 });
-  expect(glb.sort()).toEqual(["back_surface_patient12.json", "patient12.glb"]);
-  await expect(page.locator("#backName")).toContainText("마동철");
+  expect(glb.sort()).toEqual(["back_surface_patient14.json", "patient14.glb"]);
+  await expect(page.locator("#backName")).toContainText("조멸치");
   await page.click("#backTouchStart");
   const until = Date.now() + 120_000;
   while(await page.locator("#backResult").isHidden()){

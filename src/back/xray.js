@@ -153,7 +153,8 @@ function createOrgans(source,scene,art){
       // Hold only the organ pose for 50 ms; the game clock and burstAt stay intact.
       const release=Math.max(0,burstAge-HIT_STOP),popped=e.hit?smooth(0,.115,release):0;
       const recoil=Math.sin(release*30)*Math.exp(-release*7)*popped;
-      const swell=e.hit?1+.82*grow*(1-popped)-.32*popped+.16*recoil:1;
+      // Torn remains stay larger than the calm organ so the burst still reads on a 667px phone (playtest 58).
+      const swell=e.hit?1+.82*grow*(1-popped)+.22*popped+.16*recoil:1;
       const jitter=e.hit&&burstAge<0?.025*grow*grow*Math.sin(Math.max(0,age)*125):0;
       const mood=e.hit&&release>0?'dead':e.hit&&age>=0?'strain':'calm';
       if(e.hit){moods[e.id]=mood;swells[e.id]=+swell.toFixed(3);}
@@ -197,9 +198,9 @@ function createOrgans(source,scene,art){
     markerPos.copy(spine.position);
     markerTag.sprite.visible=markerTag.line.visible=false;
     markerTag=markerTags[spine.seg-1];
-    marker.visible=markerTag.sprite.visible=markerTag.line.visible=spine.on&&zoom>0&&spine.amount>.001;
-    // Once an organ pops the top stamp names the fracture too; a second caption hopping around the spine is noise.
-    if(burstIds.length)markerTag.sprite.visible=markerTag.line.visible=false;
+    marker.visible=spine.on&&zoom>0&&spine.amount>.001;
+    // The top pill already names the fracture; in the organ view the caption sat on the swelling organ (playtest 57).
+    markerTag.sprite.visible=markerTag.line.visible=false;
     marker.material.opacity=amount*(.75+.25*Math.sin(fractureTime*9));marker.position.copy(markerPos);
     markerTag.sprite.material.opacity=amount;markerTag.line.material.opacity=amount;
     // Side close-up first (small crack), then it grows a little in the organ view.
@@ -214,7 +215,7 @@ function createOrgans(source,scene,art){
       if(!ids.includes(e.id))continue; // frame only the burst organs so they read big (user, 2026-10-18)
       // Fit the swollen silhouette and ring, rather than zooming an
       // uninflated GLB tightly and letting the next beat cover the entire phone.
-      const extent=new THREE.Vector3(e.size.x*.96,.025,e.size.z*.96);
+      const extent=new THREE.Vector3(e.size.x*.8,.025,e.size.z*.8);
       box.union(new THREE.Box3(e.centre.clone().sub(extent),e.centre.clone().add(extent)));
     }
     return box;

@@ -68,9 +68,13 @@ export function drawRing(now, c, zone, br){
   // side labels use the suite display face and a quiet room-colour under-stroke.
   ctx.font = "10px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
   ctx.strokeStyle = "rgba(23,49,44,.9)"; ctx.lineWidth = 3;
-  ctx.strokeText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.strokeText(tr("오른쪽"), cx + R*0.82, cy - 8);
-  ctx.fillStyle = C_PAPER;
-  ctx.fillText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.fillText(tr("오른쪽"), cx + R*0.82, cy - 8);
+  // 52차: off while the miss marker is up, its "여기였어요" sits on the same row next to the target
+  const missUp = S.ghostUntil && now > S.ghostFrom - 300 && now < S.ghostUntil;
+  if(!missUp){
+    ctx.strokeText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.strokeText(tr("오른쪽"), cx + R*0.82, cy - 8);
+    ctx.fillStyle = C_PAPER;
+    ctx.fillText(tr("왼쪽"), cx - R*0.82, cy - 8); ctx.fillText(tr("오른쪽"), cx + R*0.82, cy - 8);
+  }
 
   // target zone (first patients)
   if(S.idx < S.zoneUntil){
@@ -97,7 +101,7 @@ export function drawRing(now, c, zone, br){
     ctx.beginPath(); ctx.ellipse(cx, cy, R + 9, tensionY, 0, T0, T0 + c*0.92*Math.PI*2); ctx.stroke();
   }
   breathArc(ctx, now, br, fade, cx, cy, R);
-  if(!(S.ghostUntil && now > S.ghostFrom - 300 && now < S.ghostUntil)) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot
+  if(!missUp && !stampUp() && !S.busy) breathLabel(ctx, br, cx, cy, R, "꺾으면");   // 20차: the miss marker owns this spot; 53차: not over the reaction
 
   // after a wrong crack (game/flow.js hurt): a coral X where it was aimed, the right spot as a pulsing mint ring with a
   // ripple and a dashed line between them, ~2.5 s
@@ -130,7 +134,7 @@ export function drawRing(now, c, zone, br){
 
   // swap (7차 플레이테스트): the new target pulses for 1.5 s so the player sees where it went
   if(now < S.swapPulse && target){
-    const u = 1 - (S.swapPulse - now)/1500, gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
+    const u = Math.max(0, 1 - (S.swapPulse - now)/1500), gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
     ctx.globalAlpha = fade*(1 - u*0.6); ctx.strokeStyle = C_MINT; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(gx, gy, 16 + 40*Math.min(1, u*1.6), 0, Math.PI*2); ctx.stroke();
     ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.beginPath(); ctx.arc(gx, gy, 14 + 4*Math.sin(now*0.02), 0, Math.PI*2); ctx.fill();
@@ -178,15 +182,26 @@ function breathArc(ctx, now, br, fade, cx, cy, R){
   ctx.globalAlpha = fade;
   ctx.lineCap = "butt";
 }
+// a fail / PERFECT stamp still up (ui/hudDom.js stamp, not tucked into the corner): the breath label would run under it (52차)
+const stampUp = () => !!document.querySelector(".stamp-card.show:not(.tuck)");
 function breathLabel(ctx, br, cx, cy, R, verb){
   // only when it asks for something: the in-breath already shows as the patient's "흐읍…" (scene/breathFx.js), one place per fact
   const fake = hasRule(S.boss, "fake");
   if(!T.breath || !bonusWindow(S.boss, br.exhale)) return;
   const label = tr("{state} · 지금 {verb} +15", {state: tr(fake ? "들이쉬는 중" : "내쉬는 중"), verb: tr(verb)});
-  ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
-  // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
-  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
-  ctx.fillStyle = C_MINT; ctx.fillText(label, cx, cy - R + 20);
+  // 67차: on a short landscape HUD (<= 430 px) the ring is small and its top sits on the forehead and eyes, so the
+  // label goes smaller and outside the ring's left edge, level with the head; back to the top if that side has no room
+  const short = hud.height/hudDpr <= 430;
+  ctx.font = (short ? 12 : 15) + "px 'Black Han Sans', sans-serif"; ctx.lineJoin = "round";
+  let x = cx, y = cy - R + 20;
+  ctx.textAlign = "center";
+  if(short){
+    const w = ctx.measureText(label).width, lx = cx - R - 14;
+    if(lx - w >= 8){ x = lx; y = cy + 4; ctx.textAlign = "right"; }
+  }
+  // otherwise just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, x, y);
+  ctx.fillStyle = C_MINT; ctx.fillText(label, x, y);
 }
 // an element's box in #app's own (pre-rotation) layout, the HUD canvas's coordinates
 function boxIn(el){
@@ -207,7 +222,7 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   const guide = S.idx < S.zoneUntil;
   drawVGauge(ctx,{x,top,h,value:t,band:guide ? [tg.mid-tg.half,tg.mid+tg.half] : [tg.limit,tg.limit],limit:tg.limit,title:tr("수건 장력"),hot:over||(guide && (zone||taut)),colors});
   breathArc(ctx, now, br, fade, cx, cy, R);
-  breathLabel(ctx, br, cx, cy, R, "당기면");
+  if(!stampUp() && !S.busy) breathLabel(ctx, br, cx, cy, R, "당기면");
   // at the bottom between the controls line and the "중앙으로" button, clear of the face and neck (user: "좌우 중심 맞추는
   // 바가 너무 목쪽에 있어서 시야가 답답해 보이고 환자 얼굴이 잘 안 보임", 2026-10-16; it sat right under the head): the left / right focus (core/towel.js aimOff), the centre band in mint, the aim dot coral when off
   const off = aimOff(S.cur.rot, tg), offC = Math.abs(off) > 1;
@@ -219,7 +234,8 @@ function drawTowel(ctx, now, zone, br, fade, cx, cy, R){
   drawHBar(ctx,{bx,by,bw,off,ok:!offC,title:tr("좌우 중심"),colors});
   // over the card: what to do
   const near = guide ? t > tg.mid - tg.half - 0.2 : t > 0.15;
-  const msg = tr(over || (guide && taut) ? "너무 팽팽해요!" : guide && zone ? "지금! 툭 당겨요" : offC && near ? "좌우 중심을 맞춰요" : guide && near ? "조금 더" : "");
+  // 53차: after a pull (S.busy) the hint went stale ("조금 더" under a PERFECT); no hint until the next aim
+  const msg = S.busy ? "" : tr(over || (guide && taut) ? "너무 팽팽해요!" : guide && zone ? "지금! 툭 당겨요" : offC && near ? "좌우 중심을 맞춰요" : guide && near ? "조금 더" : "");
   drawHint(ctx,{x:mx,y:by-40,text:msg,hot:over||offC||(guide && zone),colors});
   ctx.globalAlpha = 1;
 }

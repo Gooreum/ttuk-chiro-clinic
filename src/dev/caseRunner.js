@@ -2,6 +2,11 @@
    in the real game (real judging, no forced hits), the same moves scripts/cases/run.mjs records. The case site opens it
    in an iframe. One tap starts it (sound and the start buttons need a user gesture); 다시 보기 reloads the page. */
 import { CASES } from "../../scripts/cases/cases.mjs";
+import { LANG } from "../i18n/index.js";
+
+/* dev chrome only: case titles stay Korean (case site data), the cover/badge words follow the game language */
+const EN = LANG === "en";
+const w = (ko, en) => EN ? en : ko;
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 export const waitFor = async (ok, ms = 60000, what = "대기") => {
@@ -43,16 +48,16 @@ function badge(text){
 /* ready(): resolves when the scene can start. begin(): synchronous part inside the tap (clicks the start button).
    play(): the scripted steps. */
 export function runCase({ ready, begin, play }){
-  if(!theCase){ cover("케이스를 찾을 수 없어요", id || "case 값 없음", "닫기", null); return; }
+  if(!theCase){ cover(w("케이스를 찾을 수 없어요", "Case not found"), id || w("case 값 없음", "no case id"), w("닫기", "Close"), null); return; }
   const c = theCase;
-  cover(c.title, "진료실 불러오는 중…", "잠시만요", null);
+  cover(c.title, w("진료실 불러오는 중…", "Loading the clinic..."), w("잠시만요", "One sec"), null);
   ready().then(() => {
-    cover(c.title, "실제 게임이 이 장면을 자동으로 재생해요. 소리 있음.", "탭해서 재생", async () => {
-      badge("자동 재생 · " + c.title);
+    cover(c.title, w("실제 게임이 이 장면을 자동으로 재생해요. 소리 있음.", "The real game replays this scene by itself. Sound on."), w("탭해서 재생", "Tap to play"), async () => {
+      badge(w("자동 재생 · ", "Autoplay · ") + c.title);
       let err = null;
       try{ begin(c); await play(c); await sleep((c.tail ?? 2) * 1000); }
       catch(e){ err = String(e && e.message || e); }
-      cover(c.title, err ? "재생이 멈췄어요: " + err : "끝. 같은 장면을 다시 볼 수 있어요.", "다시 보기", () => location.reload());
+      cover(c.title, err ? w("재생이 멈췄어요: ", "Playback stopped: ") + err : w("끝. 같은 장면을 다시 볼 수 있어요.", "Done. You can watch it again."), w("다시 보기", "Replay"), () => location.reload());
     });
-  }, e => cover(c.title, "진료실을 못 불러왔어요: " + (e && e.message || e), "다시 시도", () => location.reload()));
+  }, e => cover(c.title, w("진료실을 못 불러왔어요: ", "Could not load the clinic: ") + (e && e.message || e), w("다시 시도", "Retry"), () => location.reload()));
 }

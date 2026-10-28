@@ -86,7 +86,7 @@ the code (trimmed); values are the English line. Keep every `{placeholder}` and 
 | 사모님 | Madam | |
 | 김상무 | Director Kim | |
 | 장원장 | Dr. Jang | herbal doctor |
-| 최프로 | Pro Choi | golfer |
+| 최프로 | Golfer Choi | golfer |
 | 유어시 | Assistant Yu | Artist Jung's assistant |
 | 이스쿠터 | Scooter Lee | Rider Lee's brother |
 | 뚝튜브 | CrackTuber | youtuber |

@@ -125,6 +125,10 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .stamp-card.tuck,.clinic-app.xray-on .stamp-card{left:11%;top:24%;transform:translate(-50%,-50%) rotate(-9deg) scale(.5);opacity:.85;animation:none;transition:left .25s,top .25s,transform .25s,opacity .3s}
 :where(.clinic-app) .stamp-card.dud{border-color:var(--bone)}
 :where(.clinic-app) .stamp-card.dud b{color:var(--bone)}
+/* 60차: 이번 주 규칙 도장은 이름이 길어(영어 667에서 잘림, 한국어는 링을 덮음) 작은 글자로 줄바꿈하고 링 왼쪽, 코치 알약 아래에 둔다. 보스 규칙 주는 작은 줄을 코치 알약이 말하므로 비운다 */
+:where(.clinic-app) .stamp-card:is(.weekly,.rule){left:17%;top:57%;max-width:30%;padding:8px 12px 7px}
+:where(.clinic-app) .stamp-card:is(.weekly,.rule) b{font-size:26px;line-height:1.1;white-space:normal;text-align:center;text-wrap:balance}
+:where(.clinic-app) .stamp-card small:empty{display:none}
 :where(.clinic-app) .stamp-card.break b{font-size:54px}
 :where(.clinic-app) .stamp-card.break.show b{animation:shake .4s 2}
 @keyframes stampIn{from{opacity:0;transform:translate(-50%,-50%) rotate(-9deg) scale(1.9)}to{opacity:1;transform:translate(-50%,-50%) rotate(-9deg) scale(1)}}
@@ -135,11 +139,13 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 @keyframes sirenWord{50%{color:#3d8bff}}
 /* therapist talk (prep "힘 빼세요", breath cue): the doctor's side, so dark panel + mint, not the patient's paper bubble */
 :where(.clinic-app) .coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:15px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
-:where(.clinic-app) .boss-rule{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:3}
+:where(.clinic-app) .boss-rule{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;pointer-events:none;z-index:3}
+@media (orientation:landscape) and (max-height:430px){:where(.clinic-app) .boss-rule{font-size:12px;padding:4px 10px}}
 :where(.clinic-app) .boss-rule.late{color:var(--coral);border-color:var(--coral)}
 :where(.clinic-app) .boss-rule.late.tick{animation:bossShake .2s linear infinite}
 @keyframes bossShake{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(calc(-50% - 3px)) rotate(-2deg)}75%{transform:translateX(calc(-50% + 3px)) rotate(2deg)}}
-:where(.clinic-app) .stamp-card.boss b{font-size:54px}
+:where(.clinic-app) .stamp-card.boss:not(.rule) b{font-size:54px}
+/* 63차: 플레이 중 보스 규칙 도장(swap·taunt·시간 초과)과 오늘의 도전 도장은 링과 새 목표 라벨을 덮었다. 주간 도장처럼 작게 링 왼쪽에 */
 :where(.clinic-app) .stamp-card small.by{font-size:12px;font-weight:700;color:var(--mint);opacity:.9}
 :where(.clinic-app) .boss-rule[hidden]{display:none}
 :where(.clinic-app) .coach small{color:var(--muted);font-size:11px;font-weight:600;margin-right:6px}
@@ -322,7 +328,7 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   /* 18차: 아래에 고정된 주 버튼 뒤로 진료비 줄·합계가 반쯤 비쳐 잘린 점선 상자처럼 보였다. 버튼 둘레를 종이색으로 덮는다 */
   :where(.clinic-app) .card.log .btn:not(.ghost):is(#nextDay,#continueAd,#again,[id$="NextDay"],[id$="ContinueAd"],[id$="Again"]){box-shadow:0 4px 0 var(--coral-deep),0 14px 0 6px var(--paper,#f4efe4)}
   /* 18차: 상점·의뢰 게시판·계절 목록은 줄이 길어 맨 아래 돌아가기 버튼이 늘 잘려 있었다. 아래에 고정한다 */
-  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose,#dexClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep)}
+  :where(.clinic-app) .card.days>:is(#shopClose,#questClose,#seasonClose,#daysClose,#dexClose){position:sticky;bottom:0;z-index:1;background:var(--room-deep);box-shadow:0 8px 0 var(--room-deep),0 -16px 14px -6px var(--room-deep)}
 }
 /* 35차: 사연 카드에 보상 버튼(광고 보고 통증 칸 +1, 통증 칸 +1권)과 역경 버튼이 함께 뜨면 오른쪽 칸이 26px 넘쳐 일지로가 잘렸다. 그 경우에만 오른쪽 칸을 둘로 쪼개 통증 둘, 역경·일지로를 짝지어 한 줄에 둔다 */
 @media (orientation:landscape) and (max-height:430px){
@@ -343,6 +349,11 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :where(.clinic-app) #intro .camp-row.gated .btn{font-size:15px;padding:6px 8px}
   :where(.clinic-app) #intro .camp-row.gated .btn small{font-size:10.5px}
   :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])) .hours{font-size:11px}
+  /* 60차: 칩 2x2 + 심야·러시 + 출근 도장 줄이 겹치면 667x375·844x390에서도 11~30px 넘쳐 크레딧·언어 줄이 잘렸다. 영업 일지 부제를 숨기고 버튼을 조인다 */
+  :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])) .campaign-btn small{display:none}
+  :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])) .main-btn{padding:5px 8px}
+  :where(.clinic-app) #intro .camp-row.gated .btn{padding:4px 8px}
+  :where(.clinic-app) #intro .camp-row.gated .btn small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
 }
 /* 11차 플레이테스트: 짧은 가로 화면(667x375)에서 칩 3개가 3줄로 꺾이고 56일 클리어 뒤 카드에 스크롤이 생겼다. 칩은 낱말이 아니라 줄 단위로 한 줄씩, 넘치면 말줄임 */
 @media (orientation:landscape) and (max-height:430px){
@@ -361,11 +372,16 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 }
 @media (orientation:landscape) and (max-height:365px){
   :where(.clinic-app) #intro .campaign-btn small{display:none}   /* 740x360: 56일 클리어 카드가 12px 넘쳤다 */
+  :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])){gap:3px}   /* 60차: 740x360 영어 8px */
+  :where(.clinic-app) #intro .lead:has(.camp-row.gated > :not([hidden])) .starts-label{margin:0}
 }
 :where(.clinic-app) .starts-label{margin:6px 0 4px;font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
 /* 오늘의 도전: a coral pill on the label line (no extra row, so the short landscape title still fits) */
 :where(.clinic-app) .daily-btn{font-family:var(--body);font-weight:700;font-size:11.5px;line-height:1.15;padding:2px 10px;border-radius:999px;border:1px solid var(--coral);background:rgba(255,122,89,.14);color:var(--paper);display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap;cursor:pointer}
 :where(.clinic-app) .daily-btn[hidden]{display:none}
+/* 61차: 알약은 19px라 손가락으로 누르기 작다. 줄 높이는 그대로 두고 눌리는 자리만 위아래로 넓힌다(약 33px) */
+:where(.clinic-app) .daily-btn{position:relative}
+:where(.clinic-app) .daily-btn::after{content:"";position:absolute;inset:-7px -4px}
 :where(.clinic-app) .daily-btn small{font-size:10.5px;font-weight:600;color:var(--coral);max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .towel-key{white-space:nowrap}
 
@@ -388,6 +404,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :is(#result,#backResult,#sideResult) .card.log>.total{grid-row:7;min-height:0;align-self:end}
   :is(#result,#backResult,#sideResult) .card.log>.total+.rank,:is(#result,#backResult,#sideResult) .card.log>.rank{grid-row:7;margin:0;height:auto;padding-left:38px;align-self:center;font-size:17px;pointer-events:none;display:flex;align-items:center}
   :is(#result,#backResult,#sideResult) .card.log .day-outro{order:0}
+  /* 64차: 오른쪽 첫 줄은 왼쪽 제목(두 줄) 높이라 '기록 경신'이 위에 붙으면 아래 상자와 30px 떴다 */
+  :is(#result,#backResult,#sideResult) .card.log>.newbest{align-self:end}
   :is(#result,#backResult,#sideResult) .card.log li{grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;padding-bottom:3px;align-items:baseline}
   :is(#result,#backResult,#sideResult) .card.log li .who{grid-column:1;grid-row:1}
   :is(#result,#backResult,#sideResult) .card.log li .stars{grid-column:2;grid-row:1;font-size:12px;letter-spacing:1px}

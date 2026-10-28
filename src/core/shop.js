@@ -67,7 +67,7 @@ export function coinsFor({ avg, complete, cleared, hard, replay, endless, cracks
 }
 /* replay: this run is on a day/quest already cleared before (prior = best stars saved before this run, 0 = never cleared)
    and did not beat it (stars = this run's stars, 0 when not cleared). A run that raises the stars pays in full. */
-export const isReplay = (prior, stars) => (prior | 0) > 0 && (stars | 0) <= (prior | 0);
+export const isReplay = (prior, stars) => (prior | 0) > 0 && (stars | 0) > 0 && (stars | 0) <= (prior | 0);   // a failed run (0 stars) is not a replay: it already pays half
 /* the rewarded "진료비 2배": once per run, never on 역경 (no ad there), and only when a run paid something */
 /* continueOffered: the card already offers the rewarded "이어하기" / "마지막 환자 다시" (core/monetize.js continueOffer).
    Two rewarded buttons on one card read as a double toll and the continue is worth more, so the 2x waits: once the

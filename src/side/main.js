@@ -13,6 +13,7 @@ import {CAMPAIGN_KEY,dayRoster,dayLabel,dayClears,dayStars,readProgress,afterDay
 import {quietDay,bossMissed,continueOffer} from '../core/monetize.js';
 import {mountMonetize} from '../ui/monetize.js';
 import {mountCoinReward} from '../ui/shop.js';
+import {isReplay} from '../core/shop.js';
 import {createSideScene,ROLL_S} from './scene.js';
 import {SWEET,POSITION_TOL,tolFor,backDistance,pressProfile,clinicFilm,backViewRot,pressureHint,dayQuery,resultTitle} from '../back/core.js';
 import {BackMotion} from '../back/motion.js';
@@ -158,7 +159,7 @@ const SIREN_HOLD=2.6;
 function sideAmbulance(now){
   recordSide();S.phase='leave';S.exit='ambulance';S.leaveAt=now;cue('');
   if(S.sound)clinicAudio.siren(3.4);clinicAudio.vib([200,100,200,100,200]);
-  domHud.stamp('삐용삐용','구급차 불러요!','siren',SIREN_HOLD*1000);sync();
+  domHud.hideSpeech();domHud.stamp('삐용삐용','구급차 불러요!','siren',SIREN_HOLD*1000);sync();
 }
 function endSide(now){
   recordSide();
@@ -217,7 +218,7 @@ function finish(){
   track(EV.runEnd,{game:'side',day:dayNo,outcome,score:S.score,patients:S.results.length,pain:S.mistakes,best:record,continued:!!S.continued,run_ms:performance.now()-S.runAt,rank:rankText});
   if(complete)track(EV.runComplete,{game:'side',score:S.score,run_ms:performance.now()-S.runAt});
   screenView('result',{outcome});
-  const prior=dayDef?(HARD?(readProgress(store.get(CAMPAIGN_KEY,null)).hard||[])[DAY]:readProgress(store.get(CAMPAIGN_KEY,null)).stars[DAY])|0:0,replay=prior>0&&!!dayDef&&(dayClears(DAY,complete,S.score/2,dayDef)?dayStars(S.score/2,dayDef):0)<=prior;   // 진료비 replay (core/shop.js isReplay)
+  const prior=dayDef?(HARD?(readProgress(store.get(CAMPAIGN_KEY,null)).hard||[])[DAY]:readProgress(store.get(CAMPAIGN_KEY,null)).stars[DAY])|0:0,replay=!!dayDef&&isReplay(prior,dayClears(DAY,complete,S.score/2,dayDef)?dayStars(S.score/2,dayDef):0);   // 진료비 replay (core/shop.js isReplay)
   dayEnd(complete,S.score/2);
   coinReward.show({runKey:S.runAt,replay,continueOffered:!HARD&&continueOffer({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued}),avg:S.score/2,complete,cleared:!!dayDef&&dayClears(DAY,complete,S.score/2,dayDef),hard:HARD,game:'side',day:dayNo||0});
   askReview(complete).then(asked=>monetize.showResult({endedBad:!complete,bossMiss:!HARD&&!!dayDef&&bossMissed(dayDef.beat,complete,S.score/2,{cracks:2,lastCracks:1}),used:S.continued,skipInterstitial:asked||quietDay(DAY,!!(dayDef&&dayDef.beat)),hard:HARD}));

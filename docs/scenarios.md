@@ -19,6 +19,8 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 툭 꺾으면 교정이다. 센서가 없으면 화면 휙 쓸기, 스페이스, 엔터를 쓴다.
 - 머리를 넘겨받은 뒤 0.6초 안에 멀리서(`d > 3`) 꺾으면 통증 없이 토스트만 뜬다 (`game/flow.js` `GRIP_GRACE` 600ms).
 - 이 안내는 조작 방식이 센서이므로 실기기 확인 전이다.
+- 로스터는 11명이다(기존 5명 + 일반 환자 조멸치·한미모·마동철·복순할매·정꼬마 + 이미지 기반 최필라). 마동철·복순할매·조멸치·최필라는 이미지 기반 몸(`look.clinicModel`)을 쓴다.
+- 체형이 난이도를 바꾼다 (`core/body.js` `BODY_OF`, `withBody`·`towelBody`): 초록 구역 폭, 목표 회전각, 위험선, 조작 무게, 숨 주기. 같은 몸을 빌린 이야기 손님도 같은 난이도다.
 
 ### 1-2. 목꺾기 판정과 성공
 - 거리 `d`가 1 이하면 성공 구역이다.
@@ -196,7 +198,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 나머지 32일은 목꺾기다.
 - 허리 날의 `영업 시작`은 `back.html?day=N` 또는 `side.html?day=N`으로 넘어간다. 그쪽 시작 카드를 한 번 더 탭한다 (iOS 센서 권한).
 - 허리 날 결과 카드의 `다음 날`은 `index.html?story=N`, `영업 일지`는 `index.html?days=1`로 간다.
-- 허리 날은 그날 환자의 이름, 나이, 사연, 대사만 쓰고 몸은 고정이다 (허리펴기는 박대리 엎드린 모델, 허리비틀기는 옆눕기 patient01).
+- 허리 날은 그날 환자의 이름, 나이, 사연, 대사만 쓰고 몸은 고정이다 (허리펴기는 박대리 엎드린 모델, 허리비틀기는 옆눕기 patient01). 자유 진료 허리 판은 `roster.js` `lumbarPatient`가 박대리와 몸이 있는 새 환자 중 무작위로 고른다(`?patient=이름`으로 지정, 마동철은 몸이 침대보다 커서 두 허리 모드 모두 제외).
 - 허리 날은 자유 진료 최고 기록에 쓰지 않는다.
 
 ### 2-5. 날마다 달라지는 것
@@ -223,6 +225,9 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 환자를 넘겨받을 때 코치 한 줄이 뜬다. 8장은 규칙마다 한 알약씩 2.4초 간격이다.
 - `bossTaunt`는 사연용(전투 전), `bossLive`는 규칙이 터질 때 스탬프 아래 줄, `bossBy`는 맨 아래 작은 줄이다.
 - 보스를 졌을 때의 한 줄은 `lose`다.
+- 상단 가운데 알약(`#bossRule`): timer는 남은 시간, shrink는 "점점 좁아짐 · 구역 N%", taunt·swap·fake는 규칙 이름(`bossTags`, 여럿이면 " · "로 잇는다).
+- 규칙이 터질 때의 도장(swap "아 거기 말고!", taunt "도발!", "시간 초과")은 링 왼쪽의 작은 줄바꿈 도장이다 (`.stamp-card.rule`). 보스 날 시작·패배 도장은 크다.
+- 5장 timer 도장 아래 줄은 "종이 울렸네. 이 결과는 부록으로 넣겠네."다 (65차, 제목과 같은 말을 반복하지 않게).
 - 보스 규칙 값(12초, -20점, 0.8, 6초, 0.65)은 실기기 확인 전이다.
 
 ### 2-7. 역경 모드
@@ -308,7 +313,9 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 기록은 `chiroWeekly {week, best, tries}`다. 시작할 때 `tries`가 오르고 끝까지 한 판만 `best`를 올린다.
 - 한 주 첫 클리어(`best` 0에서 양수)에는 진료비 +60을 받는다 (`WEEKLY_BONUS`).
 - 결과 카드: "이번 주 최고 N점 · k번째 도전". 끝까지 못 했으면 "끝까지 진료해야 이번 주 기록이 남아요".
-- 플레이 중 상단에 "이번 주 · 규칙 이름" 알약이 뜬다.
+- 플레이 중 상단에 "이번 주 · 규칙 이름" 알약이 뜬다. 알약은 작은 차트와 점수 패널 사이 빈칸 가운데에 놓이고, 빈칸이 120px보다 좁으면 점수 패널 아래로 내려간다 (`game/boss.js` `place`). "반대쪽" 배너가 떠 있으면 배너 밑으로 내려간다 (`dodgeBanner`).
+- 첫 환자가 오면 "이번 주 규칙" 도장이 링 왼쪽에 작은 줄바꿈 도장으로 뜬다 (`.stamp-card.weekly`).
+- 결과 카드 제목은 "주간 챌린지 끝"이고 첫 줄은 "규칙: 규칙 이름"이다.
 - 이어하기는 통증 칸 +1이다. 랭킹은 없고 결과 카드 전면광고도 없다.
 - 자랑하기는 이번 주 기록이 있을 때만 붙는다.
 
@@ -329,6 +336,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 한 계절 4편을 모두 깨면 진료비 +80을 계절당 한 번 받는다 (`SEASON_BONUS`).
 - 저장은 `chiroSeason {eps, bonus}`이고 캠페인 저장과 따로다.
 - 별, 최고 기록, 역경과 무관하다.
+- 결과 카드 제목은 "계절 손님 끝"이다. 목록의 "돌아가기"는 연 곳(타이틀 또는 영업 일지)으로 돌아간다 (`game/seasonFlow.js`).
 
 ### 3-5. 단골 의뢰 게시판 (`core/quests.js`)
 - 영업 일지 화면의 `단골 의뢰 게시판` 버튼에서 연다.
@@ -345,7 +353,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 통증 +1 광고와 이어하기는 자유 진료와 같다.
 
 ### 3-6. 환자 도감 (`core/dex.js`)
-- 환자 34명(ROSTER 5 + CAST 29)과 실패 연출 10종을 모은다. 파일 주석의 32명은 옛 값이다.
+- 환자 40명(ROSTER 11 + CAST 29)과 실패 연출 10종을 모은다. 새 일반 환자는 영업 일지에 안 나와 힌트가 "일반 진료에서 만나요"다.
 - 실패 연출 10종: 뾰잉, 삑사리, 손가락 뚝, 금, 골절, 구급차, 엿가락, 헛당김, 삐끗, 팽팽 금.
 - 못 만난 환자는 실루엣과 "???"과 나오는 장 힌트만 보인다.
 - 결과 카드에 "도감에 새로 적혔어요"가 뜬다.
@@ -357,7 +365,10 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 진료비 = 평균 × 0.9 반올림이다. 미완주는 ×0.5, 클리어 +15, 역경 ×1.3이다. 한 판 상한은 160이다 (`RUN_COIN_CAP`).
 - 심야, 주간, 러시는 실제 꺾은 횟수로 나눈 평균을 쓴다 (`core/scoring.js` `mixedCracks`).
 - 진료비가 0이면 결과 카드의 진료비 줄을 숨긴다.
-- 소품 10개와 통증 칸 +1권을 산다. 저장은 `chiroShop`이다.
+- 소품 11개(VIP 레드카펫 20,000 포함), 업그레이드 4개, 통증 칸 +1권을 산다. 저장은 `chiroShop`이다.
+- 업그레이드(금니 해골 8,000·분홍 네온 10,000·다이아 트로피 12,000·황금 안마의자 15,000)는 바탕 소품이 있어야 산다.
+- 이미 깬 영업 일지 날·단골 의뢰·계절 손님 편을 별을 못 늘리고 다시 깨면 진료비 x0.4, 클리어 +15 없음 (`isReplay`, `REPLAY_MUL`).
+- 심야·보스 러시 진료비는 평균 x 0.135 x 꺾은 횟수, 상한 500 (`ENDGAME_RATE`, `ENDGAME_COIN_CAP`).
 
 | 항목 | 가격 |
 |---|---|
@@ -388,6 +399,16 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 게임 화면 오른쪽 위 `클리닉` 칩이 메뉴를 연다 (목꺾기, 목뽑기, 허리펴기. 지금 모드는 눌린 칩이다).
 - 메뉴가 열려 있으면 목 모드는 입력이 막히고 허리는 멈춘다. 바깥을 탭하면 닫고 이어간다.
 - 이동은 페이지 새로고침이다. 도착한 모드의 시작 카드에서 한 번 탭한다.
+
+### 3-10. 오늘의 도전과 출근 도장 (`core/daily.js`, `core/attend.js`)
+- 오늘의 도전: 타이틀의 알약 하나로 캠페인 진행과 상관없이 시작한다.
+- 날짜(KST)가 시드다. 환자 1명(`DAILY_POOL`, 로스터와 초반 손님 12명)과 주간 규칙 하나(`ruleOfDay`, 연속한 날 같은 규칙 없음).
+- 그날 첫 클리어에 진료비 +30 (`DAILY_BONUS`). 자랑하기는 있고 리더보드는 없다. `chiroBest`에는 넣지 않는다.
+- 플레이 중 상단 알약은 "오늘 · 규칙 이름", 첫 도장은 작은 줄바꿈 도장이다.
+- 결과 카드 제목은 "오늘의 도전 끝"이고 첫 줄은 "규칙: 규칙 이름"이다. 기록을 깨면 "오늘 최고 기록 경신!"이 오른쪽 칸 첫 줄 바로 위에 붙는다.
+- 저장은 `chiroDaily`. 결과 카드 전면광고는 없다.
+- 출근 도장: 하루(KST) 첫 판이 끝나면 찍힌다 (실패 판도 찍힌다). 7일 주기 진료비 10·10·15·15·20·20·70 (`ATTEND_REWARD`). 하루 걸러 끊기면 1일째. 저장 `chiroAttend`.
+- 케이스: `daily-start`, `daily-result`. e2e: `e2e/daily.spec.js`.
 
 ---
 
@@ -429,7 +450,8 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 
 ## 5. 확인 방법: 케이스 id
 
-- `scripts/cases/cases.mjs`에 케이스가 151개 있다.
+- `scripts/cases/cases.mjs`에 케이스가 172개 있다.
+- 체형 다양화 뒤 더한 21개: 새 일반 환자 6명의 목꺾기·목뽑기 성공, 새 환자 허리펴기·허리비틀기 성공, 최필라 폐 파열(아래 표).
 - 22차에 더한 46개: 계절 손님 편별 사연(`season-story-*`, `season-list-*`), 의뢰 제약별 사연·결과(`quest-story-*`, `quest-result-*`), 주간 규칙 8종(`weekly-rule-*`), 허리펴기·허리비틀기 날(`back-day16-clear`, `back-day14-hard-fail`, `back-boss-day20`, `side-day29-*`), 보스·역경 사연, 장 막간(`campaign-ch2-interlude`~`campaign-ch8-interlude`), `night-crisis`, `rush-result`, `dex-complete`, `clinic-menu-open`.
 - 케이스 사이트에서 카드를 누르면 실제 게임이 그 장면을 재생한다.
 - 로컬 점검은 `npx vite preview --mode cases --outDir dist-cases --port 5195` 뒤 `node scripts/cases/live-check.mjs`다.
@@ -441,6 +463,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 성공 (PERFECT, 잘함) | clinic-ok-perfect, clinic-ok-good |
 | 양쪽 모두 성공 | clinic-ok-both-sides |
 | 환자별 성공 | clinic-ok-patient-choi, clinic-ok-patient-rider, clinic-ok-patient-jung, clinic-ok-patient-kim |
+| 체형별 성공 (조멸치·한미모·마동철·복순할매·최필라·정꼬마) | clinic-ok-patient-jo, clinic-ok-patient-han, clinic-ok-patient-ma, clinic-ok-patient-boksun, clinic-ok-patient-pila, clinic-ok-patient-kid |
 | 하루 클리어 | clinic-day-clear |
 | 실패 over (뾰잉) | clinic-fail-over |
 | 실패 dud (삑사리) | clinic-fail-dud |
@@ -460,6 +483,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 시나리오 | 케이스 id |
 |---|---|
 | 성공 | towel-ok-perfect-parkdr, towel-ok-perfect-rider, towel-ok-good-kim |
+| 체형별 성공 | towel-ok-perfect-jo, towel-ok-perfect-han, towel-ok-perfect-ma, towel-ok-perfect-boksun, towel-ok-perfect-pila, towel-ok-perfect-kid |
 | 하루 클리어 | towel-day-clear |
 | slip | towel-fail-slip |
 | taut 금 | towel-crisis-taut |
@@ -477,6 +501,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 시나리오 | 케이스 id |
 |---|---|
 | 성공 | back-ok-perfect, back-ok-good |
+| 새 환자 성공 (최필라·조멸치·복순할매, 마동철은 허리펴기에서 뺌) | back-ok-patient-pila, back-ok-patient-jo, back-ok-patient-boksun |
 | 하루 클리어 | back-day-clear |
 | 약함 | back-fail-weak |
 | 과압 | back-fail-over |
@@ -485,13 +510,14 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 압력 금, 골절 | back-crisis-pressure-crack, back-crisis-pressure-break |
 | 꺾기 세기 금, 골절 | back-crisis-force-crack, back-crisis-force-break |
 | 통증 3번 종료 | back-end-pain3 |
-| 장기 파열 | back-organ-lungL, back-organ-lungR, back-organ-heart, back-organ-liver, back-organ-spleen-stomach, back-organ-kidneyL, back-organ-kidneyR, back-organ-bowel, back-organ-liver-crack |
+| 장기 파열 | back-organ-lungL, back-organ-lungR, back-organ-heart, back-organ-liver, back-organ-spleen-stomach, back-organ-kidneyL, back-organ-kidneyR, back-organ-bowel, back-organ-liver-crack, back-organ-pila-lungL |
 
 ### 5-4. 허리비틀기
 
 | 시나리오 | 케이스 id |
 |---|---|
 | 첫 쪽 성공 | side-ok-first |
+| 새 환자 성공 (최필라·복순할매) | side-ok-patient-pila, side-ok-patient-boksun |
 | 양쪽 성공, 대칭 | side-ok-both-symmetry |
 | 양쪽 성공, 차이 있음 | side-ok-both-uneven |
 | 약함 재시도 | side-fail-weak-retry |
@@ -507,14 +533,16 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 |---|---|
 | 2장 사연 | campaign-ch2-story |
 | 2장 1일차 클리어 | campaign-ch2-day1-clear |
-| 2장 보스 패배 | campaign-ch2-boss-lose |
+| 2장 보스 패배, 승리 | campaign-ch2-boss-lose, campaign-ch2-boss-win |
 | 3장 사연 | campaign-ch3-story |
 | 4~8장 사연 | campaign-ch4-story, campaign-ch5-story, campaign-ch6-story, campaign-ch7-story, campaign-ch8-story |
 | 최종 보스 사연 | campaign-final-boss-story |
-| 보스 날 사연 (2, 4, 5, 6, 7장) | campaign-ch2-boss-story, campaign-ch4-boss-story, campaign-ch5-boss-story, campaign-ch6-boss-story, campaign-ch7-boss-story |
+| 보스 날 사연 (2~7장) | campaign-ch2-boss-story, campaign-ch3-boss-story, campaign-ch4-boss-story, campaign-ch5-boss-story, campaign-ch6-boss-story, campaign-ch7-boss-story |
 | 보스 규칙 플레이 | campaign-boss-taunt-play, campaign-boss-fake-play, campaign-boss-timer-play, campaign-boss-swap-play, campaign-boss-shrink-play |
 | 최종 보스 플레이 | campaign-final-boss-play |
-| 막간 (4장) | campaign-ch4-interlude |
+| 막간 (2~8장) | campaign-ch2-interlude, campaign-ch3-interlude, campaign-ch4-interlude, campaign-ch5-interlude, campaign-ch6-interlude, campaign-ch7-interlude, campaign-ch8-interlude |
+| 목뽑기 날 (1장 3일차) 사연, 플레이 | campaign-towel-day3-story, campaign-towel-day3 |
+| 보스 역경 사연 (2장, 최종) | campaign-ch2-boss-hard-story, campaign-final-boss-hard-story |
 | 엔딩 | ending-card |
 | 역경 사연, 1일차 클리어 | campaign-hard-story, campaign-hard-day1-clear |
 | 허리 역경 사연 | campaign-back-hard-story |
@@ -547,6 +575,8 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 - 영어판(타이틀·일지·1일차 완주·결과 카드에 한글 없음, 언어 칩 전환과 유지, 허리 두 시작 카드): `e2e/en.spec.js`. 다른 스펙은 ko-KR로 고정돼 있다.
 - 영어 화면 전체 점검: 케이스 빌드를 preview 5195로 띄우고 `node scripts/i18n/hangul-scan.mjs`. 모든 케이스를 `&lang=en`으로 재생하며 화면 DOM의 한글을 모은다. 캔버스 글자는 `npm run i18n:check`가 원문 쪽에서 본다.
 
+- 영어판 언어 고르기: `?lang=` → localStorage `chiroLang` → 브라우저 언어(ko가 아니면 영어). 토스 빌드는 항상 한국어. 타이틀·허리 시작 카드 크레딧 줄 끝의 언어 칩으로 바꾼다. 48~52차에 667x375 위주로 봤고 원어민 감수 전이다.
+
 ### 6-2. 케이스도 e2e도 없는 시나리오
 - 계절 손님의 봄, 여름, 가을 사연과 목록.
 - 단골 의뢰 제약별(many, beat, pain1 등) 플레이 장면과 잠금 문구 화면.
@@ -569,7 +599,11 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 
 문서와 코드가 다른 곳
 - 목뽑기 결과 카드 제목: AGENTS.md는 "수건 견인 연습 끝", 코드(`game/flow.js`)는 "목뽑기 끝"이다.
-- 도감 환자 수: `core/dex.js` 주석은 32명, 실제는 34명(5 + 29)이다.
+- 도감 환자 수: `core/dex.js` 주석은 32명, 실제는 40명(11 + 29)이다.
+
+플레이테스트에서 남은 표시 문제 (67차까지)
+- 허리비틀기 조준 때 치료사 얼굴이 환자 머리에 붙어 보인다. 구운 setup 클립부터 다시 잡아야 한다.
+- 조멸치 허리비틀기에서 다리·신발이 침대 밖으로 나온다 (스키닝 가중치).
 
 코드로 확인 못 한 것
 - 타이틀 버튼 구성의 세부 (AGENTS.md와 `index.html` 일부로 썼다).

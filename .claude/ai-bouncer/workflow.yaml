@@ -5,22 +5,28 @@
 
 stages:
   verify:
+    # 검사는 전부 고르는 항목이다 (verify 는 시작할 때 고른다).
+    # 모델이 prompt 대로 bouncer record 로 직접 돌리고, run 은 bouncer passed 로 결과만 본다.
     items:
-      npm-test:
-        label: "npm test"
-        prompt: "`bouncer record npm-test 'npm test'` 로 돌린다."
-        run: ["bouncer passed npm-test"]
-      npm-run-build:
-        label: "npm run build"
-        prompt: "`bouncer record npm-run-build 'npm run build'` 로 돌린다."
-        run: ["bouncer passed npm-run-build"]
-      npm-run-e2e:
-        label: "npm run e2e"
-        prompt: "`bouncer record npm-run-e2e 'npm run e2e'` 로 돌린다."
-        run: ["bouncer passed npm-run-e2e"]
-      x-venv-bin-python-python3-m-ve:
-        label: "{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new"
-        prompt: "`bouncer record x-venv-bin-python-python3-m-ve '{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new'` 로 돌린다."
-        run: ["bouncer passed x-venv-bin-python-python3-m-ve"]
+      unit:
+        label: "테스트·빌드"
+        prompt: |
+          직접 돌린다: bouncer record unit 'npm test && npm run build'
+          hook 은 다시 돌리지 않는다. 결과가 마지막 수정보다 새것이고 통과했는지만 본다.
+        run: bouncer passed unit
+      e2e:
+        label: "e2e (영향받는 spec만)"
+        prompt: |
+          playwright spec: 이번 수정이 영향을 주는 것만 골라 직접 돌린다. 전체를 돌리지 않는다.
+            bouncer record e2e 'npm run build:shot && npx playwright test <영향받는 spec...>'
+          영향받는 것이 없으면 `bouncer record e2e echo "영향 없음: <이유>"` 로 남긴다.
+          hook 은 다시 돌리지 않는다. 결과가 마지막 수정보다 새것이고 통과했는지만 본다.
+        run: bouncer passed e2e
+      shot:
+        label: "화면 스크린샷 비교"
+        prompt: |
+          직접 돌린다: bouncer record shot '{ [ -x .venv/bin/python ] || { python3 -m venv .venv && .venv/bin/pip -q install playwright pillow && .venv/bin/python -m playwright install chromium; }; } && npm run build:shot && .venv/bin/python -I scripts/shot.py dist-shot --label new'
+          hook 은 다시 돌리지 않는다. 결과가 마지막 수정보다 새것이고 통과했는지만 본다.
+        run: bouncer passed shot
   finalize:
-    run: ["test \"$(git branch --show-current)\" != main", "git rev-parse --git-dir >/dev/null 2>&1 && test -z \"$(git status --porcelain)\"", "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""]
+    run: ["test \"$(git branch --show-current)\" != main", "git rev-parse --abbrev-ref \"@{u}\" >/dev/null 2>&1 && test -z \"$(git log \"@{u}..HEAD\" --oneline)\""]

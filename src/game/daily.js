@@ -38,7 +38,7 @@ export function dailyPrep(){
   S.game = p.weekly.game === "towel" ? "towel" : "clinic";
   setModeText(); setMode(S.game === "towel" ? "towel" : "crack");
   const set = S.daily.set;
-  setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("오늘의 도전 · {r}",{r:t(set.rule.name)}), t(set.rule.line), "dud", 3200); if(!set.boss.length) coach(t(dailyCue(set.rule)), 3000); } }, 450);
+  setTimeout(() => { if(S.phase === "play" && S.patients[S.idx] === p){ stamp(t("오늘의 도전 · {r}",{r:t(set.rule.name)}), t(set.rule.line), "dud weekly", 3200); if(!set.boss.length) coach(t(dailyCue(set.rule)), 3000); } }, 450);
 }
 export function dailyContinue(){ S.painMax += 1; }
 export const dailyBest = date => dailyRead(store.get(DAILY_KEY, null), date).best;
@@ -55,7 +55,7 @@ export function dailyResult(complete){
     try{ dispatchEvent(new Event("chiro-shop")); }catch(e){}
     track(EV.coinEarn, { game: "daily", day: 0, hard: 0, coins: DAILY_BONUS, step: "daily", total: readShop(store.get(SHOP_KEY, null)).coins });
   }
-  $("#rdate").textContent = t("오늘의 도전 · {l} · {r}",{l:t(dailyLabel(date)),r:t(set.rule.name)});
+  $("#rdate").textContent = t("오늘의 도전 · {l} · 규칙: {r}",{l:t(dailyLabel(date)),r:t(set.rule.name)});
   $("#newbest").textContent = t("오늘 최고 기록 경신!"); $("#newbest").hidden = !isBest;
   const out = $("#dayOutro");
   out.textContent = record.best > 0

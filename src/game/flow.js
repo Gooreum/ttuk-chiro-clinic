@@ -164,7 +164,7 @@ function swapAim(){
   // and the stamp sat under them at the same size; now the stamp is big, stays 2.6 s, and nothing else talks meanwhile.
   S.saidIdle = true; S.saidNear = true;
   hideCoach();
-  stamp("아 거기 말고!", liveLine(S.bossLive, "swap", S.bossLine), "dud boss", 2600, S.bossBy);
+  stamp("아 거기 말고!", liveLine(S.bossLive, "swap", S.bossLine), "dud boss rule", 2600, S.bossBy);
   hideSpeech();
   S.swapPulse = performance.now() + 1500;   // ring.js: the new target pulses once
   floater("?!", headScreen.r + 24, -headScreen.r - 10, "small", 1200);
@@ -179,7 +179,7 @@ function switchSide(){
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(tl("{n}번째 환자 · 반대쪽", {n: S.idx+1}), tl("{name} 님 ({age})", {name: tl(target.name), age: target.age}), tl("{side} 회전으로 맞춰 보세요", {side: tl(target.side > 0 ? "오른쪽" : "왼쪽")}));
-  if(S.bossTaunt){ $("#pseg").textContent += tl(" · 구역 축소"); stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss", 2600, S.bossBy); }
+  if(S.bossTaunt){ $("#pseg").textContent += tl(" · 구역 축소"); stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss rule", 2600, S.bossBy); }
   else say("반대쪽도 부탁해요", 1600);
   S.busy = false; S.patientStart = S.breathT0 = performance.now(); S.bossReady = true;
 }
@@ -256,7 +256,7 @@ function success(d, exhale){
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
   setTimeout(()=>floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
-  if(penalty) setTimeout(() => { floater(tl("시간 초과 -{n}", {n: penalty}), 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss", 2400, S.bossBy); }, 700);
+  if(penalty) setTimeout(() => { floater(tl("시간 초과 -{n}", {n: penalty}), 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss rule", 2400, S.bossBy); }, 700);
   let extra = 0;
   if(exhale) setTimeout(()=>floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(tl("연속 ×{n} +{b}", {n: S.streak, b: comboBonus}), 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);
@@ -295,6 +295,7 @@ function callAmbulance(later, at, target, pts){
   S.ambulance = true; dexFailSeen("all", "ambulance");
   later(at, () => {
     siren(3.4); vib([200, 100, 200, 100, 200]); flashSiren(AMBULANCE_END - SIREN_AT + 300);
+    hideSpeech();   // the siren stamp sits over the speech row; the line has been up since the pull
     stamp("삐용삐용", "구급차 불러요!", "siren", AMBULANCE_END - SIREN_AT);
     S.input.rot = 0; S.input.bend = 0;
   });
@@ -523,7 +524,7 @@ export function finish(){
   if(isBest) store.set(key, score);
   // towel: one tug per patient. 심야 진료 and 보스 러시 count the treated patients only (the unplayed rest of an endless / 26-patient run would drag the average, and its coins, to nothing), 주간 챌린지 its whole line-up
   const avg = mixed ? score / Math.max(1, mixedCracks(S.weekly || S.daily ? S.patients.map(p => p.weekly.game) : S.results.filter(r => r.stars > 0).map(r => r.game))) : towel ? score / S.patients.length : crackAvg(score, S.patients.length);
-  $("#rtitle").textContent = tl(S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝");
+  $("#rtitle").textContent = tl(S.ambulance ? "구급차가 왔어요" : S.pain >= S.painMax ? (campaign && S.painMax < 3 ? "영업 정지" : (S.results.length < S.patients.length ? "환자들이 도망갔어요" : "환자가 도망갔어요")) : S.rush ? "보스 러시 끝" : S.night ? "심야 진료 끝" : S.weekly ? "주간 챌린지 끝" : S.daily ? "오늘의 도전 끝" : S.quest >= 0 ? "의뢰 끝" : S.season >= 0 ? "계절 손님 끝" : towel ? "목뽑기 끝" : "오늘 진료 끝");
   $("#rdate").textContent = campaign ? tl("영업 일지 · {day}{hard} {title}", {day: tl(dayLabel(S.day)), hard: S.hard ? tl(" 역경") : "", title: tl(DAYS[S.day].title)}) : tl("오늘의 진료 일지");
   const rankKo = rankTitle(avg, S.ambulance || S.pain >= S.painMax ? 3 : S.pain);
   $("#rank").textContent = tl(rankKo);
