@@ -139,7 +139,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 @keyframes sirenWord{50%{color:#3d8bff}}
 /* therapist talk (prep "힘 빼세요", breath cue): the doctor's side, so dark panel + mint, not the patient's paper bubble */
 :where(.clinic-app) .coach{position:absolute;left:50%;top:31%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:15px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .25s;z-index:3}
-:where(.clinic-app) .boss-rule{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;pointer-events:none;z-index:3}
+:where(.clinic-app) .boss-rule{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);color:var(--mint);font-size:14px;font-weight:700;padding:5px 12px;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;pointer-events:none;z-index:3}
+@media (orientation:landscape) and (max-height:430px){:where(.clinic-app) .boss-rule{font-size:12px;padding:4px 10px}}
 :where(.clinic-app) .boss-rule.late{color:var(--coral);border-color:var(--coral)}
 :where(.clinic-app) .boss-rule.late.tick{animation:bossShake .2s linear infinite}
 @keyframes bossShake{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(calc(-50% - 3px)) rotate(-2deg)}75%{transform:translateX(calc(-50% + 3px)) rotate(2deg)}}
