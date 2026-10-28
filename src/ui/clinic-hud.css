@@ -404,6 +404,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
   :is(#result,#backResult,#sideResult) .card.log>.total{grid-row:7;min-height:0;align-self:end}
   :is(#result,#backResult,#sideResult) .card.log>.total+.rank,:is(#result,#backResult,#sideResult) .card.log>.rank{grid-row:7;margin:0;height:auto;padding-left:38px;align-self:center;font-size:17px;pointer-events:none;display:flex;align-items:center}
   :is(#result,#backResult,#sideResult) .card.log .day-outro{order:0}
+  /* 64차: 오른쪽 첫 줄은 왼쪽 제목(두 줄) 높이라 '기록 경신'이 위에 붙으면 아래 상자와 30px 떴다 */
+  :is(#result,#backResult,#sideResult) .card.log>.newbest{align-self:end}
   :is(#result,#backResult,#sideResult) .card.log li{grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;padding-bottom:3px;align-items:baseline}
   :is(#result,#backResult,#sideResult) .card.log li .who{grid-column:1;grid-row:1}
   :is(#result,#backResult,#sideResult) .card.log li .stars{grid-column:2;grid-row:1;font-size:12px;letter-spacing:1px}
