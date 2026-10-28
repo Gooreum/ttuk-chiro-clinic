@@ -35,7 +35,7 @@ export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
 const SPINE_DEPTH = .075;                    // skin of the back to the vertebral bodies (m)
 const PUNCH = .2;   // share of the camera distance a good thrust's punch takes off
-const UPRIGHT = 16;  // degrees the therapist's trunk sits up from the baked setup pose while aiming/pushing
+const UPRIGHT = 24;  // degrees the therapist's trunk sits up from the baked setup pose while aiming/pushing
 const FILM_DIR = [.35, .8, -.45], FILM_D = .68;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const smooth = (a, b, x) => { const t = clamp01((x - a)/(b - a)); return t*t*(3 - 2*t); };
