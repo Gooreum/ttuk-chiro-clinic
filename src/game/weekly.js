@@ -60,7 +60,7 @@ export function weeklyResult(complete){
     try{ dispatchEvent(new Event("chiro-shop")); }catch(e){}
     track(EV.coinEarn, { game: "weekly", day: 0, hard: 0, coins: WEEKLY_BONUS, step: "weekly", total: readShop(store.get(SHOP_KEY, null)).coins });
   }
-  $("#rdate").textContent = t("주간 챌린지 · {l} · {r}",{l:t(set.label),r:t(set.rule.name)});
+  $("#rdate").textContent = t("주간 챌린지 · {l} · 규칙: {r}",{l:t(set.label),r:t(set.rule.name)});
   $("#newbest").textContent = t("이번 주 최고 기록 경신!"); $("#newbest").hidden = !isBest;
   const out = $("#dayOutro");
   out.textContent = record.best > 0
