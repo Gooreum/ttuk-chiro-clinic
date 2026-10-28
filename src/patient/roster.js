@@ -51,7 +51,7 @@ export const ROSTER = [
           fail:["자네… 면허는 있지?", "이거 우리 집사람한테 말하면 안 돼", "내가 골프채로 해도 이것보단 낫겠어"]}},
   // body types (core/body.js BODY_OF: patient06 slim, 07 beauty, 08 bulk, 09 granny, 10 child; the difficulty multipliers live there)
   {name:"조멸치", xr:"flat", age:28, cc:"밤샘 개발자. 사흘째 배포 중이라 목이 젓가락처럼 꺾였어요.", seg:5, side:-1, tolR:8, tolB:5.5, breath:3.4, burn:0.3, trait:"nervous",
-   look:{hair:"messy", hairCol:0x1a1614, skin:0xe8c2a4, gown:0x7a8fa6, glasses:false, model:"patient06", clinicModel:"patient14", backModel:"patient14", sideModel:"patient14"}, waist:"의자에서 배포 기다리다 허리가 무한 루프로 꼬였어요.",
+   look:{hair:"messy", hairCol:0x1a1614, skin:0xe8c2a4, gown:0x7a8fa6, glasses:false, model:"patient06", clinicModel:"patient14", backModel:"patient14"}, waist:"의자에서 배포 기다리다 허리가 무한 루프로 꼬였어요.",
    react:{jolt:["startle", "gasp"], ahh:["sigh"], first:["dazed", "awake", "wow"], then:["relief", "teary"], big:["teary", "beam"]},
    lines:{start:"저 커밋만 하고 누워도 돼요? 목이 젓가락이에요", near:"어, 거기 버그 있는 데예요", ouch:"으악! 런타임 에러!", jolt:"힉!", sigh:"하아…", what:"방금 그거… 핫픽스예요?", ahh:"와… 빌드 한 방에 성공한 기분이에요",
           after:"반대쪽도 머지 완료", done:"오늘은 칼퇴… 아니 그냥 퇴근이라도", idle:"서버 터졌다는 알림 왔는데…",
