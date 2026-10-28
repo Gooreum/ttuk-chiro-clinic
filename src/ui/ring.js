@@ -189,10 +189,19 @@ function breathLabel(ctx, br, cx, cy, R, verb){
   const fake = hasRule(S.boss, "fake");
   if(!T.breath || !bonusWindow(S.boss, br.exhale)) return;
   const label = tr("{state} · 지금 {verb} +15", {state: tr(fake ? "들이쉬는 중" : "내쉬는 중"), verb: tr(verb)});
-  ctx.font = "15px 'Black Han Sans', sans-serif"; ctx.textAlign = "center"; ctx.lineJoin = "round";
-  // just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
-  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, cx, cy - R + 20);
-  ctx.fillStyle = C_MINT; ctx.fillText(label, cx, cy - R + 20);
+  // 67차: on a short landscape HUD (<= 430 px) the ring is small and its top sits on the forehead and eyes, so the
+  // label goes smaller and outside the ring's left edge, level with the head; back to the top if that side has no room
+  const short = hud.height/hudDpr <= 430;
+  ctx.font = (short ? 12 : 15) + "px 'Black Han Sans', sans-serif"; ctx.lineJoin = "round";
+  let x = cx, y = cy - R + 20;
+  ctx.textAlign = "center";
+  if(short){
+    const w = ctx.measureText(label).width, lx = cx - R - 14;
+    if(lx - w >= 8){ x = lx; y = cy + 4; ctx.textAlign = "right"; }
+  }
+  // otherwise just inside the ring's top, under the arc: above it is where the speech / coach bubbles sit
+  ctx.lineWidth = 3.5; ctx.strokeStyle = "rgba(15,35,31,.9)"; ctx.strokeText(label, x, y);
+  ctx.fillStyle = C_MINT; ctx.fillText(label, x, y);
 }
 // an element's box in #app's own (pre-rotation) layout, the HUD canvas's coordinates
 function boxIn(el){
