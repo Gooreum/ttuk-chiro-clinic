@@ -450,7 +450,8 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 
 ## 5. 확인 방법: 케이스 id
 
-- `scripts/cases/cases.mjs`에 케이스가 151개 있다.
+- `scripts/cases/cases.mjs`에 케이스가 172개 있다.
+- 체형 다양화 뒤 더한 21개: 새 일반 환자 6명의 목꺾기·목뽑기 성공, 새 환자 허리펴기·허리비틀기 성공, 최필라 폐 파열(아래 표).
 - 22차에 더한 46개: 계절 손님 편별 사연(`season-story-*`, `season-list-*`), 의뢰 제약별 사연·결과(`quest-story-*`, `quest-result-*`), 주간 규칙 8종(`weekly-rule-*`), 허리펴기·허리비틀기 날(`back-day16-clear`, `back-day14-hard-fail`, `back-boss-day20`, `side-day29-*`), 보스·역경 사연, 장 막간(`campaign-ch2-interlude`~`campaign-ch8-interlude`), `night-crisis`, `rush-result`, `dex-complete`, `clinic-menu-open`.
 - 케이스 사이트에서 카드를 누르면 실제 게임이 그 장면을 재생한다.
 - 로컬 점검은 `npx vite preview --mode cases --outDir dist-cases --port 5195` 뒤 `node scripts/cases/live-check.mjs`다.
@@ -462,6 +463,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 성공 (PERFECT, 잘함) | clinic-ok-perfect, clinic-ok-good |
 | 양쪽 모두 성공 | clinic-ok-both-sides |
 | 환자별 성공 | clinic-ok-patient-choi, clinic-ok-patient-rider, clinic-ok-patient-jung, clinic-ok-patient-kim |
+| 체형별 성공 (조멸치·한미모·마동철·복순할매·최필라·정꼬마) | clinic-ok-patient-jo, clinic-ok-patient-han, clinic-ok-patient-ma, clinic-ok-patient-boksun, clinic-ok-patient-pila, clinic-ok-patient-kid |
 | 하루 클리어 | clinic-day-clear |
 | 실패 over (뾰잉) | clinic-fail-over |
 | 실패 dud (삑사리) | clinic-fail-dud |
@@ -481,6 +483,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 시나리오 | 케이스 id |
 |---|---|
 | 성공 | towel-ok-perfect-parkdr, towel-ok-perfect-rider, towel-ok-good-kim |
+| 체형별 성공 | towel-ok-perfect-jo, towel-ok-perfect-han, towel-ok-perfect-ma, towel-ok-perfect-boksun, towel-ok-perfect-pila, towel-ok-perfect-kid |
 | 하루 클리어 | towel-day-clear |
 | slip | towel-fail-slip |
 | taut 금 | towel-crisis-taut |
@@ -498,6 +501,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 시나리오 | 케이스 id |
 |---|---|
 | 성공 | back-ok-perfect, back-ok-good |
+| 새 환자 성공 (최필라·조멸치·복순할매, 마동철은 허리펴기에서 뺌) | back-ok-patient-pila, back-ok-patient-jo, back-ok-patient-boksun |
 | 하루 클리어 | back-day-clear |
 | 약함 | back-fail-weak |
 | 과압 | back-fail-over |
@@ -506,13 +510,14 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 압력 금, 골절 | back-crisis-pressure-crack, back-crisis-pressure-break |
 | 꺾기 세기 금, 골절 | back-crisis-force-crack, back-crisis-force-break |
 | 통증 3번 종료 | back-end-pain3 |
-| 장기 파열 | back-organ-lungL, back-organ-lungR, back-organ-heart, back-organ-liver, back-organ-spleen-stomach, back-organ-kidneyL, back-organ-kidneyR, back-organ-bowel, back-organ-liver-crack |
+| 장기 파열 | back-organ-lungL, back-organ-lungR, back-organ-heart, back-organ-liver, back-organ-spleen-stomach, back-organ-kidneyL, back-organ-kidneyR, back-organ-bowel, back-organ-liver-crack, back-organ-pila-lungL |
 
 ### 5-4. 허리비틀기
 
 | 시나리오 | 케이스 id |
 |---|---|
 | 첫 쪽 성공 | side-ok-first |
+| 새 환자 성공 (최필라·조멸치·복순할매) | side-ok-patient-pila, side-ok-patient-jo, side-ok-patient-boksun |
 | 양쪽 성공, 대칭 | side-ok-both-symmetry |
 | 양쪽 성공, 차이 있음 | side-ok-both-uneven |
 | 약함 재시도 | side-fail-weak-retry |
@@ -528,14 +533,16 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 |---|---|
 | 2장 사연 | campaign-ch2-story |
 | 2장 1일차 클리어 | campaign-ch2-day1-clear |
-| 2장 보스 패배 | campaign-ch2-boss-lose |
+| 2장 보스 패배, 승리 | campaign-ch2-boss-lose, campaign-ch2-boss-win |
 | 3장 사연 | campaign-ch3-story |
 | 4~8장 사연 | campaign-ch4-story, campaign-ch5-story, campaign-ch6-story, campaign-ch7-story, campaign-ch8-story |
 | 최종 보스 사연 | campaign-final-boss-story |
-| 보스 날 사연 (2, 4, 5, 6, 7장) | campaign-ch2-boss-story, campaign-ch4-boss-story, campaign-ch5-boss-story, campaign-ch6-boss-story, campaign-ch7-boss-story |
+| 보스 날 사연 (2~7장) | campaign-ch2-boss-story, campaign-ch3-boss-story, campaign-ch4-boss-story, campaign-ch5-boss-story, campaign-ch6-boss-story, campaign-ch7-boss-story |
 | 보스 규칙 플레이 | campaign-boss-taunt-play, campaign-boss-fake-play, campaign-boss-timer-play, campaign-boss-swap-play, campaign-boss-shrink-play |
 | 최종 보스 플레이 | campaign-final-boss-play |
-| 막간 (4장) | campaign-ch4-interlude |
+| 막간 (2~8장) | campaign-ch2-interlude, campaign-ch3-interlude, campaign-ch4-interlude, campaign-ch5-interlude, campaign-ch6-interlude, campaign-ch7-interlude, campaign-ch8-interlude |
+| 목뽑기 날 (1장 3일차) 사연, 플레이 | campaign-towel-day3-story, campaign-towel-day3 |
+| 보스 역경 사연 (2장, 최종) | campaign-ch2-boss-hard-story, campaign-final-boss-hard-story |
 | 엔딩 | ending-card |
 | 역경 사연, 1일차 클리어 | campaign-hard-story, campaign-hard-day1-clear |
 | 허리 역경 사연 | campaign-back-hard-story |
