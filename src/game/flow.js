@@ -164,7 +164,7 @@ function swapAim(){
   // and the stamp sat under them at the same size; now the stamp is big, stays 2.6 s, and nothing else talks meanwhile.
   S.saidIdle = true; S.saidNear = true;
   hideCoach();
-  stamp("아 거기 말고!", liveLine(S.bossLive, "swap", S.bossLine), "dud boss", 2600, S.bossBy);
+  stamp("아 거기 말고!", liveLine(S.bossLive, "swap", S.bossLine), "dud boss rule", 2600, S.bossBy);
   hideSpeech();
   S.swapPulse = performance.now() + 1500;   // ring.js: the new target pulses once
   floater("?!", headScreen.r + 24, -headScreen.r - 10, "small", 1200);
@@ -179,7 +179,7 @@ function switchSide(){
   setFace(target.trait === "nervous" ? "worried" : "rest");
   $("#pseg").textContent = sideLabel(target);
   showBanner(tl("{n}번째 환자 · 반대쪽", {n: S.idx+1}), tl("{name} 님 ({age})", {name: tl(target.name), age: target.age}), tl("{side} 회전으로 맞춰 보세요", {side: tl(target.side > 0 ? "오른쪽" : "왼쪽")}));
-  if(S.bossTaunt){ $("#pseg").textContent += tl(" · 구역 축소"); stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss", 2600, S.bossBy); }
+  if(S.bossTaunt){ $("#pseg").textContent += tl(" · 구역 축소"); stamp("도발!", liveLine(S.bossLive, "taunt", S.bossLine), "dud boss rule", 2600, S.bossBy); }
   else say("반대쪽도 부탁해요", 1600);
   S.busy = false; S.patientStart = S.breathT0 = performance.now(); S.bossReady = true;
 }
@@ -256,7 +256,7 @@ function success(d, exhale){
   setTimeout(()=>floater(perfect ? "뚝!" : "뚜둑!", 50, -headScreen.r - 30), 110);
   if(perfect) setTimeout(()=>floater("뚝!", 0, -headScreen.r - 60), 210);
   setTimeout(()=>floater(`${perfect ? "PERFECT" : "GOOD"} +${base}`, 0, headScreen.r + 24, "big"), 320);
-  if(penalty) setTimeout(() => { floater(tl("시간 초과 -{n}", {n: penalty}), 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss", 2400, S.bossBy); }, 700);
+  if(penalty) setTimeout(() => { floater(tl("시간 초과 -{n}", {n: penalty}), 0, headScreen.r + 100, "small"); stamp("시간 초과", liveLine(S.bossLive, "timer", S.bossLine), "dud boss rule", 2400, S.bossBy); }, 700);
   let extra = 0;
   if(exhale) setTimeout(()=>floater(hasRule(S.boss, "fake") ? "들숨 타이밍 +15" : "날숨 타이밍 +15", 0, headScreen.r + 54 + (extra++)*0, "small"), 480);
   if(comboBonus) setTimeout(()=>floater(tl("연속 ×{n} +{b}", {n: S.streak, b: comboBonus}), 0, headScreen.r + (exhale ? 78 : 54), "small"), 600);

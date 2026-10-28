@@ -615,5 +615,10 @@
  "목이 두꺼워 묵직해요. 구역은 넓지만 수건은 끝까지 당겨야 해요": "Thick, heavy neck. Wide zone, but you have to pull the towel all the way",
  "뼈가 약해요. 구역도 좁고 위험선도 가까워요": "Fragile bones. Narrow zone, close danger line",
  "가만히 있질 않아요. 구역이 좁고 숨이 빨라요": "Can't sit still. Narrow zone, fast breathing",
- "일반 진료에서 만나요": "Meet them in Free Play"
+ "일반 진료에서 만나요": "Meet them in Free Play",
+ "도발 · 첫 쪽 PERFECT": "Taunt · PERFECT first side",
+ "숨 안내 수상함": "Fishy breath cues",
+ "목표가 바뀜": "Target switches",
+ "{r} · 구역 {n}%": "{r} · Zone {n}%",
+ "시간 제한": "Time Limit"
 }
