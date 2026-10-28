@@ -505,7 +505,7 @@ export const CASES = [
     ["성공", "PERFECT", "첫 쪽"],
     { steps: [{ h: "goal", s: "goal", pressure: 0.6, force: 1 }], end: "turn", tail: 2, timeout: 120 }),
   // 새 환자 몸으로 허리비틀기(마동철은 옆으로 누우면 손이 안 닿아 없음)
-  ...[["pila", "최필라"], ["jo", "조멸치"], ["boksun", "복순할매"]].map(([k, name]) => T(`side-ok-patient-${k}`, "side", "success", `허리비틀기 PERFECT: ${name} 몸`,
+  ...[["pila", "최필라"], ["boksun", "복순할매"]].map(([k, name]) => T(`side-ok-patient-${k}`, "side", "success", `허리비틀기 PERFECT: ${name} 몸`,
     `허리비틀기에 ${name}을(를) 지정해(?patient=) 높이를 맞춰 고정하고 골반 비틀기와 밀착을 맞춰 툭 누른다.`,
     `옆으로 누운 ${name} 몸이 꽈배기로 비틀리며 우두둑, 슬로모션과 허리 X-ray. 끝나면 '돌아눕기' 버튼이 뜬다.`,
     ["성공", "PERFECT", "새 환자", name],

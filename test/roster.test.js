@@ -79,7 +79,9 @@ describe("lumbarPatient (허리누르기 / 허리비틀기 free run, 2026-10-25)
       const p = ROSTER.find(r => r.name === n), id = p.look.clinicModel || p.look.model;
       // 마동철 is too big for the table: on his side his hip is half a metre up (the L4 mark lands on his belly), prone his
       // shoulders, arms and thighs hang off the pad (59th playtest, 2026-10-27): no lumbar bodies for him
-      if(n !== "마동철"){ expect(p.look.backModel).toBe(id); expect(p.look.sideModel).toBe(id); }
+      // 조멸치 on his side: his legs and shoes hang off the pad (skin weights, 69th playtest, 2026-10-28): prone only
+      if(n === "조멸치"){ expect(p.look.backModel).toBe(id); expect(p.look).not.toHaveProperty("sideModel"); }
+      else if(n !== "마동철"){ expect(p.look.backModel).toBe(id); expect(p.look.sideModel).toBe(id); }
       else { expect(p.look).not.toHaveProperty("backModel"); expect(p.look).not.toHaveProperty("sideModel"); }
       expect(typeof p.waist).toBe("string");
     });
@@ -91,12 +93,13 @@ describe("lumbarPatient (허리누르기 / 허리비틀기 free run, 2026-10-25)
     expect(lumbarPatient("back", "마동철", () => 0).name).toBe("박대리");
     expect(lumbarPatient("side", "최필라").name).toBe("최필라");
     expect(lumbarPatient("side", "마동철", () => 0).name).toBe("박대리");
+    expect(lumbarPatient("side", "조멸치", () => 0).name).toBe("박대리");
     expect(lumbarPatient("back", "김사장", () => 0).name).toBe("박대리");
   });
   it("the free draw covers 박대리 and the four; the shot / case builds stay on 박대리", () => {
     const seen = new Set();
-    for(let k = 0; k < 4; k++) seen.add(lumbarPatient("side", null, () => k/4 + 0.01).name);
-    expect([...seen].sort()).toEqual(["박대리", ...IMAGE.filter(n => n !== "마동철")].sort());
+    for(let k = 0; k < 3; k++) seen.add(lumbarPatient("side", null, () => k/3 + 0.01).name);
+    expect([...seen].sort()).toEqual(["박대리", ...IMAGE.filter(n => n !== "마동철" && n !== "조멸치")].sort());
     expect(lumbarPatient("back", null, () => 0.99, true).name).toBe("박대리");
   });
 });

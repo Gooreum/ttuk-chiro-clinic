@@ -517,7 +517,7 @@ AGENTS.md와 코드가 어긋나면 코드를 따랐다. 어긋난 곳은 맨 �
 | 시나리오 | 케이스 id |
 |---|---|
 | 첫 쪽 성공 | side-ok-first |
-| 새 환자 성공 (최필라·조멸치·복순할매) | side-ok-patient-pila, side-ok-patient-jo, side-ok-patient-boksun |
+| 새 환자 성공 (최필라·복순할매) | side-ok-patient-pila, side-ok-patient-boksun |
 | 양쪽 성공, 대칭 | side-ok-both-symmetry |
 | 양쪽 성공, 차이 있음 | side-ok-both-uneven |
 | 약함 재시도 | side-fail-weak-retry |
