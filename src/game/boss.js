@@ -20,10 +20,10 @@ function place(pill){
   pill.style.top = top.offsetTop + side.offsetTop + side.offsetHeight + 6 + "px";
   pill.style.maxWidth = side.offsetWidth + 40 + "px";
 }
-// 63차: "반대쪽" 배너(z 4)가 같은 윗줄에 내려와 알약을 덮었다. 배너가 떠 있는 동안 알약을 배너 밑으로 내린다
-function dodgeBanner(pill){
+// 63차: "반대쪽" 배너(z 4)가 같은 윗줄에 내려와 알약을 덮었다. 66차: 배너 밑으로 내리면 말풍선 아래를 가려서, 배너가 떠 있는 동안은 알약을 숨긴다
+function underBanner(){
   const b = $("#banner");
-  if(b && b.classList.contains("show") && b.offsetParent === pill.offsetParent) pill.style.top = b.offsetTop + b.offsetHeight + 6 + "px";
+  return !!(b && b.classList.contains("show"));
 }
 export function mountBoss({ swap }){
   const pill = $("#bossRule");
@@ -35,9 +35,10 @@ export function mountBoss({ swap }){
     // 11차: 주간 챌린지는 그 주 규칙 이름을 같은 알약에 상시 띄운다(시간 제한·구역 비율을 보여 주는 규칙은 그 문구가 우선)
     const weeklyTag = S.weekly && S.weekly.set ? t("이번 주 · {r}",{r:t(S.weekly.set.rule.name)}) : S.daily && S.daily.set ? t("오늘 · {r}",{r:t(S.daily.set.rule.name)}) : "";
     if(!live || (!hasBoss && !weeklyTag)){ pill.hidden = true; pill.classList.remove("late", "tick"); return; }
-    place(pill); dodgeBanner(pill);
+    if(hasBoss && hasRule(S.boss, "swap")) swap();   // the swap clock keeps running under the banner
+    if(underBanner()){ pill.hidden = true; return; }
+    place(pill);
     if(!hasBoss){ pill.hidden = false; pill.textContent = weeklyTag; pill.classList.remove("late", "tick"); return; }
-    if(hasRule(S.boss, "swap")) swap();
     const left = timerLeft(S.boss, now - S.patientStart, S.hard);
     if(left === null && hasRule(S.boss, "shrink")){   // shrink: show the zone narrowing (it used to be invisible)
       const f = bossTolMul(["shrink"], now - S.patientStart);
