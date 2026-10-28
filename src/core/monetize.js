@@ -2,6 +2,7 @@
    Rewarded ad = "이어하기": a run that ended on pain or an ambulance can go on once. Interstitial = on the day log of a
    run that is not offered a continue, at most once per INTERSTITIAL_GAP_MS. The 광고 제거 purchase skips both ads. */
 import { comboAvg } from "./scoring.js";
+export { ownsSku } from "./iap.js";
 export const INTERSTITIAL_GAP_MS = 240000;
 /* A cleared 영업 일지 day's card shows an interstitial only on every second clear of a session (playtest 5: ads on every
    clear felt like a toll). n = how many cleared cards this session has shown, counting the current one. */
@@ -38,11 +39,3 @@ export const painAdOffer = ({ painMax, hard, used }) => !hard && !used && painMa
 export const cardAdPlan = ({ offer, skip, night, endedBad, bossMiss }) => !(offer || skip || night || endedBad || bossMiss);
 
 export const interstitialDue = (lastAt, now, adFree) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS;
-
-/* Completed / refunded orders -> owns the sku? null when the list says nothing about it (an empty or failed lookup
-   must not revoke a purchase saved on this phone), false when every order for it was refunded. */
-export function ownsSku(orders, sku){
-  const mine = (orders || []).filter(o => o && o.sku === sku);
-  if(!mine.length) return null;
-  return mine.some(o => o.status === "COMPLETED");
-}

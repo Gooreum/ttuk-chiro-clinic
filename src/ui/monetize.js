@@ -1,7 +1,7 @@
 /* Apps-in-Toss result-card buttons, shared by the three modes: "광고 보고 이어하기" (rewarded, once per run after a
    bad end, or "광고 보고 마지막 환자 다시" after a boss day under its beat) and "광고 제거" (one-time purchase). Outside the Toss build both stay hidden and nothing loads. */
 import { t } from "../i18n/index.js";
-import { adsOn as isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, restorePurchases } from "../platform/ads.js";
+import { adsOn as isToss, canWatchRewarded, watchRewarded, maybeInterstitial, canBuyAdFree, buyAdFree, adFreePrice, adFree, onAdFreeChange, recoverPurchases } from "../platform/ads.js";
 import { continueOffer, painAdOffer, clearAdDue, cardAdPlan } from "../core/monetize.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
@@ -26,7 +26,7 @@ function adNotice(){
 export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   continueBtn.hidden = true; buyBtn.hidden = true;
   if(!isToss) return { showResult(){} };
-  restorePurchases();
+  recoverPurchases();
   let busy = false;
   let retry = false;   // a boss-day miss: the same button replays the last patient
   let plus = false;    // 심야 진료: the continue gives one more pain slot

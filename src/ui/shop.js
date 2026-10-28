@@ -6,7 +6,8 @@ import "./shop.css";
 import { $ } from "../lib/dom.js";
 import { store } from "../lib/store.js";
 import { SHOP_KEY, ITEMS, itemById, readShop, count, owns, coinsFor, doubleOffer, add, buy, spend } from "../core/shop.js";
-import { adsOn as isToss, canWatchRewarded, watchRewarded, adFree } from "../platform/ads.js";
+import { adsOn as isToss, iapOn, canBuy, buy as buyIap, prices, canRestore, restorePurchases, canWatchRewarded, watchRewarded, adFree } from "../platform/ads.js";
+import { PRODUCTS, KEYS } from "../core/iap.js";
 import { track } from "../platform/analytics.js";
 import { EV } from "../core/analytics.js";
 import { stampAttend } from "./attend.js";
@@ -43,8 +44,39 @@ export function mountShop(){
   ["한 판이 끝나면 점수만큼 받아요.", "소품은 목꺾기·목뽑기 진료실에 놓여요."].forEach(s => ul.appendChild(el("li", null, t(s))));
   help.appendChild(ul);
   const list = el("ol"); list.id = "shopList";
+  /* real-money products (Toss / Google Play / App Store): shown only where a store is wired and its price list loaded */
+  const pay = el("div", "shop-pay"); pay.hidden = true;
+  const payList = el("ol"); payList.id = "shopPay";
+  const restore = el("button", "btn ghost", t("구매 복원")); restore.type = "button"; restore.hidden = !canRestore();
+  restore.addEventListener("click", async () => {
+    restore.disabled = true; track(EV.click, { target: "iap_restore" });
+    const ok = await restorePurchases();
+    restore.disabled = false; restore.textContent = ok ? t("구매를 복원했어요") : t("복원할 구매가 없어요");
+    renderPay();
+  });
+  pay.append(el("p", "shop-help-title", t("진료비 충전")), payList, restore);
+  let priceMap = null, payBusy = false;
+  async function renderPay(){
+    if(!iapOn) return;
+    if(!priceMap || !Object.keys(priceMap).length) priceMap = await prices();
+    payList.textContent = "";
+    KEYS.filter(k => priceMap[k] && (canBuy(k))).forEach(k => {
+      const p = PRODUCTS[k], li = el("li"), b = el("button"); b.type = "button"; b.dataset.iap = k;
+      b.append(el("b", null, t(p.name)), el("small", null, p.coins ? t("진료비 {n}",{n:p.coins}) : t("전면 광고 없이, 이어하기도 광고 없이")));
+      b.appendChild(el("i", null, priceMap[k]));
+      b.onclick = async () => {
+        if(payBusy) return;
+        payBusy = true; b.disabled = true;
+        track(EV.click, { target: "iap_buy", item: k });
+        await buyIap(k);
+        payBusy = false; renderPay(); render();
+      };
+      li.appendChild(b); payList.appendChild(li);
+    });
+    pay.hidden = !payList.children.length && restore.hidden;
+  }
   const back = el("button", "btn ghost", t("돌아가기")); back.id = "shopClose"; back.type = "button";
-  card.append(head, help, list, back); ov.appendChild(card); app.appendChild(ov);
+  card.append(head, help, list, pay, back); ov.appendChild(card); app.appendChild(ov);
 
   function render(flashId){
     const st = loadShop();
@@ -69,7 +101,7 @@ export function mountShop(){
       li.appendChild(b); list.appendChild(li);
     });
   }
-  const open = from => { render(); ov.hidden = false; track(EV.click, { target: "shop_open", from }); };
+  const open = from => { render(); renderPay(); ov.hidden = false; track(EV.click, { target: "shop_open", from }); };
   titleBtn.addEventListener("click", () => open("title"));
   daysBtn.addEventListener("click", () => open("days"));
   back.addEventListener("click", () => { ov.hidden = true; render(); });
