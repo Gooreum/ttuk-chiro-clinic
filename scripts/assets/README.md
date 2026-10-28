@@ -627,3 +627,78 @@ T11–L5·Sacrum은 경추와 같은 Blender +Z 위/-Y 앞/+X 환자 왼쪽 좌�
 수정하지 않은 `spine_bake.py`(64 samples)의 AO COLOR_0·안정된 부모 노드 규약으로 내보낸다.
 Cord/Root는 AO 음영 대신 중립 흰 COLOR_0를 보존한다. 최종 검사에서 모든 메시 COLOR_0와 노드를 검사한다.
 Blender 실행과 최종 용량/형태 검토는 샌드박스 밖 호스트에서 수행한다.
+
+## 목 리그 실험 몸 (patient08 chain, 2026-10-26)
+
+`mpfb_export_body.py`의 5번째 인자 `chain`은 같은 몸을 다중 관절 스킨으로 내보낸다(인자가 없으면 기존 2본 그대로). game_engine 가중치를 body / spine_02 / spine_03 / clavicle_l·r / neck(neck_01+head)로 합치고(위팔은 어깨 6~12cm 안에서만 쇄골로), neck_1·neck_2·neck을 body 밑 형제로 둔다.
+
+```
+nice blender -b -t 4 --python mpfb_export_body.py -- body_chain_raw.glb 1024 16 patient08 chain
+$G resize body_chain_raw.glb a.glb --width 1024 --height 1024
+$G webp a.glb b.glb --quality 85
+$G meshopt b.glb ../../lab-assets/patient08/body_chain.glb
+```
+
+로그 `TOP 1.6227`이 patient08 머리와 같아야 한다. 정점 수(7452/950/2985)와 위치는 `public/models/patient08/body.glb`와 같다(`window.__neckLab.sameMesh()`, 차이 0mm). 결과물은 `public/`이 아니라 `lab-assets/`에 두고 케이스 빌드만 싣는다. 비교 방법·결과는 AGENTS.md "목 리그 실험".
+
+### 셔츠 밑 피부 복원 (2026-10-27)
+
+5번째 이후 인자에 `full` 또는 `skin=<rings>,<H>`를 더하면 셔츠가 가린 피부(MPFB 마스크)를 지우지 않고 남긴다(`chain`과 같이 쓸 수 있다).
+- `full`: 전부 남긴다(노출 진단용).
+- `skin=2,0.22`: 남은 피부 가장자리에서 2링 안, 그리고 목 접합부(CUT)에서 22cm 안만 남긴다.
+- 남긴 정점 중 셔츠 안쪽 3mm보다 바깥에 있는 것은 셔츠 법선을 따라 안쪽 3mm로 민다. 깃 테두리 면은 건드리지 않는다.
+- 규칙은 `scripts/necklab/shoot.py --exposure`가 `full` 몸으로 찾았다. 9포즈 × 3카메라에서 화면에 보인 복원 정점은 1링 안, 20cm 안이었다.
+
+```
+nice blender -b -t 4 --python mpfb_export_body.py -- body_skin_raw.glb 1024 16 patient08 skin=2,0.22               # → lab-assets/patient08/body_skin.glb
+nice blender -b -t 4 --python mpfb_export_body.py -- body_chain_skin_raw.glb 1024 16 patient08 chain skin=2,0.22   # → body_chain_skin.glb
+nice blender -b -t 4 --python mpfb_export_body.py -- body_full_raw.glb 1024 16 patient08 full                       # → body_full.glb (chain full → body_chain_full.glb)
+```
+
+최적화 3줄은 위와 같다. 로그는 `RESTORE 176 of hidden 8200`, `RESTORED 166 skin verts kept, 11 pushed`가 나와야 한다. `HIDDEN 8200`에는 helper 정점이 섞여 있다. 실제로 지워진 피부는 2,418정점이다(`full` 기준). 남은 출시 정점은 그대로다(`window.__neckLab.subsetMesh()`).
+
+### patient08 목 기준 자세·연속 변형 수정 (2026-10-27)
+
+`repair`는 patient08 전용 실험 옵션이다. 팔 자세를 적용하기 전에 목 원래 좌표를 저장하고, 머리와 공유하는 정점은 그 좌표로 되돌린다. 인접 목 피부만 10~14.5cm 반경에서 부드럽게 연결한다. 팔·옷 자세는 다시 만들지 않는다.
+
+```
+blender -b -t 4 --python scripts/assets/mpfb_export_body.py -- /tmp/body_repair_raw.glb 1024 4 patient08 repair
+npx --yes @gltf-transform/cli@4.5.1 webp /tmp/body_repair_raw.glb /tmp/body_repair_webp.glb --quality 85
+npx --yes @gltf-transform/cli@4.5.1 meshopt /tmp/body_repair_webp.glb lab-assets/patient08/body_repair.glb
+npm run build:cases
+npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --host 127.0.0.1
+.venv/bin/python scripts/necklab/repair_compare.py
+```
+
+`?necklab=base&repair=1`에서 수정본을 볼 수 있다. `src/dev/neckPatch.js`는 원래 머리의 목 경계를 추적한다. 얼굴 모프가 조금이라도 움직이는 정점과 높이 1.415m 이상 정점을 보호하고, 모프가 없는 목 가장자리만 별도 보정 속성으로 정리한다. 원본 머리의 position/normal/index/morph 버퍼는 보존한다. 몸의 깃 아래 단면과 새 목 경계를 연결하며, 목 색상은 기존 피부 텍스처의 목 영역 중앙값을 1px 텍스처로 사용한다. 이 때문에 원본과 같은 피부 디테일을 확보한 결과는 아니다.
+
+`src/dev/neckRepair.js`는 표정 혼합 뒤 목 단면별 회전과 이동을 적용한다. 얼굴은 원래 머리 변환을 그대로 따르고, 몸과 셔츠·팔은 기존 몸의 이동을 따른다. 그림자 depth/distance 패스도 같은 변형을 쓴다. 일반 배포 모델을 덮어쓰지 않으며 다른 환자와 수건 모드에는 설치되지 않는다.
+
+비교 결과는 `shots/necklab3/report.png`, 포즈별 전체 게임 화면은 `compare_*_game.png`, 원본과 측정값은 `before/`, `after/`, `metrics.json`, `metrics.md`에 남는다. 실제 게임 카메라 및 동일한 보조 카메라에서 9포즈를 비교했다. 회전 60/75/-75°, 기울기 32°, 신장 0.16m, 압축 0.03m, 신장+회전, 신장+기울기를 포함한다. 턴/견인/교정의 게임 시간 곡선도 재생했다. 차트 이름은 원래 게임의 무작위 환자로 남지만 렌더 모델과 look은 모두 patient08로 강제한다.
+
+2026-10-27 결과: 목 중앙이 뚫리는 큰 결손과 옆으로 들리는 피부 판은 화면에서 줄었다. 원본 버퍼 변경·보호한 얼굴 정점 보정은 0이다. 연결점 268표본의 최대 오차는 0.00014mm 미만이었다. 턱 아래 접힘, 단순한 목 피부 재질, 깃 근처 작은 돌출은 남는다. 전체 외형 품질 완성이나 상체 리그 개선으로 해석하지 않는다. 머리·몸 분리 구조를 유지한 국소 목 수정이며 단일 스킨 메시 전환은 필수가 아니다.
+
+기존 2본/체인용 단면적 추정기는 새 목 메시의 부피 지표가 아니다. 열린 경계/뒷면 픽셀 도구는 기존 몸만 진단하므로 새 연결 메시 전체의 무결성 지표로 사용하지 않는다. 새 연결 메시 품질 판단에는 실제 비교 화면과 연결점 검사, 얼굴 보호 검사를 함께 사용한다.
+
+### patient08 목 수리 개선판 `repair=2` (2026-10-27)
+
+`?necklab=base&repair=2`는 `repair=1`(Codex)과 같은 `body_repair.glb`를 쓴다. `neckPatch.js` / `neckRepair.js`는 `version>1` 분기에서만 달라진다.
+- 머리 경계 목표: 얼굴 쪽은 원래 경계를 호 길이 σ 3.5cm로 평활한 위치(높이 최소 1.33m), 뒤쪽은 기존 y=1.35 타원. 둘레 절반에 걸쳐 섞는다. 감쇠 반경 9cm, 반복 400회.
+- 패치: 바닥 행만 몸 단면 그대로, 그 위는 둘레 평활 단면에서 출발. 회전·신장 몫은 열별 높이 비율 t=0.15→1 smoothstep이며 위치의 함수다(`aRepairW`=시작 t). 기둥에 갑상연골 4mm, 흉쇄유돌근 2.5mm(폭 σ 0.34rad) 윤곽. 정점색은 머리 경계 텍셀→둘레 평활 머리색→몸 텍셀, `skinGrain` ±2% 결.
+- 경계 접힘 수치는 `__neckLab.repairValidate()`의 `rimFlips`(뒤집힌 면), `rimSquash`(면적 30% 미만)에 있다.
+
+```
+npm run build:cases
+npx vite preview --mode cases --outDir dist-cases --port 5291 --strictPort --host 127.0.0.1
+.venv/bin/python -I scripts/necklab/repair_compare.py --sets 'before:necklab=base,codex:necklab=base&repair=1,v2:necklab=base&repair=2' --out shots/necklab4
+```
+
+세트가 셋 이상이면 근접 카메라(턱 밑 `chinC`, 옆 `sideC`, 깃 `colB`)와 법선 색 시트(`normals.png`)도 찍는다. 인자 없이 실행하면 예전 2열(`shots/necklab3`) 결과와 같다. 결과: 압착 면 62→12, 뒤집힘 4→4, 얼굴 보호 변경 0, 접합 max 0.0001mm. 턱 밑 검은 틈과 회전 시 깃 밖 판이 화면에서 사라졌다. 턱 밑 옅은 호 모양 선(머리 텍스처 경계 띠)은 남는다.
+
+
+### patient08 목 경계색·신장 음영과 실제 목꺾기 (2026-10-28)
+- `repair=2`는 경계의 밝은 텍셀 대신 경계에서 지오데식 거리 3~4.5cm의 피부색을 사용한다. 같은 보정색을 머리 경계와 패치 끝점에 보간하므로 색이 이어진다. 표정 모프 정점과 해부 높이 1.415m 이상은 보정하지 않는다. `repairValidate().faceTintVertices`는 0이어야 한다.
+- 법선은 각 행 둘레 σ 0.06rad로 평활한다. 260배 고주파 결은 제거하고, 55배 저주파 결(±1.5%)만 접합 행에서 0으로 감쇠한다. `repair=1` 비교 경로는 유지한다.
+- 실험용 `lab-assets/patient08/body_repair.glb`와 바이트가 같은 사본을 `public/models/patient08/body_repair.glb`에 추가했다(584,808 bytes). 원본 머리·몸 GLB는 보존한다. 실제 목꺾기는 `real.clinicModels` 사본에 상세판 머리와 옷을 두고, 이 사본의 피부/바인드 뼈대만 넣는다. 목꺾기 전용 캐시와 수건 캐시는 별개다. patient12로 렌더하는 원본 마동철 선택은 유지된다.
+- 케이스 빌드에서 `?necklab=live`로 실제 로더를 검증한다. `.venv/bin/python -I scripts/necklab/live_check.py`는 얼굴 보호, 9포즈 접합 오차(<1mm), 압착/뒤집힘 비증가와 수건 모드 격리를 검사한다. `e2e/neck-repair.spec.js`는 necklab 파라미터 없이 patient08 손님을 진료하고 한 판을 끝낸다.
+- 비교 자료: `shots/necklab5-before/`(수정 전), `shots/necklab5/`(수정 후), `shots/neck-polish-comparison.png`. 폰 실기기 확인은 별도다.

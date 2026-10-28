@@ -42,3 +42,5 @@ requestAnimationFrame(t => { frame(t); markReady(); });
 if(__FORCE_HIT__ || __CASES__) window.__game = { S, finish, camera, roll: name => makePatients(Math.random, 1, ROSTER.filter(p => p.name === name))[0] };
 // case build only (`npm run build:cases`): ?case=<id> replays a scripted case live (src/dev/caseRunner.js)
 if(__CASES__) import("./dev/caseNeck.js");
+// case build + ?necklab=base|chain only: the neck-rig comparison lab (src/dev/neckLab.js)
+if(__CASES__ && new URLSearchParams(location.search).has("necklab")) import("./dev/neckLab.js");

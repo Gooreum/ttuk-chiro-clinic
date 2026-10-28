@@ -126,8 +126,11 @@ export function frame(now){
   const pre = towel && S.phase === "play" ? PREPULL*towelTension(cur.bend) : 0;
   pivot.rotation.set(-NOD*ease(br.fill) - SETUP_EXT*ease(clamp(handSetup, 0, 1)), towel ? thrustDeg*SKEW_BEND*DEG : (cur.bend + thrustBend)*DEG,
     ((towel ? cur.rot*TOWEL_TURN : cur.rot) + thrustDeg + jit + boingDeg + (towel ? 0 : headRock(now)))*DEG);
+  // neck-rig lab (case build only, src/dev/neckLab.js): a held pose for the rig comparison shots
+  const lab = __CASES__ && S.neckLab && S.neckLab.hold ? S.neckLab : null;
+  if(lab) pivot.rotation.set(0, lab.bend*DEG, lab.rot*DEG);
   // the head goes, the body below the neck comes along only a little (core/towel.js BODY_SHARE), the neck takes the rest
-  const pull = stretch + pre, body = pull*BODY_SHARE;
+  const pull = lab ? lab.stretch : stretch + pre, body = pull*BODY_SHARE;
   head.position.z = HEAD_Z - pull;
   bodyParts.forEach(m => { if(m !== neckMesh) m.position.z = m.userData.z0 - body; });
   neckMesh.scale.y = 1 + (pull - body)/0.24; neckMesh.position.z = NECK_Z - (pull + body)/2;
@@ -135,7 +138,7 @@ export function frame(now){
 
   torso.scale.z = 0.7 + 0.09*br.fill;
   collar.position.y = 1.05 + 0.022*br.fill;
-  updateRealBody(ease(br.fill), pull, body);
+  updateRealBody(lab ? 0 : ease(br.fill), pull, body);
   updateBreathFx(br, S.phase === "play" && !S.busy && S.xray < 0.05);
 
   // feel feedback
@@ -369,6 +372,7 @@ export function frame(now){
     camera.position.y += (Math.random()-0.5)*0.03*S.shake;
   }
   camera.lookAt(camTgt);
+  if(__CASES__ && S.neckLab && S.neckLab.cam){ camera.position.copy(S.neckLab.cam.pos); camera.lookAt(S.neckLab.cam.look); }
   camera.updateMatrixWorld();
 
   projectHead();

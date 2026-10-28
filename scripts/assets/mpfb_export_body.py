@@ -10,7 +10,11 @@
      game turns the upper neck with the head pivot and the seam never opens
    - shape key "breath": chest and belly rise (front only, back stays on the table) and the shoulders lift toward the
      head, on skin and shirt alike (kept clear of the neck seam)
-   usage: blender -b --python mpfb_export_body.py -- out.glb [bake_size=1024] [cycles_samples=16] [patient01]"""
+   chain (5th arg, neck-rig lab only, 2026-10-26): the same body with a multi-joint skin instead of the two bones,
+   body -> spine_02 -> spine_03 -> clavicle_l/r (the game_engine weights merged into them, the upper arm only near the
+   shoulder) and neck_1, neck_2, neck all children of body (the game spreads the head turn over them, src/scene/realAssets.js
+   neckChain). Written to lab-assets/, never to public/ (vite.config.js labAssets).
+   usage: blender -b --python mpfb_export_body.py -- out.glb [bake_size=1024] [cycles_samples=16] [patient01] [chain]"""
 import bpy, bmesh, importlib, sys, os, math
 import numpy as np
 from mathutils import Vector, Matrix, Quaternion, kdtree
@@ -23,6 +27,12 @@ from patients import human_info, fit_scale, CHIN_TIP, PATIENTS
 ARGS=sys.argv[sys.argv.index("--")+1:]
 OUT=ARGS[0]; BAKE=int(ARGS[1]) if len(ARGS)>1 else 1024; SAMPLES=int(ARGS[2]) if len(ARGS)>2 else 16
 PID=ARGS[3] if len(ARGS)>3 else "patient01"
+FLAGS=ARGS[4:]
+CHAIN="chain" in FLAGS
+REPAIR="repair" in FLAGS
+if REPAIR and PID != "patient08": raise ValueError("repair experiment is patient08 only")
+FULL="full" in FLAGS          # neck-rig lab: every face the clothes hid comes back (the exposure check)
+SKIN=next((a[5:] for a in FLAGS if a.startswith("skin=")), None)   # neck-rig lab: "rings,H" only the skin that shows
 AO_MIX=0.7
 NECK_FADE=0.08       # metres from the seam over which the neck bone's weight falls to 0 (the game redoes the skin's weights about the neck column on load, src/scene/realAssets.js neckColumn)
 BREATH_CHEST=0.026   # rib cage rise at full inhale (metres)
@@ -40,6 +50,7 @@ for o in (body, cloth): print("MODS", o.name, [(m.type, m.name, getattr(m,"verte
 TS.bake_targets(body)
 bpy.context.view_layer.update()
 mw=body.matrix_world
+NEUTRAL=[mw@v.co for v in body.data.vertices] if REPAIR else None
 
 # ---- what the head GLB keeps (same rule as mpfb_export_head.py, on the unposed body) ----
 def group_verts(o, names):
@@ -59,6 +70,26 @@ for m in body.modifiers:
         g=group_verts(body,[m.vertex_group])
         hidden |= g if m.invert_vertex_group else {v.index for v in body.data.vertices}-g
 print("HELPER", len(helper), "HEAD", len(headv), "HIDDEN", len(hidden))
+def restore_set(rings, H):
+    """hidden skin within `rings` mesh rings of the kept skin's edge and no lower than CUT - H (the neck, the collarbones
+       and the collar's underside: what a turned or drawn-out neck shows from under the collar)"""
+    nb={}
+    for e in body.data.edges:
+        a,b=e.vertices; nb.setdefault(a,[]).append(b); nb.setdefault(b,[]).append(a)
+    kept=lambda i: i not in hidden and i not in helper
+    front={i for i in hidden if any(kept(j) for j in nb.get(i,()))}; got=set(front)
+    for _ in range(int(rings)-1):
+        front={j for i in front for j in nb.get(i,()) if j in hidden and j not in got}; got|=front
+    return {i for i in got if (mw@body.data.vertices[i].co).z >= CUT-H*K}
+RESTORE=set(hidden) if FULL else restore_set(*map(float, SKIN.split(","))) if SKIN else set()
+if REPAIR:
+    # Preserve the entire anatomical neck band, including masked vertices not
+    # adjacent to the old shirt edge. One ring leaves disconnected neck flaps.
+    RESTORE={i for i in hidden if (mw@body.data.vertices[i].co).z>CUT-0.22 and math.hypot((mw@body.data.vertices[i].co).x,(mw@body.data.vertices[i].co).y)<0.20}
+print("RESTORE", len(RESTORE), "of hidden", len(hidden))
+if RESTORE:     # follows the vertices through the pose and the deletes, for the tuck under the shirt below
+    at=body.data.attributes.new("lab_restored", "INT", "POINT")
+    for i in RESTORE: at.data[i].value=1
 # seam tree: head-side vertices, rest positions (the neck is not posed)
 tree=kdtree.KDTree(len(headv))
 for i in headv: tree.insert(mw@body.data.vertices[i].co, i)
@@ -66,6 +97,34 @@ tree.balance()
 B=lambda n: arm.matrix_world@arm.data.bones[n].head_local
 Z_PELVIS=B("pelvis").z; Z_CHEST=B("spine_03").z; Z_CLAV=B("clavicle_l").z
 print("BONES pelvis %.3f spine_03 %.3f clavicle %.3f neck %.3f" % (Z_PELVIS, Z_CHEST, Z_CLAV, B("neck_01").z))
+# chain: the rig is dropped once the arms are posed, so keep what the merged skin needs (rest heads; only the arms are
+# posed, each about its own head, so the shoulder joints stay put)
+BONE_NAMES={b.name for b in arm.data.bones}
+BP={n: B(n).copy() for n in ("spine_02","spine_03","neck_01","clavicle_l","clavicle_r","upperarm_l","upperarm_r")}
+MERGE={"spine_02": ["spine_02"], "spine_03": ["spine_03"], "clavicle_l": ["clavicle_l"], "clavicle_r": ["clavicle_r"], "neck": ["neck_01", "head"]}
+ARM_FADE=(0.06, 0.12)     # m from the upper arm's head: its weight goes with the clavicle inside, to the trunk outside
+def merge_groups(o):
+    """game_engine groups -> m_body, m_spine_02, m_spine_03, m_clavicle_l/r, m_neck (the rest of the rig -> m_body;
+       the upper arm joins its clavicle only near the shoulder, so the forearms and the hands on the belly stay put)"""
+    names={g.index: g.name for g in o.vertex_groups}; W=o.matrix_world; acc=[]
+    for v in o.data.vertices:
+        w=dict.fromkeys(["body", *MERGE], 0.0)
+        for g in v.groups:
+            n=names[g.group]
+            if n not in BONE_NAMES or g.weight<=0: continue
+            k=next((k for k,src in MERGE.items() if n in src), None)
+            if k: w[k]+=g.weight; continue
+            if n in ("upperarm_l","upperarm_r"):
+                d=(W@v.co-BP[n]).length; t=max(0.0, min(1.0, (d-ARM_FADE[0]*K)/((ARM_FADE[1]-ARM_FADE[0])*K))); f=1-t*t*(3-2*t)
+                w["clavicle_"+n[-1]]+=g.weight*f; w["body"]+=g.weight*(1-f); continue
+            w["body"]+=g.weight
+        if sum(w.values())<=0: w["body"]=1.0
+        acc.append(w)
+    for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+    for k in ("body", *MERGE):
+        vg=o.vertex_groups.new(name="m_"+k)
+        for i,w in enumerate(acc):
+            if w[k]>0: vg.add([i], w[k], "REPLACE")
 
 # ---- pose: upper arms along the sides, elbows bent, hands resting on the belly (left over right), then bake ----
 # (98 clinic videos: the supine patient almost always rests both hands on the belly)
@@ -208,6 +267,14 @@ bpy.data.objects.remove(arm, do_unlink=True)
 for o in (body, cloth): print("MATRIX", o.name, [round(x,3) for x in o.matrix_world.to_euler()], [round(x,3) for x in o.matrix_world.to_scale()])
 bpy.ops.object.select_all(action="DESELECT"); body.select_set(True); cloth.select_set(True)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)     # local = world from here on
+if REPAIR:
+    # Arm posing also pulls the trapezius. The separately exported head stayed
+    # neutral, so restore a common anatomical rest frame around the neck cut.
+    for v, p in zip(body.data.vertices, NEUTRAL):
+        h=max(0,min(1,(p.z-(CUT-0.12))/0.06)); h=h*h*(3-2*h)
+        r=max(0,min(1,(0.145-math.hypot(p.x,p.y))/0.045)); r=r*r*(3-2*r)
+        v.co=v.co.lerp(p,1.0 if v.index in headv else h*r)
+
 
 def delete_verts(o, kill):
     bpy.context.view_layer.objects.active=o
@@ -217,12 +284,14 @@ def delete_verts(o, kill):
 # body keeps every face the head drops: delete only the faces whose vertices are all head-side
 bpy.context.view_layer.objects.active=body
 bpy.ops.object.mode_set(mode="EDIT"); bm=bmesh.from_edit_mesh(body.data); bm.verts.ensure_lookup_table(); bm.faces.ensure_lookup_table()
-dead=set(helper)|hidden
+dead=set(helper)|(hidden-RESTORE)
 faces=[f for f in bm.faces if all(v.index in headv for v in f.verts) or any(v.index in dead for v in f.verts)]
 bmesh.ops.delete(bm, geom=faces, context="FACES_ONLY")
 bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
 bmesh.update_edit_mesh(body.data); bpy.ops.object.mode_set(mode="OBJECT")
-for g in list(body.vertex_groups): body.vertex_groups.remove(g)
+if CHAIN: merge_groups(body)
+else:
+    for g in list(body.vertex_groups): body.vertex_groups.remove(g)
 print("BODY KEPT", len(body.data.vertices), "verts", sum(len(p.vertices)-2 for p in body.data.polygons), "tris")
 
 # ---- clothes: shirt / pants, per connected piece by height (a piece centred below the hips is the jeans) ----
@@ -258,7 +327,9 @@ def keep_faces(o, keep):
 keep_faces(cloth, {p.index for p in cloth.data.polygons} - pants_faces)
 keep_faces(pants, pants_faces)
 for o in (cloth, pants):
-    for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+    if CHAIN: merge_groups(o)
+    else:
+        for g in list(o.vertex_groups): o.vertex_groups.remove(g)
     print("CLOTH", o.name, len(o.data.vertices), "verts", sum(len(p.vertices)-2 for p in o.data.polygons), "tris")
 # optional (patients.py "tuck"): skin that pokes through the shirt (extreme muscle/weight: shoulders, trapezius) is pulled
 # back under it. Only skin whose nearest shirt face is an inner face (no hem/collar/sleeve-edge vertex) is touched.
@@ -273,6 +344,7 @@ if TUCK:
     tr=BVHTree.FromPolygons([v.co for v in sh.vertices], [list(pl.vertices) for pl in sh.polygons])
     moved=0
     for v in body.data.vertices:
+        if REPAIR and tree.find(v.co)[2] < 0.001: continue
         loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
         if loc is None or fi in near_rim: continue
         d=(v.co-loc).dot(nrm)
@@ -280,6 +352,27 @@ if TUCK:
         if -TUCK < d < 0.01 and v.normal.dot(nrm) > 0.5:
             v.co=loc-nrm*TUCK; moved+=1
     print("TUCK", TUCK, "skin verts pulled under the shirt", moved)
+# neck-rig lab: restored skin sits 3 mm under the shirt at least (MPFB fitted the shirt to a body it then hid: some of
+# it lies on or through the cloth and would flicker / poke out). The collar's rim faces are left alone (no inside there).
+if RESTORE:
+    sh=cloth.data; edge_count={}
+    for pl in sh.polygons:
+        for k in pl.edge_keys: edge_count[k]=edge_count.get(k,0)+1
+    rim={i for k,c in edge_count.items() if c==1 for i in k}
+    near_rim={pl.index for pl in sh.polygons if any(i in rim for i in pl.vertices)}
+    tr=BVHTree.FromPolygons([v.co for v in sh.vertices], [list(pl.vertices) for pl in sh.polygons])
+    flag=body.data.attributes["lab_restored"].data; pushed=0; n=0
+    for v in body.data.vertices:
+        if not flag[v.index].value: continue
+        if REPAIR and tree.find(v.co)[2] < 0.001: continue
+        n+=1
+        loc,nrm,fi,dist=tr.find_nearest(v.co, 0.03)
+        if loc is None or fi in near_rim: continue
+        d=(v.co-loc).dot(nrm)
+        if -0.003 < d < 0.01 and v.normal.dot(nrm) > 0.3:
+            v.co=loc-nrm*0.003; pushed+=1
+    print("RESTORED", n, "skin verts kept,", pushed, "pushed 3 mm under the shirt")
+    body.data.attributes.remove(body.data.attributes["lab_restored"])
 # AO + normal only: the colour comes from the game palette
 for o,name in ((cloth,"patient.shirt"),(pants,"patient.pants")):
     fm=bpy.data.materials.new(name); fm.use_nodes=True
@@ -357,8 +450,42 @@ ab=bpy.data.armatures.new("patient_body"); ao_=bpy.data.objects.new("patient_bod
 bpy.context.view_layer.objects.active=ao_; bpy.ops.object.mode_set(mode="EDIT")
 r=ab.edit_bones.new("body"); r.head=(0,0,Z_PELVIS); r.tail=(0,0,Z_PELVIS+0.1)
 n=ab.edit_bones.new("neck"); n.head=(0,0,CUT-0.03*K); n.tail=(0,0,CUT+0.05*K); n.parent=r
+if CHAIN:
+    def bone(name, h, t, parent):
+        e=ab.edit_bones.new(name); e.head=h; e.tail=t; e.parent=parent; return e
+    s2=bone("spine_02", BP["spine_02"], BP["spine_03"], r)
+    s3=bone("spine_03", BP["spine_03"], BP["neck_01"], s2)
+    for sd in "lr": bone("clavicle_"+sd, BP["clavicle_"+sd], BP["upperarm_"+sd], s3)
+    # siblings of the seam bone: each gets its own world transform from the game (a share of the head turn)
+    for i,dz in ((1,0.09),(2,0.06)): bone("neck_%d" % i, (0,0,CUT-dz*K), (0,0,CUT-dz*K+0.03*K), r)
 bpy.ops.object.mode_set(mode="OBJECT")
+TRUNK=("body","spine_02","spine_03","clavicle_l","clavicle_r")
+def chain_weights(o, nn_w):
+    """neck weight w (seam fade, as for the two bones; the game redoes the skin's column) + the merged trunk groups x (1-w)
+       (MPFB's own neck_01/head weight rides on spine_03: the neck's base goes with the chest)"""
+    names={g.index: g.name for g in o.vertex_groups}; rows=[]
+    for v in o.data.vertices:
+        t=dict.fromkeys(TRUNK, 0.0)
+        for g in v.groups:
+            n=names[g.group]
+            if n.startswith("m_"): k=n[2:]; t["spine_03" if k=="neck" else k]+=g.weight
+        s=sum(t.values()) or 1.0
+        rows.append({k: x/s for k,x in t.items()})
+    for g in list(o.vertex_groups): o.vertex_groups.remove(g)
+    groups={k: o.vertex_groups.new(name=k) for k in (*TRUNK, "neck", "neck_1", "neck_2")}
+    for v,t in zip(o.data.vertices, rows):
+        w=nn_w(v)
+        if w>0.001: groups["neck"].add([v.index], w, "REPLACE")
+        for k,x in t.items():
+            if x*(1-w)>0.001: groups[k].add([v.index], x*(1-w), "REPLACE")
 for o in (body, cloth, pants):
+    if CHAIN:
+        def nn_w(v, o=o):
+            _,_,dist=tree.find(o.matrix_world@v.co)
+            w=max(0.0, 1.0 - dist/(NECK_FADE*K)); return w*w*(3-2*w)
+        chain_weights(o, nn_w)
+        o.parent=ao_; md=o.modifiers.new("Armature","ARMATURE"); md.object=ao_
+        continue
     gb=o.vertex_groups.new(name="body"); gn=o.vertex_groups.new(name="neck")
     nn=0
     for v in o.data.vertices:
