@@ -134,7 +134,7 @@ export function drawRing(now, c, zone, br){
 
   // swap (7차 플레이테스트): the new target pulses for 1.5 s so the player sees where it went
   if(now < S.swapPulse && target){
-    const u = 1 - (S.swapPulse - now)/1500, gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
+    const u = Math.max(0, 1 - (S.swapPulse - now)/1500), gx = cx + clamp(target.rot,-75,75)*ax, gy = cy - clamp(target.bend,-32,32)*ay;
     ctx.globalAlpha = fade*(1 - u*0.6); ctx.strokeStyle = C_MINT; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(gx, gy, 16 + 40*Math.min(1, u*1.6), 0, Math.PI*2); ctx.stroke();
     ctx.fillStyle = "rgba(138,223,191,.28)"; ctx.beginPath(); ctx.arc(gx, gy, 14 + 4*Math.sin(now*0.02), 0, Math.PI*2); ctx.fill();

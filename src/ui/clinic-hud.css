@@ -126,8 +126,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .stamp-card.dud{border-color:var(--bone)}
 :where(.clinic-app) .stamp-card.dud b{color:var(--bone)}
 /* 60차: 이번 주 규칙 도장은 이름이 길어(영어 667에서 잘림, 한국어는 링을 덮음) 작은 글자로 줄바꿈하고 링 왼쪽, 코치 알약 아래에 둔다. 보스 규칙 주는 작은 줄을 코치 알약이 말하므로 비운다 */
-:where(.clinic-app) .stamp-card.weekly{left:17%;top:57%;max-width:30%;padding:8px 12px 7px}
-:where(.clinic-app) .stamp-card.weekly b{font-size:26px;line-height:1.1;white-space:normal;text-align:center;text-wrap:balance}
+:where(.clinic-app) .stamp-card:is(.weekly,.rule){left:17%;top:57%;max-width:30%;padding:8px 12px 7px}
+:where(.clinic-app) .stamp-card:is(.weekly,.rule) b{font-size:26px;line-height:1.1;white-space:normal;text-align:center;text-wrap:balance}
 :where(.clinic-app) .stamp-card small:empty{display:none}
 :where(.clinic-app) .stamp-card.break b{font-size:54px}
 :where(.clinic-app) .stamp-card.break.show b{animation:shake .4s 2}
@@ -144,7 +144,8 @@ body{background:var(--room);color:var(--ink);font-family:var(--body);overflow:hi
 :where(.clinic-app) .boss-rule.late{color:var(--coral);border-color:var(--coral)}
 :where(.clinic-app) .boss-rule.late.tick{animation:bossShake .2s linear infinite}
 @keyframes bossShake{0%,100%{transform:translateX(-50%) rotate(0)}25%{transform:translateX(calc(-50% - 3px)) rotate(-2deg)}75%{transform:translateX(calc(-50% + 3px)) rotate(2deg)}}
-:where(.clinic-app) .stamp-card.boss b{font-size:54px}
+:where(.clinic-app) .stamp-card.boss:not(.rule) b{font-size:54px}
+/* 63차: 플레이 중 보스 규칙 도장(swap·taunt·시간 초과)과 오늘의 도전 도장은 링과 새 목표 라벨을 덮었다. 주간 도장처럼 작게 링 왼쪽에 */
 :where(.clinic-app) .stamp-card small.by{font-size:12px;font-weight:700;color:var(--mint);opacity:.9}
 :where(.clinic-app) .boss-rule[hidden]{display:none}
 :where(.clinic-app) .coach small{color:var(--muted);font-size:11px;font-weight:600;margin-right:6px}

@@ -16,11 +16,11 @@ export const SWAP_AT = 6000;
 export const SHRINK_MS = 18000, SHRINK_MIN = 0.65;
 
 export const BOSS_RULES = {
-  taunt:  { chip: "첫 꺾기 PERFECT 아니면 반대쪽 구역 축소", cue: "첫 쪽을 PERFECT로 못 하면 반대쪽 구역이 좁아져요" },
-  timer:  { chip: "한 쪽당 {n}초 안에 꺾기", cue: "한 쪽당 {n}초. 넘기면 -{p}점이에요" },   // {n} = timerSec (역경 9초), {p} = TIMER_PENALTY: ruleText
-  fake:   { chip: "숨 안내가 수상함", cue: "오늘은 숨 안내가 수상해요. 박자를 직접 느껴 보세요" },
-  swap:   { chip: "중간에 목표가 반대쪽으로 바뀜", cue: "한 번은 마음이 바뀌어요. 끝까지 보고 맞추세요" },
-  shrink: { chip: "오래 조준할수록 구역이 좁아짐", cue: "오래 재면 구역이 좁아져요. 빨리 정하세요" }
+  taunt:  { tag: "도발 · 첫 쪽 PERFECT", chip: "첫 꺾기 PERFECT 아니면 반대쪽 구역 축소", cue: "첫 쪽을 PERFECT로 못 하면 반대쪽 구역이 좁아져요" },
+  timer:  { tag: "시간 제한", chip: "한 쪽당 {n}초 안에 꺾기", cue: "한 쪽당 {n}초. 넘기면 -{p}점이에요" },   // {n} = timerSec (역경 9초), {p} = TIMER_PENALTY: ruleText
+  fake:   { tag: "숨 안내 수상함", chip: "숨 안내가 수상함", cue: "오늘은 숨 안내가 수상해요. 박자를 직접 느껴 보세요" },
+  swap:   { tag: "목표가 바뀜", chip: "중간에 목표가 반대쪽으로 바뀜", cue: "한 번은 마음이 바뀌어요. 끝까지 보고 맞추세요" },
+  shrink: { tag: "점점 좁아짐", chip: "오래 조준할수록 구역이 좁아짐", cue: "오래 재면 구역이 좁아져요. 빨리 정하세요" }
 };
 export const bossRules = def => def && Array.isArray(def.boss) ? def.boss.filter(r => BOSS_RULES[r]) : [];
 export const hasRule = (rules, r) => !!rules && rules.includes(r);
@@ -28,6 +28,8 @@ export const hasRule = (rules, r) => !!rules && rules.includes(r);
 export const ruleText = (text, hard = false) => t(text, {n: timerSec(hard), p: TIMER_PENALTY});
 /* the cue pills one after another (8장 has two rules; one pill with both was too long); already translated */
 export const bossCues = (rules, hard = false) => (rules || []).filter(r => BOSS_RULES[r]).map(r => ruleText(BOSS_RULES[r].cue, hard));
+/* 63차: the short name for the top pill on a boss day (taunt·swap·fake had no pill at all); already translated */
+export const bossTags = rules => (rules || []).filter(r => BOSS_RULES[r]).map(r => t(BOSS_RULES[r].tag)).join(" · ");
 /* the live line of a rule (def.bossLive[rule]) and who says it (def.bossBy) */
 export const liveLine = (live, rule, fallback = "") => (live && live[rule]) || fallback;
 /* the timer pill shakes and ticks for the last TIMER_WARN seconds */
