@@ -381,6 +381,12 @@ export function frame(now){
   // the top when the head is high on screen (the towel mode's third-person view). Width from #app, not vw (3-4)
   elBubble.style.maxWidth = Math.round(bw*0.46) + "px";
   elBubble.style.top = Math.max(headScreen.y - headScreen.r*2.0 - 34, chartBottom + elBubble.offsetHeight) + "px";
+  // 66차: a bubble clamped to the right ran over the score panel's chip row (클리닉·튜닝·음악): keep it under that panel too
+  const elSide = elTop.querySelector(".side");
+  if(elSide && parseFloat(elBubble.style.left) + elBubble.offsetWidth*0.5 > elTop.offsetLeft + elSide.offsetLeft - 6){
+    const sideBottom = elTop.offsetTop + elSide.offsetTop + elSide.offsetHeight + 8;
+    elBubble.style.top = Math.max(parseFloat(elBubble.style.top), sideBottom + elBubble.offsetHeight) + "px";
+  }
   // 33차: the stamp folded into the top-left corner (fracture x-ray about to open) must not be overlapped by the bubble following the head
   const tucked = document.querySelector(".stamp-card.tuck");
   if(tucked){
