@@ -35,6 +35,7 @@ export const ROLL_S = 1.6;
 const ROLL_DEG = 34;         // pelvis roll at position 0/1 (exaggerated so a small aim reads)
 const SPINE_DEPTH = .075;                    // skin of the back to the vertebral bodies (m)
 const PUNCH = .2;   // share of the camera distance a good thrust's punch takes off
+const UPRIGHT = 16;  // degrees the therapist's trunk sits up from the baked setup pose while aiming/pushing
 const FILM_DIR = [.35, .8, -.45], FILM_D = .68;  // film camera: from above (the spine's side), a little behind (x·-f) and the head end; distance (m)
 const clamp01 = v => Math.min(1, Math.max(0, v));
 const smooth = (a, b, x) => { const t = clamp01((x - a)/(b - a)); return t*t*(3 - 2*t); };
@@ -187,7 +188,7 @@ export async function createSideScene(canvas, view = {}){
   const ARM_BONES = ["upperarm_l", "upperarm_r", "lowerarm_l", "lowerarm_r", "hand_l", "hand_r"];
   const NUDGE = [...new Set([pBones.pelvis, pBones.spine_01, pBones.spine_02, pBones.head, tBones.spine_01, tBones.spine_02, tBones.neck_01, tBones.head,
     ...LIMBS.map(n => pBones[n]), ...ARM_BONES.flatMap(n => [pBones[n], tBones[n]])].filter(Boolean))], nudged = new Map();
-  const D = THREE.MathUtils.degToRad;
+const D = THREE.MathUtils.degToRad;
   const contactFrames = {}, contacts = {shoulder: new THREE.Vector3(), hip: new THREE.Vector3(), patient: new THREE.Vector3()};
   const centre = new THREE.Vector3(), pole = new THREE.Vector3(), raise = new THREE.Vector3(), headP = new THREE.Vector3(), direction = new THREE.Vector3(), normal = new THREE.Vector3();
   const palmQ = new THREE.Quaternion(), palmWorld = new THREE.Quaternion(), palmMatrix = new THREE.Matrix4();
@@ -301,7 +302,8 @@ export async function createSideScene(canvas, view = {}){
       const drop = clamp01(tw.drop + second), lean = D(pressure*7 + drop*11 - wind*2);
       // Lift only the neck/head; moving spine_03 used to break both baked shoulder contacts.
       worldRotate(tBones.neck_01, -f*D(10)); worldRotate(tBones.head, -f*D(20));
-      worldRotate(tBones.spine_01, f*lean*.6); worldRotate(tBones.spine_02, f*lean*.4);
+      // "치료사 얼굴이 환자 머리에 붙음" (pt68): sit the trunk up from the baked setup pose; the IK below keeps both hands on.
+      worldRotate(tBones.spine_01, f*(lean*.6 - D(UPRIGHT))); worldRotate(tBones.spine_02, f*lean*.4);
       const floor = Math.min(0, pad.max.y + .035 - tBones.pelvis.getWorldPosition(centre).y);
       therRoot.position.set(therX - f*drop*(forceTier ? .045 : .022), Math.max(floor, wind*.02*(kind === "weak" ? .4 : 1) - drop*.05), (clamp01(height) - .5)*.08);
     }
