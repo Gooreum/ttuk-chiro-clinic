@@ -1,5 +1,5 @@
 /* Neck-rig lab (case build only, `?necklab=base|chain`, user 2026-10-26: patient08's two-bone neck vs a multi-joint one,
-   same game screen, camera and poses). Puts patient08 (마동철's MPFB build, the one 근육왕/메가회장 borrow) on the table in a
+   same game screen, camera and poses). Puts patient08 (the MPFB bulk build) on the table in a
    real 목꺾기 run, then window.__neckLab holds poses, plays the game's own motions and measures the skin on the CPU
    (the same skinning sum three runs, plus the neck shaders' pinch / lag). scripts/necklab/shoot.py drives it.
    Judging, input, camera and hands are not touched: a held pose only sets the pivot the way loop.js does. */
@@ -21,9 +21,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const frames = n => new Promise(r => { const go = k => k ? requestAnimationFrame(() => go(k - 1)) : r(); go(n); });
 const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a)/(b - a))); return t*t*(3 - 2*t); };
 
-/* ---- the table: 마동철's look without his image-based clinic model -> patient08 ---- */
-const base = ROSTER.find(p => p.name === "마동철");
-const look08 = {...base, look: {...base.look, clinicModel: undefined}};
+/* ---- the table: 김사장 in the patient08 body (마동철's MPFB build, held back from the roster) ---- */
+const base = ROSTER.find(p => p.name === "김사장");
+const look08 = {...base, look: {...base.look, model: "patient08"}};
 async function ready(){
   const t0 = performance.now();
   while(!(S.phase === "play" && !S.busy && S.target)){

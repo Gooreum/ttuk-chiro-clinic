@@ -12,7 +12,7 @@ test('patient08 목 수리가 실제 목꺾기에서 로드되고 한 판을 끝
   });
   await page.goto('./');await waitNeckAssets(page);await page.click('#start');
   await page.evaluate(() => {
-    const g=window.__game,p=g.roll('마동철');p.look={...p.look};delete p.look.clinicModel;
+    const g=window.__game,p=g.roll('김사장');p.look={...p.look,model:'patient08'};
     g.S.patients.splice(1,1,p);
   });
   const until=Date.now()+240_000;
@@ -30,8 +30,8 @@ test('patient08 목 수리가 실제 목꺾기에서 로드되고 한 판을 끝
     return found;
   },null,{timeout:120_000});
   expect(await page.evaluate(()=>window.__neckLab)).toBeUndefined();
-  await expect(page.locator('#pname')).toHaveText('마동철');
+  await expect(page.locator('#pname')).toHaveText('김사장');
   await playNeckDay(page);
-  expect(await page.evaluate(()=>window.__game.S.results.some(r=>r.name==='마동철'))).toBe(true);
+  expect(await page.evaluate(()=>window.__game.S.results.some(r=>r.name==='김사장'))).toBe(true);
   expect(warnings).toEqual([]);errors.check();
 });

@@ -36,6 +36,13 @@ PATIENTS = {
     # bowl cut over one eye, short02 a light-brown mop)
     "patient08": dict(name="ma_dongcheol", gender=1.0, age=0.6, muscle=1.0, weight=1.0, skin="middleage_asian_male",
                       hair="short04", eyebrows="eyebrow002", eyelashes="eyelashes01", clothes="male_casualsuit06", gray=False, tuck=0.003),
+    # 마동철 again, but with the image-to-3D patient12's face and buzz cut (user: "3D모델링 하면 신규 캐릭터들로 모든
+    # 게임들 자연스럽게 나오게 할수 있다며", 2026-10-26): patient08's MPFB body, rig and face rig, so every mode takes him
+    # like patient01..10. image: mpfb_image_face.py fits the head to the scan and paints its skin (bald: the buzz cut is
+    # painted on the scalp)
+    "patient12": dict(name="ma_dongcheol", gender=1.0, age=0.6, muscle=1.0, weight=1.0, skin="middleage_asian_male",
+                      hair="", eyebrows="eyebrow002", eyelashes="eyelashes01", clothes="male_casualsuit06", gray=False, tuck=0.003,
+                      image="patient12"),
     # 복순할매, 79, granny, short grey perm (short02 greyed; bob01/bob02 both hang a side bang over one eye).
     # middle-aged skin map (the old one reads orange, see patient05)
     "patient09": dict(name="boksun_halmae", gender=0.0, age=0.915, muscle=0.3, weight=0.6, skin="middleage_asian_female",
