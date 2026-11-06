@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EV, visitInfo, entrySource, cleanParams, reviewDue, runOutcome, DAY_MS } from "../src/core/analytics.js";
+import { EV, visitInfo, entrySource, cleanParams, reviewDue, runOutcome, DAY_MS, appPlatform, osOf, deviceClass, collectQuery, nextSession, SESSION_GAP_MS } from "../src/core/analytics.js";
 
 describe("analytics", () => {
   it("has unique snake_case event names", () => {
@@ -39,5 +39,61 @@ describe("analytics", () => {
     expect(runOutcome({ ambulance: true, pain: 1, complete: false })).toBe("ambulance");
     expect(runOutcome({ ambulance: false, pain: 3, complete: false })).toBe("pain");
     expect(runOutcome({ ambulance: false, pain: 0, complete: true })).toBe("complete");
+  });
+});
+
+describe("app platform", () => {
+  it("tells toss, web, android and ios apart", () => {
+    expect(appPlatform({ toss: true, app: false, native: null, ua: "Android" })).toBe("toss");
+    expect(appPlatform({ toss: false, app: false, native: null, ua: "iPhone" })).toBe("web");
+    expect(appPlatform({ toss: false, app: true, native: "android", ua: "" })).toBe("android");
+    expect(appPlatform({ toss: false, app: true, native: "ios", ua: "" })).toBe("ios");
+    expect(appPlatform({ toss: false, app: true, native: "web", ua: "Linux; Android 14" })).toBe("android");
+    expect(appPlatform({ toss: false, app: true, native: null, ua: "iPhone OS 18" })).toBe("ios");
+  });
+  it("reads os and device class", () => {
+    expect(osOf("Mozilla/5.0 (Linux; Android 14)")).toBe("android");
+    expect(osOf("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)")).toBe("ios");
+    expect(osOf("Mozilla/5.0 (Macintosh; Intel Mac OS X) Mobile/15E148")).toBe("ios");
+    expect(osOf("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)")).toBe("mac");
+    expect(osOf("Mozilla/5.0 (Windows NT 10.0)")).toBe("windows");
+    expect(osOf("")).toBe("other");
+    expect(deviceClass(1920, 1080, false)).toBe("desktop");
+    expect(deviceClass(390, 844, true)).toBe("mobile");
+    expect(deviceClass(820, 1180, true)).toBe("tablet");
+  });
+});
+
+describe("direct GA hits", () => {
+  it("keeps one client and opens a new session after 30 minutes", () => {
+    const a = nextSession(null, 1_000_000, "c1");
+    expect(a.first && a.fv).toBe(true);
+    expect(a.ses).toMatchObject({ cid: "c1", sid: 1000, sct: 1, hit: 1 });
+    const b = nextSession(a.ses, 1_010_000, "c2");
+    expect(b.first || b.fv).toBe(false);
+    expect(b.ses).toMatchObject({ cid: "c1", sid: 1000, sct: 1, hit: 2 });
+    expect(b.et).toBe(10_000);
+    const c = nextSession(b.ses, 1_010_000 + SESSION_GAP_MS + 1, "c3");
+    expect(c.first).toBe(true);
+    expect(c.fv).toBe(false);
+    expect(c.ses).toMatchObject({ cid: "c1", sct: 2, hit: 1 });
+  });
+  it("builds a GA4 collect query with params and user properties", () => {
+    const q = new URLSearchParams(collectQuery("G-X", "app_open",
+      { app_platform: "ios", screen_w: 390, ok: true },
+      { app_platform: "ios", os: "ios", none: null },
+      { cid: "c1", sid: 5, sct: 1, hit: 1, first: true, fv: true, et: 0 },
+      { dl: "https://app.ttukchiro/ios/index.html", sr: "390x844" }));
+    expect(q.get("v")).toBe("2");
+    expect(q.get("tid")).toBe("G-X");
+    expect(q.get("en")).toBe("app_open");
+    expect(q.get("ep.app_platform")).toBe("ios");
+    expect(q.get("epn.screen_w")).toBe("390");
+    expect(q.get("ep.ok")).toBe("true");
+    expect(q.get("up.app_platform")).toBe("ios");
+    expect(q.has("up.none")).toBe(false);
+    expect(q.get("_ss")).toBe("1");
+    expect(q.get("_fv")).toBe("1");
+    expect(q.get("dl")).toContain("/ios/");
   });
 });

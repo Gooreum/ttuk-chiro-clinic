@@ -5,7 +5,8 @@
 토스 빌드에서는 토스 `Analytics.log`로, 웹 페이지와 토스 웹뷰에서는 GA4(`G-91N1SBGRDE`, 속성 "뚝 카이로 클리닉")로 같은 이름·같은 파라미터를 보낸다.
 
 - 개인정보는 넣지 않는다. 환자는 가상 인물이고 번호(`patient_no`)와 모델 id(`roster`)만 쓴다.
-- localhost와 촬영 빌드(`npm run build:shot`)는 아무것도 보내지 않는다. 촬영 빌드는 `window.__events`에 쌓고 e2e가 확인한다.
+- 스토어 앱(`npm run build:app`, Capacitor)은 localhost에서 돌아 gtag 쿠키를 못 쓰므로 GA4 `/g/collect`로 직접 보낸다(`collectQuery`, 세션은 localStorage `chiroGaSession`, 30분 끊기면 새 세션). 페이지 주소는 `https://app.ttukchiro/<android|ios>/<파일>`로 남는다.
+- 그 밖의 localhost와 촬영 빌드(`npm run build:shot`)는 아무것도 보내지 않는다. 촬영 빌드는 `window.__events`에 쌓고 e2e가 확인한다.
 - `?internal=1`로 한 번 열면 그 기기는 `traffic_type=internal`이 붙는다(`?internal=0`으로 해제). 토스 sandbox도 internal이다.
 - `?debug=1`이면 GA4 DebugView로 보인다(`debug_mode`).
 - 토스 Analytics는 출시 뒤 데이터만 집계한다. sandbox에서는 콘솔에만 찍힌다.
@@ -15,15 +16,18 @@
 | 파라미터 | 값 |
 |---|---|
 | `mode` | `crack` 목꺾기 / `towel` 목뽑기 / `back` 허리펴기 / `side` 허리비틀기 |
-| `build` | `toss` / `web` |
+| `build` | `toss` / `web` / `app`(스토어 앱) |
+| `app_platform` | `toss` / `web` / `android` / `ios` — 어디서 하는지(GA 맞춤 측정기준, 이벤트·사용자 범위 둘 다) |
 | `lang` | 화면 언어 `ko` / `en` (`src/i18n`, 토스 빌드는 늘 `ko`) |
 | `traffic_type` | 내부 트래픽이면 `internal` |
+
+GA 사용자 속성(맞춤 측정기준, 사용자 범위): `app_platform`, `build`, `os`, `device_class`, `lang`.
 
 ## 이벤트
 
 | 이름 | 언제 | 주요 파라미터 |
 |---|---|---|
-| `app_open` | 세션의 첫 페이지 | `first_open`, `first_open_date`, `visit_days`(방문한 날 수), `open_count`, `days_since_first`, `days_since_last`, `returning_day`, `entry_source`, `utm_*`, `entry_ref`, `entry_mode`, `referrer_host` |
+| `app_open` | 세션의 첫 페이지 | `first_open`, `first_open_date`, `visit_days`(방문한 날 수), `open_count`, `days_since_first`, `days_since_last`, `returning_day`, `entry_source`, `utm_*`, `entry_ref`, `entry_mode`, `referrer_host`, `os`, `device_class`(`mobile`/`tablet`/`desktop`), `screen_w`, `screen_h`, `dpr` |
 | `page_switch` | 같은 세션에서 클리닉 메뉴로 다른 페이지 | `from_mode` |
 | `screen_view` | 화면 진입(`title`/`play`/`result`) | `screen_name`, `prev_screen`, `prev_ms`(이전 화면 체류), `outcome` |
 | `load_ready` | 첫 프레임이 그려짐 | `load_ms`(내비게이션부터), `dom_ms`, `first_open` |
