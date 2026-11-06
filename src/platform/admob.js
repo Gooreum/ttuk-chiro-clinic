@@ -47,9 +47,9 @@ const unitId = kind => {
 const errCode = e => String(e && (e.code || e.message) || e || "").slice(0, 60);
 
 /* One full-screen ad: true when the reward was earned (rewarded) / the ad was shown and closed (interstitial). */
-async function fullScreen(rewarded){
+async function fullScreen(rewarded, placement){
   const format = rewarded ? "rewarded" : "interstitial", t0 = performance.now();
-  const log = (step, extra) => track(EV.adEvent, { format, step, ms: performance.now() - t0, ...extra });
+  const log = (step, extra) => track(EV.adEvent, { format, placement: placement || format, step, ms: performance.now() - t0, ...extra });
   log("request");
   let m;
   try{ m = await load(); }catch(e){ log("error", { stage: "sdk", code: errCode(e) }); return false; }
@@ -85,14 +85,14 @@ async function fullScreen(rewarded){
 }
 
 export const canWatchRewarded = () => isApp;
-export const watchRewarded = () => isApp ? (adFree() ? Promise.resolve(true) : fullScreen(true)) : Promise.resolve(false);
+export const watchRewarded = placement => isApp ? (adFree() ? Promise.resolve(true) : fullScreen(true, placement)) : Promise.resolve(false);
 
 let lastInterstitial = performance.now();
-export async function maybeInterstitial(notice){
+export async function maybeInterstitial(notice, placement){
   if(!isApp) return;
   const now = performance.now();
   if(!interstitialDue(lastInterstitial, now, adFree())) return;
   lastInterstitial = now;
   if(notice) await notice();
-  await fullScreen(false);
+  await fullScreen(false, placement || "result_interstitial");
 }

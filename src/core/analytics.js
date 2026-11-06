@@ -43,8 +43,49 @@ export const EV = {
   share: "share",                 // 자랑하기 on a result card (where night/rush/day, how toss/native/copied/fail)
   leaderboard: "leaderboard_open", // Toss game-center leaderboard: 랭킹 보기 (open) and the score submit result
   purchase: "iap_purchase",       // 광고 제거: start / success / fail / restore (not GA4's reserved ecommerce "purchase")
-  review: "review_request"        // the Toss review prompt was asked for (whether it shows is up to Toss)
+  review: "review_request",       // the Toss review prompt was asked for (whether it shows is up to Toss)
+  resume: "app_resume",           // the page came back from the background (away_ms)
+  handledError: "handled_error",  // an error the game caught and recovered from (where, message)
+  iapView: "iap_view",            // the 광고 제거 button was shown with its price
+  tutorialBegin: "tutorial_begin",       // GA recommended: the first run on this device began
+  tutorialComplete: "tutorial_complete", // GA recommended: the first run played through on this device
+  // derived from the events above by derivedEvents() (one call site each, so nothing is missed):
+  adRequest: "ad_request", adLoaded: "ad_loaded", adShow: "ad_show", adReward: "ad_reward", adFail: "ad_fail",
+  iapStart: "iap_start", iapDone: "purchase", iapFail: "iap_fail", iapRestore: "iap_restore", iapRecoverFail: "iap_recover_fail",
+  earnCoin: "earn_virtual_currency", spendCoin: "spend_virtual_currency",
+  levelStart: "level_start", levelComplete: "level_complete", levelFail: "level_fail",
+  jsError: "js_error"
 };
+
+/* GA-standard / per-step events derived from one logged event, so each call site stays a single track() and the
+   GA4 reports (ads, monetization, level funnels) get their recommended names. name/params: the event as logged
+   (params already merged with the common ones). Returns [[name, params], ...] to send right after it. */
+export function derivedEvents(name, p){
+  p = p || {};
+  const out = [];
+  const add = (n, extra) => out.push([n, { ...p, ...extra }]);
+  if(name === EV.adEvent){
+    const m = { request: EV.adRequest, loaded: EV.adLoaded, show: EV.adShow, reward: EV.adReward, error: EV.adFail }[p.step];
+    if(m) add(m, p.step === "error" ? { reason: [p.stage, p.code].filter(Boolean).join(":") || "unknown" } : {});
+  }else if(name === EV.purchase){
+    const m = { start: EV.iapStart, success: EV.iapDone, granted: EV.iapDone, fail: EV.iapFail, finish_fail: EV.iapFail,
+      restore: EV.iapRestore, restore_fail: EV.iapRecoverFail }[p.step];
+    if(m) add(m, m === EV.iapFail || m === EV.iapRecoverFail ? { reason: p.reason || p.code || p.error || p.step } : {});
+  }else if(name === EV.coinEarn){
+    add(EV.earnCoin, { virtual_currency_name: "coin", value: p.coins != null ? p.coins : p.amount });
+  }else if(name === EV.shopBuy){
+    add(EV.spendCoin, { virtual_currency_name: "coin", value: p.price, item_name: p.item });
+  }else if(name === EV.runStart){
+    add(EV.levelStart, { level_name: p.game || p.mode || "" });
+  }else if(name === EV.runEnd){
+    const ok = p.outcome === "complete";
+    add(ok ? EV.levelComplete : EV.levelFail, { level_name: p.game || p.mode || "", success: ok,
+      duration_ms: p.run_ms, reason: ok ? null : p.outcome });
+  }else if(name === EV.error){
+    add(EV.jsError, {});
+  }
+  return out;
+}
 
 export const DAY_MS = 86400000;
 const day = ms => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };

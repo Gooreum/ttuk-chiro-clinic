@@ -65,10 +65,30 @@ GA 사용자 속성(맞춤 측정기준, 사용자 범위): `app_platform`, `bui
 | `pain_ad` | 영업 일지 사연 카드의 "광고 보고 통증 칸 +1"(통증 2칸 이하 날, 역경 제외) | `day`, `step`(`click`/`granted`/`fail`) |
 | `shop_buy` | 진료실 꾸미기에서 소품·편의 아이템을 산 순간 | `item`, `price`, `coins_left` |
 | `coin_earn` | 한 판이 끝나 진료비가 지급될 때(`step=run`), 보상형 광고로 같은 만큼 더 받을 때(`step=double`) | `game`, `day`, `hard`, `coins`, `step`, `total` |
-| `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
+| `ad_event` | 전면·보상 광고 각 단계 | `format`(`interstitial`/`rewarded`), `placement`(`continue_ad`/`night_continue_ad`/`boss_retry_ad`/`pain_ad`/`coin_double_ad`/`result_interstitial`), `step`(`request`/`loaded`/`show_requested`/`show`/`impression`/`clicked`/`reward`/`dismissed`/`error`), `stage`·`code`(실패), `earned`, `ms` |
 | `share` | 결과 카드 `자랑하기`(심야 진료·보스 러시·주간 챌린지·클리어한 영업 일지) | `where`(`night`/`rush`/`weekly`/`daily`/`day`), `how`(`toss`/`native`/`copied`/`fail`), `code` |
 | `leaderboard_open` | 토스 빌드 게임센터 리더보드: `랭킹 보기`(`step=open`/`open_fail`)와 점수 제출 결과(`submit`/`submit_fail`) | `where`, `step`, `code`(제출 실패 시 `statusCode`) |
 | `iap_purchase` | 광고 제거 결제 | `step`(`start`/`success`/`fail`/`restore`/`revoke`), `code` |
+| `iap_view` | 결과 카드에 광고 제거 버튼이 보임 | `sku` |
+| `app_resume` | 백그라운드에서 돌아옴 | `away_ms`, `screen_name` |
+| `handled_error` | 잡아서 넘긴 오류(페이지당 20개) | `where`, `message`, `screen_name` |
+| `tutorial_begin` / `tutorial_complete` | 이 기기 첫 판 시작 / 첫 완주(기기당 1번, `chiroTutBegin`·`chiroTutDone`) | `game` |
+
+### 자동 파생 이벤트 (GA4 권장 이름)
+
+`platform/analytics.js` `track`이 위 이벤트를 보낸 직후 `core/analytics.js` `derivedEvents`로 아래를 같은 파라미터에 덧붙여 한 번 더 보낸다. 호출하는 곳은 그대로다.
+
+| 원본 | 파생 |
+|---|---|
+| `ad_event` step request/loaded/show/reward/error | `ad_request`/`ad_loaded`/`ad_show`/`ad_reward`/`ad_fail`(`reason`=stage:code) |
+| `iap_purchase` step start/success/fail/restore/restore_fail | `iap_start`/`purchase`/`iap_fail`/`iap_restore`/`iap_recover_fail` |
+| `coin_earn` | `earn_virtual_currency`(`virtual_currency_name`=coin, `value`) |
+| `shop_buy` | `spend_virtual_currency`(`value`=가격, `item_name`) |
+| `run_start` | `level_start`(`level_name`=game) |
+| `run_end` | `level_complete`(outcome complete) / `level_fail`(`reason`=outcome), `duration_ms` |
+| `app_error` | `js_error` |
+
+전체 목록은 `docs/EVENTS.md`.
 
 공유 리워드는 없다(종료와 무관). 자랑하기·랭킹은 위 `share`·`leaderboard_open`이다.
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { EV, visitInfo, entrySource, cleanParams, reviewDue, runOutcome, DAY_MS, appPlatform, osOf, deviceClass, collectQuery, nextSession, SESSION_GAP_MS } from "../src/core/analytics.js";
+import { EV, derivedEvents, visitInfo, entrySource, cleanParams, reviewDue, runOutcome, DAY_MS, appPlatform, osOf, deviceClass, collectQuery, nextSession, SESSION_GAP_MS } from "../src/core/analytics.js";
 
 describe("analytics", () => {
   it("has unique snake_case event names", () => {
@@ -95,5 +95,20 @@ describe("direct GA hits", () => {
     expect(q.get("_ss")).toBe("1");
     expect(q.get("_fv")).toBe("1");
     expect(q.get("dl")).toContain("/ios/");
+  });
+  it("derives GA-standard events from one logged event", () => {
+    const one = (n, p) => derivedEvents(n, p);
+    expect(one(EV.adEvent, { step: "error", stage: "load", code: "3" })).toEqual([[EV.adFail, expect.objectContaining({ reason: "load:3" })]]);
+    expect(one(EV.adEvent, { step: "reward", placement: "continue_ad" })[0]).toEqual([EV.adReward, expect.objectContaining({ placement: "continue_ad" })]);
+    expect(one(EV.adEvent, { step: "impression" })).toEqual([]);
+    expect(one(EV.purchase, { step: "success", sku: "ad_free" })[0][0]).toBe("purchase");
+    expect(one(EV.purchase, { step: "fail", reason: "cancel" })[0]).toEqual([EV.iapFail, expect.objectContaining({ reason: "cancel" })]);
+    expect(one(EV.runEnd, { outcome: "complete", game: "crack", run_ms: 5000 })[0]).toEqual([EV.levelComplete, expect.objectContaining({ level_name: "crack", success: true, duration_ms: 5000 })]);
+    expect(one(EV.runEnd, { outcome: "ambulance", game: "towel" })[0]).toEqual([EV.levelFail, expect.objectContaining({ reason: "ambulance", success: false })]);
+    expect(one(EV.runStart, { game: "back" })[0]).toEqual([EV.levelStart, expect.objectContaining({ level_name: "back" })]);
+    expect(one(EV.coinEarn, { coins: 42 })[0]).toEqual([EV.earnCoin, expect.objectContaining({ virtual_currency_name: "coin", value: 42 })]);
+    expect(one(EV.shopBuy, { item: "plant", price: 150 })[0]).toEqual([EV.spendCoin, expect.objectContaining({ value: 150, item_name: "plant" })]);
+    expect(one(EV.error, { message: "x" })[0][0]).toBe(EV.jsError);
+    expect(one(EV.click, {})).toEqual([]);
   });
 });

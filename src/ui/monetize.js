@@ -34,14 +34,16 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
   async function renderBuy(){
     buyBtn.hidden = !canBuyAdFree();
     if(buyBtn.hidden) return;
+    track(EV.iapView, { sku: "ad_free", screen_name: "result" });
     const price = await adFreePrice();
     buyBtn.textContent = price ? t("광고 제거 · {p}",{p:price}) : t("광고 제거");
   }
   continueBtn.addEventListener("click", async () => {
     if(busy) return;
     busy = true; continueBtn.disabled = true;
-    track(EV.click, { target: plus ? "night_continue_ad" : retry ? "boss_retry_ad" : "continue_ad", ad_free: adFree() });
-    const ok = await watchRewarded();
+    const placement = plus ? "night_continue_ad" : retry ? "boss_retry_ad" : "continue_ad";
+    track(EV.click, { target: placement, ad_free: adFree() });
+    const ok = await watchRewarded(placement);
     busy = false; continueBtn.disabled = false;
     if(ok){ continueBtn.hidden = true; onContinue(); }
     else continueBtn.textContent = t("광고를 못 불러왔어요 · 다시");
@@ -61,7 +63,7 @@ export function mountMonetize({ continueBtn, buyBtn, onContinue, leave = [] }){
     if(!pendingAd) return;
     e.preventDefault(); e.stopImmediatePropagation();
     pendingAd = false; leaving = true;
-    try{ await maybeInterstitial(adNotice); }finally{ leaving = false; }
+    try{ await maybeInterstitial(adNotice, "result_interstitial"); }finally{ leaving = false; }
     el.click();
   }, true));
   return {
@@ -93,7 +95,7 @@ export function mountPainAd({ btn }){
     const d = day;
     busy = true; btn.disabled = true;
     track(EV.painAd, { day: d + 1, step: "click" });
-    const ok = await watchRewarded();
+    const ok = await watchRewarded("pain_ad");
     busy = false;
     track(EV.painAd, { day: d + 1, step: ok ? "granted" : "fail" });
     if(ok) pending.add(d);

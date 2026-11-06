@@ -14,11 +14,11 @@ export const TOSS_IDS = {
 export const isToss = __TOSS__;
 /* One full-screen ad: resolves true when the viewer earned the reward (rewarded) or it was shown to the end
    (interstitial: dismissed), false when it could not load or show. */
-async function fullScreen(adGroupId, rewarded){
+async function fullScreen(adGroupId, rewarded, placement){
   if(!adGroupId) return false;
   const format = rewarded ? "rewarded" : "interstitial", t0 = performance.now();
   // every step is logged (docs/analytics.md ad_event): request, loaded, show, impression, clicked, dismissed, reward, error
-  const log = (step, extra) => track(EV.adEvent, { format, step, ms: performance.now() - t0, ...extra });
+  const log = (step, extra) => track(EV.adEvent, { format, placement: placement || format, step, ms: performance.now() - t0, ...extra });
   const errCode = e => String(e && (e.code || e.errorCode || e.message) || e || "").slice(0, 60);
   log("request");
   let m;
@@ -55,19 +55,19 @@ async function fullScreen(adGroupId, rewarded){
 
 export const canWatchRewarded = () => isToss && !!TOSS_IDS.rewarded;
 // 이어하기: true = go on. Ad-free players go on without an ad.
-export async function watchRewarded(){
+export async function watchRewarded(placement){
   if(!isToss) return false;
   if(adFree()) return true;
-  return fullScreen(TOSS_IDS.rewarded, true);
+  return fullScreen(TOSS_IDS.rewarded, true, placement);
 }
 
 let lastInterstitial = performance.now();   // none in the first two minutes of a session
 // notice: shown first, so the ad never pops up unannounced (the Toss recommend guide)
-export async function maybeInterstitial(notice){
+export async function maybeInterstitial(notice, placement){
   if(!isToss || !TOSS_IDS.interstitial) return;
   const now = performance.now();
   if(!interstitialDue(lastInterstitial, now, adFree())) return;
   lastInterstitial = now;
   if(notice) await notice();
-  await fullScreen(TOSS_IDS.interstitial, false);
+  await fullScreen(TOSS_IDS.interstitial, false, placement || "result_interstitial");
 }

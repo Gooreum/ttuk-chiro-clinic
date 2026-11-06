@@ -4,14 +4,14 @@
    nothing; localhost sends nothing either, except the store apps (Capacitor serves them from localhost), which send
    GA4 hits themselves (collectQuery). Every event and the GA user carry app_platform: toss / android / ios / web.
    No personal data goes in: no names, ids or free text from the player. */
-import { EV, visitInfo, entrySource, cleanParams, reviewDue, appPlatform, osOf, deviceClass, collectQuery, nextSession } from "../core/analytics.js";
+import { EV, derivedEvents, visitInfo, entrySource, cleanParams, reviewDue, appPlatform, osOf, deviceClass, collectQuery, nextSession } from "../core/analytics.js";
 import { store } from "../lib/store.js";
 import { sdk, supported } from "./sdk.js";
 import { LANG } from "../i18n/index.js";
 
 export const GA_ID = "G-91N1SBGRDE";   // GA4 property "뚝 카이로 클리닉" (this game only)
 const VISIT = "chiroVisit", REVIEWED = "chiroReviewAsked", FIRST_OK = "chiroFirstSuccess", INTERNAL = "chiroInternal";
-const SESSION = "chiroSession", GA_SES = "chiroGaSession";
+const SESSION = "chiroSession", GA_SES = "chiroGaSession", TUT_BEGIN = "chiroTutBegin", TUT_DONE = "chiroTutDone";
 const LOG_TYPE = { [EV.screen]: "screen", [EV.click]: "click", [EV.adNotice]: "popup", [EV.error]: "error", [EV.loadFail]: "error" };
 
 const q = new URLSearchParams(location.search);
@@ -60,13 +60,29 @@ function sendDirect(name, p){
   }catch(e){}
 }
 
-export function track(name, params){
-  const p = cleanParams({ ...common, ...params });
+function send(name, p){
   if(__FORCE_HIT__) (window.__events ||= []).push({ name, ...p, t: Math.round(performance.now()) });
   if(gtag) try{ gtag("event", name, p); }catch(e){}
   if(direct) sendDirect(name, p);
   if(__TOSS__) sdk().then(m => m.Analytics.log({ log_name: name, log_type: LOG_TYPE[name] || "event", params: p })).catch(() => {});
 }
+
+/* One event, plus the GA-standard events derived from it (core/analytics.js derivedEvents: ad_*, iap_*, purchase,
+   earn/spend_virtual_currency, level_*, js_error, tutorial_*), so every existing call site reports both. */
+export function track(name, params){
+  const p = cleanParams({ ...common, ...params });
+  send(name, p);
+  for(const [n, dp] of derivedEvents(name, p)) send(n, cleanParams(dp));
+  if(name === EV.runStart && !store.get(TUT_BEGIN, false)){ store.set(TUT_BEGIN, true); send(EV.tutorialBegin, cleanParams({ ...common, game: p.game })); }
+  if(name === EV.runComplete && !store.get(TUT_DONE, false)){ store.set(TUT_DONE, true); send(EV.tutorialComplete, cleanParams({ ...common, game: p.game })); }
+}
+
+// an error that was caught and handled (the game went on): where = short code location
+export function handledError(where, e){
+  if(handled++ >= 20) return;
+  track(EV.handledError, { where, message: String(e && (e.message || e.code) || e || "").slice(0, 100), screen_name: screenName });
+}
+let handled = 0;
 
 let screenName = "", screenAt = 0;
 export function screenView(name, params){
@@ -137,7 +153,11 @@ export function initAnalytics({ mode, onBootFail }){
   window.addEventListener("error", e => onError("error", e.message, e.filename, e.lineno));
   window.addEventListener("unhandledrejection", e => onError("rejection", e.reason && (e.reason.message || e.reason), "", null));
   const hide = reason => track(EV.hide, { reason, dwell_ms: performance.now(), screen_name: screenName, screen_ms: performance.now() - screenAt });
-  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "hidden") hide("hidden"); });
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "hidden"){ hiddenAt = performance.now(); hide("hidden"); }
+    else if(hiddenAt){ track(EV.resume, { away_ms: performance.now() - hiddenAt, screen_name: screenName }); hiddenAt = 0; }
+  });
   window.addEventListener("popstate", () => hide("back"));
   document.addEventListener("click", onClick, true);
   logOpen(mode);
