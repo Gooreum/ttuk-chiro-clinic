@@ -108,3 +108,60 @@ export const reviewDue = ({ asked, complete }) => !asked && !!complete;
 
 /* A run's outcome label for run_end. */
 export const runOutcome = ({ ambulance, pain, complete }) => ambulance ? "ambulance" : complete ? "complete" : pain >= 3 ? "pain" : "quit";
+
+/* Which store / host the game runs in, for the GA app_platform dimension: toss (Toss mini-app), android / ios (the
+   Capacitor store apps), web (GitHub Pages and other browsers). `native` is Capacitor.getPlatform() when known. */
+export function appPlatform({ toss, app, native, ua }){
+  if(toss) return "toss";
+  if(!app) return "web";
+  if(native === "android" || native === "ios") return native;
+  return /android/i.test(ua || "") ? "android" : "ios";
+}
+// the phone / computer under the page, read from the user agent (no ids)
+export function osOf(ua){
+  ua = ua || "";
+  if(/android/i.test(ua)) return "android";
+  if(/iphone|ipad|ipod/i.test(ua) || (/macintosh/i.test(ua) && /mobile/i.test(ua))) return "ios";
+  if(/windows/i.test(ua)) return "windows";
+  if(/macintosh|mac os/i.test(ua)) return "mac";
+  if(/linux|cros/i.test(ua)) return "linux";
+  return "other";
+}
+export function deviceClass(w, h, touch){
+  const s = Math.min(w || 0, h || 0);
+  if(!touch) return "desktop";
+  return s >= 600 ? "tablet" : "mobile";
+}
+
+/* GA4 Measurement Protocol (web /g/collect) query for one event, for the store apps: Capacitor serves the game from
+   localhost / capacitor://, where gtag.js cannot keep its cookie, so the apps send hits themselves.
+   ses = { cid, sid, sct, hit, first, fv, et }. Strings go as ep.*, numbers as epn.*, user properties as up.* / upn.*. */
+export function collectQuery(tid, name, params, user, ses, page){
+  const q = new URLSearchParams({ v: "2", tid, cid: ses.cid, sid: String(ses.sid), sct: String(ses.sct), seg: "1",
+    _s: String(ses.hit), _p: String(Math.floor(Math.random() * 1e9)), en: name });
+  if(page){ if(page.dl) q.set("dl", page.dl); if(page.dt) q.set("dt", page.dt); if(page.ul) q.set("ul", page.ul); if(page.sr) q.set("sr", page.sr); }
+  if(ses.first){ q.set("_ss", "1"); q.set("_nsi", "1"); }
+  if(ses.fv) q.set("_fv", "1");
+  if(ses.et) q.set("_et", String(Math.max(0, Math.round(ses.et))));
+  const put = (pre, k, v) => {
+    if(typeof v === "number") q.set(`${pre}n.${k}`, String(v));
+    else q.set(`${pre}.${k}`, typeof v === "boolean" ? (v ? "true" : "false") : String(v));
+  };
+  for(const [k, v] of Object.entries(params || {})) put("ep", k, v);
+  for(const [k, v] of Object.entries(user || {})) if(v != null) put("up", k, v);
+  return q.toString();
+}
+// session bookkeeping for collectQuery: a new session after 30 minutes without a hit
+export const SESSION_GAP_MS = 30 * 60 * 1000;
+export function nextSession(prev, now, newCid){
+  const p = prev && prev.cid ? prev : null;
+  const fresh = !p || !p.last || now - p.last > SESSION_GAP_MS;
+  const s = {
+    cid: p ? p.cid : newCid,
+    sid: fresh ? Math.floor(now / 1000) : p.sid,
+    sct: fresh ? (p ? (p.sct || 0) + 1 : 1) : p.sct,
+    hit: fresh ? 1 : (p.hit || 0) + 1,
+    last: now
+  };
+  return { ses: s, first: fresh, fv: !p, et: fresh || !p.last ? 0 : Math.min(now - p.last, 60000) };
+}

@@ -1,41 +1,70 @@
 /* Event logging to Toss Analytics (Toss build) and GA4 (web pages and the Toss webview) under the same names and
    params; the names and rules are in core/analytics.js, the table in docs/analytics.md. Errors, page hides and the
    first frame are logged here by themselves. The shot build (e2e) keeps every event in window.__events and sends
-   nothing; localhost sends nothing either. No personal data goes in: no names, ids or free text from the player. */
-import { EV, visitInfo, entrySource, cleanParams, reviewDue } from "../core/analytics.js";
+   nothing; localhost sends nothing either, except the store apps (Capacitor serves them from localhost), which send
+   GA4 hits themselves (collectQuery). Every event and the GA user carry app_platform: toss / android / ios / web.
+   No personal data goes in: no names, ids or free text from the player. */
+import { EV, visitInfo, entrySource, cleanParams, reviewDue, appPlatform, osOf, deviceClass, collectQuery, nextSession } from "../core/analytics.js";
 import { store } from "../lib/store.js";
 import { sdk, supported } from "./sdk.js";
 import { LANG } from "../i18n/index.js";
 
 export const GA_ID = "G-91N1SBGRDE";   // GA4 property "뚝 카이로 클리닉" (this game only)
 const VISIT = "chiroVisit", REVIEWED = "chiroReviewAsked", FIRST_OK = "chiroFirstSuccess", INTERNAL = "chiroInternal";
-const SESSION = "chiroSession";
+const SESSION = "chiroSession", GA_SES = "chiroGaSession";
 const LOG_TYPE = { [EV.screen]: "screen", [EV.click]: "click", [EV.adNotice]: "popup", [EV.error]: "error", [EV.loadFail]: "error" };
 
 const q = new URLSearchParams(location.search);
 const local = location.protocol === "file:" || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[::1\])/.test(location.hostname);
 if(q.get("internal") === "1") store.set(INTERNAL, true);
 if(q.get("internal") === "0") store.set(INTERNAL, false);
-const common = { mode: "", build: __TOSS__ ? "toss" : "web", lang: LANG };
+const UA = navigator.userAgent || "";
+const native = (() => { try{ return window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform(); }catch(e){ return null; } })();
+export const PLATFORM = appPlatform({ toss: __TOSS__, app: __APP__, native, ua: UA });
+const BUILD = __TOSS__ ? "toss" : __APP__ ? "app" : "web";
+const OS = osOf(UA);
+const touch = (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+const DEVICE = deviceClass(screen.width, screen.height, touch);
+const common = { mode: "", build: BUILD, app_platform: PLATFORM, lang: LANG };
+// GA user properties (custom dimensions, user scope): who the player is across sessions
+const userProps = { app_platform: PLATFORM, build: BUILD, os: OS, device_class: DEVICE, lang: LANG };
 if(store.get(INTERNAL, false)) common.traffic_type = "internal";
 if(q.get("debug") === "1") common.debug_mode = true;   // GA4 DebugView
 
-let gtag = null;
+let gtag = null, direct = false;
 function startGa(){
-  if(__FORCE_HIT__ || __CASES__ || local || !GA_ID) return;
+  if(__FORCE_HIT__ || __CASES__ || !GA_ID) return;
+  if(__APP__){ direct = true; return; }
+  if(local) return;
   window.dataLayer = window.dataLayer || [];
   gtag = window.gtag = function(){ window.dataLayer.push(arguments); };
   gtag("js", new Date());
+  gtag("set", "user_properties", userProps);
   gtag("config", GA_ID, { send_page_view: false });
   const s = document.createElement("script");
   s.async = true; s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
   document.head.appendChild(s);
 }
 
+/* Store apps: one GA4 hit per event, session kept in localStorage like gtag's cookie. */
+function sendDirect(name, p){
+  try{
+    const now = Date.now();
+    const prev = store.get(GA_SES, null);
+    const n = nextSession(prev, now, `${Math.floor(Math.random() * 2147483647)}.${Math.floor(now / 1000)}`);
+    store.set(GA_SES, n.ses);
+    const page = { dl: `https://app.ttukchiro/${PLATFORM}/${location.pathname.split("/").pop() || "index.html"}`,
+      dt: document.title, ul: (navigator.language || "").toLowerCase(), sr: `${screen.width}x${screen.height}` };
+    const url = `https://www.google-analytics.com/g/collect?${collectQuery(GA_ID, name, p, userProps, { ...n.ses, first: n.first, fv: n.fv, et: n.et }, page)}`;
+    if(!(navigator.sendBeacon && navigator.sendBeacon(url))) fetch(url, { method: "POST", mode: "no-cors", keepalive: true }).catch(() => {});
+  }catch(e){}
+}
+
 export function track(name, params){
   const p = cleanParams({ ...common, ...params });
   if(__FORCE_HIT__) (window.__events ||= []).push({ name, ...p, t: Math.round(performance.now()) });
   if(gtag) try{ gtag("event", name, p); }catch(e){}
+  if(direct) sendDirect(name, p);
   if(__TOSS__) sdk().then(m => m.Analytics.log({ log_name: name, log_type: LOG_TYPE[name] || "event", params: p })).catch(() => {});
 }
 
@@ -86,7 +115,8 @@ async function logOpen(mode){
     scheme = m.getSchemeUri() || "";
     if(m.getOperationalEnvironment && m.getOperationalEnvironment() === "sandbox") common.traffic_type = "internal";
   }catch(e){}
-  track(EV.appOpen, { ...visit.params, ...entrySource(location.search, document.referrer, scheme) });
+  track(EV.appOpen, { ...visit.params, ...entrySource(location.search, document.referrer, scheme),
+    os: OS, device_class: DEVICE, screen_w: screen.width, screen_h: screen.height, dpr: window.devicePixelRatio || 1 });
 }
 
 // the game inside a page changed (index.html: 목꺾기 crack / 목뽑기 towel)
