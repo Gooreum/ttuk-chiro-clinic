@@ -6,7 +6,7 @@ import { store } from "../lib/store.js";
 import { SHOP_KEY, readShop, add } from "../core/shop.js";
 import { PRODUCTS, COIN_KEYS, storeId, keyFromStoreId, keyFromTossSku, readLedger, seen, record, ownsSku } from "../core/iap.js";
 import { sdk, supported } from "./sdk.js";
-import { track } from "./analytics.js";
+import { track, handledError } from "./analytics.js";
 import { EV } from "../core/analytics.js";
 
 export const isToss = __TOSS__, isApp = __APP__;
@@ -44,7 +44,7 @@ async function native(){
   if(!nat){
     const [{ Capacitor }, mod] = await Promise.all([import("@capacitor/core"), import("@capgo/native-purchases")]);
     nat = { P: mod.NativePurchases, TYPE: mod.PURCHASE_TYPE, platform: Capacitor.getPlatform() };
-    try{ await nat.P.configure({ autoFinishTransactions: false }); }catch(e){}
+    try{ await nat.P.configure({ autoFinishTransactions: false }); }catch(e){ handledError("iap_native_config", e); }
     // iOS: purchases that finish outside purchaseProduct (Ask to Buy approval, interrupted sheet) arrive here
     try{ nat.P.addListener("transactionUpdated", tx => { settleNative(tx).catch(() => {}); }); }catch(e){}
   }
@@ -70,7 +70,7 @@ async function settleNative(tx){
 }
 
 /* ---- Toss ---- */
-async function tossCall(fn){ try{ const m = await sdk(); return m && m.IAP ? await fn(m.IAP) : null; }catch(e){ return null; } }
+async function tossCall(fn){ try{ const m = await sdk(); return m && m.IAP ? await fn(m.IAP) : null; }catch(e){ handledError("iap_toss_call", e); return null; } }
 
 /* ---- public API ---- */
 export const canBuy = key => !!PRODUCTS[key] && iapOn && !(PRODUCTS[key].kind === "nonconsumable" && adFree());
@@ -112,7 +112,7 @@ export async function buy(key){
     }catch(e){ track(EV.purchase, { step: "fail", item: key, code: errCode(e) }); return false; }
   }
   let m;
-  try{ m = await sdk(); }catch(e){ return false; }
+  try{ m = await sdk(); }catch(e){ handledError("iap_sdk", e); return false; }
   if(!m.IAP || !supported(m.IAP.createOneTimePurchaseOrder)) return false;
   return new Promise(resolve => {
     let cleanup = () => {}, settled = false, got = false;
@@ -167,7 +167,7 @@ export async function restorePurchases(){
   if(!isApp) return recover();
   try{
     const n = await native();
-    try{ await n.P.restorePurchases(); }catch(e){}
+    try{ await n.P.restorePurchases(); }catch(e){ handledError("iap_native_restore", e); }
     const { purchases } = await n.P.getPurchases({ productType: n.TYPE.INAPP });
     // only the non-consumable is re-granted from history: consumed coin packs must never come back
     for(const tx of purchases || []) if(keyFromStoreId(tx.productIdentifier) === "adfree") await settleNative(tx);

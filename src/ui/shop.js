@@ -170,7 +170,7 @@ export function mountCoinReward(anchor){
     if(busy || doubled) return;
     busy = true; dbl.disabled = true;
     track(EV.click, { target: "coin_double_ad", ad_free: adFree() });
-    const ok = await watchRewarded();
+    const ok = await watchRewarded("coin_double_ad");
     busy = false; dbl.disabled = false;
     if(!ok){ dbl.textContent = t("광고를 못 불러왔어요 · 다시"); return; }
     doubled = true;

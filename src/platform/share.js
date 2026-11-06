@@ -3,7 +3,7 @@
    clipboard copy + a toast. Text rules: core/share.js. */
 import { t } from "../i18n/index.js";
 import { sdk, supported } from "./sdk.js";
-import { track } from "./analytics.js";
+import { track, handledError } from "./analytics.js";
 import { EV } from "../core/analytics.js";
 import { TOSS_PATH, SHARE_URL, withLink } from "../core/share.js";
 
@@ -17,7 +17,7 @@ export async function shareResult(text, where, notify = () => {}){
     try{
       const m = await sdk();
       let link = SHARE_URL;
-      try{ if(m.Share && m.Share.createLink) link = await m.Share.createLink({ path: TOSS_PATH }); }catch(e){}   // no link: the web page link
+      try{ if(m.Share && m.Share.createLink) link = await m.Share.createLink({ path: TOSS_PATH }); }catch(e){ handledError("share_link", e); }   // no link: the web page link
       const send = m.Share && m.Share.sendMessage ? m.Share.sendMessage : m.share;
       if(send){ await send({ message: withLink(text, link) }); track(EV.share, { where, how: "toss" }); return "toss"; }
     }catch(e){ track(EV.share, { where, how: "fail", code: errCode(e) }); return "fail"; }
