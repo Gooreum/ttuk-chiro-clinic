@@ -14,7 +14,7 @@ const TEST_IDS = {
   ios: { rewarded: "ca-app-pub-3940256099942544/1712485313", interstitial: "ca-app-pub-3940256099942544/4411468910" }
 };
 export const REAL_IDS = {
-  android: { rewarded: "", interstitial: "" },
+  android: { rewarded: "ca-app-pub-4785237655148075/4114546306", interstitial: "ca-app-pub-4785237655148075/3915410762" },
   ios: { rewarded: "", interstitial: "" }
 };
 
