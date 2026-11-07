@@ -57,6 +57,8 @@ let stale = false;
 export function ensureAudio(){
   try{
     if(!ac){
+      // mix with the player's own music instead of stopping it (Safari 17+; elsewhere a no-op)
+      try{ if(navigator.audioSession) navigator.audioSession.type = "ambient"; }catch(e){}
       ac = new (window.AudioContext || window.webkitAudioContext)();
       ac.onstatechange = () => { if(ac && ac.state === "interrupted") stale = true; };
       master = ac.createGain(); master.gain.value = 0.9; master.connect(ac.destination);

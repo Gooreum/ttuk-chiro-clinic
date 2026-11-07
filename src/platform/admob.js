@@ -3,7 +3,7 @@
    half of platform/toss.js; picked in platform/ads.js. Purchases: platform/iap.js. Rules: core/monetize.js.
    Ad unit IDs: REAL_IDS (AdMob, issued 2026-10-28); an empty entry falls back to Google's TEST ID. */
 import { interstitialDue } from "../core/monetize.js";
-import { track } from "./analytics.js";
+import { track, runsDone } from "./analytics.js";
 import { adFree } from "./iap.js";
 import { EV } from "../core/analytics.js";
 
@@ -91,7 +91,7 @@ let lastInterstitial = performance.now();
 export async function maybeInterstitial(notice, placement){
   if(!isApp) return;
   const now = performance.now();
-  if(!interstitialDue(lastInterstitial, now, adFree())) return;
+  if(!interstitialDue(lastInterstitial, now, adFree(), runsDone())) return;
   lastInterstitial = now;
   if(notice) await notice();
   await fullScreen(false, placement || "result_interstitial");

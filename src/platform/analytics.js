@@ -11,7 +11,7 @@ import { LANG } from "../i18n/index.js";
 
 export const GA_ID = "G-91N1SBGRDE";   // GA4 property "뚝 카이로 클리닉" (this game only)
 const VISIT = "chiroVisit", REVIEWED = "chiroReviewAsked", FIRST_OK = "chiroFirstSuccess", INTERNAL = "chiroInternal";
-const SESSION = "chiroSession", GA_SES = "chiroGaSession", TUT_BEGIN = "chiroTutBegin", TUT_DONE = "chiroTutDone";
+const RUNS = "chiroRuns", SESSION = "chiroSession", GA_SES = "chiroGaSession", TUT_BEGIN = "chiroTutBegin", TUT_DONE = "chiroTutDone";
 const LOG_TYPE = { [EV.screen]: "screen", [EV.click]: "click", [EV.adNotice]: "popup", [EV.error]: "error", [EV.loadFail]: "error" };
 
 const q = new URLSearchParams(location.search);
@@ -74,8 +74,12 @@ export function track(name, params){
   send(name, p);
   for(const [n, dp] of derivedEvents(name, p)) send(n, cleanParams(dp));
   if(name === EV.runStart && !store.get(TUT_BEGIN, false)){ store.set(TUT_BEGIN, true); send(EV.tutorialBegin, cleanParams({ ...common, game: p.game })); }
+  if(name === EV.runComplete) store.set(RUNS, runsDone() + 1);
   if(name === EV.runComplete && !store.get(TUT_DONE, false)){ store.set(TUT_DONE, true); send(EV.tutorialComplete, cleanParams({ ...common, game: p.game })); }
 }
+
+// runs played through to the end on this device (ad grace for new players, core/monetize.js GRACE_RUNS)
+export const runsDone = () => Number(store.get(RUNS, 0)) || 0;
 
 // an error that was caught and handled (the game went on): where = short code location
 export function handledError(where, e){

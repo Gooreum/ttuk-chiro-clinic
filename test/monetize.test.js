@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue, quietDay, ONBOARD_DAYS, cardAdPlan } from "../src/core/monetize.js";
+import { continueOffer, bossMissed, BOSS_RETRY_GAP, interstitialDue, ownsSku, INTERSTITIAL_GAP_MS, painAdOffer, clearAdDue, quietDay, ONBOARD_DAYS, cardAdPlan, GRACE_RUNS } from "../src/core/monetize.js";
 
 describe("monetize", () => {
   it("offers one continue after a bad end", () => {
@@ -38,6 +38,12 @@ describe("monetize", () => {
     expect(interstitialDue(0, INTERSTITIAL_GAP_MS - 1, false)).toBe(false);
     expect(interstitialDue(0, INTERSTITIAL_GAP_MS, false)).toBe(true);
     expect(interstitialDue(0, INTERSTITIAL_GAP_MS * 5, true)).toBe(false);
+    // new players: no interstitial before GRACE_RUNS finished runs
+    expect(GRACE_RUNS).toBe(3);
+    expect(interstitialDue(0, INTERSTITIAL_GAP_MS * 5, false, 0)).toBe(false);
+    expect(interstitialDue(0, INTERSTITIAL_GAP_MS * 5, false, 2)).toBe(false);
+    expect(interstitialDue(0, INTERSTITIAL_GAP_MS * 5, false, 3)).toBe(true);
+    expect(interstitialDue(0, INTERSTITIAL_GAP_MS - 1, false, 9)).toBe(false);
   });
   it("reads ownership from orders without revoking on an empty list", () => {
     const sku = "ad_free";

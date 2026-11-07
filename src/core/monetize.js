@@ -38,4 +38,7 @@ export const painAdOffer = ({ painMax, hard, used }) => !hard && !used && painMa
    hour). Returns false (no ad) after a failed/continue-offered card, a review-request card, and 심야·러시·주간·오늘의 도전. */
 export const cardAdPlan = ({ offer, skip, night, endedBad, bossMiss }) => !(offer || skip || night || endedBad || bossMiss);
 
-export const interstitialDue = (lastAt, now, adFree) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS;
+/* New players see no interstitial until they have played GRACE_RUNS runs through to the end (Reddit mobile-game
+   complaints, 2026-11-07: ads in the first minutes are the top reason to quit). runs undefined = old callers, no grace. */
+export const GRACE_RUNS = 3;
+export const interstitialDue = (lastAt, now, adFree, runs) => !adFree && now - lastAt >= INTERSTITIAL_GAP_MS && (runs === undefined || runs >= GRACE_RUNS);

@@ -4,7 +4,7 @@
 import { interstitialDue } from "../core/monetize.js";
 import { adFree } from "./iap.js";
 import { sdk, supported } from "./sdk.js";
-import { track } from "./analytics.js";
+import { track, runsDone } from "./analytics.js";
 import { EV } from "../core/analytics.js";
 
 export const TOSS_IDS = {
@@ -66,7 +66,7 @@ let lastInterstitial = performance.now();   // none in the first two minutes of 
 export async function maybeInterstitial(notice, placement){
   if(!isToss || !TOSS_IDS.interstitial) return;
   const now = performance.now();
-  if(!interstitialDue(lastInterstitial, now, adFree())) return;
+  if(!interstitialDue(lastInterstitial, now, adFree(), runsDone())) return;
   lastInterstitial = now;
   if(notice) await notice();
   await fullScreen(TOSS_IDS.interstitial, false, placement || "result_interstitial");
